@@ -12,6 +12,9 @@ frontend/dist/
 
 # database
 *.db
+*.db-shm
+*.db-wal
+*.db-journal
 
 # misc
 .DS_Store
