@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { ApiCallEntry } from "./api-call-entry";
 import { WebhookEntry } from "./webhook-entry";
 import { DocsLink } from "./docs-link";
-import { Code2, Radio, BookOpen, Zap } from "lucide-react";
+import { Code2, Radio, BookOpen, Zap, Download } from "lucide-react";
 import type {
   ApiLogEntry,
   WebhookEventEntry,
@@ -140,6 +140,20 @@ export function ApiPanel({
                   </div>
                 </div>
               )}
+
+              <div className="space-y-2">
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                  Resources
+                </p>
+                <a
+                  href="/postman/truv-public-sector.postman_collection.json"
+                  download
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Postman Collection
+                </a>
+              </div>
             </div>
           </ScrollArea>
         </TabsContent>

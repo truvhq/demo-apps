@@ -102,9 +102,27 @@ export function BridgeScreen({
     );
   } else if (hasBridge) {
     mainContent = (
-      <div className="flex-1 relative min-h-0 [&_iframe]:!w-full [&_iframe]:!h-full">
+      {/*
+        The Truv Bridge iframe uses responsive breakpoints based on its
+        container width. At ~1000px it switches to a tablet/iPad layout
+        with stacked elements instead of the full desktop view. Since our
+        panel is only ~70% of the viewport, the iframe sees a narrow width.
+
+        Workaround: render the iframe at 133% of the container size so it
+        sees ~1377px (well above the desktop breakpoint), then scale(0.75)
+        brings it back to fit the actual container visually.
+      */}
+      <div className="flex-1 relative min-h-0 overflow-hidden">
         <TruvBridgeInline
-          style={{ position: "absolute", inset: 0 }}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "133.33%",
+            height: "133.33%",
+            transform: "scale(0.75)",
+            transformOrigin: "top left",
+          }}
           isOpened={bridgeOpened}
           bridgeParams={{
             bridgeToken,

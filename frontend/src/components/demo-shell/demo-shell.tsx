@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import type { DemoConfig } from "@/lib/types";
 import { StepNav } from "./step-nav";
-import { BottomNav } from "./bottom-nav";
 
 interface DemoShellProps {
   demo: DemoConfig;
@@ -13,25 +12,19 @@ interface DemoShellProps {
 export function DemoShell({ demo, currentStep, leftPanel, rightPanel }: DemoShellProps) {
   return (
     <div className="flex h-screen flex-col">
-      <StepNav steps={demo.steps} currentStep={currentStep} />
+      <StepNav steps={demo.steps} currentStep={currentStep} demoId={demo.id} />
 
       <div className="flex flex-1 min-h-0">
         {/* Left panel — App demo */}
-        <div className="flex w-3/5 flex-col border-r">
+        <div className="flex w-[70%] flex-col border-r">
           {leftPanel}
         </div>
 
         {/* Right panel — API calls / webhooks / docs */}
-        <div className="flex w-2/5 flex-col">
+        <div className="flex w-[30%] flex-col">
           {rightPanel}
         </div>
       </div>
-
-      <BottomNav
-        demoId={demo.id}
-        currentStep={currentStep}
-        totalSteps={demo.steps.length}
-      />
     </div>
   );
 }
