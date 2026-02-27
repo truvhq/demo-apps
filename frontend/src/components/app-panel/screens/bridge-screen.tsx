@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { TruvBridgeInline } from "@truv/react";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Shield, CheckCircle2, AlertTriangle } from "lucide-react";
+import { IconLoader2, IconShield, IconCircleCheck, IconAlertTriangle } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import type { BridgeEvent } from "@/lib/types";
 
@@ -71,10 +71,12 @@ export function BridgeScreen({
 
   // When bridge token arrives, open the bridge
   const hasBridge = !!bridgeToken && !bridgeComplete;
-  if (hasBridge && !bridgeOpened) {
-    setBridgeOpened(true);
-    emitEvent("onLoad", { bridgeToken });
-  }
+  useEffect(() => {
+    if (bridgeToken && !bridgeComplete && !bridgeOpened) {
+      setBridgeOpened(true);
+      emitEvent("onLoad", { bridgeToken });
+    }
+  }, [bridgeToken, bridgeComplete, bridgeOpened, emitEvent]);
 
   // Main content for the right side of sidebar
   let mainContent: React.ReactNode;
@@ -83,7 +85,7 @@ export function BridgeScreen({
     mainContent = (
       <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
         <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-          <CheckCircle2 className="h-8 w-8 text-green-600" />
+          <IconCircleCheck size={32} className="text-green-600" />
         </div>
         <div className="text-center">
           <h3 className="font-semibold text-lg">Verification Complete</h3>
@@ -127,6 +129,7 @@ export function BridgeScreen({
             isOrder: true,
             onSuccess: (publicToken: string) => {
               emitEvent("onSuccess", { public_token: publicToken });
+              setBridgeComplete(true);
             },
             onClose: () => {
               emitEvent("onClose");
@@ -144,7 +147,7 @@ export function BridgeScreen({
   } else if (loading) {
     mainContent = (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <IconLoader2 size={32} className="animate-spin text-blue-600" />
         <div className="text-center">
           <p className="text-sm font-medium">Creating verification order...</p>
           <p className="text-xs text-muted-foreground mt-1">
@@ -158,7 +161,7 @@ export function BridgeScreen({
     mainContent = (
       <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
         <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center">
-          <AlertTriangle className="h-8 w-8 text-red-600" />
+          <IconAlertTriangle size={32} className="text-red-600" />
         </div>
         <div className="text-center">
           <h3 className="font-semibold text-lg">Order Creation Failed</h3>
@@ -183,7 +186,7 @@ export function BridgeScreen({
     <div className="flex flex-1 flex-col min-h-0">
       {/* Government header bar */}
       <div className="bg-[#003366] text-white px-5 py-3 flex items-center gap-3 flex-shrink-0">
-        <Shield className="h-5 w-5" />
+        <IconShield size={20} />
         <div>
           <p className="text-sm font-semibold tracking-wide">
             Department of Human Services

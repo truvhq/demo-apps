@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "concurrently -n backend,frontend -c blue,green \"pnpm --filter backend dev\" \"pnpm --filter frontend dev\"",
-    "build": "pnpm --filter frontend build"
+    "build": "pnpm --filter frontend build",
+    "typecheck": "pnpm -r run typecheck"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

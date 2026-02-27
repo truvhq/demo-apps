@@ -13,24 +13,32 @@ app.post("/truv", async (c) => {
   const rawBody = await c.req.text();
   const signature = c.req.header("x-webhook-sign") || "";
 
-  // Verify HMAC-SHA256 signature
-  if (config.TRUV_SECRET) {
-    const expected = `v1=${createHmac("sha256", config.TRUV_SECRET).update(rawBody).digest("hex")}`;
-    try {
-      if (
-        !timingSafeEqual(
-          Buffer.from(signature, "utf8"),
-          Buffer.from(expected, "utf8")
-        )
-      ) {
-        return c.json({ error: "Invalid webhook signature" }, 401);
-      }
-    } catch {
-      return c.json({ error: "Invalid webhook signature" }, 401);
-    }
+  // Reject webhooks when secret is not configured
+  if (!config.TRUV_SECRET) {
+    return c.json({ error: "Webhook secret not configured" }, 503);
   }
 
-  const payload = JSON.parse(rawBody) as Record<string, unknown>;
+  // Verify HMAC-SHA256 signature
+  const expected = `v1=${createHmac("sha256", config.TRUV_SECRET).update(rawBody).digest("hex")}`;
+  try {
+    if (
+      !timingSafeEqual(
+        Buffer.from(signature, "utf8"),
+        Buffer.from(expected, "utf8")
+      )
+    ) {
+      return c.json({ error: "Invalid webhook signature" }, 401);
+    }
+  } catch {
+    return c.json({ error: "Invalid webhook signature" }, 401);
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(rawBody) as Record<string, unknown>;
+  } catch {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
   const eventType = (payload.event_type as string) || "unknown";
   const webhookId = (payload.webhook_id as string) || null;
   const status = (payload.status as string) || null;

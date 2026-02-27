@@ -1,14 +1,23 @@
 import { Hono } from "hono";
-import { readFileSync, writeFileSync } from "fs";
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { config, ENV_FILE_PATH, reloadConfig } from "../config.js";
+import { config, reloadConfig, readEnvFile, writeEnvFile, isAllowedBaseUrl } from "../config.js";
 
 const execFileAsync = promisify(execFile);
 
 const app = new Hono();
 
-// GET /api/config — current config status
+// Localhost-only guard for config endpoints
+app.use("/*", async (c, next) => {
+  const host = c.req.header("host") || "";
+  const isLocalhost = host.startsWith("localhost:") || host.startsWith("127.0.0.1:");
+  if (!isLocalhost) {
+    return c.json({ error: "Config endpoints are localhost-only" }, 403);
+  }
+  await next();
+});
+
+// GET /api/config — current config status (masked)
 app.get("/", (c) => {
   return c.json({
     has_credentials: !!(config.TRUV_CLIENT_ID && config.TRUV_SECRET),
@@ -32,35 +41,19 @@ app.post("/env", async (c) => {
     template_id?: string;
   }>();
 
-  // Read existing .env
-  let envContent = "";
-  try {
-    envContent = readFileSync(ENV_FILE_PATH, "utf-8");
-  } catch {
-    // file doesn't exist yet
+  // Validate base_url against allowlist
+  if (body.base_url !== undefined && !isAllowedBaseUrl(body.base_url)) {
+    return c.json({ error: "Invalid base_url. Must be a valid Truv API URL (*.truv.com/v1)" }, 400);
   }
 
-  const envMap = new Map<string, string>();
-  for (const line of envContent.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIdx = trimmed.indexOf("=");
-    if (eqIdx > 0) {
-      envMap.set(trimmed.slice(0, eqIdx), trimmed.slice(eqIdx + 1));
-    }
-  }
+  const envMap = readEnvFile();
 
-  // Update only provided fields
   if (body.client_id !== undefined) envMap.set("TRUV_CLIENT_ID", body.client_id);
   if (body.secret !== undefined) envMap.set("TRUV_SECRET", body.secret);
   if (body.base_url !== undefined) envMap.set("TRUV_BASE_URL", body.base_url);
   if (body.template_id !== undefined) envMap.set("TRUV_TEMPLATE_ID", body.template_id);
 
-  // Write back
-  const lines = Array.from(envMap.entries()).map(([k, v]) => `${k}=${v}`);
-  writeFileSync(ENV_FILE_PATH, lines.join("\n") + "\n", "utf-8");
-
-  // Reload in-memory config
+  writeEnvFile(envMap);
   reloadConfig();
 
   return c.json({ ok: true });
@@ -74,14 +67,18 @@ app.post("/ngrok", async (c) => {
     return c.json({ error: "authtoken is required" }, 400);
   }
 
+  // Validate authtoken format
+  if (!/^[a-zA-Z0-9_-]{10,100}$/.test(body.authtoken)) {
+    return c.json({ error: "Invalid authtoken format" }, 400);
+  }
+
   try {
     await execFileAsync("ngrok", ["config", "add-authtoken", body.authtoken], {
       timeout: 10000,
     });
     return c.json({ ok: true });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return c.json({ error: "Failed to save ngrok authtoken", details: message }, 500);
+  } catch {
+    return c.json({ error: "Failed to save ngrok authtoken" }, 500);
   }
 });
 
@@ -91,6 +88,11 @@ app.post("/webhook", async (c) => {
 
   if (!config.TRUV_CLIENT_ID || !config.TRUV_SECRET) {
     return c.json({ error: "API credentials not configured" }, 400);
+  }
+
+  // Validate webhook_url is https
+  if (!body.webhook_url || !body.webhook_url.startsWith("https://")) {
+    return c.json({ error: "webhook_url must use https://" }, 400);
   }
 
   const url = `${config.TRUV_BASE_URL}/webhooks/`;
@@ -112,32 +114,13 @@ app.post("/webhook", async (c) => {
   const data = await res.json();
 
   if (!res.ok) {
-    return c.json(
-      { error: "Webhook registration failed", details: data },
-      res.status as 400
-    );
+    return c.json({ error: "Webhook registration failed" }, res.status as 400);
   }
 
   // Save webhook URL to .env
-  let envContent = "";
-  try {
-    envContent = readFileSync(ENV_FILE_PATH, "utf-8");
-  } catch {
-    // ignore
-  }
-
-  const envMap = new Map<string, string>();
-  for (const line of envContent.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIdx = trimmed.indexOf("=");
-    if (eqIdx > 0) {
-      envMap.set(trimmed.slice(0, eqIdx), trimmed.slice(eqIdx + 1));
-    }
-  }
+  const envMap = readEnvFile();
   envMap.set("WEBHOOK_BASE_URL", body.webhook_url);
-  const lines = Array.from(envMap.entries()).map(([k, v]) => `${k}=${v}`);
-  writeFileSync(ENV_FILE_PATH, lines.join("\n") + "\n", "utf-8");
+  writeEnvFile(envMap);
   reloadConfig();
 
   return c.json({

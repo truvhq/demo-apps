@@ -17,6 +17,9 @@ importers:
       '@hono/node-server':
         specifier: ^1.14.0
         version: 1.19.9(hono@4.12.3)
+      '@hono/zod-validator':
+        specifier: ^0.7.6
+        version: 0.7.6(hono@4.12.3)(zod@4.3.6)
       better-sqlite3:
         specifier: ^11.8.0
         version: 11.10.0
@@ -29,6 +32,9 @@ importers:
       hono:
         specifier: ^4.7.0
         version: 4.12.3
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       '@types/better-sqlite3':
         specifier: ^7.6.13
@@ -48,6 +54,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.2.1
         version: 4.2.1(vite@7.3.1(@types/node@24.10.15)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0))
+      '@truv-demo/shared':
+        specifier: workspace:*
+        version: link:../packages/shared
       '@truv/react':
         specifier: ^2.3.0
         version: 2.3.0(react@19.2.4)
@@ -124,6 +133,8 @@ importers:
       vite:
         specifier: ^7.3.1
         version: 7.3.1(@types/node@24.10.15)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)
+
+  packages/shared: {}
 
 packages:
 
@@ -496,6 +507,12 @@ packages:
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: ^4
+
+  '@hono/zod-validator@0.7.6':
+    resolution: {integrity: sha512-Io1B6d011Gj1KknV4rXYz4le5+5EubcWEU/speUjuw9XMMIaP3n78yXLhjd2A3PXaXaUwEAluOiAyLqhBEJgsw==}
+    peerDependencies:
+      hono: '>=3.9.0'
+      zod: ^3.25.0 || ^4.0.0
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -3894,6 +3911,11 @@ snapshots:
   '@hono/node-server@1.19.9(hono@4.12.3)':
     dependencies:
       hono: 4.12.3
+
+  '@hono/zod-validator@0.7.6(hono@4.12.3)(zod@4.3.6)':
+    dependencies:
+      hono: 4.12.3
+      zod: 4.3.6
 
   '@humanfs/core@0.19.1': {}
 

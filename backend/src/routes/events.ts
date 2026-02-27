@@ -2,50 +2,45 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { subscribe } from "../services/api-logger.js";
 
+const MAX_CONNECTIONS = 50;
+let activeConnections = 0;
+
 const app = new Hono();
 
 // GET /api/events/stream
 app.get("/stream", (c) => {
   const orderId = c.req.query("order_id") || null;
 
-  return streamSSE(c, async (stream) => {
-    let alive = true;
+  if (activeConnections >= MAX_CONNECTIONS) {
+    return c.json({ error: "Too many SSE connections" }, 429);
+  }
 
+  activeConnections++;
+
+  return streamSSE(c, async (stream) => {
     const unsubscribe = subscribe(orderId, (event) => {
-      if (!alive) return;
       stream
         .writeSSE({
           event: event.type,
           data: JSON.stringify(event.data),
         })
-        .catch(() => {
-          alive = false;
-        });
+        .catch(() => {});
     });
 
     // Send keepalive pings
     const pingInterval = setInterval(() => {
-      if (!alive) {
-        clearInterval(pingInterval);
-        return;
-      }
-      stream.writeSSE({ event: "ping", data: "" }).catch(() => {
-        alive = false;
-        clearInterval(pingInterval);
-      });
+      stream.writeSSE({ event: "ping", data: "" }).catch(() => {});
     }, 30_000);
 
-    // Wait until the stream is aborted
-    stream.onAbort(() => {
-      alive = false;
-      clearInterval(pingInterval);
-      unsubscribe();
+    // Keep the stream open until aborted — single promise, no busy-wait
+    await new Promise<void>((resolve) => {
+      stream.onAbort(() => {
+        clearInterval(pingInterval);
+        unsubscribe();
+        activeConnections--;
+        resolve();
+      });
     });
-
-    // Keep the stream open
-    while (alive) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
   });
 });
 

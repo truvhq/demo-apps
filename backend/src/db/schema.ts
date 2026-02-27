@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 
 export const orders = sqliteTable("orders", {
   id: text("id").primaryKey(),
@@ -7,7 +8,7 @@ export const orders = sqliteTable("orders", {
   bridgeToken: text("bridge_token"),
   shareUrl: text("share_url"),
   status: text("status").default("created"),
-  createdAt: text("created_at").default(new Date().toISOString()),
+  createdAt: text("created_at").default(sql`(datetime('now'))`),
   rawResponse: text("raw_response"),
 });
 
@@ -20,7 +21,7 @@ export const apiLogs = sqliteTable("api_logs", {
   responseBody: text("response_body"),
   statusCode: integer("status_code"),
   durationMs: integer("duration_ms"),
-  timestamp: text("timestamp").default(new Date().toISOString()),
+  timestamp: text("timestamp").default(sql`(datetime('now'))`),
 });
 
 export const webhookEvents = sqliteTable("webhook_events", {
@@ -30,5 +31,5 @@ export const webhookEvents = sqliteTable("webhook_events", {
   eventType: text("event_type").notNull(),
   status: text("status"),
   payload: text("payload").notNull(),
-  receivedAt: text("received_at").default(new Date().toISOString()),
+  receivedAt: text("received_at").default(sql`(datetime('now'))`),
 });

@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { secureHeaders } from "hono/secure-headers";
 import { config } from "./config.js";
 
 // Import DB to trigger table creation
@@ -13,6 +14,8 @@ import configRoutes from "./routes/config.js";
 
 const app = new Hono();
 
+app.use("*", secureHeaders());
+
 app.use(
   "/api/*",
   cors({
@@ -20,6 +23,12 @@ app.use(
     credentials: true,
   })
 );
+
+// Global error handler
+app.onError((err, c) => {
+  console.error("Unhandled error:", err);
+  return c.json({ error: "Internal server error" }, 500);
+});
 
 app.route("/api/orders", ordersRoutes);
 app.route("/api/webhooks", webhooksRoutes);
@@ -32,5 +41,6 @@ console.log(`Backend listening on http://localhost:${config.PORT}`);
 
 serve({
   fetch: app.fetch,
+  hostname: "127.0.0.1",
   port: config.PORT,
 });

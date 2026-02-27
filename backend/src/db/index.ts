@@ -1,13 +1,15 @@
+import { resolve } from "path";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "./schema.js";
 
-const sqlite = new Database("demo.db");
+const dbPath = resolve(import.meta.dirname, "../demo.db");
+const sqlite = new Database(dbPath);
 sqlite.pragma("journal_mode = WAL");
 
 export const db = drizzle(sqlite, { schema });
 
-// Auto-create tables using individual statements (safe, no user input)
+// Auto-create tables (single source of truth — matches Drizzle schema)
 const statements = [
   `CREATE TABLE IF NOT EXISTS orders (
     id TEXT PRIMARY KEY,
@@ -39,6 +41,10 @@ const statements = [
     payload TEXT NOT NULL,
     received_at TEXT DEFAULT (datetime('now'))
   )`,
+  // Indexes for lookup columns
+  `CREATE INDEX IF NOT EXISTS idx_orders_truv_order_id ON orders(truv_order_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_api_logs_order_id ON api_logs(order_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_webhook_events_order_id ON webhook_events(order_id)`,
 ];
 
 for (const sql of statements) {

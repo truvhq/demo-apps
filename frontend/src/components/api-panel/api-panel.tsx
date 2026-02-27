@@ -5,7 +5,7 @@ import { ApiCallEntry } from "./api-call-entry";
 import { WebhookEntry } from "./webhook-entry";
 import { DocsLink } from "./docs-link";
 import { JsonBlock } from "./json-viewer";
-import { Code2, Radio, BookOpen, Zap, Download } from "lucide-react";
+import { IconCode, IconAntenna, IconBook, IconBolt, IconDownload } from "@tabler/icons-react";
 import type {
   ApiLogEntry,
   WebhookEventEntry,
@@ -58,11 +58,11 @@ export function ApiPanel({
         <div className="px-4 pt-3 pb-0 flex-shrink-0">
           <TabsList className="w-full">
             <TabsTrigger value="intro" className="flex-1 gap-1.5">
-              <BookOpen className="h-3.5 w-3.5" />
+              <IconBook size={14} />
               Guide
             </TabsTrigger>
             <TabsTrigger value="api" className="flex-1 gap-1.5">
-              <Code2 className="h-3.5 w-3.5" />
+              <IconCode size={14} />
               API
               {apiLogs.length > 0 && (
                 <Badge
@@ -74,7 +74,7 @@ export function ApiPanel({
               )}
             </TabsTrigger>
             <TabsTrigger value="bridge" className="flex-1 gap-1.5">
-              <Zap className="h-3.5 w-3.5" />
+              <IconBolt size={14} />
               Bridge
               {bridgeEvents.length > 0 && (
                 <Badge
@@ -86,7 +86,7 @@ export function ApiPanel({
               )}
             </TabsTrigger>
             <TabsTrigger value="webhooks" className="flex-1 gap-1.5">
-              <Radio className="h-3.5 w-3.5" />
+              <IconAntenna size={14} />
               Webhooks
               {webhooks.length > 0 && (
                 <Badge
@@ -147,7 +147,7 @@ export function ApiPanel({
                   download
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <Download className="h-3.5 w-3.5" />
+                  <IconDownload size={14} />
                   Postman Collection
                 </a>
               </div>
@@ -160,7 +160,7 @@ export function ApiPanel({
             <div className="p-4 space-y-3">
               {apiLogs.length === 0 ? (
                 <div className="text-center py-12 space-y-2">
-                  <Code2 className="h-8 w-8 mx-auto text-muted-foreground/40" />
+                  <IconCode size={32} className="mx-auto text-muted-foreground/40" />
                   <p className="text-sm text-muted-foreground">
                     No API calls yet.
                   </p>
@@ -182,7 +182,7 @@ export function ApiPanel({
             <div className="p-4 space-y-3">
               {bridgeEvents.length === 0 ? (
                 <div className="text-center py-12 space-y-2">
-                  <Zap className="h-8 w-8 mx-auto text-muted-foreground/40" />
+                  <IconBolt size={32} className="mx-auto text-muted-foreground/40" />
                   <p className="text-sm text-muted-foreground">
                     No Bridge events yet.
                   </p>
@@ -206,7 +206,7 @@ export function ApiPanel({
             <div className="p-4 space-y-3">
               {webhooks.length === 0 ? (
                 <div className="text-center py-12 space-y-2">
-                  <Radio className="h-8 w-8 mx-auto text-muted-foreground/40" />
+                  <IconAntenna size={32} className="mx-auto text-muted-foreground/40" />
                   <p className="text-sm text-muted-foreground">
                     No webhooks received yet.
                   </p>

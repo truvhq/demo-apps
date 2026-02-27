@@ -9,9 +9,8 @@ import {
   saveEnvConfig,
   saveNgrokToken,
   registerWebhook,
-  type ConfigStatus,
-  type WebhookResult,
 } from "@/lib/api";
+import type { ConfigStatus, WebhookResult } from "@/lib/types";
 
 interface SetupScreenProps {
   section: string;

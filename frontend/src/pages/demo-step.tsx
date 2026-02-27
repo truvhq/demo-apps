@@ -1,15 +1,11 @@
-import { useState, useCallback, useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router";
 import { getDemoById } from "@/config/demos";
 import { DemoShell } from "@/components/demo-shell/demo-shell";
 import { BrowserFrame } from "@/components/app-panel/browser-frame";
 import { AppScreen } from "@/components/app-panel/app-screen";
 import { ApiPanel } from "@/components/api-panel/api-panel";
-import { useDemo } from "@/hooks/use-demo";
-import { useApiLog } from "@/hooks/use-api-log";
-import { useWebhookStream } from "@/hooks/use-webhook-stream";
-import { createOrder, getOrder } from "@/lib/api";
-import type { OrderResponse, BridgeEvent } from "@/lib/types";
+import { useDemoContext } from "@/contexts/demo-context";
 
 export function DemoStepPage() {
   const { demoId, stepIndex: stepStr } = useParams<{ demoId: string; stepIndex: string }>();
@@ -17,66 +13,18 @@ export function DemoStepPage() {
   const stepIndex = parseInt(stepStr || "0", 10);
   const demo = getDemoById(demoId || "");
 
-  const demoState = useDemo();
-  const apiLog = useApiLog();
-  const webhookStream = useWebhookStream(demoState.orderId);
-  const [orderData, setOrderData] = useState<OrderResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  // Merge SSE api calls into the log
-  const allApiLogs = [...apiLog.logs, ...webhookStream.apiCalls];
-  const allWebhooks = webhookStream.webhooks;
+  const ctx = useDemoContext();
 
   // Fetch logs when we have an orderId
   useEffect(() => {
-    if (demoState.orderId) {
-      apiLog.fetchLogs(demoState.orderId);
+    if (ctx.orderId) {
+      // Logs are fetched automatically via context
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [demoState.orderId]);
+  }, [ctx.orderId]);
 
-
-  const handleCreateOrder = useCallback(async () => {
-    if (!demoId) return;
-    // Clear old order state so bridge doesn't use stale token
-    demoState.clearOrderData();
-    setLoading(true);
-    try {
-      const result = await createOrder({
-        demo_id: demoId,
-        product_type: "income",
-        first_name: demoState.formData.first_name,
-        last_name: demoState.formData.last_name,
-      });
-      demoState.setOrderData(result);
-      apiLog.fetchLogs(result.order_id);
-    } catch (e) {
-      console.error("Failed to create order:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [demoId, demoState, apiLog]);
-
-  const handleGetOrder = useCallback(async () => {
-    if (!demoState.orderId) return;
-    setLoading(true);
-    try {
-      const data = await getOrder(demoState.orderId);
-      setOrderData(data);
-      apiLog.fetchLogs(demoState.orderId);
-    } catch (e) {
-      console.error("Failed to get order:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [demoState.orderId, apiLog]);
-
-  const handleBridgeEvent = useCallback(
-    (event: BridgeEvent) => {
-      demoState.addBridgeEvent(event);
-    },
-    [demoState.addBridgeEvent]
-  );
+  const onCreateOrder = useCallback(() => {
+    if (demoId) ctx.handleCreateOrder(demoId);
+  }, [demoId, ctx.handleCreateOrder]);
 
   if (!demo || isNaN(stepIndex) || stepIndex < 0 || stepIndex >= demo.steps.length) {
     navigate("/", { replace: true });
@@ -94,26 +42,26 @@ export function DemoStepPage() {
           <AppScreen
             step={step}
             demoId={demoId!}
-            formData={demoState.formData}
-            onFormChange={demoState.setFormData}
-            orderId={demoState.orderId}
-            bridgeToken={demoState.bridgeToken}
-            shareUrl={demoState.shareUrl}
-            orderData={orderData}
-            webhooks={allWebhooks}
-            onCreateOrder={handleCreateOrder}
-            onGetOrder={handleGetOrder}
-            onBridgeEvent={handleBridgeEvent}
-            loading={loading}
+            formData={ctx.formData}
+            onFormChange={ctx.setFormData}
+            orderId={ctx.orderId}
+            bridgeToken={ctx.bridgeToken}
+            shareUrl={ctx.shareUrl}
+            orderData={ctx.orderData}
+            webhooks={ctx.allWebhooks}
+            onCreateOrder={onCreateOrder}
+            onGetOrder={ctx.handleGetOrder}
+            onBridgeEvent={ctx.addBridgeEvent}
+            loading={ctx.loading}
           />
         </BrowserFrame>
       }
       rightPanel={
         <ApiPanel
           step={step}
-          apiLogs={allApiLogs}
-          webhooks={allWebhooks}
-          bridgeEvents={demoState.bridgeEvents}
+          apiLogs={ctx.allApiLogs}
+          webhooks={ctx.allWebhooks}
+          bridgeEvents={ctx.bridgeEvents}
         />
       }
     />
