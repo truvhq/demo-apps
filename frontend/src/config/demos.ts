@@ -4,7 +4,7 @@ import { returningUserDemo } from "./demos/returning-user";
 import { caseworkerDemo } from "./demos/caseworker";
 import { contactCenterDemo } from "./demos/contact-center";
 import { inPersonDemo } from "./demos/in-person";
-import { templatesDemo } from "./demos/templates";
+import { configurationDemo } from "./demos/configuration";
 
 export const demos: DemoConfig[] = [
   newApplicantDemo,
@@ -12,7 +12,7 @@ export const demos: DemoConfig[] = [
   caseworkerDemo,
   contactCenterDemo,
   inPersonDemo,
-  templatesDemo,
+  configurationDemo,
 ];
 
 export function getDemoById(id: string): DemoConfig | undefined {

@@ -9,6 +9,7 @@ import "./db/index.js";
 import ordersRoutes from "./routes/orders.js";
 import webhooksRoutes from "./routes/webhooks.js";
 import eventsRoutes from "./routes/events.js";
+import configRoutes from "./routes/config.js";
 
 const app = new Hono();
 
@@ -23,6 +24,7 @@ app.use(
 app.route("/api/orders", ordersRoutes);
 app.route("/api/webhooks", webhooksRoutes);
 app.route("/api/events", eventsRoutes);
+app.route("/api/config", configRoutes);
 
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 

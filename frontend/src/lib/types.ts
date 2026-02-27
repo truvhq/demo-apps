@@ -7,7 +7,7 @@ export type ScreenType =
   | "qr-code"
   | "send-link"
   | "monitor"
-  | "template";
+  | "setup";
 
 export interface DemoStep {
   title: string;

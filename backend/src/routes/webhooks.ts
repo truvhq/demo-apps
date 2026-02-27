@@ -82,6 +82,7 @@ app.post("/truv", async (c) => {
     received_at: result.receivedAt,
   });
 
+
   return c.json({ status: "ok" });
 });
 

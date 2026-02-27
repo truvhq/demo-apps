@@ -51,3 +51,9 @@ export async function refreshOrder(
 ): Promise<[number, Record<string, unknown>, number]> {
   return truvRequest("POST", `/orders/${truvOrderId}/refresh/`);
 }
+
+export async function getOrderCertifications(
+  truvOrderId: string
+): Promise<[number, Record<string, unknown>, number]> {
+  return truvRequest("GET", `/orders/${truvOrderId}/certifications/`);
+}

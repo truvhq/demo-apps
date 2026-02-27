@@ -8,7 +8,7 @@ import { DashboardScreen } from "./screens/dashboard-screen";
 import { QrCodeScreen } from "./screens/qr-code-screen";
 import { SendLinkScreen } from "./screens/send-link-screen";
 import { MonitorScreen } from "./screens/monitor-screen";
-import { TemplateScreen } from "./screens/template-screen";
+import { SetupScreen } from "./screens/setup-screen";
 import type { WebhookEventEntry } from "@/lib/types";
 
 interface AppScreenProps {
@@ -74,6 +74,7 @@ export function AppScreen({
       content = (
         <ReviewScreen
           orderData={orderData}
+          orderId={orderId}
           onRefresh={onGetOrder}
           loading={loading}
         />
@@ -104,12 +105,12 @@ export function AppScreen({
     case "monitor":
       content = <MonitorScreen webhooks={webhooks} orderId={orderId} />;
       break;
-    case "template":
+    case "setup":
       content = (
-        <TemplateScreen section={step.screenProps?.section as string} />
+        <SetupScreen section={step.screenProps?.section as string} />
       );
       break;
-    default:
+default:
       content = <div className="text-muted-foreground">Unknown screen type</div>;
   }
 

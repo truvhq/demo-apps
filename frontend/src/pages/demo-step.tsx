@@ -35,6 +35,7 @@ export function DemoStepPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [demoState.orderId]);
 
+
   const handleCreateOrder = useCallback(async () => {
     if (!demoId) return;
     // Clear old order state so bridge doesn't use stale token

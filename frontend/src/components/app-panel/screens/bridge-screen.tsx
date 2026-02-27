@@ -61,13 +61,13 @@ export function BridgeScreen({
     [onBridgeEvent]
   );
 
-  // Always create a fresh order when the screen mounts
+  // Create an order only if one doesn't already exist
   useEffect(() => {
-    if (!orderCreatedRef.current) {
+    if (!orderCreatedRef.current && !bridgeToken) {
       orderCreatedRef.current = true;
       onCreateOrder();
     }
-  }, [onCreateOrder]);
+  }, [onCreateOrder, bridgeToken]);
 
   // When bridge token arrives, open the bridge
   const hasBridge = !!bridgeToken && !bridgeComplete;
@@ -126,7 +126,6 @@ export function BridgeScreen({
             bridgeToken,
             isOrder: true,
             onSuccess: (publicToken: string) => {
-              setBridgeComplete(true);
               emitEvent("onSuccess", { public_token: publicToken });
             },
             onClose: () => {

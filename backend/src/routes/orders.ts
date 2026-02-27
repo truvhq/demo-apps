@@ -172,6 +172,35 @@ app.post("/:orderId/refresh", async (c) => {
   });
 });
 
+// GET /api/orders/:orderId/certifications
+app.get("/:orderId/certifications", async (c) => {
+  const orderId = c.req.param("orderId");
+  const order = db.select().from(orders).where(eq(orders.id, orderId)).get();
+
+  if (!order) {
+    return c.json({ error: "Order not found" }, 404);
+  }
+
+  const [statusCode, data, durationMs] = await truvClient.getOrderCertifications(
+    order.truvOrderId || ""
+  );
+
+  await logApiCall({
+    method: "GET",
+    endpoint: `/v1/orders/${order.truvOrderId}/certifications/`,
+    responseBody: data,
+    statusCode,
+    durationMs,
+    orderId,
+  });
+
+  if (statusCode >= 400) {
+    return c.json(data, statusCode as 400);
+  }
+
+  return c.json(data);
+});
+
 // GET /api/orders/:orderId/logs
 app.get("/:orderId/logs", (c) => {
   const orderId = c.req.param("orderId");

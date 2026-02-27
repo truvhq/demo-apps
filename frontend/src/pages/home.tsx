@@ -7,7 +7,7 @@ import {
   IconLayoutDashboard,
   IconPhone,
   IconQrcode,
-  IconPalette,
+  IconSettings,
   IconArrowRight,
 } from "@tabler/icons-react";
 import { demos } from "@/config/demos";
@@ -18,7 +18,7 @@ const iconMap: Record<string, React.ReactNode> = {
   LayoutDashboard: <IconLayoutDashboard size={24} />,
   Phone: <IconPhone size={24} />,
   QrCode: <IconQrcode size={24} />,
-  Palette: <IconPalette size={24} />,
+  Settings: <IconSettings size={24} />,
 };
 
 export function HomePage() {

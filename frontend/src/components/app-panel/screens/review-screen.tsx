@@ -1,16 +1,32 @@
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { IconLoader2, IconRefresh } from "@tabler/icons-react";
+import { JsonViewer } from "@/components/api-panel/json-viewer";
+import { getOrderCertifications } from "@/lib/api";
 import type { OrderResponse } from "@/lib/types";
 
 interface ReviewScreenProps {
   orderData: OrderResponse | null;
+  orderId: string | null;
   onRefresh: () => void;
   loading: boolean;
 }
 
-export function ReviewScreen({ orderData, onRefresh, loading }: ReviewScreenProps) {
+export function ReviewScreen({ orderData, orderId, onRefresh, loading }: ReviewScreenProps) {
+  const [certifications, setCertifications] = useState<Record<string, unknown> | null>(null);
+  const [certLoading, setCertLoading] = useState(false);
+
+  useEffect(() => {
+    if (!orderId) return;
+    setCertLoading(true);
+    getOrderCertifications(orderId)
+      .then(setCertifications)
+      .catch(() => {})
+      .finally(() => setCertLoading(false));
+  }, [orderId]);
+
   if (!orderData && !loading) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-12">
@@ -23,7 +39,7 @@ export function ReviewScreen({ orderData, onRefresh, loading }: ReviewScreenProp
     );
   }
 
-  if (loading) {
+  if (loading && !orderData) {
     return (
       <div className="flex items-center justify-center py-12">
         <IconLoader2 size={24} className="animate-spin text-muted-foreground" />
@@ -32,14 +48,11 @@ export function ReviewScreen({ orderData, onRefresh, loading }: ReviewScreenProp
   }
 
   const raw = orderData?.raw_response || {};
-  const employer = (raw as Record<string, unknown>).employer as Record<string, unknown> | undefined;
-  const income = (raw as Record<string, unknown>).income as Record<string, unknown> | undefined;
-  const consumer = (raw as Record<string, unknown>).consumer as Record<string, unknown> | undefined;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Verified Data Review</h2>
+        <h2 className="text-xl font-semibold">Review Data</h2>
         <div className="flex items-center gap-2">
           <Badge variant={orderData?.status === "completed" ? "default" : "secondary"}>
             {orderData?.status || "unknown"}
@@ -51,78 +64,38 @@ export function ReviewScreen({ orderData, onRefresh, loading }: ReviewScreenProp
         </div>
       </div>
 
-      <div className="grid gap-4">
-        {consumer && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Consumer</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                {Object.entries(consumer).map(([key, value]) => (
-                  <div key={key}>
-                    <dt className="text-muted-foreground">{key.replace(/_/g, " ")}</dt>
-                    <dd className="font-medium">{String(value ?? "—")}</dd>
-                  </div>
-                ))}
-              </dl>
-            </CardContent>
-          </Card>
-        )}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">
+            GET /v1/orders/{orderData?.truv_order_id}/
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <JsonViewer data={raw} collapsed={false} />
+        </CardContent>
+      </Card>
 
-        {employer && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Employer</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                {Object.entries(employer).map(([key, value]) =>
-                  typeof value !== "object" ? (
-                    <div key={key}>
-                      <dt className="text-muted-foreground">{key.replace(/_/g, " ")}</dt>
-                      <dd className="font-medium">{String(value ?? "—")}</dd>
-                    </div>
-                  ) : null
-                )}
-              </dl>
-            </CardContent>
-          </Card>
-        )}
-
-        {income && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Income</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                {Object.entries(income).map(([key, value]) =>
-                  typeof value !== "object" ? (
-                    <div key={key}>
-                      <dt className="text-muted-foreground">{key.replace(/_/g, " ")}</dt>
-                      <dd className="font-medium">{String(value ?? "—")}</dd>
-                    </div>
-                  ) : null
-                )}
-              </dl>
-            </CardContent>
-          </Card>
-        )}
-
-        {!consumer && !employer && !income && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Order Response</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <pre className="text-xs bg-muted p-3 rounded-md overflow-auto max-h-80">
-                {JSON.stringify(raw, null, 2)}
-              </pre>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium">
+              GET /v1/orders/{orderData?.truv_order_id}/certifications/
+            </CardTitle>
+            {certLoading && <IconLoader2 size={14} className="animate-spin text-muted-foreground" />}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {certifications ? (
+            <JsonViewer data={certifications} collapsed={false} />
+          ) : certLoading ? (
+            <p className="text-xs text-muted-foreground">Loading certifications...</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              No certifications data available. The order may still be processing.
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
