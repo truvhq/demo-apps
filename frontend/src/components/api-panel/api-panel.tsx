@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { ApiCallEntry } from "./api-call-entry";
 import { WebhookEntry } from "./webhook-entry";
 import { DocsLink } from "./docs-link";
+import { JsonBlock } from "./json-viewer";
 import { Code2, Radio, BookOpen, Zap, Download } from "lucide-react";
 import type {
   ApiLogEntry,
@@ -40,11 +41,7 @@ function BridgeEventEntry({ event }: { event: BridgeEvent }) {
           {time}
         </span>
       </div>
-      {event.data && (
-        <pre className="text-[10px] font-mono bg-muted/50 rounded p-2 overflow-x-auto whitespace-pre-wrap">
-          {JSON.stringify(event.data, null, 2)}
-        </pre>
-      )}
+      {event.data && <JsonBlock data={event.data} />}
     </div>
   );
 }
