@@ -21,12 +21,17 @@ export interface DemoStep {
   docsLinks: { label: string; url: string }[];
 }
 
+export type DemoSection = "customer-portal" | "caseworker-portal" | "contact-center" | "in-person" | "setup";
+export type ScenarioType = "happy-path" | "edge-case" | "n/a";
+
 export interface DemoConfig {
   id: string;
   title: string;
   subtitle: string;
   description: string;
   icon: string;
+  section: DemoSection;
+  scenarioType: ScenarioType;
   category: string;
   steps: DemoStep[];
 }

@@ -1,12 +1,14 @@
 import type { DemoConfig } from "@/lib/types";
 
 export const caseworkerDemo: DemoConfig = {
-  id: "caseworker",
-  title: "Caseworker Dashboard",
-  subtitle: "Admin review workflow",
+  id: "cw-review-complete",
+  title: "Review Completed Verifications",
+  subtitle: "All applicants completed — caseworker reviews data",
   description:
-    "A caseworker dashboard for reviewing applicant cases, viewing verified data, and triggering new verifications.",
+    "A caseworker dashboard for reviewing applicant cases where all household members have completed verification. View verified data and make eligibility determinations.",
   icon: "LayoutDashboard",
+  section: "caseworker-portal",
+  scenarioType: "happy-path",
   category: "Dashboard",
   steps: [
     {

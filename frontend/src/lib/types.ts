@@ -2,6 +2,8 @@ export type {
   ScreenType,
   DemoStep,
   DemoConfig,
+  DemoSection,
+  ScenarioType,
   ApiLogEntry,
   WebhookEventEntry,
   BridgeEvent,

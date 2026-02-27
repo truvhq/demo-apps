@@ -11,11 +11,28 @@ export function ConfirmationScreen({ orderId, demoId }: ConfirmationScreenProps)
     : "REF-PENDING";
 
   const titles: Record<string, string> = {
-    "new-applicant": "Application Submitted",
-    "returning-user": "Recertification Complete",
-    caseworker: "Case Decision Recorded",
-    "contact-center": "Verification Retrieved",
-    "in-person": "Verification Complete",
+    // Customer Portal
+    "cp-apply-complete": "Application Submitted",
+    "cp-household-followup": "Household Verification Complete",
+    "cp-incomplete": "Reminder Scheduled",
+    "cp-partial-employer": "Partial Verification Recorded",
+    "cp-pending-household": "Primary Complete — Awaiting Household",
+    "cp-state-comms": "Order Created — Link Sent",
+    "cp-renewal": "Recertification Complete",
+    "cp-renewal-reauth": "Re-Authentication Complete",
+    // Case Worker Portal
+    "cw-review-complete": "Case Decision Recorded",
+    "cw-partial-complete": "Follow-Up Sent",
+    "cw-trigger-verification": "Verification Triggered",
+    "cw-renewal": "Renewal Decision Recorded",
+    "cw-renewal-reauth": "Re-Auth Triggered",
+    // Contact Center
+    "cc-send-link": "Verification Retrieved",
+    "cc-incomplete": "Follow-Up Scheduled",
+    // In Person
+    "ip-qr-code": "Verification Complete",
+    "ip-email-sms": "Verification Complete",
+    // Setup
     templates: "Template Saved",
   };
 

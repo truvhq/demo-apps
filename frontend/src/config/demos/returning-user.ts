@@ -1,12 +1,14 @@
 import type { DemoConfig } from "@/lib/types";
 
 export const returningUserDemo: DemoConfig = {
-  id: "returning-user",
-  title: "Returning User",
-  subtitle: "Order refresh flow",
+  id: "cp-renewal",
+  title: "Renewal — Happy Path",
+  subtitle: "Returning applicant refreshes verified data without re-auth",
   description:
-    "Demonstrate how a returning applicant's previously verified data can be refreshed without re-entering credentials.",
+    "Demonstrate how a returning applicant's previously verified data can be refreshed without re-entering credentials. The backend refresh pulls updated income data automatically.",
   icon: "RefreshCw",
+  section: "customer-portal",
+  scenarioType: "happy-path",
   category: "Inline Embed",
   steps: [
     {

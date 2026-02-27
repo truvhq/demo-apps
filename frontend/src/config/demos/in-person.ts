@@ -1,12 +1,14 @@
 import type { DemoConfig } from "@/lib/types";
 
 export const inPersonDemo: DemoConfig = {
-  id: "in-person",
-  title: "In-Person Kiosk",
-  subtitle: "QR code from share URL",
+  id: "ip-qr-code",
+  title: "QR Code Experience",
+  subtitle: "Applicant scans QR code to complete on their phone",
   description:
     "For in-person visits: a caseworker creates an order, displays a QR code, and the applicant scans it to complete verification on their phone.",
   icon: "QrCode",
+  section: "in-person",
+  scenarioType: "happy-path",
   category: "QR Code",
   steps: [
     {

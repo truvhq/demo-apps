@@ -1,12 +1,14 @@
 import type { DemoConfig } from "@/lib/types";
 
 export const contactCenterDemo: DemoConfig = {
-  id: "contact-center",
-  title: "Contact Center",
-  subtitle: "Share URL via SMS/email",
+  id: "cc-send-link",
+  title: "Inbound Call — Completes",
+  subtitle: "Agent sends share URL, applicant completes verification",
   description:
-    "An agent creates a verification order and sends the share URL via SMS or email. The applicant completes on their own device while the agent monitors progress.",
+    "An agent creates a verification order and sends the share URL via SMS or email. The applicant completes on their own device while the agent monitors progress in real-time.",
   icon: "Phone",
+  section: "contact-center",
+  scenarioType: "happy-path",
   category: "Share URL",
   steps: [
     {

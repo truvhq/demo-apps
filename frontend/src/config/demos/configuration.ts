@@ -7,6 +7,8 @@ export const configurationDemo: DemoConfig = {
   description:
     "Walk through setting up the demo app — enter API credentials, configure a Bridge template, and register an ngrok webhook to receive real-time events.",
   icon: "Settings",
+  section: "setup",
+  scenarioType: "n/a",
   category: "Setup",
   steps: [
     {

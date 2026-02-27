@@ -1,12 +1,14 @@
 import type { DemoConfig } from "@/lib/types";
 
 export const newApplicantDemo: DemoConfig = {
-  id: "new-applicant",
-  title: "New Applicant",
-  subtitle: "Inline embedded order",
+  id: "cp-apply-complete",
+  title: "New Applicant — Full Completion",
+  subtitle: "Primary applicant applies online and completes verification",
   description:
-    "Walk through a new benefits applicant completing income verification via an embedded Truv Bridge widget.",
+    "Walk through a new benefits applicant completing income verification via an embedded Truv Bridge widget. The applicant enters their info, connects their employer through Bridge, and the caseworker reviews the verified data.",
   icon: "UserPlus",
+  section: "customer-portal",
+  scenarioType: "happy-path",
   category: "Inline Embed",
   steps: [
     {
