@@ -5,6 +5,7 @@ import { db } from "../db/index.js";
 import { orders, apiLogs, webhookEvents } from "../db/schema.js";
 import * as truvClient from "../services/truv-client.js";
 import { logApiCall } from "../services/api-logger.js";
+import { config } from "../config.js";
 
 const app = new Hono();
 
@@ -12,9 +13,11 @@ const app = new Hono();
 app.post("/", async (c) => {
   const body = await c.req.json<{
     demo_id: string;
-    product_type?: string;
     first_name?: string;
     last_name?: string;
+    ssn?: string;
+    email?: string;
+    phone?: string;
   }>();
 
   const orderId = randomUUID();
@@ -23,7 +26,18 @@ app.post("/", async (c) => {
     products: ["income", "assets"],
     first_name: body.first_name || "John",
     last_name: body.last_name || "Doe",
+    ssn: body.ssn || "222233333",
+    order_number: orderId,
+    external_user_id: orderId,
+    notification_settings: {
+      suppress_user_notifications: false,
+      first_notification_delay_hours: 24,
+    },
   };
+
+  if (body.email) truvParams.email = body.email;
+  if (body.phone) truvParams.phone = body.phone;
+  if (config.TRUV_TEMPLATE_ID) truvParams.template_id = config.TRUV_TEMPLATE_ID;
 
   const [statusCode, data, durationMs] = await truvClient.createOrder(truvParams);
 
