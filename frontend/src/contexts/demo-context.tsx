@@ -89,6 +89,9 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         demo_id: demoId,
         first_name: formData.first_name,
         last_name: formData.last_name,
+        ssn: formData.ssn,
+        email: formData.email,
+        phone: formData.phone,
       });
       applyOrderResult(result);
       apiLog.fetchLogs(result.order_id);
@@ -97,7 +100,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [formData.first_name, formData.last_name, clearOrderData, applyOrderResult, apiLog]);
+  }, [formData.first_name, formData.last_name, formData.ssn, formData.email, formData.phone, clearOrderData, applyOrderResult, apiLog.fetchLogs]);
 
   const handleGetOrder = useCallback(async () => {
     if (!orderId) return;
@@ -111,7 +114,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [orderId, apiLog]);
+  }, [orderId, apiLog.fetchLogs]);
 
   const value = useMemo<DemoContextValue>(() => ({
     orderId,

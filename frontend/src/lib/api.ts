@@ -2,17 +2,28 @@ import type {
   ApiLogEntry,
   CreateOrderResponse,
   OrderResponse,
-  WebhookEventEntry,
   ConfigStatus,
   WebhookResult,
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+async function parseErrorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const data = await res.json();
+    return data.error || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function createOrder(data: {
   demo_id: string;
   first_name?: string;
   last_name?: string;
+  ssn?: string;
+  email?: string;
+  phone?: string;
 }): Promise<CreateOrderResponse> {
   const res = await fetch(`${API_BASE}/api/orders`, {
     method: "POST",
@@ -20,10 +31,7 @@ export async function createOrder(data: {
     body: JSON.stringify(data),
   });
   if (!res.ok) {
-    const text = await res.text();
-    let message = `Create order failed: ${res.status}`;
-    try { message = JSON.parse(text).error || message; } catch {}
-    throw new Error(message);
+    throw new Error(await parseErrorMessage(res, `Create order failed: ${res.status}`));
   }
   return res.json();
 }
@@ -32,16 +40,6 @@ export async function getOrder(orderId: string): Promise<OrderResponse> {
   const res = await fetch(`${API_BASE}/api/orders/${orderId}`);
   if (!res.ok) {
     throw new Error(`Get order failed: ${res.status}`);
-  }
-  return res.json();
-}
-
-export async function refreshOrder(orderId: string): Promise<CreateOrderResponse> {
-  const res = await fetch(`${API_BASE}/api/orders/${orderId}/refresh`, {
-    method: "POST",
-  });
-  if (!res.ok) {
-    throw new Error(`Refresh order failed: ${res.status}`);
   }
   return res.json();
 }
@@ -55,16 +53,6 @@ export async function getOrderCertifications(orderId: string): Promise<Record<st
 export async function getApiLogs(orderId: string): Promise<ApiLogEntry[]> {
   try {
     const res = await fetch(`${API_BASE}/api/orders/${orderId}/logs`);
-    if (!res.ok) return [];
-    return res.json();
-  } catch {
-    return [];
-  }
-}
-
-export async function getWebhookEvents(orderId: string): Promise<WebhookEventEntry[]> {
-  try {
-    const res = await fetch(`${API_BASE}/api/orders/${orderId}/webhooks`);
     if (!res.ok) return [];
     return res.json();
   } catch {
@@ -96,10 +84,7 @@ export async function saveEnvConfig(data: {
     body: JSON.stringify(data),
   });
   if (!res.ok) {
-    const text = await res.text();
-    let message = `Save config failed: ${res.status}`;
-    try { message = JSON.parse(text).error || message; } catch {}
-    throw new Error(message);
+    throw new Error(await parseErrorMessage(res, `Save config failed: ${res.status}`));
   }
 }
 
@@ -110,10 +95,7 @@ export async function saveNgrokToken(authtoken: string): Promise<void> {
     body: JSON.stringify({ authtoken }),
   });
   if (!res.ok) {
-    const text = await res.text();
-    let message = `Save ngrok token failed: ${res.status}`;
-    try { message = JSON.parse(text).error || message; } catch {}
-    throw new Error(message);
+    throw new Error(await parseErrorMessage(res, `Save ngrok token failed: ${res.status}`));
   }
 }
 
@@ -126,10 +108,7 @@ export async function registerWebhook(data: {
     body: JSON.stringify(data),
   });
   if (!res.ok) {
-    const text = await res.text();
-    let message = `Register webhook failed: ${res.status}`;
-    try { message = JSON.parse(text).error || message; } catch {}
-    throw new Error(message);
+    throw new Error(await parseErrorMessage(res, `Register webhook failed: ${res.status}`));
   }
   return res.json();
 }

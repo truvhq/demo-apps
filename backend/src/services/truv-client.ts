@@ -34,15 +34,20 @@ async function truvRequest<T = Record<string, unknown>>(
     method,
     headers: authHeaders(),
     body: jsonBody ? JSON.stringify(jsonBody) : undefined,
+    signal: AbortSignal.timeout(15_000),
   });
 
   const durationMs = Math.round(performance.now() - start);
 
+  // Read body as text first, then attempt JSON parse.
+  // Response body can only be consumed once — reading as json()
+  // then falling back to text() would fail.
+  const text = await res.text();
   let data: T;
   try {
-    data = (await res.json()) as T;
+    data = JSON.parse(text) as T;
   } catch {
-    data = { raw: await res.text() } as T;
+    data = { raw: text } as T;
   }
 
   return { statusCode: res.status, data, durationMs };

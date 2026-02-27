@@ -7,15 +7,20 @@ emitter.setMaxListeners(100);
 
 const REDACTED_KEYS = new Set(["ssn", "email", "phone", "date_of_birth"]);
 
-function redactSensitive(body: Record<string, unknown>): Record<string, unknown> {
-  const redacted = { ...body };
-  for (const key of REDACTED_KEYS) {
-    if (key in redacted && typeof redacted[key] === "string") {
-      const val = redacted[key] as string;
-      redacted[key] = val.length > 4 ? "***" + val.slice(-4) : "***";
+function redactSensitive(body: unknown): unknown {
+  if (Array.isArray(body)) return body.map(redactSensitive);
+  if (body && typeof body === "object") {
+    const redacted: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(body as Record<string, unknown>)) {
+      if (REDACTED_KEYS.has(key) && typeof val === "string") {
+        redacted[key] = val.length > 4 ? "***" + val.slice(-4) : "***";
+      } else {
+        redacted[key] = redactSensitive(val);
+      }
     }
+    return redacted;
   }
-  return redacted;
+  return body;
 }
 
 export async function logApiCall(opts: {
@@ -28,7 +33,7 @@ export async function logApiCall(opts: {
   orderId?: string | null;
 }) {
   const now = new Date().toISOString();
-  const safeRequestBody = opts.requestBody ? redactSensitive(opts.requestBody) : null;
+  const safeRequestBody = opts.requestBody ? redactSensitive(opts.requestBody) as Record<string, unknown> : null;
   const result = db
     .insert(apiLogs)
     .values({

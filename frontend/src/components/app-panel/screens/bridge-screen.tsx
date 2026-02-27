@@ -74,9 +74,8 @@ export function BridgeScreen({
   useEffect(() => {
     if (bridgeToken && !bridgeComplete && !bridgeOpened) {
       setBridgeOpened(true);
-      emitEvent("onLoad", { bridgeToken });
     }
-  }, [bridgeToken, bridgeComplete, bridgeOpened, emitEvent]);
+  }, [bridgeToken, bridgeComplete, bridgeOpened]);
 
   // Main content for the right side of sidebar
   let mainContent: React.ReactNode;
@@ -172,7 +171,7 @@ export function BridgeScreen({
         </div>
         <Button
           onClick={() => {
-            orderCreatedRef.current = false;
+            orderCreatedRef.current = true;
             onCreateOrder();
           }}
         >

@@ -305,6 +305,7 @@ function WebhooksSection({
   const [ngrokToken, setNgrokToken] = useState("");
   const [ngrokSaved, setNgrokSaved] = useState(false);
   const [ngrokLoading, setNgrokLoading] = useState(false);
+  const [ngrokError, setNgrokError] = useState<string | null>(null);
   const [webhookUrl, setWebhookUrl] = useState("");
   const [result, setResult] = useState<WebhookResult | null>(null);
 
@@ -350,8 +351,8 @@ function WebhooksSection({
               try {
                 await saveNgrokToken(ngrokToken);
                 setNgrokSaved(true);
-              } catch {
-                // ignore
+              } catch (err) {
+                setNgrokError(err instanceof Error ? err.message : "Failed to save ngrok token");
               } finally {
                 setNgrokLoading(false);
               }
@@ -367,6 +368,9 @@ function WebhooksSection({
           </a>.
           Saved via <code>ngrok config add-authtoken</code>.
         </p>
+        {ngrokError && (
+          <p className="text-sm text-red-600">{ngrokError}</p>
+        )}
       </div>
 
       <div className="space-y-2">

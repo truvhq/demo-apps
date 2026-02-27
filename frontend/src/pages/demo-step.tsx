@@ -1,5 +1,5 @@
-import { useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useCallback } from "react";
+import { useParams, Navigate } from "react-router";
 import { getDemoById } from "@/config/demos";
 import { DemoShell } from "@/components/demo-shell/demo-shell";
 import { BrowserFrame } from "@/components/app-panel/browser-frame";
@@ -9,26 +9,17 @@ import { useDemoContext } from "@/contexts/demo-context";
 
 export function DemoStepPage() {
   const { demoId, stepIndex: stepStr } = useParams<{ demoId: string; stepIndex: string }>();
-  const navigate = useNavigate();
   const stepIndex = parseInt(stepStr || "0", 10);
   const demo = getDemoById(demoId || "");
 
   const ctx = useDemoContext();
-
-  // Fetch logs when we have an orderId
-  useEffect(() => {
-    if (ctx.orderId) {
-      // Logs are fetched automatically via context
-    }
-  }, [ctx.orderId]);
 
   const onCreateOrder = useCallback(() => {
     if (demoId) ctx.handleCreateOrder(demoId);
   }, [demoId, ctx.handleCreateOrder]);
 
   if (!demo || isNaN(stepIndex) || stepIndex < 0 || stepIndex >= demo.steps.length) {
-    navigate("/", { replace: true });
-    return null;
+    return <Navigate to="/" replace />;
   }
 
   const step = demo.steps[stepIndex];

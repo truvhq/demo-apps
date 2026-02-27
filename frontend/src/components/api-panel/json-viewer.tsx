@@ -13,10 +13,14 @@ export function JsonViewer({ data, collapsed = true }: JsonViewerProps) {
 
   const json = JSON.stringify(data, null, 2);
 
-  function handleCopy() {
-    navigator.clipboard.writeText(json);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(json);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API may be unavailable in some contexts
+    }
   }
 
   if (!data) return null;
@@ -56,10 +60,14 @@ export function JsonViewer({ data, collapsed = true }: JsonViewerProps) {
 export function JsonBlock({ data }: { data: unknown }) {
   const [copied, setCopied] = useState(false);
 
-  function handleCopy() {
-    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API may be unavailable in some contexts
+    }
   }
 
   return (

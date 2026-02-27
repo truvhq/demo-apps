@@ -1,9 +1,26 @@
 import { Hono } from "hono";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import { z } from "zod";
+import { zValidator } from "@hono/zod-validator";
 import { config, reloadConfig, readEnvFile, writeEnvFile, isAllowedBaseUrl } from "../config.js";
 
 const execFileAsync = promisify(execFile);
+
+const envConfigSchema = z.object({
+  client_id: z.string().max(200).optional(),
+  secret: z.string().max(200).optional(),
+  base_url: z.string().max(200).optional(),
+  template_id: z.string().max(200).optional(),
+});
+
+const ngrokSchema = z.object({
+  authtoken: z.string().regex(/^[a-zA-Z0-9_-]{10,100}$/, "Invalid authtoken format"),
+});
+
+const webhookSchema = z.object({
+  webhook_url: z.string().max(500).refine((url) => url.startsWith("https://"), "webhook_url must use https://"),
+});
 
 const app = new Hono();
 
@@ -33,13 +50,8 @@ app.get("/", (c) => {
 });
 
 // POST /api/config/env — update .env values and reload
-app.post("/env", async (c) => {
-  const body = await c.req.json<{
-    client_id?: string;
-    secret?: string;
-    base_url?: string;
-    template_id?: string;
-  }>();
+app.post("/env", zValidator("json", envConfigSchema), async (c) => {
+  const body = c.req.valid("json");
 
   // Validate base_url against allowlist
   if (body.base_url !== undefined && !isAllowedBaseUrl(body.base_url)) {
@@ -60,44 +72,30 @@ app.post("/env", async (c) => {
 });
 
 // POST /api/config/ngrok — save ngrok authtoken
-app.post("/ngrok", async (c) => {
-  const body = await c.req.json<{ authtoken: string }>();
-
-  if (!body.authtoken) {
-    return c.json({ error: "authtoken is required" }, 400);
-  }
-
-  // Validate authtoken format
-  if (!/^[a-zA-Z0-9_-]{10,100}$/.test(body.authtoken)) {
-    return c.json({ error: "Invalid authtoken format" }, 400);
-  }
+app.post("/ngrok", zValidator("json", ngrokSchema), async (c) => {
+  const body = c.req.valid("json");
 
   try {
     await execFileAsync("ngrok", ["config", "add-authtoken", body.authtoken], {
       timeout: 10000,
     });
     return c.json({ ok: true });
-  } catch {
-    return c.json({ error: "Failed to save ngrok authtoken" }, 500);
+  } catch (err) {
+    return c.json({ error: `Failed to save ngrok authtoken: ${err instanceof Error ? err.message : "unknown error"}` }, 500);
   }
 });
 
 // POST /api/config/webhook — register webhook with Truv API
-app.post("/webhook", async (c) => {
-  const body = await c.req.json<{ webhook_url: string }>();
+app.post("/webhook", zValidator("json", webhookSchema), async (c) => {
+  const body = c.req.valid("json");
 
   if (!config.TRUV_CLIENT_ID || !config.TRUV_SECRET) {
     return c.json({ error: "API credentials not configured" }, 400);
   }
 
-  // Validate webhook_url is https
-  if (!body.webhook_url || !body.webhook_url.startsWith("https://")) {
-    return c.json({ error: "webhook_url must use https://" }, 400);
-  }
-
   const url = `${config.TRUV_BASE_URL}/webhooks/`;
   const payload = {
-    url: `${body.webhook_url}/api/webhooks`,
+    url: `${body.webhook_url}/api/webhooks/truv`,
     events: ["task-status-updated", "order-status-updated"],
   };
 
@@ -109,12 +107,19 @@ app.post("/webhook", async (c) => {
       "X-Access-Secret": config.TRUV_SECRET,
     },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(15_000),
   });
 
-  const data = await res.json();
+  const text = await res.text();
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    data = { raw: text };
+  }
 
   if (!res.ok) {
-    return c.json({ error: "Webhook registration failed" }, res.status as 400);
+    return c.json({ error: "Webhook registration failed", details: data }, res.status as 400);
   }
 
   // Save webhook URL to .env
@@ -124,7 +129,7 @@ app.post("/webhook", async (c) => {
   reloadConfig();
 
   return c.json({
-    webhook_id: (data as Record<string, unknown>).id || null,
+    webhook_id: data.id || null,
     url: body.webhook_url,
     status: "registered",
     response: data,
