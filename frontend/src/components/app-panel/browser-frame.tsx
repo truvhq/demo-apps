@@ -26,7 +26,7 @@ export function BrowserFrame({ url, children }: BrowserFrameProps) {
       </div>
 
       {/* Page content */}
-      <div className="flex-1 overflow-auto bg-background p-6">
+      <div className="flex flex-1 flex-col min-h-0 overflow-auto bg-background">
         {children}
       </div>
     </div>

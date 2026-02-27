@@ -48,6 +48,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.2.1
         version: 4.2.1(vite@7.3.1(@types/node@24.10.15)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0))
+      '@truv/react':
+        specifier: ^2.3.0
+        version: 2.3.0(react@19.2.4)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1531,6 +1534,14 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7
 
+  '@truv/bridge@2.2.0':
+    resolution: {integrity: sha512-1C4HG1Py94v4gcw6KEPMWFEs4bUV3x5cm3QzahoY2841XhFCdzAc4X8TMEmw/hUERQF+ZJMFFXfdGBuHY0ycLA==}
+
+  '@truv/react@2.3.0':
+    resolution: {integrity: sha512-Axvvt4OUeX66nmV+cdeeYqdMGX+TePDbTJmv28BbX8CfsqbzecH/XmdmSKEN2Q+MCmmxY5ygEaUAxKYcjJVQ2Q==}
+    peerDependencies:
+      react: '>=16.8.0'
+
   '@ts-morph/common@0.27.0':
     resolution: {integrity: sha512-Wf29UqxWDpc+i61k3oIOzcUfQt79PIT9y/MWfAGlrkjg6lBC1hwDECLXPVJAhWjiGbfBCxZd65F/LIZF3+jeJQ==}
 
@@ -2655,6 +2666,9 @@ packages:
 
   lines-and-columns@1.2.4:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==}
+
+  load-script2@2.0.6:
+    resolution: {integrity: sha512-pyuw/AR+ycZkRKgkMyXOIf/o2OnRQPc9grjZ04wVOeoJ7SqX97WlcZahl+3/r5qi09L/5d0iCVZ0q4OqNT/v0Q==}
 
   locate-path@6.0.0:
     resolution: {integrity: sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw==}
@@ -4902,6 +4916,15 @@ snapshots:
       tailwindcss: 4.2.1
       vite: 7.3.1(@types/node@24.10.15)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)
 
+  '@truv/bridge@2.2.0':
+    dependencies:
+      load-script2: 2.0.6
+
+  '@truv/react@2.3.0(react@19.2.4)':
+    dependencies:
+      '@truv/bridge': 2.2.0
+      react: 19.2.4
+
   '@ts-morph/common@0.27.0':
     dependencies:
       fast-glob: 3.3.3
@@ -5922,6 +5945,8 @@ snapshots:
       lightningcss-win32-x64-msvc: 1.31.1
 
   lines-and-columns@1.2.4: {}
+
+  load-script2@2.0.6: {}
 
   locate-path@6.0.0:
     dependencies:

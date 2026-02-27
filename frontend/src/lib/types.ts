@@ -51,6 +51,13 @@ export interface WebhookEventEntry {
   received_at: string | null;
 }
 
+export interface BridgeEvent {
+  id: string;
+  type: string;
+  timestamp: string;
+  data?: Record<string, unknown> | null;
+}
+
 export interface CreateOrderResponse {
   order_id: string;
   truv_order_id: string;

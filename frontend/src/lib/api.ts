@@ -12,9 +12,6 @@ export async function createOrder(data: {
   product_type?: string;
   first_name?: string;
   last_name?: string;
-  ssn?: string;
-  email?: string;
-  phone?: string;
 }): Promise<CreateOrderResponse> {
   const res = await fetch(`${API_BASE}/api/orders`, {
     method: "POST",

@@ -1,4 +1,5 @@
-import type { DemoStep, OrderResponse } from "@/lib/types";
+import type { ReactNode } from "react";
+import type { BridgeEvent, DemoStep, OrderResponse } from "@/lib/types";
 import { FormScreen } from "./screens/form-screen";
 import { BridgeScreen } from "./screens/bridge-screen";
 import { ConfirmationScreen } from "./screens/confirmation-screen";
@@ -22,6 +23,7 @@ interface AppScreenProps {
   webhooks: WebhookEventEntry[];
   onCreateOrder: () => void;
   onGetOrder: () => void;
+  onBridgeEvent: (event: BridgeEvent) => void;
   loading: boolean;
 }
 
@@ -37,48 +39,60 @@ export function AppScreen({
   webhooks,
   onCreateOrder,
   onGetOrder,
+  onBridgeEvent,
   loading,
 }: AppScreenProps) {
+  // Bridge fills edge-to-edge (manages its own layout)
+  if (step.screenType === "bridge") {
+    return (
+      <BridgeScreen
+        bridgeToken={bridgeToken}
+        orderId={orderId}
+        onCreateOrder={onCreateOrder}
+        onBridgeEvent={onBridgeEvent}
+        loading={loading}
+      />
+    );
+  }
+
+  // All other screens get padding
+  let content: ReactNode;
   switch (step.screenType) {
     case "form":
-      return (
+      content = (
         <FormScreen
           formData={formData}
           onChange={onFormChange}
           prefilled={step.screenProps?.prefilled as boolean}
         />
       );
-    case "bridge":
-      return (
-        <BridgeScreen
-          bridgeToken={bridgeToken}
-          orderId={orderId}
-          onCreateOrder={onCreateOrder}
-          loading={loading}
-        />
-      );
+      break;
     case "confirmation":
-      return <ConfirmationScreen orderId={orderId} demoId={demoId} />;
+      content = <ConfirmationScreen orderId={orderId} demoId={demoId} />;
+      break;
     case "review":
-      return (
+      content = (
         <ReviewScreen
           orderData={orderData}
           onRefresh={onGetOrder}
           loading={loading}
         />
       );
+      break;
     case "dashboard":
-      return <DashboardScreen onSelectCase={onGetOrder} />;
+      content = <DashboardScreen onSelectCase={onGetOrder} />;
+      break;
     case "qr-code":
-      return (
+      content = (
         <QrCodeScreen
           shareUrl={shareUrl}
           onCreateOrder={onCreateOrder}
           loading={loading}
         />
       );
+      break;
     case "send-link":
-      return (
+      content = (
         <SendLinkScreen
           shareUrl={shareUrl}
           onCreateOrder={onCreateOrder}
@@ -86,13 +100,18 @@ export function AppScreen({
           loading={loading}
         />
       );
+      break;
     case "monitor":
-      return <MonitorScreen webhooks={webhooks} orderId={orderId} />;
+      content = <MonitorScreen webhooks={webhooks} orderId={orderId} />;
+      break;
     case "template":
-      return (
+      content = (
         <TemplateScreen section={step.screenProps?.section as string} />
       );
+      break;
     default:
-      return <div className="text-muted-foreground">Unknown screen type</div>;
+      content = <div className="text-muted-foreground">Unknown screen type</div>;
   }
+
+  return <div className="p-6">{content}</div>;
 }

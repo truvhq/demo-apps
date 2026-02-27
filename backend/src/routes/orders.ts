@@ -15,26 +15,15 @@ app.post("/", async (c) => {
     product_type?: string;
     first_name?: string;
     last_name?: string;
-    ssn?: string;
-    email?: string;
-    phone?: string;
   }>();
 
   const orderId = randomUUID();
 
   const truvParams: Record<string, unknown> = {
-    product_type: body.product_type || "income",
+    products: ["income", "assets"],
+    first_name: body.first_name || "John",
+    last_name: body.last_name || "Doe",
   };
-
-  if (body.first_name || body.last_name) {
-    const consumer: Record<string, string> = {};
-    if (body.first_name) consumer.first_name = body.first_name;
-    if (body.last_name) consumer.last_name = body.last_name;
-    if (body.ssn) consumer.ssn = body.ssn;
-    if (body.email) consumer.email = body.email;
-    if (body.phone) consumer.phone = body.phone;
-    truvParams.consumer = consumer;
-  }
 
   const [statusCode, data, durationMs] = await truvClient.createOrder(truvParams);
 

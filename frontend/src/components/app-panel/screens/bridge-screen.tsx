@@ -1,129 +1,233 @@
-import { useEffect, useRef, useState } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { TruvBridgeInline } from "@truv/react";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Shield, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { IconLoader2, IconExternalLink } from "@tabler/icons-react";
+import type { BridgeEvent } from "@/lib/types";
 
 interface BridgeScreenProps {
   bridgeToken: string | null;
   orderId: string | null;
   onCreateOrder: () => void;
+  onBridgeEvent: (event: BridgeEvent) => void;
   loading: boolean;
 }
 
-declare global {
-  interface Window {
-    TruvBridge?: {
-      init: (config: Record<string, unknown>) => { open: () => void; close: () => void };
-    };
-  }
-}
+const SIDEBAR_ITEMS = [
+  { label: "Apply for benefits", header: true },
+  { label: "Start" },
+  { label: "Getting To Know You" },
+  { label: "Benefits" },
+  { label: "Household" },
+  { label: "People" },
+  { label: "Income", active: true, header: true },
+  { label: "Connect with Truv", active: true, sub: true },
+  { label: "Expenses" },
+  { label: "Resources" },
+  { label: "Finish" },
+];
 
-export function BridgeScreen({ bridgeToken, orderId, onCreateOrder, loading }: BridgeScreenProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const bridgeRef = useRef<{ open: () => void; close: () => void } | null>(null);
-  const [bridgeLoaded, setBridgeLoaded] = useState(false);
+const PROGRESS_STEPS = [
+  "Start",
+  "Getting To Know You",
+  "Benefits",
+  "Household",
+  "People",
+  "Income",
+  "Expenses",
+  "Resources",
+  "Finish",
+];
+
+export function BridgeScreen({
+  bridgeToken,
+  onCreateOrder,
+  onBridgeEvent,
+  loading,
+}: BridgeScreenProps) {
   const [bridgeComplete, setBridgeComplete] = useState(false);
+  const [bridgeOpened, setBridgeOpened] = useState(false);
+  const orderCreatedRef = useRef(false);
 
-  // Load Truv Bridge script
+  const emitEvent = useCallback(
+    (type: string, data?: Record<string, unknown> | null) => {
+      onBridgeEvent({
+        id: crypto.randomUUID(),
+        type,
+        timestamp: new Date().toISOString(),
+        data,
+      });
+    },
+    [onBridgeEvent]
+  );
+
+  // Always create a fresh order when the screen mounts
   useEffect(() => {
-    if (document.getElementById("truv-bridge-script")) {
-      setBridgeLoaded(true);
-      return;
+    if (!orderCreatedRef.current) {
+      orderCreatedRef.current = true;
+      onCreateOrder();
     }
-    const script = document.createElement("script");
-    script.id = "truv-bridge-script";
-    script.src = "https://cdn.truv.com/bridge.js";
-    script.onload = () => setBridgeLoaded(true);
-    document.head.appendChild(script);
-  }, []);
+  }, [onCreateOrder]);
 
-  // Initialize Bridge when token is available
-  useEffect(() => {
-    if (!bridgeToken || !bridgeLoaded || !containerRef.current) return;
+  // When bridge token arrives, open the bridge
+  const hasBridge = !!bridgeToken && !bridgeComplete;
+  if (hasBridge && !bridgeOpened) {
+    setBridgeOpened(true);
+    emitEvent("onLoad", { bridgeToken });
+  }
 
-    if (bridgeRef.current) {
-      bridgeRef.current.close();
-    }
+  // Main content for the right side of sidebar
+  let mainContent: React.ReactNode;
 
-    bridgeRef.current = window.TruvBridge!.init({
-      bridgeToken,
-      target: containerRef.current,
-      onSuccess: () => {
-        setBridgeComplete(true);
-      },
-      onClose: () => {},
-      onError: (error: unknown) => {
-        console.error("Bridge error:", error);
-      },
-    });
-
-    bridgeRef.current.open();
-
-    return () => {
-      bridgeRef.current?.close();
-    };
-  }, [bridgeToken, bridgeLoaded]);
-
-  if (!orderId && !bridgeToken) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 py-12">
-        <p className="text-muted-foreground text-center max-w-sm">
-          Click the button below to create a Truv order. The backend will call{" "}
-          <code className="bg-muted px-1 rounded text-xs">POST /v1/orders/</code>{" "}
-          and return a bridge token.
-        </p>
-        <Button onClick={onCreateOrder} disabled={loading}>
-          {loading && <IconLoader2 size={16} className="mr-2 animate-spin" />}
-          Create Order & Open Bridge
+  if (bridgeComplete) {
+    mainContent = (
+      <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
+        <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+          <CheckCircle2 className="h-8 w-8 text-green-600" />
+        </div>
+        <div className="text-center">
+          <h3 className="font-semibold text-lg">Verification Complete</h3>
+          <p className="text-sm text-muted-foreground mt-2 max-w-sm">
+            The applicant has successfully connected their employer. Income and
+            employment data has been verified.
+          </p>
+        </div>
+        <Badge
+          className="bg-green-100 text-green-700 border-green-200"
+          variant="outline"
+        >
+          Employer Connected
+        </Badge>
+      </div>
+    );
+  } else if (hasBridge) {
+    mainContent = (
+      <div className="flex-1 relative min-h-0 [&_iframe]:!w-full [&_iframe]:!h-full">
+        <TruvBridgeInline
+          style={{ position: "absolute", inset: 0 }}
+          isOpened={bridgeOpened}
+          bridgeParams={{
+            bridgeToken,
+            isOrder: true,
+            onSuccess: (publicToken: string) => {
+              setBridgeComplete(true);
+              emitEvent("onSuccess", { public_token: publicToken });
+            },
+            onClose: () => {
+              emitEvent("onClose");
+            },
+            onLoad: () => {
+              emitEvent("onLoad");
+            },
+            onEvent: (eventType: string, payload?: Record<string, unknown>) => {
+              emitEvent("onEvent", { event_type: eventType, ...payload });
+            },
+          }}
+        />
+      </div>
+    );
+  } else if (loading) {
+    mainContent = (
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <div className="text-center">
+          <p className="text-sm font-medium">Creating verification order...</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Calling POST /v1/orders/ to get a bridge token
+          </p>
+        </div>
+      </div>
+    );
+  } else {
+    // Order creation failed or hasn't produced a token
+    mainContent = (
+      <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
+        <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center">
+          <AlertTriangle className="h-8 w-8 text-red-600" />
+        </div>
+        <div className="text-center">
+          <h3 className="font-semibold text-lg">Order Creation Failed</h3>
+          <p className="text-sm text-muted-foreground mt-2 max-w-sm">
+            Could not create the verification order. Check that TRUV_CLIENT_ID and
+            TRUV_SECRET are configured in the backend .env file.
+          </p>
+        </div>
+        <Button
+          onClick={() => {
+            orderCreatedRef.current = false;
+            onCreateOrder();
+          }}
+        >
+          Retry
         </Button>
       </div>
     );
   }
 
-  if (bridgeComplete) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 py-12">
-        <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-          <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        <h3 className="font-semibold text-lg">Verification Complete</h3>
-        <p className="text-sm text-muted-foreground text-center max-w-sm">
-          The applicant has successfully connected their employer.
-          Proceed to the next step to review the verified data.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-1 flex-col min-h-0">
+      {/* Government header bar */}
+      <div className="bg-[#003366] text-white px-5 py-3 flex items-center gap-3 flex-shrink-0">
+        <Shield className="h-5 w-5" />
         <div>
-          <h3 className="font-semibold">Truv Bridge Widget</h3>
-          <p className="text-sm text-muted-foreground">
-            The applicant connects their employer through the embedded widget below.
+          <p className="text-sm font-semibold tracking-wide">
+            Department of Human Services
+          </p>
+          <p className="text-[10px] opacity-80">
+            Apply for Benefits — Income Verification
           </p>
         </div>
-        {!bridgeLoaded && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <IconLoader2 size={16} className="animate-spin" />
-            Loading Bridge...
-          </div>
-        )}
       </div>
 
-      <div className="rounded-lg border bg-muted/30 p-3">
-        <p className="text-xs text-muted-foreground flex items-center gap-1">
-          <IconExternalLink size={12} />
-          Sandbox mode — use <code className="bg-muted px-1 rounded">goodlogin</code> / <code className="bg-muted px-1 rounded">goodpassword</code>
-        </p>
+      {/* Progress steps */}
+      <div className="border-b bg-muted/30 px-5 py-2 flex-shrink-0">
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          {PROGRESS_STEPS.map((step, i) => (
+            <div key={step} className="flex items-center gap-1">
+              {i > 0 && (
+                <span className="text-muted-foreground/40 mx-0.5">
+                  &mdash;
+                </span>
+              )}
+              <span
+                className={
+                  i < 5
+                    ? "text-green-600 font-medium"
+                    : i === 5
+                      ? "text-blue-600 font-bold underline"
+                      : "text-muted-foreground/60"
+                }
+              >
+                {step}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div
-        ref={containerRef}
-        className="min-h-[500px] rounded-lg border bg-white"
-      />
+      {/* Sidebar + main content */}
+      <div className="flex flex-1 min-h-0">
+        {/* Left sidebar */}
+        <div className="w-44 border-r bg-muted/20 py-3 text-xs flex-shrink-0">
+          {SIDEBAR_ITEMS.map((item) => (
+            <div
+              key={item.label}
+              className={`px-3 py-1.5 ${item.sub ? "pl-6" : ""} ${
+                item.active && item.sub
+                  ? "border-l-2 border-blue-600 bg-blue-50 text-blue-700 font-semibold"
+                  : item.active || item.header
+                    ? "font-semibold text-foreground"
+                    : "text-muted-foreground"
+              }`}
+            >
+              {item.label}
+            </div>
+          ))}
+        </div>
+
+        {/* Main content — Bridge widget or loading/complete state */}
+        {mainContent}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import type { CreateOrderResponse } from "@/lib/types";
+import type { CreateOrderResponse, BridgeEvent } from "@/lib/types";
 
 interface DemoState {
   orderId: string | null;
@@ -8,6 +8,7 @@ interface DemoState {
   shareUrl: string | null;
   status: string | null;
   formData: Record<string, string>;
+  bridgeEvents: BridgeEvent[];
 }
 
 export function useDemo() {
@@ -18,6 +19,7 @@ export function useDemo() {
     shareUrl: null,
     status: null,
     formData: {},
+    bridgeEvents: [],
   });
 
   const setFormData = useCallback((data: Record<string, string>) => {
@@ -35,6 +37,25 @@ export function useDemo() {
     }));
   }, []);
 
+  const clearOrderData = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      orderId: null,
+      truvOrderId: null,
+      bridgeToken: null,
+      shareUrl: null,
+      status: null,
+      bridgeEvents: [],
+    }));
+  }, []);
+
+  const addBridgeEvent = useCallback((event: BridgeEvent) => {
+    setState((prev) => ({
+      ...prev,
+      bridgeEvents: [...prev.bridgeEvents, event],
+    }));
+  }, []);
+
   const reset = useCallback(() => {
     setState({
       orderId: null,
@@ -43,8 +64,9 @@ export function useDemo() {
       shareUrl: null,
       status: null,
       formData: {},
+      bridgeEvents: [],
     });
   }, []);
 
-  return { ...state, setFormData, setOrderData, reset };
+  return { ...state, setFormData, setOrderData, clearOrderData, addBridgeEvent, reset };
 }

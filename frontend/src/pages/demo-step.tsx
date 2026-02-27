@@ -9,7 +9,7 @@ import { useDemo } from "@/hooks/use-demo";
 import { useApiLog } from "@/hooks/use-api-log";
 import { useWebhookStream } from "@/hooks/use-webhook-stream";
 import { createOrder, getOrder } from "@/lib/api";
-import type { OrderResponse } from "@/lib/types";
+import type { OrderResponse, BridgeEvent } from "@/lib/types";
 
 export function DemoStepPage() {
   const { demoId, stepIndex: stepStr } = useParams<{ demoId: string; stepIndex: string }>();
@@ -37,6 +37,8 @@ export function DemoStepPage() {
 
   const handleCreateOrder = useCallback(async () => {
     if (!demoId) return;
+    // Clear old order state so bridge doesn't use stale token
+    demoState.clearOrderData();
     setLoading(true);
     try {
       const result = await createOrder({
@@ -44,9 +46,6 @@ export function DemoStepPage() {
         product_type: "income",
         first_name: demoState.formData.first_name,
         last_name: demoState.formData.last_name,
-        ssn: demoState.formData.ssn,
-        email: demoState.formData.email,
-        phone: demoState.formData.phone,
       });
       demoState.setOrderData(result);
       apiLog.fetchLogs(result.order_id);
@@ -70,6 +69,13 @@ export function DemoStepPage() {
       setLoading(false);
     }
   }, [demoState.orderId, apiLog]);
+
+  const handleBridgeEvent = useCallback(
+    (event: BridgeEvent) => {
+      demoState.addBridgeEvent(event);
+    },
+    [demoState.addBridgeEvent]
+  );
 
   if (!demo || isNaN(stepIndex) || stepIndex < 0 || stepIndex >= demo.steps.length) {
     navigate("/", { replace: true });
@@ -96,6 +102,7 @@ export function DemoStepPage() {
             webhooks={allWebhooks}
             onCreateOrder={handleCreateOrder}
             onGetOrder={handleGetOrder}
+            onBridgeEvent={handleBridgeEvent}
             loading={loading}
           />
         </BrowserFrame>
@@ -105,6 +112,7 @@ export function DemoStepPage() {
           step={step}
           apiLogs={allApiLogs}
           webhooks={allWebhooks}
+          bridgeEvents={demoState.bridgeEvents}
         />
       }
     />

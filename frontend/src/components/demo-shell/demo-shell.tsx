@@ -17,12 +17,12 @@ export function DemoShell({ demo, currentStep, leftPanel, rightPanel }: DemoShel
 
       <div className="flex flex-1 min-h-0">
         {/* Left panel — App demo */}
-        <div className="flex w-1/2 flex-col border-r">
+        <div className="flex w-3/5 flex-col border-r">
           {leftPanel}
         </div>
 
         {/* Right panel — API calls / webhooks / docs */}
-        <div className="flex w-1/2 flex-col">
+        <div className="flex w-2/5 flex-col">
           {rightPanel}
         </div>
       </div>
