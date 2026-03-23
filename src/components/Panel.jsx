@@ -61,13 +61,13 @@ function LogEntry({ method, endpoint, status, requestBody, responseBody }) {
           {requestBody && (
             <>
               <h5 class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Request</h5>
-              <pre class="text-[11px] leading-relaxed whitespace-pre-wrap break-all text-gray-500 font-mono bg-gray-100 p-2.5 rounded-md max-h-50 overflow-y-auto">{tryFormat(requestBody)}</pre>
+              <pre class="text-[11px] leading-relaxed whitespace-pre-wrap break-all text-gray-500 font-mono bg-gray-100 p-2.5 rounded-md max-h-[12.5rem] overflow-y-auto">{tryFormat(requestBody)}</pre>
             </>
           )}
           {responseBody && (
             <>
               <h5 class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1 mt-3">Response</h5>
-              <pre class="text-[11px] leading-relaxed whitespace-pre-wrap break-all text-gray-500 font-mono bg-gray-100 p-2.5 rounded-md max-h-50 overflow-y-auto">{tryFormat(responseBody)}</pre>
+              <pre class="text-[11px] leading-relaxed whitespace-pre-wrap break-all text-gray-500 font-mono bg-gray-100 p-2.5 rounded-md max-h-[12.5rem] overflow-y-auto">{tryFormat(responseBody)}</pre>
             </>
           )}
         </div>
@@ -77,7 +77,7 @@ function LogEntry({ method, endpoint, status, requestBody, responseBody }) {
 }
 
 function ApiTab({ logs }) {
-  if (!logs.length) return <div class="flex items-center justify-center h-30 text-gray-400 text-sm">No API calls yet.</div>;
+  if (!logs.length) return <div class="flex items-center justify-center h-32 text-gray-400 text-sm">No API calls yet.</div>;
   return <div>{logs.map((log, i) => <LogEntry key={i} method={(log.method || 'GET').toUpperCase()} endpoint={log.endpoint || log.url} status={log.status ? String(log.status) : ''} requestBody={log.request_body} responseBody={log.response_body} />)}</div>;
 }
 
@@ -100,7 +100,7 @@ function BridgeEvent({ evt }) {
 }
 
 function BridgeTab({ events }) {
-  if (!events.length) return <div class="flex items-center justify-center h-30 text-gray-400 text-sm">No Bridge events yet.</div>;
+  if (!events.length) return <div class="flex items-center justify-center h-32 text-gray-400 text-sm">No Bridge events yet.</div>;
   return <div>{[...events].reverse().map((evt, i) => <BridgeEvent key={i} evt={evt} />)}</div>;
 }
 
@@ -141,7 +141,7 @@ function WebhooksTab({ webhooks, tunnelUrl }) {
         <a href="https://dashboard.truv.com/app/development/webhooks" target="_blank" class="text-primary font-medium">See webhook config</a>
       </div>
       {!webhooks.length ? (
-        <div class="flex items-center justify-center h-30 text-gray-400 text-sm">No webhooks received yet.</div>
+        <div class="flex items-center justify-center h-32 text-gray-400 text-sm">No webhooks received yet.</div>
       ) : (
         [...webhooks].reverse().map((wh, i) => <WebhookEntry key={i} wh={wh} />)
       )}

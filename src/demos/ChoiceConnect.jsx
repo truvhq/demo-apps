@@ -113,7 +113,7 @@ export function ChoiceConnectDemo() {
                 </div>
               </div>
             ) : (
-              <div class="text-center py-10"><div class="w-10 h-10 border-3 border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>
+              <div class="text-center py-10"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>
             )}
           </div>
         )}

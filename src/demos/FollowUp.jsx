@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
-import { Layout, OrderResults, WaitingScreen, usePanel, API_BASE } from '../components/index.js';
+import { Layout, OrderResults, WaitingScreen, usePanel, API_BASE, parsePayload } from '../components/index.js';
 import { navigate } from '../App.jsx';
 
 const STEPS = [
@@ -220,8 +220,8 @@ function BridgeScreen({ orderId, addBridgeEvent, startPolling, onCompleted }) {
     return () => { try { b.close(); } catch {} };
   }, [bridgeToken]);
 
-  if (error) return <div class="text-center py-15 text-red-600">{error}</div>;
-  if (!bridgeToken) return <div class="text-center py-15"><div class="w-10 h-10 border-3 border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;
+  if (error) return <div class="text-center py-16 text-red-600">{error}</div>;
+  if (!bridgeToken) return <div class="text-center py-16"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;
 
   return (
     <div ref={containerRef} class="w-full h-full overflow-hidden bg-white [&_iframe]:w-full [&_iframe]:!h-full [&_iframe]:border-none" style="zoom: 0.85;" />
@@ -245,7 +245,7 @@ function WaitingScreenWrapper({ orderId, webhooks, startPolling }) {
   useEffect(() => {
     if (advancePendingRef.current) return;
     const isCompleted = webhooks.some(w => {
-      const p = typeof w.payload === 'string' ? JSON.parse(w.payload) : (w.payload || {});
+      const p = parsePayload(w.payload);
       return (p.event_type === 'order-status-updated' && p.status === 'completed')
         || (w.event_type === 'order-status-updated' && w.status === 'completed');
     });
@@ -274,8 +274,8 @@ function ResultsScreen({ orderId, onBack }) {
     })();
   }, [orderId]);
 
-  if (error) return <div class="max-w-2xl mx-auto text-center py-15 text-red-600">{error}</div>;
-  if (!orderData) return <div class="max-w-2xl mx-auto text-center py-15"><div class="w-10 h-10 border-3 border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;
+  if (error) return <div class="max-w-2xl mx-auto text-center py-16 text-red-600">{error}</div>;
+  if (!orderData) return <div class="max-w-2xl mx-auto text-center py-16"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;
 
   return (
     <div class="max-w-2xl mx-auto">

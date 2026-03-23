@@ -10,6 +10,11 @@ Five interactive demos showing different Truv integration patterns. Each demo wa
 | **Choice Connect** | User-initiated Bridge (no order) | Users, Bridge Tokens, Link Reports |
 | **Upload Documents** | Document collection and processing | Document Collections |
 
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) 18+
+- [ngrok](https://ngrok.com/) (free account, required for webhooks)
+
 ## Setup
 
 ```sh

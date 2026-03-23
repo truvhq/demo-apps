@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
-import { Layout, OrderResults, WaitingScreen, usePanel, API_BASE } from '../components/index.js';
+import { Layout, OrderResults, WaitingScreen, usePanel, API_BASE, parsePayload } from '../components/index.js';
 import { navigate } from '../App.jsx';
 
 const STEPS = [
@@ -102,7 +102,7 @@ function IntroScreen({ onStart }) {
   );
 }
 
-function CompanySearch({ value, onChange }) {
+function CompanySearch({ value, onChange, productType }) {
   const [query, setQuery] = useState(value || '');
   const [results, setResults] = useState([]);
   const [open, setOpen] = useState(false);
@@ -125,7 +125,7 @@ function CompanySearch({ value, onChange }) {
     setLoading(true);
     timerRef.current = setTimeout(async () => {
       try {
-        const resp = await fetch(`${API_BASE}/api/companies?q=${encodeURIComponent(q)}&product_type=income`);
+        const resp = await fetch(`${API_BASE}/api/companies?q=${encodeURIComponent(q)}&product_type=${encodeURIComponent(productType || 'income')}`);
         const data = await resp.json();
         setResults(data.slice(0, 8));
         setOpen(data.length > 0);
@@ -198,7 +198,7 @@ function ApplicationForm({ onSubmit, submitting, productType }) {
       </div>
       <div class="mb-4">
         <label class="text-sm font-medium mb-1.5 block">Employer</label>
-        <CompanySearch value={employer.name} onChange={setEmployer} />
+        <CompanySearch value={employer.name} onChange={setEmployer} productType={productType} />
         <p class="text-xs text-gray-400 mt-1">Search uses <code>GET /v1/company-mappings-search/</code></p>
       </div>
       <div class="mb-4"><label class="text-sm font-medium mb-1.5 block">Email</label><input name="email" type="email" placeholder="joe@example.com" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
@@ -256,8 +256,8 @@ function AppBridgeScreen({ orderId, addBridgeEvent, startPolling }) {
     return () => { try { b.close(); } catch {} };
   }, [bridgeToken]);
 
-  if (error) return <div class="text-center py-15 text-red-600">{error}</div>;
-  if (!bridgeToken) return <div class="text-center py-15"><div class="w-10 h-10 border-3 border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;
+  if (error) return <div class="text-center py-16 text-red-600">{error}</div>;
+  if (!bridgeToken) return <div class="text-center py-16"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;
 
   return <div ref={containerRef} class="w-full h-full overflow-hidden bg-white [&_iframe]:w-full [&_iframe]:!h-full [&_iframe]:border-none" style="zoom: 0.85;" />;
 }
@@ -279,7 +279,7 @@ function AppWaitingScreen({ orderId, webhooks, startPolling }) {
   useEffect(() => {
     if (advancePendingRef.current) return;
     const isCompleted = webhooks.some(w => {
-      const p = typeof w.payload === 'string' ? JSON.parse(w.payload) : (w.payload || {});
+      const p = parsePayload(w.payload);
       return (p.event_type === 'order-status-updated' && p.status === 'completed')
         || (w.event_type === 'order-status-updated' && w.status === 'completed');
     });
@@ -307,8 +307,8 @@ function AppResultsScreen({ orderId, onBack }) {
     })();
   }, [orderId]);
 
-  if (error) return <div class="max-w-lg mx-auto text-center py-15 text-red-600">{error}</div>;
-  if (!orderData) return <div class="max-w-lg mx-auto text-center py-15"><div class="w-10 h-10 border-3 border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;
+  if (error) return <div class="max-w-lg mx-auto text-center py-16 text-red-600">{error}</div>;
+  if (!orderData) return <div class="max-w-lg mx-auto text-center py-16"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;
 
   return (
     <div class="max-w-lg mx-auto">

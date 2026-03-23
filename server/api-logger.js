@@ -20,14 +20,14 @@ export function redactSensitive(body) {
 
 export function logApiCall({ userId, method, endpoint, requestBody, responseBody, statusCode, durationMs }) {
   const redactedRequest = requestBody ? JSON.stringify(redactSensitive(requestBody)) : null;
-  const responseStr = responseBody ? JSON.stringify(responseBody) : null;
+  const redactedResponse = responseBody ? JSON.stringify(redactSensitive(responseBody)) : null;
 
   return db.insertApiLog({
     userId,
     method,
     endpoint,
     requestBody: redactedRequest,
-    responseBody: responseStr,
+    responseBody: redactedResponse,
     statusCode,
     durationMs,
   });

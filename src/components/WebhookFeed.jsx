@@ -1,3 +1,9 @@
+export function parsePayload(raw) {
+  if (!raw) return {};
+  if (typeof raw !== 'string') return raw;
+  try { return JSON.parse(raw); } catch { return {}; }
+}
+
 export function WebhookFeed({ webhooks }) {
   if (!webhooks.length) {
     return <div class="text-center text-sm text-gray-400">No webhooks received yet...</div>;
@@ -8,7 +14,7 @@ export function WebhookFeed({ webhooks }) {
   return (
     <div class="text-left w-full max-w-md">
       {reversed.map((w, i) => {
-        const payload = typeof w.payload === 'string' ? JSON.parse(w.payload) : (w.payload || {});
+        const payload = parsePayload(w.payload);
         const eventType = payload.event_type || w.event_type || 'unknown';
         const status = payload.status || w.status || '';
         const ts = payload.event_created_at || payload.updated_at || w.received_at || '';
@@ -32,8 +38,8 @@ export function WebhookFeed({ webhooks }) {
 export function WaitingScreen({ webhooks }) {
   return (
     <div class="flex flex-col items-center justify-center min-h-[60vh] text-center">
-      <div class="w-18 h-18 mb-7">
-        <div class="w-18 h-18 border-3 border-border border-t-primary rounded-full animate-spin" />
+      <div class="w-[4.5rem] h-[4.5rem] mb-7">
+        <div class="w-[4.5rem] h-[4.5rem] border-[3px] border-border border-t-primary rounded-full animate-spin" />
       </div>
       <h2 class="text-2xl font-bold tracking-tight mb-2">Waiting for webhooks</h2>
       <p class="text-sm text-gray-500 leading-relaxed max-w-sm mb-9">

@@ -24,6 +24,7 @@ export function UploadDocumentsDemo() {
   const [finalizing, setFinalizing] = useState(false);
 
   const pollRef = useRef(null);
+  const resultsPollRef = useRef(null);
   const { panel, setCurrentStep } = usePanel();
 
   // Poll collection status
@@ -84,18 +85,21 @@ export function UploadDocumentsDemo() {
 
       // Poll for results
       const pollResults = async () => {
-        const resp = await fetch(`${API_BASE}/api/collections/${collectionId}/results`);
-        const data = await resp.json();
-        setResultsData(data);
-        if (data.status !== 'completed') setTimeout(pollResults, 3000);
+        try {
+          const resp = await fetch(`${API_BASE}/api/collections/${collectionId}/results`);
+          const data = await resp.json();
+          setResultsData(data);
+          if (data.status !== 'completed') resultsPollRef.current = setTimeout(pollResults, 3000);
+        } catch (e) { console.error(e); }
       };
-      setTimeout(pollResults, 2000);
+      resultsPollRef.current = setTimeout(pollResults, 2000);
     } catch (e) { console.error(e); }
     setFinalizing(false);
   }
 
   function resetDemo() {
     if (pollRef.current) clearInterval(pollRef.current);
+    if (resultsPollRef.current) clearTimeout(resultsPollRef.current);
     setScreen('upload');
     setFiles([]);
     setCollectionId(null);
@@ -224,7 +228,7 @@ function ReviewScreen({ data, onReset }) {
   if (!data || data.status !== 'completed') {
     return (
       <div class="text-center py-12">
-        <div class="w-10 h-10 border-3 border-gray-200 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+        <div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto mb-4" />
         <p class="text-sm text-gray-500">Extracting data...</p>
       </div>
     );

@@ -24,7 +24,7 @@ db.initDb();
 
 const app = express();
 app.use(express.json({ limit: '100mb', verify: (req, _res, buf) => { req.rawBody = buf.toString('utf-8'); } }));
-app.use(cors());
+app.use(cors({ origin: /^http:\/\/localhost(:\d+)?$/ }));
 
 // --- Config ---
 app.get('/api/config', (_req, res) => res.json({ product_type: API_PRODUCT_TYPE }));
