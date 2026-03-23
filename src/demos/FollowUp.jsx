@@ -33,7 +33,7 @@ const STEPS = [
 
 const TASKS = [
   { id: 'income', name: 'Verify Income', desc: 'Home Depot', products: ['income'], employer: 'Home Depot', icon: '💰', iconBg: 'bg-green-100' },
-  { id: 'employment', name: 'Verify Employment', desc: 'Home Depot', products: ['employment'], employer: 'Home Depot', icon: '📋', iconBg: 'bg-blue-100' },
+  { id: 'employment', name: 'Verify Employment', desc: 'Walmart', products: ['employment'], employer: 'Walmart', icon: '📋', iconBg: 'bg-blue-100' },
   { id: 'assets', name: 'Verify Assets', desc: 'Bank accounts & transactions', products: ['assets'], employer: null, icon: '🏦', iconBg: 'bg-amber-100' },
   { id: 'assets-income', name: 'Assets + Income', desc: 'Combined order', products: ['income', 'assets'], employer: 'Home Depot', icon: '📊', iconBg: 'bg-purple-100' },
 ];

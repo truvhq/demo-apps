@@ -95,8 +95,8 @@ function IntroScreen({ onStart }) {
         </select>
       </div>
 
-      <button onClick={() => onStart(selected)} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover">
-        Start Application
+      <button onClick={() => onStart(selected)} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
+        Continue
       </button>
     </div>
   );
@@ -159,7 +159,6 @@ function CompanySearch({ value, onChange, productType }) {
                 <div class="text-sm font-medium truncate">{c.name}</div>
                 {c.domain && <div class="text-xs text-gray-400">{c.domain}</div>}
               </div>
-              {c.success_rate && <span class={`text-xs px-1.5 py-0.5 rounded ${c.success_rate === 'high' ? 'bg-green-50 text-green-600' : c.success_rate === 'low' ? 'bg-yellow-50 text-yellow-600' : 'bg-gray-50 text-gray-400'}`}>{c.success_rate}</span>}
             </div>
           ))}
         </div>
@@ -210,7 +209,7 @@ function ApplicationForm({ onSubmit, submitting, productType }) {
         <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} class="w-4.5 h-4.5 accent-primary" />
         I agree to the Terms of Service
       </label>
-      <button type="submit" disabled={!agree || !employer.name || submitting} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover disabled:opacity-40">
+      <button type="submit" disabled={!agree || !employer.name || submitting} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
         {submitting ? <span class="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Continue'}
       </button>
     </form>
@@ -316,7 +315,7 @@ function AppResultsScreen({ orderId, onBack }) {
       <p class="text-sm text-gray-500 mb-7">Order {orderData.truv_order_id || ''} • {orderData.status || ''}</p>
       <OrderResults data={orderData} />
       <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-        <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-lg hover:border-primary hover:text-primary" onClick={onBack}>New Application</button>
+        <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:border-primary hover:text-primary" onClick={onBack}>New Application</button>
       </div>
     </div>
   );
