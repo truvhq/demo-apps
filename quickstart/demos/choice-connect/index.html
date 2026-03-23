@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Truv Quickstart — Choice Connect</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="/shared/styles.css" />
+  <script src="https://cdn.truv.com/bridge.js"></script>
+  <style>
+    /* Product grid */
+    .product-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
+    .product-option { border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 14px; cursor: pointer; text-align: center; }
+    .product-option:hover { border-color: var(--primary); }
+    .product-option.selected { border-color: var(--primary); background: var(--primary-light); }
+    .product-option .product-name { font-size: 13px; font-weight: 600; }
+    .product-option .product-desc { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+
+    /* Screen card typography */
+    .screen-card h2 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    .screen-card .desc { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; line-height: 1.5; }
+
+    /* Full-width primary button */
+    .btn-primary { width: 100%; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-logo"></div>
+    <div class="header-title">Truv Quickstart</div>
+    <div class="header-badge">Choice Connect</div>
+  </div>
+</div>
+
+<div class="main-layout">
+  <div class="app-panel" id="appPanel"></div>
+  <div id="apiPanel" class="api-panel"></div>
+</div>
+
+<script src="/shared/panel.js"></script>
+<script>
+var STEPS = [
+  { title: 'Select Product', guide: 'Choose a product type. The backend will call <code>POST /v1/users/</code> then <code>POST /v1/users/{id}/tokens/</code> to get a bridge_token.' },
+  { title: 'Connect', guide: 'Click "Connect Payroll" to open the Bridge popup. Use sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code>.' },
+  { title: 'Review', guide: 'The backend exchanges the public_token for an access_token, then fetches the report via <code>GET /v1/links/{id}/{type}/report</code>.' },
+];
+
+var panel = new QuickstartPanel({
+  tabs: ['guide', 'api', 'bridge'],
+  steps: STEPS,
+});
+
+var state = {
+  step: 0, bridgeToken: null, productType: 'income', orderData: null,
+};
+
+function nextStep() {
+  if (state.step < STEPS.length - 1) {
+    state.step++;
+    panel.setStep(state.step);
+    render();
+  }
+}
+
+function buildStepNav() {
+  var nav = el('div', { className: 'step-nav' });
+  STEPS.forEach(function (s, i) {
+    if (i > 0) nav.appendChild(el('span', { className: 'step-arrow' }, '\u2192'));
+    var cls = i === state.step ? 'active' : (i < state.step ? 'done' : '');
+    nav.appendChild(el('div', { className: 'step-item ' + cls }, [
+      el('div', { className: 'step-number' }, i < state.step ? '\u2713' : String(i + 1)),
+      el('span', {}, s.title),
+    ]));
+  });
+  return nav;
+}
+
+function render() {
+  var appPanel = document.getElementById('appPanel');
+  appPanel.replaceChildren();
+  appPanel.appendChild(buildStepNav());
+  var sc = el('div', { className: 'screen-container' });
+
+  if (state.step === 0) sc.appendChild(buildProductScreen());
+  else if (state.step === 1) sc.appendChild(buildConnectScreen());
+  else sc.appendChild(buildReviewScreen());
+
+  appPanel.appendChild(sc);
+}
+
+// --- Product Select ---
+function buildProductScreen() {
+  var products = [
+    { id: 'employment', name: 'Employment', desc: 'Verify employment history' },
+    { id: 'income', name: 'Income', desc: 'Verify income & pay stubs' },
+    { id: 'deposit_switch', name: 'Direct Deposit', desc: 'Switch direct deposit' },
+    { id: 'pll', name: 'Payroll Lending', desc: 'Paycheck linked loans' },
+  ];
+  var card = el('div', { className: 'screen-card' });
+  card.appendChild(el('h2', {}, 'Select Product'));
+  card.appendChild(el('p', { className: 'desc' }, 'Choose the verification product type, then we\'ll create a user and bridge token.'));
+
+  var grid = el('div', { className: 'product-grid' });
+  products.forEach(function (p) {
+    grid.appendChild(el('div', {
+      className: 'product-option' + (state.productType === p.id ? ' selected' : ''),
+      onclick: function (e) {
+        state.productType = p.id;
+        grid.querySelectorAll('.product-option').forEach(function (o) { o.classList.remove('selected'); });
+        e.currentTarget.classList.add('selected');
+      },
+    }, [el('div', { className: 'product-name' }, p.name), el('div', { className: 'product-desc' }, p.desc)]));
+  });
+  card.appendChild(grid);
+  card.appendChild(el('button', { className: 'btn btn-primary', id: 'tokenBtn', onclick: handleGetToken }, 'Get Bridge Token'));
+  return card;
+}
+
+async function handleGetToken() {
+  var btn = document.getElementById('tokenBtn');
+  btn.disabled = true; btn.textContent = 'Creating...';
+  try {
+    var resp = await fetch(API_BASE + '/api/bridge-token', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ product_type: state.productType }),
+    });
+    var data = await resp.json();
+    state.bridgeToken = data.bridge_token;
+    nextStep();
+  } catch (e) { console.error(e); btn.disabled = false; btn.textContent = 'Get Bridge Token'; }
+}
+
+// --- Connect ---
+var bridgeInstance = null;
+
+function buildConnectScreen() {
+  var card = el('div', { className: 'screen-card', style: 'text-align:center;padding:48px 32px;' });
+  card.appendChild(el('h2', {}, 'Connect Your Payroll'));
+  card.appendChild(el('p', { className: 'desc' }, 'Click below to open the Bridge popup. Sandbox: goodlogin / goodpassword'));
+  card.appendChild(el('button', { className: 'btn btn-primary', style: 'max-width:280px;margin:0 auto;', id: 'openBridgeBtn', onclick: openBridge }, 'Connect Payroll'));
+  return card;
+}
+
+function openBridge() {
+  if (!state.bridgeToken) return;
+  bridgeInstance = TruvBridge.init({
+    bridgeToken: state.bridgeToken,
+    isOrder: false,
+    onLoad: function () { panel.addBridgeEvent('onLoad', null); },
+    onEvent: function (eventType, payload) {
+      panel.addBridgeEvent('onEvent', { eventType: eventType });
+    },
+    onSuccess: function (publicToken) {
+      panel.addBridgeEvent('onSuccess', { publicToken: publicToken });
+      if (publicToken) handleBridgeSuccess(publicToken);
+    },
+    onClose: function () { panel.addBridgeEvent('onClose', null); },
+  });
+  if (bridgeInstance) bridgeInstance.open();
+}
+
+async function handleBridgeSuccess(publicToken) {
+  try {
+    var reportType = state.productType === 'deposit_switch' ? 'direct_deposit' : state.productType;
+    var resp = await fetch(API_BASE + '/api/link-report/' + encodeURIComponent(publicToken) + '/' + encodeURIComponent(reportType));
+    state.orderData = await resp.json();
+    nextStep();
+  } catch (e) { console.error('Error fetching report:', e); }
+}
+
+// --- Review ---
+function buildReviewScreen() {
+  var data = state.orderData;
+  if (!data) return el('div', { className: 'screen-card', style: 'text-align:center;padding:48px;' }, [el('div', { className: 'spinner' }), el('p', {}, 'Fetching report...')]);
+
+  var employments = data.employments || [];
+  var emp = employments[0] || {};
+  var card = el('div', { className: 'screen-card' });
+  card.appendChild(el('h2', {}, 'Verification Complete'));
+  card.appendChild(el('p', { className: 'desc' }, 'Report data retrieved via the Users API / Link Reports.'));
+
+  var table = el('div', { className: 'review-table' });
+  addRow(table, 'Employer', emp.company && emp.company.name ? emp.company.name : '-');
+  addRow(table, 'Job Title', emp.job_title || '-');
+  addRow(table, 'Status', emp.is_active ? 'Active' : 'Inactive');
+  addRow(table, 'Start Date', emp.start_date || '-');
+  addRow(table, 'End Date', emp.end_date || '-');
+  if (emp.income) addRow(table, 'Income', '$' + Number(emp.income).toLocaleString() + ' ' + (emp.income_unit || ''));
+  if (data.deposit_details) {
+    var dd = data.deposit_details;
+    addRow(table, 'Account Type', dd.account_type || '-');
+    addRow(table, 'Routing Number', dd.routing_number || '-');
+    addRow(table, 'Deposit Type', dd.deposit_type || '-');
+  }
+  card.appendChild(table);
+  return card;
+}
+
+function addRow(table, label, value) {
+  table.appendChild(el('div', { className: 'review-row' }, [el('span', { className: 'review-label' }, label), el('span', { className: 'review-value' }, String(value))]));
+}
+
+// --- Init ---
+fetch('/api/config').then(function (r) { return r.json(); }).then(function (d) { state.productType = d.product_type; render(); }).catch(function () {});
+render();
+</script>
+</body>
+</html>

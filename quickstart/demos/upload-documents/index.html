@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Truv Quickstart — Upload Documents</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="/shared/styles.css" />
+  <style>
+    /* Drop zone */
+    .drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 48px 24px; text-align: center; cursor: pointer; transition: all 0.2s; }
+    .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background: var(--primary-light); }
+    .drop-zone-icon { font-size: 36px; margin-bottom: 12px; }
+    .drop-zone-text { font-size: 14px; color: var(--text-secondary); }
+    .drop-zone-hint { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+
+    /* File list */
+    .file-list { margin-top: 16px; }
+    .file-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border-light); border-radius: var(--radius-sm); margin-bottom: 8px; }
+    .file-icon { font-size: 20px; }
+    .file-info { flex: 1; }
+    .file-name { font-size: 13px; font-weight: 500; }
+    .file-size { font-size: 11px; color: var(--text-muted); }
+    .file-remove { background: none; border: none; color: var(--error); cursor: pointer; font-size: 16px; padding: 4px; }
+
+    /* Document cards */
+    .doc-card { border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 10px; }
+    .doc-card h4 { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    .doc-field { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; }
+    .doc-field-label { color: var(--text-secondary); }
+    .doc-field-value { font-weight: 500; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-logo"></div>
+    <div class="header-title">Truv Quickstart</div>
+    <div class="header-badge">Upload Documents</div>
+  </div>
+</div>
+
+<div class="main-layout">
+  <div class="app-panel" id="appPanel"></div>
+  <div id="apiPanel" class="api-panel"></div>
+</div>
+
+<script src="/shared/panel.js"></script>
+<script>
+var STEPS = [
+  { title: 'Upload', guide: 'Select document files (PDF, JPEG, PNG, etc.). Files are read as base64 and sent to the Truv Document Collections API via <code>POST /v1/documents/collections/</code>.' },
+  { title: 'Processing', guide: 'The collection is being processed. Poll <code>GET /v1/documents/collections/{id}/</code> to check file validation and status.' },
+  { title: 'Finalize', guide: 'Trigger finalization via <code>POST /v1/documents/collections/{id}/finalize/</code>. This extracts structured data from the documents.' },
+  { title: 'Review', guide: 'Fetch results via <code>GET /v1/documents/collections/{id}/finalize/</code> to see parsed document data.' },
+];
+
+var panel = new QuickstartPanel({
+  tabs: ['guide', 'api'],
+  steps: STEPS,
+});
+
+var state = {
+  step: 0,
+  files: [],         // { name, size, type, base64 }
+  collectionId: null,
+  truvCollectionId: null,
+  collectionData: null,
+  resultsData: null,
+  pollTimer: null,
+};
+
+function nextStep() {
+  if (state.step < STEPS.length - 1) {
+    state.step++;
+    panel.setStep(state.step);
+    render();
+  }
+}
+
+function buildStepNav() {
+  var nav = el('div', { className: 'step-nav' });
+  STEPS.forEach(function (s, i) {
+    if (i > 0) nav.appendChild(el('span', { className: 'step-arrow' }, '\u2192'));
+    var cls = i === state.step ? 'active' : (i < state.step ? 'done' : '');
+    nav.appendChild(el('div', { className: 'step-item ' + cls }, [
+      el('div', { className: 'step-number' }, i < state.step ? '\u2713' : String(i + 1)),
+      el('span', null, s.title),
+    ]));
+  });
+  return nav;
+}
+
+function render() {
+  var appPanel = document.getElementById('appPanel');
+  appPanel.replaceChildren();
+  appPanel.appendChild(buildStepNav());
+  var sc = el('div', { className: 'screen-container' });
+
+  if (state.step === 0) sc.appendChild(buildUploadScreen());
+  else if (state.step === 1) sc.appendChild(buildProcessingScreen());
+  else if (state.step === 2) sc.appendChild(buildFinalizeScreen());
+  else sc.appendChild(buildReviewScreen());
+
+  appPanel.appendChild(sc);
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+// --- Upload ---
+function buildUploadScreen() {
+  var card = el('div', { className: 'screen-card' });
+  card.appendChild(el('h2', null, 'Upload Documents'));
+  card.appendChild(el('p', { className: 'desc' }, 'Upload pay stubs, W-2s, tax documents, or other income verification files. Supported: PDF, JPEG, PNG, TIFF, WebP, BMP, HEIC. Max 10 files, 10MB each.'));
+
+  var fileInput = el('input', { type: 'file', id: 'fileInput', style: 'display:none;' });
+  fileInput.multiple = true;
+  fileInput.accept = '.pdf,.jpg,.jpeg,.png,.tiff,.tif,.webp,.bmp,.heic,.heif';
+  fileInput.addEventListener('change', handleFiles);
+
+  var zone = el('div', { className: 'drop-zone', id: 'dropZone', onclick: function () { fileInput.click(); } });
+  zone.appendChild(el('div', { className: 'drop-zone-icon' }, '\uD83D\uDCC1'));
+  zone.appendChild(el('div', { className: 'drop-zone-text' }, 'Drop files here or click to browse'));
+  zone.appendChild(el('div', { className: 'drop-zone-hint' }, 'PDF, JPEG, PNG, TIFF, WebP, BMP, HEIC/HEIF'));
+  card.appendChild(fileInput);
+  card.appendChild(zone);
+
+  // File list
+  if (state.files.length > 0) {
+    var list = el('div', { className: 'file-list' });
+    state.files.forEach(function (f, i) {
+      list.appendChild(el('div', { className: 'file-item' }, [
+        el('span', { className: 'file-icon' }, '\uD83D\uDCC4'),
+        el('div', { className: 'file-info' }, [
+          el('div', { className: 'file-name' }, f.name),
+          el('div', { className: 'file-size' }, formatSize(f.size)),
+        ]),
+        el('button', { className: 'file-remove', onclick: function () { state.files.splice(i, 1); render(); } }, '\u2715'),
+      ]));
+    });
+    card.appendChild(list);
+  }
+
+  card.appendChild(el('button', {
+    className: 'btn btn-primary',
+    id: 'uploadBtn',
+    disabled: state.files.length === 0,
+    style: 'margin-top:16px;width:100%;',
+    onclick: handleUpload,
+  }, 'Upload & Process'));
+
+  // Drag-and-drop
+  setTimeout(function () {
+    var dz = document.getElementById('dropZone');
+    if (!dz) return;
+    dz.addEventListener('dragover', function (e) { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', function () { dz.classList.remove('dragover'); });
+    dz.addEventListener('drop', function (e) {
+      e.preventDefault();
+      dz.classList.remove('dragover');
+      addFiles(e.dataTransfer.files);
+    });
+  }, 0);
+
+  return card;
+}
+
+function handleFiles(e) {
+  addFiles(e.target.files);
+}
+
+function addFiles(fileList) {
+  var promises = [];
+  for (var i = 0; i < fileList.length; i++) {
+    var file = fileList[i];
+    if (state.files.length >= 10) break;
+    if (file.size > 10 * 1024 * 1024) { alert(file.name + ' exceeds 10MB limit'); continue; }
+    promises.push(readFileAsBase64(file));
+  }
+  Promise.all(promises).then(function (results) {
+    state.files.push.apply(state.files, results);
+    render();
+  });
+}
+
+function readFileAsBase64(file) {
+  return new Promise(function (resolve) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var base64 = reader.result.split(',')[1];
+      resolve({ name: file.name, size: file.size, type: file.type, base64: base64 });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleUpload() {
+  var btn = document.getElementById('uploadBtn');
+  btn.disabled = true; btn.textContent = 'Uploading...';
+
+  var documents = state.files.map(function (f) {
+    return { content: f.base64, filename: f.name };
+  });
+
+  try {
+    var resp = await fetch(API_BASE + '/api/collections', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documents: documents }),
+    });
+    var data = await resp.json();
+    if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); btn.disabled = false; btn.textContent = 'Upload & Process'; return; }
+
+    state.collectionId = data.collection_id;
+    state.truvCollectionId = data.truv_collection_id;
+    await fetchLogs();
+    nextStep();
+    startPolling();
+  } catch (e) { console.error(e); btn.disabled = false; btn.textContent = 'Upload & Process'; }
+}
+
+// --- Processing ---
+function buildProcessingScreen() {
+  var card = el('div', { className: 'screen-card' });
+  card.appendChild(el('h2', null, 'Processing Documents'));
+  card.appendChild(el('p', { className: 'desc' }, 'The collection is being validated and processed. This may take a few moments.'));
+
+  var data = state.collectionData;
+  if (!data) {
+    card.appendChild(el('div', { style: 'text-align:center;padding:24px;' }, [el('div', { className: 'spinner' }), el('p', null, 'Waiting for status...')]));
+    return card;
+  }
+
+  var raw = data.raw_response || {};
+  var table = el('div', { className: 'review-table' });
+  addRow(table, 'Collection ID', data.truv_collection_id || '-');
+
+  var statusClass = raw.status === 'completed' ? 'badge-success' : (raw.status === 'error' ? 'badge-error' : 'badge-pending');
+  table.appendChild(el('div', { className: 'review-row' }, [
+    el('span', { className: 'review-label' }, 'Status'),
+    el('span', { className: 'review-value' }, el('span', { className: 'badge ' + statusClass }, raw.status || data.status || '-')),
+  ]));
+
+  // Show documents info
+  if (raw.documents && Array.isArray(raw.documents)) {
+    raw.documents.forEach(function (doc, i) {
+      var docCard = el('div', { className: 'doc-card' });
+      docCard.appendChild(el('h4', null, 'Document ' + (i + 1) + (doc.filename ? ': ' + doc.filename : '')));
+      if (doc.is_valid !== undefined) addDocField(docCard, 'Valid', doc.is_valid ? 'Yes' : 'No');
+      if (doc.is_readable !== undefined) addDocField(docCard, 'Readable', doc.is_readable ? 'Yes' : 'No');
+      if (doc.document_type) addDocField(docCard, 'Type', doc.document_type);
+      card.appendChild(docCard);
+    });
+  }
+  card.appendChild(table);
+
+  var ready = raw.status === 'completed' || raw.status === 'processed';
+  card.appendChild(el('button', {
+    className: 'btn btn-primary',
+    style: 'margin-top:16px;width:100%;',
+    disabled: !ready,
+    onclick: function () { stopPolling(); nextStep(); },
+  }, ready ? 'Continue to Finalize' : 'Processing...'));
+
+  return card;
+}
+
+function addDocField(parent, label, value) {
+  parent.appendChild(el('div', { className: 'doc-field' }, [
+    el('span', { className: 'doc-field-label' }, label),
+    el('span', { className: 'doc-field-value' }, String(value)),
+  ]));
+}
+
+function startPolling() {
+  stopPolling();
+  pollCollection();
+  state.pollTimer = setInterval(pollCollection, 3000);
+}
+
+function stopPolling() {
+  if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+}
+
+async function pollCollection() {
+  if (!state.collectionId) return;
+  try {
+    var resp = await fetch(API_BASE + '/api/collections/' + encodeURIComponent(state.collectionId));
+    state.collectionData = await resp.json();
+    await fetchLogs();
+    render();
+    var status = (state.collectionData.raw_response && state.collectionData.raw_response.status) || state.collectionData.status;
+    if (status === 'completed' || status === 'processed' || status === 'error') {
+      stopPolling();
+    }
+  } catch (e) { console.error(e); }
+}
+
+// --- Finalize ---
+function buildFinalizeScreen() {
+  var card = el('div', { className: 'screen-card' });
+  card.appendChild(el('h2', null, 'Finalize Collection'));
+  card.appendChild(el('p', { className: 'desc' }, 'Documents have been processed. Click below to extract structured data from the documents.'));
+
+  card.appendChild(el('button', {
+    className: 'btn btn-primary',
+    id: 'finalizeBtn',
+    style: 'width:100%;',
+    onclick: handleFinalize,
+  }, 'Finalize & Extract Data'));
+  return card;
+}
+
+async function handleFinalize() {
+  var btn = document.getElementById('finalizeBtn');
+  btn.disabled = true; btn.textContent = 'Finalizing...';
+
+  try {
+    await fetch(API_BASE + '/api/collections/' + encodeURIComponent(state.collectionId) + '/finalize', { method: 'POST' });
+
+    // Poll for results
+    var attempts = 0;
+    var poll = async function () {
+      attempts++;
+      var resp = await fetch(API_BASE + '/api/collections/' + encodeURIComponent(state.collectionId) + '/results');
+      var data = await resp.json();
+      state.resultsData = data;
+      await fetchLogs();
+
+      if (data.status === 'completed' || data.status === 'finalized' || attempts > 20) {
+        nextStep();
+      } else {
+        setTimeout(poll, 3000);
+      }
+    };
+    setTimeout(poll, 2000);
+  } catch (e) { console.error(e); btn.disabled = false; btn.textContent = 'Finalize & Extract Data'; }
+}
+
+// --- Review ---
+function buildReviewScreen() {
+  var card = el('div', { className: 'screen-card' });
+  card.appendChild(el('h2', null, 'Document Results'));
+  card.appendChild(el('p', { className: 'desc' }, 'Structured data extracted from your documents.'));
+
+  var data = state.resultsData;
+  if (!data) {
+    card.appendChild(el('div', { style: 'text-align:center;padding:24px;' }, [el('div', { className: 'spinner' }), el('p', null, 'Loading results...')]));
+    return card;
+  }
+
+  // Show parsed documents
+  var documents = data.documents || data.results || [];
+  if (Array.isArray(documents) && documents.length > 0) {
+    documents.forEach(function (doc, i) {
+      var docCard = el('div', { className: 'doc-card' });
+      var docType = doc.document_type || doc.type || 'Document';
+      docCard.appendChild(el('h4', null, docType + (doc.filename ? ' - ' + doc.filename : '')));
+
+      if (doc.employee_name || doc.name) addDocField(docCard, 'Name', doc.employee_name || doc.name);
+      if (doc.employer_name || doc.company) addDocField(docCard, 'Employer', doc.employer_name || doc.company);
+      if (doc.gross_pay) addDocField(docCard, 'Gross Pay', '$' + Number(doc.gross_pay).toLocaleString());
+      if (doc.net_pay) addDocField(docCard, 'Net Pay', '$' + Number(doc.net_pay).toLocaleString());
+      if (doc.pay_period_start) addDocField(docCard, 'Period Start', doc.pay_period_start);
+      if (doc.pay_period_end) addDocField(docCard, 'Period End', doc.pay_period_end);
+      if (doc.tax_year) addDocField(docCard, 'Tax Year', doc.tax_year);
+      if (doc.wages) addDocField(docCard, 'Wages', '$' + Number(doc.wages).toLocaleString());
+      if (doc.is_valid !== undefined) addDocField(docCard, 'Valid', doc.is_valid ? 'Yes' : 'No');
+
+      card.appendChild(docCard);
+    });
+  } else {
+    // Show raw response
+    var pre = el('pre', { style: 'font-size:12px;font-family:monospace;background:var(--bg-input);padding:16px;border-radius:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;max-height:400px;overflow-y:auto;' });
+    pre.textContent = JSON.stringify(data, null, 2);
+    card.appendChild(pre);
+  }
+
+  return card;
+}
+
+function addRow(table, label, value) {
+  table.appendChild(el('div', { className: 'review-row' }, [el('span', { className: 'review-label' }, label), el('span', { className: 'review-value' }, String(value))]));
+}
+
+async function fetchLogs() {
+  if (!state.collectionId) return;
+  try {
+    var resp = await fetch(API_BASE + '/api/orders/' + encodeURIComponent(state.collectionId) + '/logs');
+    panel.apiLogs = await resp.json();
+    panel.render();
+  } catch (e) { console.error(e); }
+}
+
+render();
+</script>
+</body>
+</html>
