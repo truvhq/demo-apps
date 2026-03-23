@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
-import { Layout, OrderResults, WaitingScreen, usePanel, API_BASE } from '@shared/ui/index.js';
+import { Layout, OrderResults, WaitingScreen, usePanel, API_BASE } from '../components/index.js';
 import { navigate } from '../App.jsx';
 
 const STEPS = [

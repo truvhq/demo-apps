@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { Layout, OrderResults, usePanel, API_BASE } from '@shared/ui/index.js';
+import { Layout, OrderResults, usePanel, API_BASE } from '../components/index.js';
 
 const STEPS = [
   { title: 'Select product', guide: '<p>Choose the verification product type. The backend creates a user and generates a Bridge token:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>Each product type unlocks different data (employment, income, deposit routing, etc.).</p>' },

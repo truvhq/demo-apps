@@ -185,11 +185,6 @@ export class TruvClient {
     return this._request('GET', `users/${userId}/income_insights/reports/${reportId}/`);
   }
 
-  // Legacy
-  async getVoaReport(userId, reportId) {
-    return this._request('GET', `users/${userId}/assets/reports/${reportId}/`);
-  }
-
   // --- Document Collections API ---
 
   async createDocumentCollection(documents, users) {

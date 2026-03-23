@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
-import { Layout, usePanel, API_BASE } from '@shared/ui/index.js';
+import { Layout, usePanel, API_BASE } from '../components/index.js';
 
 const STEPS = [
   { title: 'Upload', guide: '<p>Upload employment documents (pay stubs, W-2s, tax returns). Supported formats: PDF, JPEG, PNG, TIFF.</p><pre>POST /v1/documents/collections/\n{\n  "documents": [{ "filename": "...", "content": "base64..." }]\n}</pre>' },

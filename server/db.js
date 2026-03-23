@@ -159,9 +159,7 @@ export function getWebhookEventsByUserId(userId) {
   return getDb().prepare('SELECT * FROM webhook_events WHERE user_id = ? ORDER BY id ASC').all(userId);
 }
 
-export function getAllWebhookEvents() {
-  return getDb().prepare('SELECT * FROM webhook_events ORDER BY id ASC').all();
-}
+
 
 // --- Reports ---
 
@@ -185,10 +183,6 @@ export function upsertReport({ orderId, reportType, truvReportId, status, respon
 
 export function getReport(orderId, reportType) {
   return getDb().prepare('SELECT * FROM reports WHERE order_id = ? AND report_type = ?').get(orderId, reportType) || null;
-}
-
-export function getReportsByOrderId(orderId) {
-  return getDb().prepare('SELECT * FROM reports WHERE order_id = ? ORDER BY id ASC').all(orderId);
 }
 
 // --- Document Collections ---
