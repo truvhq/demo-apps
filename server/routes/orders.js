@@ -8,6 +8,8 @@
 
 import { Router } from 'express';
 
+function safeParse(str) { try { return JSON.parse(str); } catch { return {}; } }
+
 export default function ordersRoutes({ truv, db, apiLogger, productType }) {
   const router = Router();
 
@@ -18,7 +20,7 @@ export default function ordersRoutes({ truv, db, apiLogger, productType }) {
       res.json(orders.map(o => ({
         order_id: o.id, truv_order_id: o.truv_order_id, user_id: o.user_id, demo_id: o.demo_id,
         status: o.status, share_url: o.share_url, created_at: o.created_at,
-        raw_response: o.raw_response ? JSON.parse(o.raw_response) : {},
+        raw_response: safeParse(o.raw_response),
       })));
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });

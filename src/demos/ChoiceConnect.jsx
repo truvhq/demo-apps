@@ -82,8 +82,8 @@ export function ChoiceConnectDemo() {
                 </div>
               ))}
             </div>
-            <button onClick={getBridgeToken} disabled={loading} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover disabled:opacity-40">
-              {loading ? 'Creating...' : 'Get Bridge Token'}
+            <button onClick={getBridgeToken} disabled={loading} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
+              {loading ? 'Creating...' : 'Continue'}
             </button>
           </div>
         )}
@@ -95,7 +95,7 @@ export function ChoiceConnectDemo() {
             <button onClick={() => {
               if (!bridgeToken || !window.TruvBridge) return;
               window.TruvBridge.init({ bridgeToken, onSuccess: (token) => onBridgeSuccess(token) }).open();
-            }} class="px-8 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover text-lg">
+            }} class="px-8 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-lg">
               Connect Payroll
             </button>
           </div>
@@ -109,7 +109,7 @@ export function ChoiceConnectDemo() {
               <div>
                 <pre class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-xs font-mono overflow-auto max-h-96 whitespace-pre-wrap">{JSON.stringify(reportData, null, 2)}</pre>
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-                  <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-lg hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
+                  <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
                 </div>
               </div>
             ) : (

@@ -58,7 +58,7 @@ export function usePanel() {
     setBridgeEvents([]);
     setWebhooks([]);
     setCurrentStep(0);
-  }, []);
+  }, [stopPolling]);
 
   useEffect(() => () => stopPolling(), []);
 

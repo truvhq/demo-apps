@@ -106,14 +106,14 @@ export function EmployeePortalDemo({ screen, param }) {
                   {emp.existing && order ? (
                     <div class="flex items-center gap-2">
                       <span class="text-xs font-semibold text-success bg-success-bg px-2 py-1 rounded">Existing</span>
-                      <button class="px-3 py-1.5 text-xs font-medium border border-primary text-primary rounded-lg hover:bg-primary hover:text-white" onClick={() => handleRequest(emp)}>
+                      <button class="px-3 py-1.5 text-xs font-medium border border-primary text-primary rounded-full hover:bg-primary hover:text-white" onClick={() => handleRequest(emp)}>
                         {isCreating ? <span class="inline-block w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /> : 'Reverify'}
                       </button>
                     </div>
                   ) : order ? (
-                    <button class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary-hover" onClick={() => handleStart(emp)}>Start</button>
+                    <button class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-full hover:bg-primary-hover" onClick={() => handleStart(emp)}>Start</button>
                   ) : (
-                    <button class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-40" disabled={isCreating} onClick={() => handleRequest(emp)}>
+                    <button class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-full hover:bg-primary-hover disabled:opacity-40" disabled={isCreating} onClick={() => handleRequest(emp)}>
                       {isCreating ? <span class="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Request'}
                     </button>
                   )}
@@ -227,7 +227,7 @@ function ResultsScreen({ orderId, onBack }) {
       <p class="text-sm text-gray-500 mb-7">Order {orderData.truv_order_id || ''} • {orderData.status || ''}</p>
       <OrderResults data={orderData} />
       <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-        <button class="px-5 py-2.5 text-sm font-semibold bg-primary text-white rounded-lg hover:bg-primary-hover" onClick={onBack}>Back to Employees</button>
+        <button class="px-5 py-2.5 text-sm font-semibold bg-primary text-white rounded-full hover:bg-primary-hover" onClick={onBack}>Back to Employees</button>
       </div>
     </div>
   );

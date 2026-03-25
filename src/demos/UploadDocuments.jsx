@@ -165,7 +165,7 @@ function UploadScreen({ files, onAdd, onRemove, onUpload, uploading }) {
         </div>
       )}
 
-      <button onClick={onUpload} disabled={files.length === 0 || uploading} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover disabled:opacity-40">
+      <button onClick={onUpload} disabled={files.length === 0 || uploading} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
         {uploading ? 'Uploading...' : `Upload & Process (${files.length})`}
       </button>
     </div>
@@ -205,7 +205,7 @@ function ProcessingScreen({ data, onContinue }) {
         </div>
       )}
 
-      <button onClick={onContinue} disabled={!isComplete} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover disabled:opacity-40">
+      <button onClick={onContinue} disabled={!isComplete} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
         Continue to Finalize
       </button>
     </div>
@@ -217,7 +217,7 @@ function FinalizeScreen({ onFinalize, finalizing }) {
     <div class="text-center py-12">
       <h2 class="text-2xl font-bold tracking-tight mb-2">Finalize & Extract</h2>
       <p class="text-sm text-gray-500 mb-8">Documents validated. Click below to extract structured data.</p>
-      <button onClick={onFinalize} disabled={finalizing} class="px-8 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover disabled:opacity-40">
+      <button onClick={onFinalize} disabled={finalizing} class="px-8 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
         {finalizing ? 'Finalizing...' : 'Finalize & Extract Data'}
       </button>
     </div>
@@ -264,7 +264,7 @@ function ReviewScreen({ data, onReset }) {
       ))}
 
       <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-        <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-lg hover:border-primary hover:text-primary" onClick={onReset}>Upload More</button>
+        <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:border-primary hover:text-primary" onClick={onReset}>Upload More</button>
       </div>
     </div>
   );

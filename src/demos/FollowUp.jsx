@@ -136,20 +136,8 @@ function InitScreen({ applicationId, onApplicationIdChange, onInitialize, initia
     <div>
       <h2 class="text-2xl font-bold tracking-tight mb-1.5">Follow-up Verification</h2>
       <p class="text-sm text-gray-500 leading-relaxed mb-7">
-        This demo creates multiple verification orders for the same applicant — income, employment, and assets.
-        Each order opens a Bridge widget where the applicant connects their accounts. Once completed,
-        reports are generated using the Truv Reports API.
+        Create multiple verification orders for the same applicant — income, employment, and assets.
       </p>
-
-      <div class="border border-border rounded-xl p-5 bg-white mb-6">
-        <h3 class="text-sm font-semibold mb-3">How it works</h3>
-        <ol class="text-sm text-gray-600 space-y-2 list-decimal list-inside">
-          <li>Create orders for each product type with a shared <code class="text-xs bg-gray-100 px-1 py-0.5 rounded">external_user_id</code></li>
-          <li>Open Bridge for each order — use sandbox credentials <code class="text-xs bg-gray-100 px-1 py-0.5 rounded">goodlogin</code> / <code class="text-xs bg-gray-100 px-1 py-0.5 rounded">goodpassword</code></li>
-          <li>Webhooks stream in as verification progresses</li>
-          <li>Fetch reports: VOIE for income, VOE for employment, assets + income insights for assets</li>
-        </ol>
-      </div>
 
       <div class="mb-4">
         <label class="text-sm font-medium mb-1.5 block">Application ID</label>
@@ -165,14 +153,14 @@ function InitScreen({ applicationId, onApplicationIdChange, onInitialize, initia
       <button
         onClick={onInitialize}
         disabled={initializing || !applicationId.trim()}
-        class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover disabled:opacity-40"
+        class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40"
       >
         {initializing ? (
           <span class="inline-flex items-center gap-2">
             <span class="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             Creating orders...
           </span>
-        ) : 'Create Orders'}
+        ) : 'Continue'}
       </button>
     </div>
   );
@@ -283,7 +271,7 @@ function ResultsScreen({ orderId, onBack }) {
       <p class="text-sm text-gray-500 mb-7">Order {orderData.truv_order_id || ''} • {orderData.status || ''}</p>
       <OrderResults data={orderData} />
       <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-        <button class="px-5 py-2.5 text-sm font-semibold bg-primary text-white rounded-lg hover:bg-primary-hover" onClick={onBack}>Back to Tasks</button>
+        <button class="px-5 py-2.5 text-sm font-semibold bg-primary text-white rounded-full hover:bg-primary-hover" onClick={onBack}>Back to Tasks</button>
       </div>
     </div>
   );
@@ -305,7 +293,7 @@ function TaskList({ tasks, taskOrders, taskStatus, onStart }) {
             {completed ? (
               <span class="text-xs font-semibold text-success bg-success-bg px-2 py-1 rounded uppercase">Completed</span>
             ) : order ? (
-              <button class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary-hover" onClick={() => onStart(task)}>Start</button>
+              <button class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-full hover:bg-primary-hover" onClick={() => onStart(task)}>Start</button>
             ) : (
               <span class="text-xs text-gray-400">Failed</span>
             )}

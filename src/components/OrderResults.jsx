@@ -96,7 +96,7 @@ function VoieReport({ report }) {
               <Row label="Full Name" value={profile.full_name || `${profile.first_name} ${profile.last_name}`} />
               {profile.email && <Row label="Email" value={profile.email} />}
               {profile.date_of_birth && <Row label="Date of Birth" value={profile.date_of_birth} />}
-              {profile.ssn && <Row label="SSN" value={profile.ssn.replace(/^(\d{3})(\d{2})(\d{4})$/, '$1-$2-$3')} />}
+              {profile.ssn && <Row label="SSN" value={`***-**-${profile.ssn.slice(-4)}`} />}
               {profile.home_address && <Row label="Address" value={[profile.home_address.street, profile.home_address.city, profile.home_address.state, profile.home_address.zip].filter(Boolean).join(', ')} />}
             </Section>
           )}
@@ -331,9 +331,10 @@ function IncomeInsightsReport({ report }) {
 
 export function OrderResults({ data }) {
   const hasVoie = data?.voie_report?.links?.length > 0;
+  const hasVoe = data?.voe_report?.links?.length > 0;
   const hasAssets = data?.voa_report?.links?.length > 0;
   const hasInsights = !!data?.income_insights_report;
-  const hasAny = hasVoie || hasAssets || hasInsights;
+  const hasAny = hasVoie || hasVoe || hasAssets || hasInsights;
 
   if (!hasAny) {
     return (
@@ -348,6 +349,7 @@ export function OrderResults({ data }) {
   return (
     <div>
       {hasVoie && <VoieReport report={data.voie_report} />}
+      {hasVoe && <VoieReport report={data.voe_report} />}
       {hasAssets && <AssetsReport report={data.voa_report} />}
       {hasInsights && <IncomeInsightsReport report={data.income_insights_report} />}
     </div>

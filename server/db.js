@@ -65,6 +65,7 @@ export function initDb() {
       created_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_reports_order_type ON reports(order_id, report_type);
     CREATE INDEX IF NOT EXISTS idx_reports_order_id ON reports(order_id);
 
     CREATE TABLE IF NOT EXISTS document_collections (
@@ -165,20 +166,16 @@ export function getWebhookEventsByUserId(userId) {
 
 export function upsertReport({ orderId, reportType, truvReportId, status, response }) {
   const conn = getDb();
-  const existing = conn.prepare('SELECT id FROM reports WHERE order_id = ? AND report_type = ?').get(orderId, reportType);
-  if (existing) {
-    const sets = [];
-    const vals = [];
-    if (truvReportId) { sets.push('truv_report_id = ?'); vals.push(truvReportId); }
-    if (status) { sets.push('status = ?'); vals.push(status); }
-    if (response !== undefined) { sets.push('response = ?'); vals.push(typeof response === 'object' ? JSON.stringify(response) : response); }
-    if (sets.length) { vals.push(existing.id); conn.prepare(`UPDATE reports SET ${sets.join(', ')} WHERE id = ?`).run(...vals); }
-    return conn.prepare('SELECT * FROM reports WHERE id = ?').get(existing.id);
-  }
-  const info = conn.prepare(
-    'INSERT INTO reports (order_id, report_type, truv_report_id, status, response) VALUES (?, ?, ?, ?, ?)'
-  ).run(orderId, reportType, truvReportId || null, status || 'pending', response ? (typeof response === 'object' ? JSON.stringify(response) : response) : null);
-  return conn.prepare('SELECT * FROM reports WHERE id = ?').get(info.lastInsertRowid);
+  const responseStr = response ? (typeof response === 'object' ? JSON.stringify(response) : response) : null;
+  conn.prepare(
+    `INSERT INTO reports (order_id, report_type, truv_report_id, status, response)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(order_id, report_type) DO UPDATE SET
+       truv_report_id = COALESCE(excluded.truv_report_id, truv_report_id),
+       status = COALESCE(excluded.status, status),
+       response = COALESCE(excluded.response, response)`
+  ).run(orderId, reportType, truvReportId || null, status || 'pending', responseStr);
+  return conn.prepare('SELECT * FROM reports WHERE order_id = ? AND report_type = ?').get(orderId, reportType);
 }
 
 export function getReport(orderId, reportType) {

@@ -75,18 +75,18 @@ export default function reportsRoutes({ truv, db, apiLogger }) {
 
       const userId = order.user_id;
       const productTypes = (order.product_type || 'income').split(',');
-      let voie_report = null, voa_report = null, income_insights_report = null;
+      let voie_report = null, voe_report = null, voa_report = null, income_insights_report = null;
 
       const fetches = [];
       if (productTypes.includes('income')) fetches.push(fetchReport(order.id, userId, 'income').then(r => { voie_report = r; }).catch(e => console.error('Income report error:', e.message)));
-      if (productTypes.includes('employment')) fetches.push(fetchReport(order.id, userId, 'employment').then(r => { voie_report = r; }).catch(e => console.error('Employment report error:', e.message)));
+      if (productTypes.includes('employment')) fetches.push(fetchReport(order.id, userId, 'employment').then(r => { voe_report = r; }).catch(e => console.error('Employment report error:', e.message)));
       if (productTypes.includes('assets')) {
         fetches.push(fetchReport(order.id, userId, 'assets').then(r => { voa_report = r; }).catch(e => console.error('Assets report error:', e.message)));
         fetches.push(fetchReport(order.id, userId, 'income_insights').then(r => { income_insights_report = r; }).catch(e => console.error('Income insights error:', e.message)));
       }
       await Promise.all(fetches);
 
-      res.json({ order_id: order.id, truv_order_id: order.truv_order_id, user_id: userId, product_type: order.product_type, status: order.status, voie_report, voa_report, income_insights_report });
+      res.json({ order_id: order.id, truv_order_id: order.truv_order_id, user_id: userId, product_type: order.product_type, status: order.status, voie_report, voe_report, voa_report, income_insights_report });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 

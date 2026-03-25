@@ -53,7 +53,7 @@ export function ApplicationDemo({ screen, param }) {
         <AppWaitingScreen orderId={param} webhooks={panel.webhooks} startPolling={startPolling} />
       )}
       {screen === 'results' && (
-        <AppResultsScreen orderId={param} onBack={() => { reset(); navigate('application'); }} />
+        <AppResultsScreen orderId={param} onBack={() => { reset(); setProductType(null); navigate('application'); }} />
       )}
       {!screen && (
         <div class="max-w-lg mx-auto">
@@ -76,16 +76,6 @@ function IntroScreen({ onStart }) {
       <p class="text-sm text-gray-500 leading-relaxed mb-7">
         Collect applicant details, search for their employer, and verify through Bridge.
       </p>
-
-      <div class="border border-border rounded-xl p-5 bg-white mb-6">
-        <h3 class="text-sm font-semibold mb-3">How it works</h3>
-        <ol class="text-sm text-gray-600 space-y-2 list-decimal list-inside">
-          <li>Select a product type and enter applicant info</li>
-          <li>An order is created via <code class="text-xs bg-gray-100 px-1 py-0.5 rounded">POST /v1/orders/</code></li>
-          <li>Bridge opens inline — use <code class="text-xs bg-gray-100 px-1 py-0.5 rounded">goodlogin</code> / <code class="text-xs bg-gray-100 px-1 py-0.5 rounded">goodpassword</code></li>
-          <li>Webhooks stream in, then reports are fetched</li>
-        </ol>
-      </div>
 
       <div class="mb-6">
         <label class="text-sm font-medium mb-1.5 block">Product</label>
@@ -121,7 +111,7 @@ function CompanySearch({ value, onChange, productType }) {
     setQuery(q);
     onChange({ name: q, id: null });
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (q.length < 2) { setResults([]); setOpen(false); return; }
+    if (q.length < 2) { setLoading(false); setResults([]); setOpen(false); return; }
     setLoading(true);
     timerRef.current = setTimeout(async () => {
       try {
