@@ -53,7 +53,8 @@ export function EmployeePortalDemo({ screen, param }) {
         first_name: testApplicant.firstName,
         last_name: testApplicant.lastName,
       };
-      if (testApplicant.employer) body.employer = testApplicant.employer;
+      if (testApplicant.email) body.email = testApplicant.email;
+      if (testApplicant.phone) body.phone = testApplicant.phone;
       const resp = await fetch(`${API_BASE}/api/orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await resp.json();
       if (resp.ok) {
@@ -170,8 +171,8 @@ export function EmployeePortalDemo({ screen, param }) {
                 {/* Test applicant row */}
                 <tr class="border-b border-[#f5f5f7] bg-[#fafafa]">
                   <td class="px-4 py-3 font-medium text-[#1d1d1f]">{testApplicant.firstName} {testApplicant.lastName}</td>
-                  <td class="px-4 py-3 text-[#6e6e73] font-mono text-[12px]">—</td>
-                  <td class="px-4 py-3 text-[#6e6e73] font-mono text-[12px]">—</td>
+                  <td class="px-4 py-3 text-[#6e6e73] font-mono text-[12px]">{testApplicant.email || '—'}</td>
+                  <td class="px-4 py-3 text-[#6e6e73] font-mono text-[12px]">{testApplicant.phone || '—'}</td>
                   <td class="px-4 py-3">
                     {testApplicant.products.map(p => <span key={p} class="inline-block text-[11px] font-medium bg-primary-light text-primary px-2 py-0.5 rounded mr-1">{p}</span>)}
                   </td>
@@ -204,7 +205,8 @@ export function EmployeePortalDemo({ screen, param }) {
 function AddApplicantForm({ onSubmit }) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [employer, setEmployer] = useState('Home Depot');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [product, setProduct] = useState('income');
 
   function handleSubmit(e) {
@@ -213,7 +215,8 @@ function AddApplicantForm({ onSubmit }) {
     onSubmit({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      employer: employer.trim() || null,
+      email: email.trim() || undefined,
+      phone: phone.trim() || undefined,
       products: [product],
     });
   }
@@ -224,7 +227,7 @@ function AddApplicantForm({ onSubmit }) {
         <div class="animate-slideUp text-center mb-8">
           <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#1d1d1f] mb-2">Add Test Applicant</h2>
           <p class="text-[15px] text-[#86868b] leading-[1.5]">
-            Enter applicant details to create a verification order. Use sandbox employer <code class="text-[13px] bg-[#f5f5f7] px-1.5 py-0.5 rounded font-mono">Home Depot</code>.
+            Enter applicant details. Truv will send the verification link via email and/or SMS.
           </p>
         </div>
 
@@ -240,9 +243,14 @@ function AddApplicantForm({ onSubmit }) {
             </div>
           </div>
           <div class="mb-3">
-            <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Employer</label>
-            <input value={employer} onInput={e => setEmployer(e.target.value)} placeholder="Home Depot" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
-            <p class="text-[11px] text-[#86868b] mt-1">Sandbox credentials: <code class="font-mono">goodlogin</code> / <code class="font-mono">goodpassword</code></p>
+            <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Email</label>
+            <input type="email" value={email} onInput={e => setEmail(e.target.value)} placeholder="john@example.com" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
+            <p class="text-[11px] text-[#86868b] mt-1">Truv sends the verification link to this email</p>
+          </div>
+          <div class="mb-3">
+            <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Phone</label>
+            <input type="tel" value={phone} onInput={e => setPhone(e.target.value)} placeholder="+14155551234" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
+            <p class="text-[11px] text-[#86868b] mt-1">Truv sends the verification link via SMS</p>
           </div>
           <div class="mb-5">
             <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Product</label>
