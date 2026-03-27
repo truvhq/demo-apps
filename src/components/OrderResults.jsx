@@ -78,7 +78,8 @@ function VoieReport({ report }) {
   if (!report?.links?.length) return null;
 
   return report.links.map((link, li) => {
-    const meta = [link.provider_name, link.data_source].filter(Boolean).join(' • ');
+    const meta = [link.provider_name || link.provider?.name, link.data_source].filter(Boolean).join(' • ');
+    const suspicious = link.is_suspicious;
     return (link.employments || []).map((emp, ei) => {
       const profile = emp.profile || {};
       const company = emp.company || {};
@@ -89,7 +90,14 @@ function VoieReport({ report }) {
 
       return (
         <div key={`${li}-${ei}`}>
-          <ProviderHeader name={company.name || link.provider_name || 'Employer'} logoUrl={link.provider?.logo_url} meta={meta} status="completed" />
+          <ProviderHeader name={company.name || link.provider_name || link.provider?.name || 'Employer'} logoUrl={link.provider?.logo_url} meta={meta} status="completed" />
+
+          {suspicious !== undefined && (
+            <div class={`flex items-center gap-2 px-4 py-3 rounded-lg mb-5 ${suspicious ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
+              <span class={`text-sm font-semibold ${suspicious ? 'text-error' : 'text-success'}`}>{suspicious ? 'Suspicious Activity Detected' : 'No Suspicious Activity'}</span>
+              <span class={`text-xs ${suspicious ? 'text-red-400' : 'text-green-500'}`}>is_suspicious: {String(suspicious)}</span>
+            </div>
+          )}
 
           {profile.first_name && (
             <Section title="Profile">
