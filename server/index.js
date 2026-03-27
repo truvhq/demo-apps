@@ -12,7 +12,7 @@ import bridgeRoutes from './routes/bridge.js';
 import uploadDocumentsRoutes from './routes/upload-documents.js';
 
 const PORT = process.env.PORT || 3000;
-const { API_CLIENT_ID, API_SECRET, API_PRODUCT_TYPE } = process.env;
+const { API_CLIENT_ID, API_SECRET } = process.env;
 
 if (!API_CLIENT_ID || !API_SECRET) {
   console.error('Missing API_CLIENT_ID or API_SECRET in .env');
@@ -25,9 +25,6 @@ db.initDb();
 const app = express();
 app.use(express.json({ limit: '100mb', verify: (req, _res, buf) => { req.rawBody = buf.toString('utf-8'); } }));
 app.use(cors({ origin: /^http:\/\/localhost(:\d+)?$/ }));
-
-// --- Config ---
-app.get('/api/config', (_req, res) => res.json({ product_type: API_PRODUCT_TYPE }));
 
 // --- Company search ---
 app.get('/api/companies', async (req, res) => {
@@ -66,7 +63,7 @@ app.get('/api/users/:userId/webhooks', (req, res) => res.json(db.getWebhookEvent
 app.get('/api/users/:userId/logs', (req, res) => res.json(db.getApiLogsByUserId(req.params.userId)));
 
 // --- Demo routes ---
-const deps = { truv, db, apiLogger, productType: API_PRODUCT_TYPE };
+const deps = { truv, db, apiLogger };
 app.use(ordersRoutes(deps));
 app.use(reportsRoutes(deps));
 app.use(bridgeRoutes(deps));

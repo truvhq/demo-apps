@@ -10,7 +10,7 @@ import { Router } from 'express';
 
 function safeParse(str) { try { return JSON.parse(str); } catch { return {}; } }
 
-export default function ordersRoutes({ truv, db, apiLogger, productType }) {
+export default function ordersRoutes({ truv, db, apiLogger }) {
   const router = Router();
 
   router.get('/api/orders', (req, res) => {
@@ -29,7 +29,7 @@ export default function ordersRoutes({ truv, db, apiLogger, productType }) {
     try {
       const data = req.body || {};
       const orderId = db.generateId();
-      const pt = data.product_type || productType;
+      const pt = data.product_type || 'income';
       const params = {
         first_name: data.first_name, last_name: data.last_name,
         email: data.email, phone: data.phone, ssn: data.ssn,

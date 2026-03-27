@@ -29,8 +29,10 @@ Edit `.env` with your [Truv API credentials](https://dashboard.truv.com/app/deve
 ```
 API_CLIENT_ID=your_client_id
 API_SECRET=your_secret
-NGROK_URL=https://your-subdomain.ngrok-free.dev
+NGROK_URL=
 ```
+
+Set `NGROK_URL` after starting ngrok in the next step.
 
 ## Run
 

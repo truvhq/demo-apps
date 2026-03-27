@@ -10,13 +10,13 @@
 
 import { Router } from 'express';
 
-export default function choiceConnectRoutes({ truv, apiLogger, productType }) {
+export default function choiceConnectRoutes({ truv, apiLogger }) {
   const router = Router();
 
   router.post('/api/bridge-token', async (req, res) => {
     try {
       const data = req.body || {};
-      const pt = data.product_type || productType;
+      const pt = data.product_type || 'income';
 
       const userResult = await truv.createUser();
       apiLogger.logApiCall({ userId: null, method: 'POST', endpoint: '/v1/users/', requestBody: { product_type: pt }, responseBody: userResult.data, statusCode: userResult.statusCode, durationMs: userResult.durationMs });

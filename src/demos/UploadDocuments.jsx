@@ -254,11 +254,14 @@ function UploadScreen({ files, onAddFiles, onRemoveFile, userId, onUserIdChange,
         <div class="animate-slideUp delay-1 text-left">
           {/* Drag-drop zone */}
           <div
+            role="button"
+            tabIndex={0}
             class={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all mb-4 ${dragOver ? 'border-primary bg-[#f5f8ff]' : 'border-[#d2d2d7] hover:border-[#86868b]'}`}
             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={e => { e.preventDefault(); setDragOver(false); onAddFiles(e.dataTransfer.files); }}
             onClick={() => inputRef.current?.click()}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputRef.current?.click(); } }}
           >
             <div class="text-[15px] font-medium text-[#1d1d1f] mb-1">Drop files here or click to browse</div>
             <div class="text-[13px] text-[#86868b]">PDF, JPEG, PNG, TIFF</div>
