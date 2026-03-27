@@ -51,8 +51,6 @@ export function EmployeePortalDemo({ screen, param }) {
         demo_id: 'employee-portal',
         first_name: app.firstName,
         last_name: app.lastName,
-        email: app.email,
-        phone: app.phone,
       };
       if (app.employer) body.employer = app.employer;
       const resp = await fetch(`${API_BASE}/api/orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
