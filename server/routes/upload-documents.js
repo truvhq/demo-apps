@@ -79,6 +79,9 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
       if (!collection) return res.status(404).json({ error: 'Collection not found' });
       if (collection.truv_collection_id) {
         const result = await truv.getDocumentCollection(collection.truv_collection_id);
+        const raw = collection.raw_response ? safeParse(collection.raw_response) : {};
+        const uid = raw.uploaded_files?.[0]?.user_id || null;
+        apiLogger.logApiCall({ userId: uid, method: 'GET', endpoint: `/v1/documents/collections/${collection.truv_collection_id}/`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
         if (result.statusCode < 400) db.updateDocCollection(collection.id, { status: result.data.status || collection.status, raw_response: result.data });
       }
       const updated = db.getDocCollection(req.params.id);
