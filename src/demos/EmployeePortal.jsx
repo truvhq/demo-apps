@@ -10,11 +10,11 @@ const STEPS = [
   { title: 'View results', guide: '<p>Fetch reports by product type:</p><pre>POST /v1/users/{user_id}/reports/\nPOST /v1/users/{user_id}/assets/reports/</pre>' },
 ];
 
-const APPLICANTS = [
-  { id: 'existing', firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', phone: '+14155550101', products: ['income'], employer: 'Home Depot', existing: true },
-  { id: 'income', firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com', phone: '+14155550102', products: ['income'], employer: 'Home Depot' },
-  { id: 'assets', firstName: 'Bob', lastName: 'Wilson', email: 'bob.wilson@example.com', phone: '+14155550103', products: ['assets'], employer: null },
-  { id: 'combined', firstName: 'Alice', lastName: 'Brown', email: 'alice.brown@example.com', phone: '+14155550104', products: ['income', 'assets'], employer: 'Home Depot' },
+// Dummy completed applicants (display-only, no actions)
+const COMPLETED_APPLICANTS = [
+  { firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', phone: '+14155550101', products: ['income'], status: 'completed' },
+  { firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com', phone: '+14155550102', products: ['income'], status: 'completed' },
+  { firstName: 'Bob', lastName: 'Wilson', email: 'bob.wilson@example.com', phone: '+14155550103', products: ['assets'], status: 'completed' },
 ];
 
 const VERIFIER_DIAGRAM = `sequenceDiagram
@@ -33,9 +33,9 @@ const VERIFIER_DIAGRAM = `sequenceDiagram
 export function EmployeePortalDemo({ screen, param }) {
   const [introStep, setIntroStep] = useState(1);
   const [introSeen, setIntroSeen] = useState(false);
-  const [orders, setOrders] = useState({});
-  const [creating, setCreating] = useState(null);
-  const activeRef = useRef(null);
+  const [testApplicant, setTestApplicant] = useState(null);
+  const [order, setOrder] = useState(null);
+  const [creating, setCreating] = useState(false);
   const { panel, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
 
   useEffect(() => {
@@ -43,42 +43,34 @@ export function EmployeePortalDemo({ screen, param }) {
     setCurrentStep(stepMap[screen] ?? 0);
   }, [screen]);
 
-  async function handleRequest(app) {
-    setCreating(app.id);
+  async function handleRequest() {
+    if (!testApplicant) return;
+    setCreating(true);
     try {
       const body = {
-        products: app.products,
+        products: testApplicant.products,
         demo_id: 'verifier-portal',
-        first_name: app.firstName,
-        last_name: app.lastName,
+        first_name: testApplicant.firstName,
+        last_name: testApplicant.lastName,
       };
-      if (app.employer) body.employer = app.employer;
+      if (testApplicant.employer) body.employer = testApplicant.employer;
       const resp = await fetch(`${API_BASE}/api/orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await resp.json();
       if (resp.ok) {
-        setOrders(prev => ({ ...prev, [app.id]: data }));
-        activeRef.current = app.id;
+        setOrder(data);
         navigate(`verifier-portal/bridge/${data.order_id}`);
       }
     } catch (e) { console.error(e); }
-    setCreating(null);
-  }
-
-  function handleStart(app) {
-    const order = orders[app.id];
-    if (order) {
-      activeRef.current = app.id;
-      navigate(`verifier-portal/bridge/${order.order_id}`);
-    } else {
-      handleRequest(app);
-    }
+    setCreating(false);
   }
 
   const isBridge = screen === 'bridge';
   const showIntro = !screen && !introSeen;
+  const showAddForm = !screen && introSeen && !testApplicant;
+  const showTable = !screen && introSeen && testApplicant;
 
   return (
-    <Layout title="Truv Quickstart" badge="Verifier Portal" steps={STEPS} panel={panel} flush={isBridge} hidePanel={showIntro}>
+    <Layout title="Truv Quickstart" badge="Verifier Portal" steps={STEPS} panel={panel} flush={isBridge} hidePanel={showIntro || showAddForm}>
       {screen === 'bridge' && (
         <BridgeScreen orderId={param} demoPath="verifier-portal" addBridgeEvent={addBridgeEvent} startPolling={startPolling} />
       )}
@@ -89,21 +81,8 @@ export function EmployeePortalDemo({ screen, param }) {
         <OrderResultsScreen orderId={param} onBack={() => { reset(); navigate('verifier-portal'); }} backLabel="Back to Applicants" maxWidth="max-w-4xl" />
       )}
 
-      {!screen && showIntro && introStep === 2 && (
-        <IntroSlide
-          label="Verifier Portal → Architecture"
-          title="Remote verification flow"
-          subtitle="The verifier creates orders with applicant PII and sends share links. The user completes verification on their own."
-          diagram={VERIFIER_DIAGRAM}
-        >
-          <div class="w-full max-w-xs mx-auto flex gap-3">
-            <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
-            <button onClick={() => setIntroSeen(true)} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Continue</button>
-          </div>
-        </IntroSlide>
-      )}
-
-      {!screen && showIntro && introStep === 1 && (
+      {/* Intro step 1 */}
+      {showIntro && introStep === 1 && (
         <div class="intro-slide">
           <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
             <div class="animate-slideUp">
@@ -135,10 +114,31 @@ export function EmployeePortalDemo({ screen, param }) {
         </div>
       )}
 
-      {!screen && !showIntro && (
+      {/* Intro step 2 — architecture */}
+      {showIntro && introStep === 2 && (
+        <IntroSlide
+          label="Verifier Portal → Architecture"
+          title="Remote verification flow"
+          subtitle="The verifier creates orders with applicant PII and sends share links. The user completes verification on their own."
+          diagram={VERIFIER_DIAGRAM}
+        >
+          <div class="w-full max-w-xs mx-auto flex gap-3">
+            <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
+            <button onClick={() => setIntroSeen(true)} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Continue</button>
+          </div>
+        </IntroSlide>
+      )}
+
+      {/* Add test applicant form */}
+      {showAddForm && (
+        <AddApplicantForm onSubmit={setTestApplicant} />
+      )}
+
+      {/* Table view */}
+      {showTable && (
         <div class="max-w-4xl mx-auto px-8 py-10">
           <h2 class="text-xl font-semibold tracking-tight mb-1 text-[#1d1d1f]">Applicants</h2>
-          <p class="text-[13px] text-[#86868b] mb-5">Select an applicant to request verification. Completed verifications show results.</p>
+          <p class="text-[13px] text-[#86868b] mb-5">Completed applicants are shown for reference. Your test applicant is ready to verify.</p>
 
           <div class="border border-[#d2d2d7] rounded-xl overflow-hidden bg-white">
             <table class="w-full text-sm">
@@ -153,46 +153,110 @@ export function EmployeePortalDemo({ screen, param }) {
                 </tr>
               </thead>
               <tbody>
-                {APPLICANTS.map(app => {
-                  const order = orders[app.id];
-                  const isCreating = creating === app.id;
-                  const status = order?.status || 'pending';
-                  const statusColor = status === 'completed' ? 'text-[#34c759] bg-green-50' : status === 'created' ? 'text-[#ff9f0a] bg-amber-50' : 'text-[#86868b] bg-[#f5f5f7]';
+                {/* Completed dummy rows */}
+                {COMPLETED_APPLICANTS.map((app, i) => (
+                  <tr key={i} class="border-b border-[#f5f5f7]">
+                    <td class="px-4 py-3 text-[#6e6e73]">{app.firstName} {app.lastName}</td>
+                    <td class="px-4 py-3 text-[#86868b] font-mono text-[12px]">{app.email}</td>
+                    <td class="px-4 py-3 text-[#86868b] font-mono text-[12px]">{app.phone}</td>
+                    <td class="px-4 py-3">
+                      {app.products.map(p => <span key={p} class="inline-block text-[11px] font-medium bg-[#f5f5f7] text-[#6e6e73] px-2 py-0.5 rounded mr-1">{p}</span>)}
+                    </td>
+                    <td class="px-4 py-3"><span class="text-[11px] font-semibold text-[#34c759] bg-green-50 px-2 py-0.5 rounded">completed</span></td>
+                    <td class="px-4 py-3 text-right text-[12px] text-[#86868b]">—</td>
+                  </tr>
+                ))}
 
-                  return (
-                    <tr key={app.id} class="border-b border-[#f5f5f7] last:border-0 hover:bg-[#fafafa]">
-                      <td class="px-4 py-3 font-medium text-[#1d1d1f]">{app.firstName} {app.lastName}</td>
-                      <td class="px-4 py-3 text-[#6e6e73] font-mono text-[12px]">{app.email}</td>
-                      <td class="px-4 py-3 text-[#6e6e73] font-mono text-[12px]">{app.phone}</td>
-                      <td class="px-4 py-3">
-                        {app.products.map(p => (
-                          <span key={p} class="inline-block text-[11px] font-medium bg-[#f5f5f7] text-[#6e6e73] px-2 py-0.5 rounded mr-1">{p}</span>
-                        ))}
-                      </td>
-                      <td class="px-4 py-3">
-                        <span class={`text-[11px] font-semibold px-2 py-0.5 rounded ${statusColor}`}>{status}</span>
-                      </td>
-                      <td class="px-4 py-3 text-right">
-                        {order && status === 'completed' ? (
-                          <button class="px-3 py-1.5 text-xs font-medium border border-primary text-primary rounded-full hover:bg-primary hover:text-white" onClick={() => handleRequest(app)}>
-                            Reverify
-                          </button>
-                        ) : order ? (
-                          <button class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-full hover:bg-primary-hover" onClick={() => handleStart(app)}>Start</button>
-                        ) : (
-                          <button class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-full hover:bg-primary-hover disabled:opacity-40" disabled={isCreating} onClick={() => handleRequest(app)}>
-                            {isCreating ? <span class="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Request'}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {/* Test applicant row */}
+                <tr class="border-b border-[#f5f5f7] bg-[#fafafa]">
+                  <td class="px-4 py-3 font-medium text-[#1d1d1f]">{testApplicant.firstName} {testApplicant.lastName}</td>
+                  <td class="px-4 py-3 text-[#6e6e73] font-mono text-[12px]">—</td>
+                  <td class="px-4 py-3 text-[#6e6e73] font-mono text-[12px]">—</td>
+                  <td class="px-4 py-3">
+                    {testApplicant.products.map(p => <span key={p} class="inline-block text-[11px] font-medium bg-primary-light text-primary px-2 py-0.5 rounded mr-1">{p}</span>)}
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class={`text-[11px] font-semibold px-2 py-0.5 rounded ${order?.status === 'completed' ? 'text-[#34c759] bg-green-50' : order ? 'text-[#ff9f0a] bg-amber-50' : 'text-[#86868b] bg-[#f5f5f7]'}`}>
+                      {order?.status || 'pending'}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-right">
+                    {order ? (
+                      <button class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-full hover:bg-primary-hover" onClick={() => navigate(`verifier-portal/bridge/${order.order_id}`)}>
+                        Start
+                      </button>
+                    ) : (
+                      <button class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-full hover:bg-primary-hover disabled:opacity-40" disabled={creating} onClick={handleRequest}>
+                        {creating ? <span class="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Request'}
+                      </button>
+                    )}
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
         </div>
       )}
     </Layout>
+  );
+}
+
+function AddApplicantForm({ onSubmit }) {
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [employer, setEmployer] = useState('Home Depot');
+  const [product, setProduct] = useState('income');
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!firstName.trim() || !lastName.trim()) return;
+    onSubmit({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      employer: employer.trim() || null,
+      products: [product],
+    });
+  }
+
+  return (
+    <div class="intro-slide" style="justify-content: flex-start; padding-top: 3rem;">
+      <div class="w-full max-w-md mx-auto px-4">
+        <div class="animate-slideUp text-center mb-8">
+          <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#1d1d1f] mb-2">Add Test Applicant</h2>
+          <p class="text-[15px] text-[#86868b] leading-[1.5]">
+            Enter applicant details to create a verification order. Use sandbox employer <code class="text-[13px] bg-[#f5f5f7] px-1.5 py-0.5 rounded font-mono">Home Depot</code>.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} class="animate-slideUp delay-1 text-left">
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">First name</label>
+              <input value={firstName} onInput={e => setFirstName(e.target.value)} placeholder="John" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
+            </div>
+            <div>
+              <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Last name</label>
+              <input value={lastName} onInput={e => setLastName(e.target.value)} placeholder="Doe" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Employer</label>
+            <input value={employer} onInput={e => setEmployer(e.target.value)} placeholder="Home Depot" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
+            <p class="text-[11px] text-[#86868b] mt-1">Sandbox credentials: <code class="font-mono">goodlogin</code> / <code class="font-mono">goodpassword</code></p>
+          </div>
+          <div class="mb-5">
+            <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Product</label>
+            <select value={product} onChange={e => setProduct(e.target.value)} class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm bg-white focus:border-primary focus:outline-none">
+              <option value="income">Income verification</option>
+              <option value="employment">Employment verification</option>
+              <option value="assets">Assets verification</option>
+            </select>
+          </div>
+          <button type="submit" disabled={!firstName.trim() || !lastName.trim()} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
+            Continue
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }
