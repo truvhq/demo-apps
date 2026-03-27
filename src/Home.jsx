@@ -21,7 +21,7 @@ const DEMOS = [
     tags: ['Users', 'Bridge Tokens', 'Link Reports'],
   },
   {
-    id: 'employee-portal',
+    id: 'verifier-portal',
     name: 'Verifier Portal',
     useCase: 'Verifier processes without the user present',
     desc: 'The user already submitted and left. A verifier creates orders using collected data, sends a link with email/phone, and tracks completion.',

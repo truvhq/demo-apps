@@ -10,7 +10,7 @@ const DEMOS = {
   'application': ApplicationDemo,
   'follow-up': FollowUpDemo,
   'consumer-credit': ConsumerCreditDemo,
-  'employee-portal': EmployeePortalDemo,
+  'verifier-portal': EmployeePortalDemo,
   'upload-documents': UploadDocumentsDemo,
 };
 

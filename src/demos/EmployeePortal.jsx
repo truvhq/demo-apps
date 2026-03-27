@@ -48,7 +48,7 @@ export function EmployeePortalDemo({ screen, param }) {
     try {
       const body = {
         products: app.products,
-        demo_id: 'employee-portal',
+        demo_id: 'verifier-portal',
         first_name: app.firstName,
         last_name: app.lastName,
       };
@@ -58,7 +58,7 @@ export function EmployeePortalDemo({ screen, param }) {
       if (resp.ok) {
         setOrders(prev => ({ ...prev, [app.id]: data }));
         activeRef.current = app.id;
-        navigate(`employee-portal/bridge/${data.order_id}`);
+        navigate(`verifier-portal/bridge/${data.order_id}`);
       }
     } catch (e) { console.error(e); }
     setCreating(null);
@@ -68,7 +68,7 @@ export function EmployeePortalDemo({ screen, param }) {
     const order = orders[app.id];
     if (order) {
       activeRef.current = app.id;
-      navigate(`employee-portal/bridge/${order.order_id}`);
+      navigate(`verifier-portal/bridge/${order.order_id}`);
     } else {
       handleRequest(app);
     }
@@ -80,13 +80,13 @@ export function EmployeePortalDemo({ screen, param }) {
   return (
     <Layout title="Truv Quickstart" badge="Verifier Portal" steps={STEPS} panel={panel} flush={isBridge} hidePanel={showIntro}>
       {screen === 'bridge' && (
-        <BridgeScreen orderId={param} demoPath="employee-portal" addBridgeEvent={addBridgeEvent} startPolling={startPolling} />
+        <BridgeScreen orderId={param} demoPath="verifier-portal" addBridgeEvent={addBridgeEvent} startPolling={startPolling} />
       )}
       {screen === 'waiting' && (
-        <OrderWaitingScreen orderId={param} demoPath="employee-portal" webhooks={panel.webhooks} startPolling={startPolling} maxWidth="max-w-4xl" />
+        <OrderWaitingScreen orderId={param} demoPath="verifier-portal" webhooks={panel.webhooks} startPolling={startPolling} maxWidth="max-w-4xl" />
       )}
       {screen === 'results' && (
-        <OrderResultsScreen orderId={param} onBack={() => { reset(); navigate('employee-portal'); }} backLabel="Back to Applicants" maxWidth="max-w-4xl" />
+        <OrderResultsScreen orderId={param} onBack={() => { reset(); navigate('verifier-portal'); }} backLabel="Back to Applicants" maxWidth="max-w-4xl" />
       )}
 
       {!screen && showIntro && introStep === 2 && (
