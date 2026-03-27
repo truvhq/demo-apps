@@ -206,8 +206,14 @@ export class TruvClient {
     });
   }
 
-  async finalizeCollection(collectionId) {
-    return this._request('POST', `documents/collections/${collectionId}/finalize/`);
+  async finalizeCollection(collectionId, productType = 'income') {
+    return this._request('POST', `documents/collections/${collectionId}/finalize/`, {
+      json: { product_type: productType },
+    });
+  }
+
+  async getLinkIncomeReport(linkId) {
+    return this._request('GET', `links/${linkId}/income/report/`);
   }
 
   async getFinalizationResults(collectionId) {

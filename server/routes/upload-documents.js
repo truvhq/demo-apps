@@ -68,7 +68,8 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
       }
 
       db.createDocCollection({ collectionId, truvCollectionId: truvData.collection_id || truvData.id, demoId: 'upload-documents', status: truvData.status || 'created', rawResponse: truvData });
-      res.json({ collection_id: collectionId, truv_collection_id: truvData.collection_id || truvData.id, status: truvData.status });
+      apiLogger.logApiCall({ userId, method: 'POST', endpoint: '/v1/documents/collections/', requestBody: { documents: docsWithUser.map(d => ({ filename: d.filename, mime_type: d.mime_type, user_id: d.user_id })) }, responseBody: truvData, statusCode: result.statusCode, durationMs: result.durationMs });
+      res.json({ collection_id: collectionId, truv_collection_id: truvData.collection_id || truvData.id, user_id: userId, status: truvData.status });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 
@@ -102,9 +103,12 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
     try {
       const collection = db.getDocCollection(req.params.id);
       if (!collection) return res.status(404).json({ error: 'Collection not found' });
+      const raw = collection.raw_response ? safeParse(collection.raw_response) : {};
+      const uid = raw.uploaded_files?.[0]?.user_id || null;
       const result = await truv.finalizeCollection(collection.truv_collection_id);
       if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Truv API error', details: result.data });
       db.updateDocCollection(collection.id, { status: 'finalizing' });
+      apiLogger.logApiCall({ userId: uid, method: 'POST', endpoint: `/v1/documents/collections/${collection.truv_collection_id}/finalize/`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
       res.json(result.data);
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
@@ -117,6 +121,26 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
       if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Truv API error', details: result.data });
       if (result.data.status) db.updateDocCollection(collection.id, { status: result.data.status, raw_response: result.data });
       res.json(result.data);
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+  });
+
+  // Fetch income report via link_id (after finalize + webhook done)
+  router.get('/api/collections/:id/report', async (req, res) => {
+    try {
+      const collection = db.getDocCollection(req.params.id);
+      if (!collection) return res.status(404).json({ error: 'Collection not found' });
+
+      const linkId = req.query.link_id;
+      if (!linkId) return res.status(400).json({ error: 'link_id required' });
+
+      const raw = collection.raw_response ? safeParse(collection.raw_response) : {};
+      const uid = raw.uploaded_files?.[0]?.user_id || null;
+
+      const result = await truv.getLinkIncomeReport(linkId);
+      apiLogger.logApiCall({ userId: uid, method: 'GET', endpoint: `/v1/links/${linkId}/income/report/`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
+
+      if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Report error', details: result.data });
+      res.json({ voie_report: result.data, product_type: 'income', status: 'completed' });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 

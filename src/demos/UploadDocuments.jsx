@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
-import { Layout, usePanel, API_BASE, IntroSlide } from '../components/index.js';
+import { Layout, OrderResults, WebhookFeed, usePanel, API_BASE, parsePayload, IntroSlide } from '../components/index.js';
 
 const STEPS = [
   { title: 'Process documents', guide: '<p>Send collected documents to Truv for validation and classification:</p><pre>POST /v1/documents/collections/\n{\n  "documents": [{ "filename": "...", "content": "base64..." }],\n  "users": [{ "id": "..." }]\n}</pre><p>Optionally attach to an existing Truv user via the <code>users</code> field.</p>' },
@@ -22,27 +22,34 @@ const DOC_DIAGRAM = `sequenceDiagram
   App->>Truv: POST /v1/users/
   Truv-->>App: user_id
   App->>Truv: POST /v1/documents/collections/
-  Note right of Truv: { documents: [base64...], users: [{id}] }
+  Note right of Truv: documents with base64 + user_id
   Truv-->>App: collection_id
+  loop Poll until files successful
+    App->>Truv: GET /v1/documents/collections/{id}/
+    Truv-->>App: uploaded_files status
+  end
   App->>Truv: POST /v1/documents/collections/{id}/finalize/
-  Truv-->>App: Extraction started
-  loop Poll until links status = done
-    App->>Truv: GET /v1/documents/collections/{id}/finalize/
-    Truv-->>App: users, links, documents, parsed_data
-  end`;
+  Note right of Truv: { product_type: "income" }
+  Truv-->>App: link_id
+  Truv->>App: Webhook: task-status-updated (done)
+  App->>Truv: GET /v1/links/{link_id}/income/report/
+  Truv-->>App: VOIE Report`;
 
 export function UploadDocumentsDemo() {
   const [screen, setScreen] = useState('intro');
   const [userId, setUserId] = useState('');
+  const [truvUserId, setTruvUserId] = useState(null);
   const [collectionId, setCollectionId] = useState(null);
-  const [resultsData, setResultsData] = useState(null);
+  const [orderData, setOrderData] = useState(null);
   const [processing, setProcessing] = useState(false);
   const [introStep, setIntroStep] = useState(1);
 
-  const pollRef = useRef(null);
-  const { panel, setCurrentStep } = usePanel();
+  const { panel, setCurrentStep, startPolling, reset: resetPanel } = usePanel();
 
   const isIntro = screen === 'intro';
+
+  const pollRef = useRef(null);
+  const linkIdRef = useRef(null);
 
   async function processDocuments() {
     setProcessing(true);
@@ -57,57 +64,69 @@ export function UploadDocumentsDemo() {
       if (!createResp.ok) { alert('Error: ' + (createData.error || 'Unknown')); setProcessing(false); return; }
 
       const cid = createData.collection_id;
+      const uid = createData.user_id;
       setCollectionId(cid);
+      setTruvUserId(uid);
+      if (uid) startPolling(uid);
       setCurrentStep(1);
       setScreen('processing');
 
-      // Step 2: Poll collection status until all files are processed
-      const waitForProcessing = async () => {
+      // Step 2: Poll until all files are successful
+      const waitForFiles = async () => {
         try {
           const resp = await fetch(`${API_BASE}/api/collections/${cid}`);
           const data = await resp.json();
           const files = data.raw_response?.uploaded_files || [];
-          const allProcessed = files.length > 0 && files.every(f => f.status === 'successful');
-          if (!allProcessed) {
-            pollRef.current = setTimeout(waitForProcessing, 3000);
-            return;
-          }
+          const allOk = files.length > 0 && files.every(f => f.status === 'successful');
+          if (!allOk) { pollRef.current = setTimeout(waitForFiles, 3000); return; }
 
-          // Step 3: Finalize (start extraction)
+          // Step 3: Finalize with product_type
           setCurrentStep(2);
           await fetch(`${API_BASE}/api/collections/${cid}/finalize`, { method: 'POST' });
-
-          // Step 4: Poll results until links[].status === "done"
-          const pollResults = async () => {
-            try {
-              const resp2 = await fetch(`${API_BASE}/api/collections/${cid}/results`);
-              const data2 = await resp2.json();
-              const hasUsers = data2.users?.length > 0;
-              const allDone = hasUsers && data2.users.every(u => u.links?.length > 0 && u.links.every(l => l.status === 'done'));
-              if (allDone) {
-                setResultsData(data2);
-                setCurrentStep(3);
-                setScreen('review');
-              } else {
-                pollRef.current = setTimeout(pollResults, 3000);
-              }
-            } catch (e) { console.error(e); pollRef.current = setTimeout(pollResults, 3000); }
-          };
-          pollRef.current = setTimeout(pollResults, 3000);
-        } catch (e) { console.error(e); pollRef.current = setTimeout(waitForProcessing, 3000); }
+          // Step 4: Wait for webhook (handled by useEffect below)
+        } catch (e) { console.error(e); pollRef.current = setTimeout(waitForFiles, 3000); }
       };
-      pollRef.current = setTimeout(waitForProcessing, 3000);
+      pollRef.current = setTimeout(waitForFiles, 3000);
     } catch (e) { console.error(e); }
     setProcessing(false);
   }
 
+  // Watch webhooks for task-status-updated with status "done" → get link_id → fetch report
+  useEffect(() => {
+    if (screen !== 'processing' || !collectionId) return;
+    const doneWebhook = panel.webhooks.find(w => {
+      const p = parsePayload(w.payload);
+      return (p.event_type === 'task-status-updated' && p.status === 'done')
+        || (w.event_type === 'task-status-updated' && w.status === 'done');
+    });
+    if (doneWebhook && !linkIdRef.current) {
+      const p = parsePayload(doneWebhook.payload);
+      const linkId = p.link_id || doneWebhook.link_id;
+      if (!linkId) return;
+      linkIdRef.current = linkId;
+      setCurrentStep(3);
+
+      // Step 5: Fetch income report via link_id
+      (async () => {
+        try {
+          const resp = await fetch(`${API_BASE}/api/collections/${collectionId}/report?link_id=${linkId}`);
+          if (resp.ok) setOrderData(await resp.json());
+        } catch (e) { console.error(e); }
+        setScreen('review');
+      })();
+    }
+  }, [panel.webhooks, screen, collectionId]);
+
   function resetDemo() {
     if (pollRef.current) clearTimeout(pollRef.current);
+    linkIdRef.current = null;
+    resetPanel();
     setScreen('intro');
     setIntroStep(1);
     setUserId('');
+    setTruvUserId(null);
     setCollectionId(null);
-    setResultsData(null);
+    setOrderData(null);
     setCurrentStep(0);
   }
 
@@ -186,11 +205,19 @@ export function UploadDocumentsDemo() {
           <div class="text-center py-16">
             <div class="w-12 h-12 border-[3px] border-[#d2d2d7] border-t-primary rounded-full animate-spin mx-auto mb-6" />
             <h2 class="text-2xl font-semibold tracking-tight mb-2">Processing Documents</h2>
-            <p class="text-[15px] text-[#86868b]">Creating collection, finalizing, and extracting data...</p>
+            <p class="text-[15px] text-[#86868b] mb-8">Waiting for Truv to process and extract data...</p>
+            <WebhookFeed webhooks={panel.webhooks} />
           </div>
         )}
         {screen === 'review' && (
-          <ReviewScreen data={resultsData} onReset={resetDemo} />
+          <div>
+            <h2 class="text-2xl font-semibold tracking-tight mb-1.5">Verification Results</h2>
+            <p class="text-[15px] text-[#86868b] mb-7">Documents processed via Document Collections API</p>
+            {orderData ? <OrderResults data={orderData} /> : <p class="text-[#86868b]">No report data available yet.</p>}
+            <div class="flex gap-3 mt-6 pt-5 border-t border-[#d2d2d7]">
+              <button class="px-5 py-2.5 text-sm font-semibold border border-[#d2d2d7] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Process More</button>
+            </div>
+          </div>
         )}
       </div>
     </Layout>
