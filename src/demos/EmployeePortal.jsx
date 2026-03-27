@@ -10,33 +10,32 @@ const STEPS = [
   { title: 'View results', guide: '<p>Fetch reports by product type:</p><pre>POST /v1/users/{user_id}/reports/\nPOST /v1/users/{user_id}/assets/reports/</pre>' },
 ];
 
-const EMPLOYEES = [
-  { id: 'existing', firstName: 'John', lastName: 'Doe', phone: '555-0101', products: ['income'], employer: 'Home Depot', existing: true },
-  { id: 'income', firstName: 'Jane', lastName: 'Smith', phone: '555-0102', products: ['income'], employer: 'Home Depot' },
-  { id: 'assets', firstName: 'Bob', lastName: 'Wilson', phone: '555-0103', products: ['assets'], employer: null },
-  { id: 'combined', firstName: 'Alice', lastName: 'Brown', phone: '555-0104', products: ['income', 'assets'], employer: 'Home Depot' },
+const APPLICANTS = [
+  { id: 'existing', firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', phone: '+14155550101', products: ['income'], employer: 'Home Depot', existing: true },
+  { id: 'income', firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com', phone: '+14155550102', products: ['income'], employer: 'Home Depot' },
+  { id: 'assets', firstName: 'Bob', lastName: 'Wilson', email: 'bob.wilson@example.com', phone: '+14155550103', products: ['assets'], employer: null },
+  { id: 'combined', firstName: 'Alice', lastName: 'Brown', email: 'alice.brown@example.com', phone: '+14155550104', products: ['income', 'assets'], employer: 'Home Depot' },
 ];
 
-
-const PROCESSOR_DIAGRAM = `sequenceDiagram
-  participant Proc as Processor
+const VERIFIER_DIAGRAM = `sequenceDiagram
+  participant V as Verifier
   participant Truv as Truv API
   participant User as User (remote)
-  Proc->>Truv: POST /v1/orders/
-  Note right of Truv: PII + products
-  Truv-->>Proc: order_id, share_url
-  Proc->>User: Send share_url (email/SMS)
+  V->>Truv: POST /v1/orders/
+  Note right of Truv: PII + email + phone + products
+  Truv-->>V: order_id, share_url
+  V->>User: Send share_url (email/SMS)
   User->>Truv: Opens share_url, completes Bridge
-  Truv->>Proc: Webhook: order-status-updated
-  Proc->>Truv: POST /v1/users/{user_id}/reports/
-  Truv-->>Proc: Verification report`;
+  Truv->>V: Webhook: order-status-updated
+  V->>Truv: POST /v1/users/{user_id}/reports/
+  Truv-->>V: Verification report`;
 
 export function EmployeePortalDemo({ screen, param }) {
   const [introStep, setIntroStep] = useState(1);
   const [introSeen, setIntroSeen] = useState(false);
-  const [employeeOrders, setEmployeeOrders] = useState({});
+  const [orders, setOrders] = useState({});
   const [creating, setCreating] = useState(null);
-  const activeEmployeeRef = useRef(null);
+  const activeRef = useRef(null);
   const { panel, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
 
   useEffect(() => {
@@ -44,46 +43,36 @@ export function EmployeePortalDemo({ screen, param }) {
     setCurrentStep(stepMap[screen] ?? 0);
   }, [screen]);
 
-  // Create the "existing" order on mount
-  useEffect(() => {
-    const emp = EMPLOYEES.find(e => e.existing);
-    if (!emp || employeeOrders[emp.id]) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const body = { products: emp.products, demo_id: 'employee-portal', first_name: emp.firstName, last_name: emp.lastName, phone: emp.phone };
-        if (emp.employer) body.employer = emp.employer;
-        const resp = await fetch(`${API_BASE}/api/orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        const data = await resp.json();
-        if (!cancelled && resp.ok) setEmployeeOrders(prev => ({ ...prev, [emp.id]: data }));
-      } catch {}
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  async function handleRequest(emp) {
-    setCreating(emp.id);
+  async function handleRequest(app) {
+    setCreating(app.id);
     try {
-      const body = { products: emp.products, demo_id: 'employee-portal', first_name: emp.firstName, last_name: emp.lastName, phone: emp.phone };
-      if (emp.employer) body.employer = emp.employer;
+      const body = {
+        products: app.products,
+        demo_id: 'employee-portal',
+        first_name: app.firstName,
+        last_name: app.lastName,
+        email: app.email,
+        phone: app.phone,
+      };
+      if (app.employer) body.employer = app.employer;
       const resp = await fetch(`${API_BASE}/api/orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await resp.json();
       if (resp.ok) {
-        setEmployeeOrders(prev => ({ ...prev, [emp.id]: data }));
-        activeEmployeeRef.current = emp.id;
+        setOrders(prev => ({ ...prev, [app.id]: data }));
+        activeRef.current = app.id;
         navigate(`employee-portal/bridge/${data.order_id}`);
       }
     } catch (e) { console.error(e); }
     setCreating(null);
   }
 
-  function handleStart(emp) {
-    const order = employeeOrders[emp.id];
+  function handleStart(app) {
+    const order = orders[app.id];
     if (order) {
-      activeEmployeeRef.current = emp.id;
+      activeRef.current = app.id;
       navigate(`employee-portal/bridge/${order.order_id}`);
     } else {
-      handleRequest(emp);
+      handleRequest(app);
     }
   }
 
@@ -91,22 +80,23 @@ export function EmployeePortalDemo({ screen, param }) {
   const showIntro = !screen && !introSeen;
 
   return (
-    <Layout title="Truv Quickstart" badge="Processor Portal" steps={STEPS} panel={panel} flush={isBridge} hidePanel={showIntro}>
+    <Layout title="Truv Quickstart" badge="Verifier Portal" steps={STEPS} panel={panel} flush={isBridge} hidePanel={showIntro}>
       {screen === 'bridge' && (
         <BridgeScreen orderId={param} demoPath="employee-portal" addBridgeEvent={addBridgeEvent} startPolling={startPolling} />
       )}
       {screen === 'waiting' && (
-        <OrderWaitingScreen orderId={param} demoPath="employee-portal" webhooks={panel.webhooks} startPolling={startPolling} maxWidth="max-w-2xl" />
+        <OrderWaitingScreen orderId={param} demoPath="employee-portal" webhooks={panel.webhooks} startPolling={startPolling} maxWidth="max-w-4xl" />
       )}
       {screen === 'results' && (
-        <OrderResultsScreen orderId={param} onBack={() => { reset(); navigate('employee-portal'); }} backLabel="Back to Applicants" maxWidth="max-w-2xl" />
+        <OrderResultsScreen orderId={param} onBack={() => { reset(); navigate('employee-portal'); }} backLabel="Back to Applicants" maxWidth="max-w-4xl" />
       )}
+
       {!screen && showIntro && introStep === 2 && (
         <IntroSlide
-          label="Processor Portal → Architecture"
+          label="Verifier Portal → Architecture"
           title="Remote verification flow"
-          subtitle="The processor creates orders and sends share links. The user completes verification on their own."
-          diagram={PROCESSOR_DIAGRAM}
+          subtitle="The verifier creates orders with applicant PII and sends share links. The user completes verification on their own."
+          diagram={VERIFIER_DIAGRAM}
         >
           <div class="w-full max-w-xs mx-auto flex gap-3">
             <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
@@ -119,15 +109,15 @@ export function EmployeePortalDemo({ screen, param }) {
         <div class="intro-slide">
           <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
             <div class="animate-slideUp">
-              <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Processor Portal</div>
+              <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Verifier Portal</div>
               <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Verify without the<br />user present</h2>
               <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
-                The user already submitted their application and left. A processor creates verification orders using collected data, sends a link, and tracks completion.
+                The user already submitted their application and left. A verifier creates orders using collected data, sends a link, and tracks completion.
               </p>
             </div>
             <div class="grid gap-3 mb-8 text-left max-w-lg mx-auto animate-slideUp delay-1">
               {[
-                { name: 'Create orders from collected data', desc: 'No user interaction needed — use PII from the application' },
+                { name: 'Create orders from collected data', desc: 'Use PII from the application — no user interaction needed' },
                 { name: 'Send verification links', desc: 'Share URL via email or SMS for the user to complete later' },
                 { name: 'Track status remotely', desc: 'Monitor webhook events and order status from the dashboard' },
                 { name: 'Fetch reports on completion', desc: 'Pull VOIE, VOE, or VOA reports once the user completes Bridge' },
@@ -148,42 +138,63 @@ export function EmployeePortalDemo({ screen, param }) {
       )}
 
       {!screen && !showIntro && (
-        <div class="max-w-3xl mx-auto px-8 py-10">
-          <div class="space-y-3">
-            {EMPLOYEES.map(emp => {
-              const order = employeeOrders[emp.id];
-              const isCreating = creating === emp.id;
-              const productLabel = emp.products.join(' + ');
-              return (
-                <div key={emp.id} class="flex items-center gap-4 border border-border rounded-xl px-5 py-4 bg-white">
-                  <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-sm font-semibold text-gray-500 shrink-0">
-                    {emp.firstName[0]}{emp.lastName[0]}
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="text-sm font-semibold">{emp.firstName} {emp.lastName}</div>
-                    <div class="text-xs text-gray-500 truncate">{emp.phone} • {productLabel}</div>
-                  </div>
-                  {emp.existing && order ? (
-                    <div class="flex items-center gap-2">
-                      <span class="text-xs font-semibold text-success bg-success-bg px-2 py-1 rounded">Existing</span>
-                      <button class="px-3 py-1.5 text-xs font-medium border border-primary text-primary rounded-full hover:bg-primary hover:text-white" onClick={() => handleRequest(emp)}>
-                        {isCreating ? <span class="inline-block w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /> : 'Reverify'}
-                      </button>
-                    </div>
-                  ) : order ? (
-                    <button class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-full hover:bg-primary-hover" onClick={() => handleStart(emp)}>Start</button>
-                  ) : (
-                    <button class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-full hover:bg-primary-hover disabled:opacity-40" disabled={isCreating} onClick={() => handleRequest(emp)}>
-                      {isCreating ? <span class="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Request'}
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+        <div class="max-w-4xl mx-auto px-8 py-10">
+          <h2 class="text-xl font-semibold tracking-tight mb-1 text-[#1d1d1f]">Applicants</h2>
+          <p class="text-[13px] text-[#86868b] mb-5">Select an applicant to request verification. Completed verifications show results.</p>
+
+          <div class="border border-[#d2d2d7] rounded-xl overflow-hidden bg-white">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-[#d2d2d7] bg-[#f5f5f7] text-[#86868b] text-[12px] font-medium uppercase tracking-wide">
+                  <th class="text-left px-4 py-3">Name</th>
+                  <th class="text-left px-4 py-3">Email</th>
+                  <th class="text-left px-4 py-3">Phone</th>
+                  <th class="text-left px-4 py-3">Products</th>
+                  <th class="text-left px-4 py-3">Status</th>
+                  <th class="text-right px-4 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {APPLICANTS.map(app => {
+                  const order = orders[app.id];
+                  const isCreating = creating === app.id;
+                  const status = order?.status || 'pending';
+                  const statusColor = status === 'completed' ? 'text-[#34c759] bg-green-50' : status === 'created' ? 'text-[#ff9f0a] bg-amber-50' : 'text-[#86868b] bg-[#f5f5f7]';
+
+                  return (
+                    <tr key={app.id} class="border-b border-[#f5f5f7] last:border-0 hover:bg-[#fafafa]">
+                      <td class="px-4 py-3 font-medium text-[#1d1d1f]">{app.firstName} {app.lastName}</td>
+                      <td class="px-4 py-3 text-[#6e6e73] font-mono text-[12px]">{app.email}</td>
+                      <td class="px-4 py-3 text-[#6e6e73] font-mono text-[12px]">{app.phone}</td>
+                      <td class="px-4 py-3">
+                        {app.products.map(p => (
+                          <span key={p} class="inline-block text-[11px] font-medium bg-[#f5f5f7] text-[#6e6e73] px-2 py-0.5 rounded mr-1">{p}</span>
+                        ))}
+                      </td>
+                      <td class="px-4 py-3">
+                        <span class={`text-[11px] font-semibold px-2 py-0.5 rounded ${statusColor}`}>{status}</span>
+                      </td>
+                      <td class="px-4 py-3 text-right">
+                        {order && status === 'completed' ? (
+                          <button class="px-3 py-1.5 text-xs font-medium border border-primary text-primary rounded-full hover:bg-primary hover:text-white" onClick={() => handleRequest(app)}>
+                            Reverify
+                          </button>
+                        ) : order ? (
+                          <button class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-full hover:bg-primary-hover" onClick={() => handleStart(app)}>Start</button>
+                        ) : (
+                          <button class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-full hover:bg-primary-hover disabled:opacity-40" disabled={isCreating} onClick={() => handleRequest(app)}>
+                            {isCreating ? <span class="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Request'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
     </Layout>
   );
 }
-

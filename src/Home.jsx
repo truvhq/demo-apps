@@ -22,9 +22,9 @@ const DEMOS = [
   },
   {
     id: 'employee-portal',
-    name: 'Processor Portal',
-    useCase: 'Processor verifies without the user present',
-    desc: 'The user already submitted and left. A processor creates orders using collected data, sends a link, and tracks completion.',
+    name: 'Verifier Portal',
+    useCase: 'Verifier processes without the user present',
+    desc: 'The user already submitted and left. A verifier creates orders using collected data, sends a link with email/phone, and tracks completion.',
     tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'],
   },
   {
