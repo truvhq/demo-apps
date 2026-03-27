@@ -36,7 +36,7 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
 
   router.post('/api/collections', async (req, res) => {
     try {
-      const { user_id, use_test_docs, extra_documents } = req.body;
+      const { external_user_id, use_test_docs, extra_documents } = req.body;
       let { documents } = req.body;
 
       // Load test docs if flagged, then append any extra user-uploaded documents
@@ -48,12 +48,10 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
       }
       if (!documents?.length) return res.status(400).json({ error: 'documents array is required' });
 
-      // If user_id provided, attach to existing user; otherwise create a new one
+      // Create a user (with optional external_user_id)
       let users;
-      if (user_id) {
-        users = [{ id: user_id }];
-      } else {
-        const userResult = await truv.createUser();
+      {
+        const userResult = await truv.createUser(external_user_id ? { external_user_id } : {});
         if (userResult.statusCode >= 400 || !userResult.data?.id) return res.status(userResult.statusCode || 500).json({ error: 'Failed to create user', details: userResult.data });
         apiLogger.logApiCall({ userId: userResult.data.id, method: 'POST', endpoint: '/v1/users/', requestBody: userResult.requestBody, responseBody: userResult.data, statusCode: userResult.statusCode, durationMs: userResult.durationMs });
         users = [{ id: userResult.data.id }];

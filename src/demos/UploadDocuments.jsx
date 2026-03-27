@@ -73,7 +73,7 @@ export function UploadDocumentsDemo() {
     setProcessing(true);
     try {
       // Step 1: Create collection — always include test docs, plus any user uploads
-      const body = { user_id: userId.trim() || undefined, use_test_docs: true };
+      const body = { external_user_id: userId.trim() || undefined, use_test_docs: true };
       if (files.length > 0) {
         body.extra_documents = files.map(f => ({ filename: f.name, mime_type: f.type || 'application/pdf', content: f.base64 }));
       }
@@ -298,7 +298,7 @@ function UploadScreen({ files, onAddFiles, onRemoveFile, userId, onUserIdChange,
           <input
             value={userId}
             onInput={e => onUserIdChange(e.target.value)}
-            placeholder="User ID (optional)"
+            placeholder="external_user_id (optional)"
             class="w-full px-4 py-3 border border-[#d2d2d7] rounded-xl text-sm font-mono focus:border-primary focus:outline-none mb-4 text-center"
           />
 

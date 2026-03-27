@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
-import { Layout, OrderResults, WaitingScreen, usePanel, API_BASE, parsePayload, IntroSlide } from '../components/index.js';
+import { Layout, usePanel, API_BASE, IntroSlide } from '../components/index.js';
+import { BridgeScreen, OrderWaitingScreen, OrderResultsScreen } from '../components/screens/index.js';
 import { navigate } from '../App.jsx';
 
 const STEPS = [
@@ -16,7 +17,6 @@ const EMPLOYEES = [
   { id: 'combined', firstName: 'Alice', lastName: 'Brown', phone: '555-0104', products: ['income', 'assets'], employer: 'Home Depot' },
 ];
 
-const WAITING_MIN_MS = 10000;
 
 const PROCESSOR_DIAGRAM = `sequenceDiagram
   participant Proc as Processor
@@ -93,13 +93,13 @@ export function EmployeePortalDemo({ screen, param }) {
   return (
     <Layout title="Truv Quickstart" badge="Processor Portal" steps={STEPS} panel={panel} flush={isBridge} hidePanel={showIntro}>
       {screen === 'bridge' && (
-        <BridgeScreen orderId={param} addBridgeEvent={addBridgeEvent} startPolling={startPolling} />
+        <BridgeScreen orderId={param} demoPath="employee-portal" addBridgeEvent={addBridgeEvent} startPolling={startPolling} />
       )}
       {screen === 'waiting' && (
-        <WaitingScreenWrapper orderId={param} webhooks={panel.webhooks} startPolling={startPolling} />
+        <OrderWaitingScreen orderId={param} demoPath="employee-portal" webhooks={panel.webhooks} startPolling={startPolling} maxWidth="max-w-2xl" />
       )}
       {screen === 'results' && (
-        <ResultsScreen orderId={param} onBack={() => { reset(); navigate('employee-portal'); }} />
+        <OrderResultsScreen orderId={param} onBack={() => { reset(); navigate('employee-portal'); }} backLabel="Back to Applicants" maxWidth="max-w-2xl" />
       )}
       {!screen && showIntro && introStep === 2 && (
         <IntroSlide
@@ -187,108 +187,3 @@ export function EmployeePortalDemo({ screen, param }) {
   );
 }
 
-function BridgeScreen({ orderId, addBridgeEvent, startPolling }) {
-  const [bridgeToken, setBridgeToken] = useState(null);
-  const [error, setError] = useState(null);
-  const containerRef = useRef(null);
-  const bridgeInitRef = useRef(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const resp = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(orderId)}/info`);
-        const data = await resp.json();
-        if (cancelled) return;
-        if (!resp.ok) { setError(data.error || 'Unknown error'); return; }
-        setBridgeToken(data.bridge_token);
-        startPolling(data.user_id);
-      } catch (e) { if (!cancelled) setError(e.message); }
-    })();
-    return () => { cancelled = true; };
-  }, [orderId]);
-
-  useEffect(() => {
-    if (!bridgeToken || !containerRef.current || !window.TruvBridge || bridgeInitRef.current) return;
-    bridgeInitRef.current = true;
-    const b = window.TruvBridge.init({
-      bridgeToken, isOrder: true,
-      position: { type: 'inline', container: containerRef.current },
-      onLoad: () => addBridgeEvent('onLoad', null),
-      onEvent: (type, _, source) => {
-        addBridgeEvent('onEvent', { eventType: type, source });
-        if (type === 'COMPLETED' && source === 'order') navigate(`employee-portal/waiting/${orderId}`);
-      },
-      onSuccess: () => addBridgeEvent('onSuccess', null),
-      onClose: () => addBridgeEvent('onClose', null),
-    });
-    b.open();
-    return () => { try { b.close(); } catch {} };
-  }, [bridgeToken]);
-
-  if (error) return <div class="text-center py-16 text-red-600">{error}</div>;
-  if (!bridgeToken) return <div class="text-center py-16"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;
-
-  return <div ref={containerRef} class="w-full h-full overflow-hidden bg-white [&_iframe]:w-full [&_iframe]:!h-full [&_iframe]:border-none" style="zoom: 0.85;" />;
-}
-
-function WaitingScreenWrapper({ orderId, webhooks, startPolling }) {
-  const waitingStartRef = useRef(Date.now());
-  const advancePendingRef = useRef(false);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const resp = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(orderId)}/info`);
-        const data = await resp.json();
-        if (resp.ok && data.user_id) startPolling(data.user_id);
-      } catch {}
-    })();
-  }, [orderId]);
-
-  useEffect(() => {
-    if (advancePendingRef.current) return;
-    const isCompleted = webhooks.some(w => {
-      const p = parsePayload(w.payload);
-      return (p.event_type === 'order-status-updated' && p.status === 'completed')
-        || (w.event_type === 'order-status-updated' && w.status === 'completed');
-    });
-    if (isCompleted) {
-      advancePendingRef.current = true;
-      const elapsed = Date.now() - waitingStartRef.current;
-      const delay = Math.max(1000, WAITING_MIN_MS - elapsed + 1000);
-      setTimeout(() => navigate(`employee-portal/results/${orderId}`), delay);
-    }
-  }, [webhooks, orderId]);
-
-  return <div class="max-w-2xl mx-auto"><WaitingScreen webhooks={webhooks} /></div>;
-}
-
-function ResultsScreen({ orderId, onBack }) {
-  const [orderData, setOrderData] = useState(null);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const resp = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(orderId)}/report`);
-        if (resp.ok) setOrderData(await resp.json());
-        else setError('Failed to load results');
-      } catch (e) { console.error(e); setError(e.message); }
-    })();
-  }, [orderId]);
-
-  if (error) return <div class="max-w-2xl mx-auto text-center py-16 text-red-600">{error}</div>;
-  if (!orderData) return <div class="max-w-2xl mx-auto text-center py-16"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;
-
-  return (
-    <div class="max-w-2xl mx-auto">
-      <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Results</h2>
-      <p class="text-sm text-gray-500 mb-7">Order {orderData.truv_order_id || ''} • {orderData.status || ''}</p>
-      <OrderResults data={orderData} />
-      <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-        <button class="px-5 py-2.5 text-sm font-semibold bg-primary text-white rounded-full hover:bg-primary-hover" onClick={onBack}>Back to Applicants</button>
-      </div>
-    </div>
-  );
-}

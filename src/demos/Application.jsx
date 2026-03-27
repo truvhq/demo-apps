@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
-import { Layout, OrderResults, WaitingScreen, usePanel, API_BASE, parsePayload, IntroSlide } from '../components/index.js';
+import { Layout, usePanel, API_BASE, IntroSlide } from '../components/index.js';
+import { BridgeScreen, OrderWaitingScreen, OrderResultsScreen } from '../components/screens/index.js';
 import { navigate } from '../App.jsx';
 
 const STEPS = [
@@ -15,7 +16,6 @@ const STEPS = [
   { title: 'Retrieve results', guide: '<p>Fetch reports:</p><pre>POST /v1/users/{user_id}/reports/</pre><p><a href="https://docs.truv.com/reference/users_reports" target="_blank">Reports API →</a></p>' },
 ];
 
-const WAITING_MIN_MS = 10000;
 
 export function ApplicationDemo({ screen, param }) {
   const [productType, setProductType] = useState(null);
@@ -50,13 +50,13 @@ export function ApplicationDemo({ screen, param }) {
   return (
     <Layout title="Truv Quickstart" badge="Application" steps={STEPS} panel={panel} flush={isBridge} hidePanel={isIntro}>
       {screen === 'bridge' && (
-        <AppBridgeScreen orderId={orderId} companyMappingId={companyMappingId} addBridgeEvent={addBridgeEvent} startPolling={startPolling} />
+        <BridgeScreen orderId={orderId} demoPath="application" companyMappingId={companyMappingId} addBridgeEvent={addBridgeEvent} startPolling={startPolling} />
       )}
       {screen === 'waiting' && (
-        <AppWaitingScreen orderId={param} webhooks={panel.webhooks} startPolling={startPolling} />
+        <OrderWaitingScreen orderId={param} demoPath="application" webhooks={panel.webhooks} startPolling={startPolling} />
       )}
       {screen === 'results' && (
-        <AppResultsScreen orderId={param} onBack={() => { reset(); setProductType(null); navigate('application'); }} />
+        <OrderResultsScreen orderId={param} onBack={() => { reset(); setProductType(null); navigate('application'); }} backLabel="New Application" />
       )}
       {!screen && (
         productType ? (
@@ -330,111 +330,3 @@ function ApplicationForm({ onSubmit, submitting, productType }) {
   );
 }
 
-function AppBridgeScreen({ orderId, companyMappingId, addBridgeEvent, startPolling }) {
-  const [bridgeToken, setBridgeToken] = useState(null);
-  const [error, setError] = useState(null);
-  const containerRef = useRef(null);
-  const bridgeInitRef = useRef(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const resp = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(orderId)}/info`);
-        const data = await resp.json();
-        if (cancelled) return;
-        if (!resp.ok) { setError(data.error || 'Unknown error'); return; }
-        setBridgeToken(data.bridge_token);
-        startPolling(data.user_id);
-      } catch (e) { if (!cancelled) setError(e.message); }
-    })();
-    return () => { cancelled = true; };
-  }, [orderId]);
-
-  useEffect(() => {
-    if (!bridgeToken || !containerRef.current || !window.TruvBridge || bridgeInitRef.current) return;
-    bridgeInitRef.current = true;
-    const bridgeOpts = {
-      bridgeToken, isOrder: true,
-      position: { type: 'inline', container: containerRef.current },
-    };
-    if (companyMappingId) bridgeOpts.companyMappingId = companyMappingId;
-    const b = window.TruvBridge.init({
-      ...bridgeOpts,
-      onLoad: () => addBridgeEvent('onLoad', null),
-      onEvent: (type, _, source) => {
-        addBridgeEvent('onEvent', { eventType: type, source });
-        if (type === 'COMPLETED' && source === 'order') navigate(`application/waiting/${orderId}`);
-      },
-      onSuccess: () => addBridgeEvent('onSuccess', null),
-      onClose: () => addBridgeEvent('onClose', null),
-    });
-    b.open();
-    return () => { try { b.close(); } catch {} };
-  }, [bridgeToken]);
-
-  if (error) return <div class="text-center py-16 text-red-600">{error}</div>;
-  if (!bridgeToken) return <div class="text-center py-16"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;
-
-  return <div ref={containerRef} class="w-full h-full overflow-hidden bg-white [&_iframe]:w-full [&_iframe]:!h-full [&_iframe]:border-none" style="zoom: 0.85;" />;
-}
-
-function AppWaitingScreen({ orderId, webhooks, startPolling }) {
-  const waitingStartRef = useRef(Date.now());
-  const advancePendingRef = useRef(false);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const resp = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(orderId)}/info`);
-        const data = await resp.json();
-        if (resp.ok && data.user_id) startPolling(data.user_id);
-      } catch {}
-    })();
-  }, [orderId]);
-
-  useEffect(() => {
-    if (advancePendingRef.current) return;
-    const isCompleted = webhooks.some(w => {
-      const p = parsePayload(w.payload);
-      return (p.event_type === 'order-status-updated' && p.status === 'completed')
-        || (w.event_type === 'order-status-updated' && w.status === 'completed');
-    });
-    if (isCompleted) {
-      advancePendingRef.current = true;
-      const delay = Math.max(1000, WAITING_MIN_MS - (Date.now() - waitingStartRef.current) + 1000);
-      setTimeout(() => navigate(`application/results/${orderId}`), delay);
-    }
-  }, [webhooks, orderId]);
-
-  return <div class="max-w-lg mx-auto"><WaitingScreen webhooks={webhooks} /></div>;
-}
-
-function AppResultsScreen({ orderId, onBack }) {
-  const [orderData, setOrderData] = useState(null);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const resp = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(orderId)}/report`);
-        if (resp.ok) setOrderData(await resp.json());
-        else setError('Failed to load results');
-      } catch (e) { console.error(e); setError(e.message); }
-    })();
-  }, [orderId]);
-
-  if (error) return <div class="max-w-lg mx-auto text-center py-16 text-red-600">{error}</div>;
-  if (!orderData) return <div class="max-w-lg mx-auto text-center py-16"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;
-
-  return (
-    <div class="max-w-lg mx-auto">
-      <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Results</h2>
-      <p class="text-sm text-gray-500 mb-7">Order {orderData.truv_order_id || ''} • {orderData.status || ''}</p>
-      <OrderResults data={orderData} />
-      <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-        <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:border-primary hover:text-primary" onClick={onBack}>New Application</button>
-      </div>
-    </div>
-  );
-}
