@@ -45,7 +45,6 @@ export function UploadDocumentsDemo() {
   const [screen, setScreen] = useState('intro');
   const [userId, setUserId] = useState('');
   const [files, setFiles] = useState([]);
-  const [useTestDocs, setUseTestDocs] = useState(true);
   const [truvUserId, setTruvUserId] = useState(null);
   const [collectionId, setCollectionId] = useState(null);
   const [orderData, setOrderData] = useState(null);
@@ -57,7 +56,6 @@ export function UploadDocumentsDemo() {
   const isIntro = screen === 'intro' || screen === 'upload';
 
   function addFiles(newFiles) {
-    setUseTestDocs(false);
     Array.from(newFiles).forEach(file => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -74,12 +72,10 @@ export function UploadDocumentsDemo() {
   async function processDocuments() {
     setProcessing(true);
     try {
-      // Step 1: Create collection
-      const body = { user_id: userId.trim() || undefined };
-      if (useTestDocs) {
-        body.use_test_docs = true;
-      } else {
-        body.documents = files.map(f => ({ filename: f.name, mime_type: f.type || 'application/pdf', content: f.base64 }));
+      // Step 1: Create collection — always include test docs, plus any user uploads
+      const body = { user_id: userId.trim() || undefined, use_test_docs: true };
+      if (files.length > 0) {
+        body.extra_documents = files.map(f => ({ filename: f.name, mime_type: f.type || 'application/pdf', content: f.base64 }));
       }
       const createResp = await fetch(`${API_BASE}/api/collections`, {
         method: 'POST',
@@ -151,7 +147,6 @@ export function UploadDocumentsDemo() {
     setIntroStep(1);
     setUserId('');
     setFiles([]);
-    setUseTestDocs(true);
     setTruvUserId(null);
     setCollectionId(null);
     setOrderData(null);
@@ -208,10 +203,8 @@ export function UploadDocumentsDemo() {
       {screen === 'upload' && (
         <UploadScreen
           files={files}
-          useTestDocs={useTestDocs}
           onAddFiles={addFiles}
           onRemoveFile={idx => setFiles(prev => prev.filter((_, i) => i !== idx))}
-          onUseTestDocs={() => { setFiles([]); setUseTestDocs(true); }}
           userId={userId}
           onUserIdChange={setUserId}
           onBack={() => setScreen('intro')}
@@ -243,11 +236,9 @@ export function UploadDocumentsDemo() {
   );
 }
 
-function UploadScreen({ files, useTestDocs, onAddFiles, onRemoveFile, onUseTestDocs, userId, onUserIdChange, onBack, onContinue, processing }) {
+function UploadScreen({ files, onAddFiles, onRemoveFile, userId, onUserIdChange, onBack, onContinue, processing }) {
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef(null);
-
-  const hasFiles = useTestDocs || files.length > 0;
 
   return (
     <div class="intro-slide" style="justify-content: flex-start; padding-top: 2rem;">
@@ -274,6 +265,18 @@ function UploadScreen({ files, useTestDocs, onAddFiles, onRemoveFile, onUseTestD
             <input ref={inputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif" class="hidden" onChange={e => { onAddFiles(e.target.files); e.target.value = ''; }} />
           </div>
 
+          {/* Test documents — always visible */}
+          <div class="border border-[#d2d2d7] rounded-xl p-4 mb-4">
+            <div class="text-[11px] font-semibold text-[#86868b] uppercase tracking-wide mb-2">Test documents (included)</div>
+            {SAMPLE_DOCS.map((d, i) => (
+              <div key={i} class="flex items-center gap-3 py-1.5 text-[13px]">
+                <span>📄</span>
+                <span class="flex-1 text-[#6e6e73]">{d.name}</span>
+                <span class="text-[11px] text-[#34c759] font-medium">Ready</span>
+              </div>
+            ))}
+          </div>
+
           {/* Uploaded files list */}
           {files.length > 0 && (
             <div class="mb-4">
@@ -291,23 +294,6 @@ function UploadScreen({ files, useTestDocs, onAddFiles, onRemoveFile, onUseTestD
             </div>
           )}
 
-          {/* Or use test docs */}
-          {files.length === 0 && (
-            <div class={`border rounded-xl p-4 mb-4 transition-all ${useTestDocs ? 'border-primary bg-[#f5f8ff]' : 'border-[#d2d2d7]'}`}>
-              <div class="flex items-center justify-between mb-2">
-                <div class="text-[11px] font-semibold text-[#86868b] uppercase tracking-wide">Pre-loaded test documents</div>
-                {!useTestDocs && <button onClick={onUseTestDocs} class="text-[12px] text-primary font-medium">Use these</button>}
-              </div>
-              {SAMPLE_DOCS.map((d, i) => (
-                <div key={i} class="flex items-center gap-3 py-1.5 text-[13px]">
-                  <span>📄</span>
-                  <span class="flex-1 text-[#6e6e73]">{d.name}</span>
-                  <span class="text-[11px] text-[#34c759] font-medium">Ready</span>
-                </div>
-              ))}
-            </div>
-          )}
-
           {/* User ID */}
           <input
             value={userId}
@@ -318,7 +304,7 @@ function UploadScreen({ files, useTestDocs, onAddFiles, onRemoveFile, onUseTestD
 
           <div class="flex gap-3">
             <button onClick={onBack} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
-            <button onClick={onContinue} disabled={!hasFiles || processing} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
+            <button onClick={onContinue} disabled={processing} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
               {processing ? 'Processing...' : 'Process Documents'}
             </button>
           </div>

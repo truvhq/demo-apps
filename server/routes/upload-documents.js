@@ -36,12 +36,15 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
 
   router.post('/api/collections', async (req, res) => {
     try {
-      const { user_id, use_test_docs } = req.body;
+      const { user_id, use_test_docs, extra_documents } = req.body;
       let { documents } = req.body;
 
-      // If use_test_docs flag, load from local files
+      // Load test docs if flagged, then append any extra user-uploaded documents
       if (use_test_docs) {
         documents = loadTestDocs();
+      }
+      if (extra_documents?.length) {
+        documents = [...(documents || []), ...extra_documents];
       }
       if (!documents?.length) return res.status(400).json({ error: 'documents array is required' });
 
@@ -52,6 +55,7 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
       } else {
         const userResult = await truv.createUser();
         if (userResult.statusCode >= 400 || !userResult.data?.id) return res.status(userResult.statusCode || 500).json({ error: 'Failed to create user', details: userResult.data });
+        apiLogger.logApiCall({ userId: userResult.data.id, method: 'POST', endpoint: '/v1/users/', requestBody: userResult.requestBody, responseBody: userResult.data, statusCode: userResult.statusCode, durationMs: userResult.durationMs });
         users = [{ id: userResult.data.id }];
       }
 
