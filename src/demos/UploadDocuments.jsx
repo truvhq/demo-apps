@@ -35,9 +35,17 @@ const DOC_DIAGRAM = `sequenceDiagram
   App->>Truv: GET /v1/links/{link_id}/income/report/
   Truv-->>App: VOIE Report`;
 
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
 export function UploadDocumentsDemo() {
   const [screen, setScreen] = useState('intro');
   const [userId, setUserId] = useState('');
+  const [files, setFiles] = useState([]);
+  const [useTestDocs, setUseTestDocs] = useState(true);
   const [truvUserId, setTruvUserId] = useState(null);
   const [collectionId, setCollectionId] = useState(null);
   const [orderData, setOrderData] = useState(null);
@@ -46,7 +54,19 @@ export function UploadDocumentsDemo() {
 
   const { panel, setCurrentStep, startPolling, reset: resetPanel } = usePanel();
 
-  const isIntro = screen === 'intro';
+  const isIntro = screen === 'intro' || screen === 'upload';
+
+  function addFiles(newFiles) {
+    setUseTestDocs(false);
+    Array.from(newFiles).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result.split(',')[1];
+        setFiles(prev => [...prev, { name: file.name, size: file.size, type: file.type, base64 }]);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 
   const pollRef = useRef(null);
   const linkIdRef = useRef(null);
@@ -54,11 +74,17 @@ export function UploadDocumentsDemo() {
   async function processDocuments() {
     setProcessing(true);
     try {
-      // Step 1: Create collection with test documents
+      // Step 1: Create collection
+      const body = { user_id: userId.trim() || undefined };
+      if (useTestDocs) {
+        body.use_test_docs = true;
+      } else {
+        body.documents = files.map(f => ({ filename: f.name, mime_type: f.type || 'application/pdf', content: f.base64 }));
+      }
       const createResp = await fetch(`${API_BASE}/api/collections`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ use_test_docs: true, user_id: userId.trim() || undefined }),
+        body: JSON.stringify(body),
       });
       const createData = await createResp.json();
       if (!createResp.ok) { alert('Error: ' + (createData.error || 'Unknown')); setProcessing(false); return; }
@@ -124,6 +150,8 @@ export function UploadDocumentsDemo() {
     setScreen('intro');
     setIntroStep(1);
     setUserId('');
+    setFiles([]);
+    setUseTestDocs(true);
     setTruvUserId(null);
     setCollectionId(null);
     setOrderData(null);
@@ -139,32 +167,9 @@ export function UploadDocumentsDemo() {
           subtitle="Documents are uploaded, validated, then finalized to extract structured data."
           diagram={DOC_DIAGRAM}
         >
-          <div class="w-full max-w-sm mx-auto">
-            <div class="border border-[#d2d2d7] rounded-xl p-4 mb-4 text-left">
-              <div class="text-[11px] font-semibold text-[#86868b] uppercase tracking-wide mb-3">Test documents</div>
-              {SAMPLE_DOCS.map((d, i) => (
-                <div key={i} class="flex items-center gap-3 py-2 border-t border-[#f5f5f7] first:border-0">
-                  <span class="text-base">{d.icon}</span>
-                  <div class="flex-1 min-w-0">
-                    <div class="text-[13px] font-medium truncate text-[#1d1d1f]">{d.name}</div>
-                    <div class="text-[11px] text-[#86868b]">{d.type}</div>
-                  </div>
-                  <span class="text-[11px] text-[#34c759] font-medium">Ready</span>
-                </div>
-              ))}
-            </div>
-            <input
-              value={userId}
-              onInput={e => setUserId(e.target.value)}
-              placeholder="User ID (optional)"
-              class="w-full px-4 py-3 border border-[#d2d2d7] rounded-xl text-sm font-mono focus:border-primary focus:outline-none mb-3 text-center"
-            />
-            <div class="flex gap-3">
-              <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
-              <button onClick={processDocuments} disabled={processing} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
-                {processing ? 'Processing...' : 'Continue'}
-              </button>
-            </div>
+          <div class="w-full max-w-xs mx-auto flex gap-3">
+            <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
+            <button onClick={() => setScreen('upload')} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Continue</button>
           </div>
         </IntroSlide>
       )}
@@ -200,6 +205,20 @@ export function UploadDocumentsDemo() {
           </div>
         </div>
       )}
+      {screen === 'upload' && (
+        <UploadScreen
+          files={files}
+          useTestDocs={useTestDocs}
+          onAddFiles={addFiles}
+          onRemoveFile={idx => setFiles(prev => prev.filter((_, i) => i !== idx))}
+          onUseTestDocs={() => { setFiles([]); setUseTestDocs(true); }}
+          userId={userId}
+          onUserIdChange={setUserId}
+          onBack={() => setScreen('intro')}
+          onContinue={processDocuments}
+          processing={processing}
+        />
+      )}
       <div class={isIntro ? 'hidden' : 'max-w-xl mx-auto px-8 py-10'}>
         {screen === 'processing' && (
           <div class="text-center py-16">
@@ -224,43 +243,86 @@ export function UploadDocumentsDemo() {
   );
 }
 
-function ReviewScreen({ data, onReset }) {
-  // Extract documents from users[].links[].documents[]
-  const allDocs = [];
-  (data?.users || []).forEach(user => {
-    (user.links || []).forEach(link => {
-      (link.documents || []).forEach(doc => allDocs.push(doc));
-    });
-  });
+function UploadScreen({ files, useTestDocs, onAddFiles, onRemoveFile, onUseTestDocs, userId, onUserIdChange, onBack, onContinue, processing }) {
+  const [dragOver, setDragOver] = useState(false);
+  const inputRef = useRef(null);
+
+  const hasFiles = useTestDocs || files.length > 0;
 
   return (
-    <div>
-      <h2 class="text-2xl font-semibold tracking-tight mb-1.5">Extracted Data</h2>
-      <p class="text-[15px] text-[#86868b] mb-7">{allDocs.length} document{allDocs.length !== 1 ? 's' : ''} processed</p>
+    <div class="intro-slide" style="justify-content: flex-start; padding-top: 2rem;">
+      <div class="w-full max-w-lg mx-auto px-4">
+        <div class="animate-slideUp">
+          <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#1d1d1f] mb-2">Upload Documents</h2>
+          <p class="text-[15px] text-[#86868b] leading-[1.5] mb-6">
+            Upload your own pay stubs, W-2s, or tax returns — or use the pre-loaded test documents.
+            <a href="https://docs.truv.com/docs/testing#document-processing-testing" target="_blank" class="text-primary ml-1 hover:underline">Download test files</a>
+          </p>
+        </div>
 
-      {allDocs.map((doc, i) => (
-        <div key={doc.id || i} class="border border-[#d2d2d7] rounded-xl mb-4 overflow-hidden">
-          <div class="px-4 py-3 bg-[#f5f5f7] border-b border-[#d2d2d7] flex items-center justify-between">
-            <span class="text-sm font-semibold text-[#1d1d1f]">{doc.document_type || `Document ${i + 1}`}</span>
-            {doc.document_subtype && <span class="text-[11px] text-[#86868b] font-mono">{doc.document_subtype}</span>}
+        <div class="animate-slideUp delay-1 text-left">
+          {/* Drag-drop zone */}
+          <div
+            class={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all mb-4 ${dragOver ? 'border-primary bg-[#f5f8ff]' : 'border-[#d2d2d7] hover:border-[#86868b]'}`}
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => { e.preventDefault(); setDragOver(false); onAddFiles(e.dataTransfer.files); }}
+            onClick={() => inputRef.current?.click()}
+          >
+            <div class="text-[15px] font-medium text-[#1d1d1f] mb-1">Drop files here or click to browse</div>
+            <div class="text-[13px] text-[#86868b]">PDF, JPEG, PNG, TIFF</div>
+            <input ref={inputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif" class="hidden" onChange={e => { onAddFiles(e.target.files); e.target.value = ''; }} />
           </div>
-          <div class="p-4">
-            {doc.parsed_data && Object.keys(doc.parsed_data).length > 0 ? (
-              Object.entries(doc.parsed_data).map(([key, val]) => (
-                <div key={key} class="grid grid-cols-[180px_1fr] border-b border-[#f5f5f7] last:border-0">
-                  <div class="py-2 text-sm text-[#86868b] font-medium">{key.replace(/_/g, ' ')}</div>
-                  <div class="py-2 text-sm font-medium text-[#1d1d1f]">{typeof val === 'object' ? JSON.stringify(val) : String(val)}</div>
+
+          {/* Uploaded files list */}
+          {files.length > 0 && (
+            <div class="mb-4">
+              <div class="text-[11px] font-semibold text-[#86868b] uppercase tracking-wide mb-2">Your documents ({files.length})</div>
+              {files.map((f, i) => (
+                <div key={i} class="flex items-center gap-3 px-4 py-2.5 border border-[#d2d2d7] rounded-lg mb-2">
+                  <span class="text-base">📄</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-[13px] font-medium truncate text-[#1d1d1f]">{f.name}</div>
+                    <div class="text-[11px] text-[#86868b]">{formatSize(f.size)}</div>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); onRemoveFile(i); }} class="text-[#86868b] hover:text-[#ff3b30] text-lg leading-none">&times;</button>
                 </div>
-              ))
-            ) : (
-              <pre class="text-xs font-mono text-[#86868b] whitespace-pre-wrap max-h-48 overflow-auto">{JSON.stringify(doc, null, 2)}</pre>
-            )}
+              ))}
+            </div>
+          )}
+
+          {/* Or use test docs */}
+          {files.length === 0 && (
+            <div class={`border rounded-xl p-4 mb-4 transition-all ${useTestDocs ? 'border-primary bg-[#f5f8ff]' : 'border-[#d2d2d7]'}`}>
+              <div class="flex items-center justify-between mb-2">
+                <div class="text-[11px] font-semibold text-[#86868b] uppercase tracking-wide">Pre-loaded test documents</div>
+                {!useTestDocs && <button onClick={onUseTestDocs} class="text-[12px] text-primary font-medium">Use these</button>}
+              </div>
+              {SAMPLE_DOCS.map((d, i) => (
+                <div key={i} class="flex items-center gap-3 py-1.5 text-[13px]">
+                  <span>📄</span>
+                  <span class="flex-1 text-[#6e6e73]">{d.name}</span>
+                  <span class="text-[11px] text-[#34c759] font-medium">Ready</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* User ID */}
+          <input
+            value={userId}
+            onInput={e => onUserIdChange(e.target.value)}
+            placeholder="User ID (optional)"
+            class="w-full px-4 py-3 border border-[#d2d2d7] rounded-xl text-sm font-mono focus:border-primary focus:outline-none mb-4 text-center"
+          />
+
+          <div class="flex gap-3">
+            <button onClick={onBack} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
+            <button onClick={onContinue} disabled={!hasFiles || processing} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
+              {processing ? 'Processing...' : 'Process Documents'}
+            </button>
           </div>
         </div>
-      ))}
-
-      <div class="flex gap-3 mt-6 pt-5 border-t border-[#d2d2d7]">
-        <button class="px-5 py-2.5 text-sm font-semibold border border-[#d2d2d7] rounded-full hover:border-primary hover:text-primary" onClick={onReset}>Process More</button>
       </div>
     </div>
   );

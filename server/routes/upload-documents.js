@@ -143,7 +143,9 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
       apiLogger.logApiCall({ userId: uid, method: 'GET', endpoint: `/v1/links/${linkId}/income/report/`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
 
       if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Report error', details: result.data });
-      res.json({ voie_report: result.data, product_type: 'income', status: 'completed' });
+      // Wrap single link report in links array for OrderResults component compatibility
+      const voieReport = { links: [result.data] };
+      res.json({ voie_report: voieReport, product_type: 'income', status: 'completed' });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 
