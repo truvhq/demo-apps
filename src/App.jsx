@@ -2,14 +2,14 @@ import { useState, useEffect } from 'preact/hooks';
 import { Home } from './Home.jsx';
 import { ApplicationDemo } from './demos/Application.jsx';
 import { FollowUpDemo } from './demos/FollowUp.jsx';
-import { ChoiceConnectDemo } from './demos/ChoiceConnect.jsx';
+import { ConsumerCreditDemo } from './demos/ConsumerCredit.jsx';
 import { EmployeePortalDemo } from './demos/EmployeePortal.jsx';
 import { UploadDocumentsDemo } from './demos/UploadDocuments.jsx';
 
 const DEMOS = {
   'application': ApplicationDemo,
   'follow-up': FollowUpDemo,
-  'choice-connect': ChoiceConnectDemo,
+  'consumer-credit': ConsumerCreditDemo,
   'employee-portal': EmployeePortalDemo,
   'upload-documents': UploadDocumentsDemo,
 };

@@ -4,8 +4,8 @@ function TabButton({ active, label, count, onClick }) {
   return (
     <button
       onClick={onClick}
-      class={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all ${
-        active ? 'text-primary bg-primary-light' : 'text-gray-400 hover:text-gray-500 hover:bg-gray-100'
+      class={`px-3 py-1.5 text-[12px] font-medium rounded-lg transition-all ${
+        active ? 'text-primary bg-[#f5f5f7]' : 'text-[#86868b] hover:text-[#1d1d1f] hover:bg-[#f5f5f7]'
       }`}
     >
       {label}{count > 0 ? ` (${count})` : ''}

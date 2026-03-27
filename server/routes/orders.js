@@ -52,7 +52,7 @@ export default function ordersRoutes({ truv, db, apiLogger, productType }) {
       db.updateOrder(orderId, { product_type: data.products ? data.products.join(',') : pt });
       apiLogger.logApiCall({ userId, method: 'POST', endpoint: '/v1/orders/', requestBody: result.requestBody, responseBody: truvData, statusCode: result.statusCode, durationMs: result.durationMs });
 
-      res.json({ order_id: orderId, truv_order_id: truvData.id, user_id: userId, bridge_token: truvData.bridge_token, status: truvData.status });
+      res.json({ order_id: orderId, truv_order_id: truvData.id, user_id: userId, bridge_token: truvData.bridge_token, status: truvData.status, company_mapping_id: data.company_mapping_id || null });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 

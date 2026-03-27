@@ -1,124 +1,193 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
-import { Layout, usePanel, API_BASE } from '../components/index.js';
+import { Layout, usePanel, API_BASE, IntroSlide } from '../components/index.js';
 
 const STEPS = [
-  { title: 'Upload', guide: '<p>Upload employment documents (pay stubs, W-2s, tax returns). Supported formats: PDF, JPEG, PNG, TIFF.</p><pre>POST /v1/documents/collections/\n{\n  "documents": [{ "filename": "...", "content": "base64..." }]\n}</pre>' },
-  { title: 'Processing', guide: '<p>Truv validates each document:</p><ul><li><code>is_valid</code> — recognized document type</li><li><code>is_readable</code> — text is extractable</li><li><code>document_type</code> — paystub, w2, etc.</li></ul><p>Poll the collection status until all documents are processed.</p>' },
+  { title: 'Process documents', guide: '<p>Send collected documents to Truv for validation and classification:</p><pre>POST /v1/documents/collections/\n{\n  "documents": [{ "filename": "...", "content": "base64..." }],\n  "users": [{ "id": "..." }]\n}</pre><p>Optionally attach to an existing Truv user via the <code>users</code> field.</p>' },
+  { title: 'Validation', guide: '<p>Truv validates each document:</p><ul><li><code>is_valid</code> — recognized document type</li><li><code>is_readable</code> — text is extractable</li><li><code>document_type</code> — paystub, w2, etc.</li></ul><p>Poll the collection status until all documents are processed.</p>' },
   { title: 'Finalize', guide: '<p>Once validated, finalize the collection to extract structured data:</p><pre>POST /v1/documents/collections/{id}/finalize/</pre>' },
   { title: 'Review', guide: '<p>Fetch the extracted data:</p><pre>GET /v1/documents/collections/{id}/finalize/</pre><p>Returns parsed fields: employer name, pay period, gross/net pay, tax withholdings, etc.</p>' },
 ];
 
-function formatSize(bytes) {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / 1048576).toFixed(1) + ' MB';
-}
+// Test documents stored in server/test-docs/ (from Truv S3)
+// See: https://docs.truv.com/docs/testing#document-processing-testing
+const SAMPLE_DOCS = [
+  { name: 'most-recent-paystub.pdf', type: 'Pay Stub (Most Recent)', icon: '📄' },
+  { name: 'next-recent-paystub.pdf', type: 'Pay Stub (Next Recent)', icon: '📄' },
+  { name: 'first-paystub.pdf', type: 'Pay Stub (First)', icon: '📄' },
+];
+
+const DOC_DIAGRAM = `sequenceDiagram
+  participant App as Your App
+  participant Truv as Truv API
+  App->>Truv: POST /v1/users/
+  Truv-->>App: user_id
+  App->>Truv: POST /v1/documents/collections/
+  Note right of Truv: { documents: [base64...], users: [{id}] }
+  Truv-->>App: collection_id
+  App->>Truv: POST /v1/documents/collections/{id}/finalize/
+  Truv-->>App: Extraction started
+  loop Poll until links status = done
+    App->>Truv: GET /v1/documents/collections/{id}/finalize/
+    Truv-->>App: users, links, documents, parsed_data
+  end`;
 
 export function UploadDocumentsDemo() {
-  const [screen, setScreen] = useState('upload');
-  const [files, setFiles] = useState([]);
+  const [screen, setScreen] = useState('intro');
+  const [userId, setUserId] = useState('');
   const [collectionId, setCollectionId] = useState(null);
-  const [collectionData, setCollectionData] = useState(null);
   const [resultsData, setResultsData] = useState(null);
-  const [uploading, setUploading] = useState(false);
-  const [finalizing, setFinalizing] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [introStep, setIntroStep] = useState(1);
 
   const pollRef = useRef(null);
-  const resultsPollRef = useRef(null);
   const { panel, setCurrentStep } = usePanel();
 
-  // Poll collection status
-  useEffect(() => {
-    if (screen !== 'processing' || !collectionId) return;
-    const poll = async () => {
-      try {
-        const resp = await fetch(`${API_BASE}/api/collections/${collectionId}`);
-        const data = await resp.json();
-        setCollectionData(data);
-        if (data.status === 'completed') { clearInterval(pollRef.current); pollRef.current = null; }
-      } catch {}
-    };
-    poll();
-    pollRef.current = setInterval(poll, 3000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [screen, collectionId]);
+  const isIntro = screen === 'intro';
 
-  function addFiles(newFiles) {
-    const fileList = Array.from(newFiles);
-    fileList.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = reader.result.split(',')[1];
-        setFiles(prev => [...prev, { name: file.name, size: file.size, type: file.type, base64 }]);
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-
-  function removeFile(idx) { setFiles(prev => prev.filter((_, i) => i !== idx)); }
-
-  async function uploadFiles() {
-    setUploading(true);
+  async function processDocuments() {
+    setProcessing(true);
     try {
-      const documents = files.map(f => ({ filename: f.name, content: f.base64 }));
-      const resp = await fetch(`${API_BASE}/api/collections`, {
+      // Step 1: Create collection with test documents
+      const createResp = await fetch(`${API_BASE}/api/collections`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documents }),
+        body: JSON.stringify({ use_test_docs: true, user_id: userId.trim() || undefined }),
       });
-      const data = await resp.json();
-      if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setUploading(false); return; }
+      const createData = await createResp.json();
+      if (!createResp.ok) { alert('Error: ' + (createData.error || 'Unknown')); setProcessing(false); return; }
 
-      setCollectionId(data.collection_id);
+      const cid = createData.collection_id;
+      setCollectionId(cid);
       setCurrentStep(1);
       setScreen('processing');
-    } catch (e) { console.error(e); }
-    setUploading(false);
-  }
 
-  async function finalize() {
-    setFinalizing(true);
-    try {
-      await fetch(`${API_BASE}/api/collections/${collectionId}/finalize`, { method: 'POST' });
-      setCurrentStep(3);
-      setScreen('review');
-
-      // Poll for results
-      const pollResults = async () => {
+      // Step 2: Poll collection status until all files are processed
+      const waitForProcessing = async () => {
         try {
-          const resp = await fetch(`${API_BASE}/api/collections/${collectionId}/results`);
+          const resp = await fetch(`${API_BASE}/api/collections/${cid}`);
           const data = await resp.json();
-          setResultsData(data);
-          if (data.status !== 'completed') resultsPollRef.current = setTimeout(pollResults, 3000);
-        } catch (e) { console.error(e); }
+          const files = data.raw_response?.uploaded_files || [];
+          const allProcessed = files.length > 0 && files.every(f => f.status === 'successful');
+          if (!allProcessed) {
+            pollRef.current = setTimeout(waitForProcessing, 3000);
+            return;
+          }
+
+          // Step 3: Finalize (start extraction)
+          setCurrentStep(2);
+          await fetch(`${API_BASE}/api/collections/${cid}/finalize`, { method: 'POST' });
+
+          // Step 4: Poll results until links[].status === "done"
+          const pollResults = async () => {
+            try {
+              const resp2 = await fetch(`${API_BASE}/api/collections/${cid}/results`);
+              const data2 = await resp2.json();
+              const hasUsers = data2.users?.length > 0;
+              const allDone = hasUsers && data2.users.every(u => u.links?.length > 0 && u.links.every(l => l.status === 'done'));
+              if (allDone) {
+                setResultsData(data2);
+                setCurrentStep(3);
+                setScreen('review');
+              } else {
+                pollRef.current = setTimeout(pollResults, 3000);
+              }
+            } catch (e) { console.error(e); pollRef.current = setTimeout(pollResults, 3000); }
+          };
+          pollRef.current = setTimeout(pollResults, 3000);
+        } catch (e) { console.error(e); pollRef.current = setTimeout(waitForProcessing, 3000); }
       };
-      resultsPollRef.current = setTimeout(pollResults, 2000);
+      pollRef.current = setTimeout(waitForProcessing, 3000);
     } catch (e) { console.error(e); }
-    setFinalizing(false);
+    setProcessing(false);
   }
 
   function resetDemo() {
-    if (pollRef.current) clearInterval(pollRef.current);
-    if (resultsPollRef.current) clearTimeout(resultsPollRef.current);
-    setScreen('upload');
-    setFiles([]);
+    if (pollRef.current) clearTimeout(pollRef.current);
+    setScreen('intro');
+    setIntroStep(1);
+    setUserId('');
     setCollectionId(null);
-    setCollectionData(null);
     setResultsData(null);
     setCurrentStep(0);
   }
 
   return (
-    <Layout title="Truv Quickstart" badge="Upload Documents" steps={STEPS} panel={panel}>
-      <div class="max-w-xl mx-auto">
-        {screen === 'upload' && (
-          <UploadScreen files={files} onAdd={addFiles} onRemove={removeFile} onUpload={uploadFiles} uploading={uploading} />
-        )}
+    <Layout title="Truv Quickstart" badge="Document Processing" steps={STEPS} panel={panel} hidePanel={isIntro}>
+      {screen === 'intro' && introStep === 2 && (
+        <IntroSlide
+          label="Document Processing → Architecture"
+          title="Processing pipeline"
+          subtitle="Documents are uploaded, validated, then finalized to extract structured data."
+          diagram={DOC_DIAGRAM}
+        >
+          <div class="w-full max-w-sm mx-auto">
+            <div class="border border-[#d2d2d7] rounded-xl p-4 mb-4 text-left">
+              <div class="text-[11px] font-semibold text-[#86868b] uppercase tracking-wide mb-3">Test documents</div>
+              {SAMPLE_DOCS.map((d, i) => (
+                <div key={i} class="flex items-center gap-3 py-2 border-t border-[#f5f5f7] first:border-0">
+                  <span class="text-base">{d.icon}</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-[13px] font-medium truncate text-[#1d1d1f]">{d.name}</div>
+                    <div class="text-[11px] text-[#86868b]">{d.type}</div>
+                  </div>
+                  <span class="text-[11px] text-[#34c759] font-medium">Ready</span>
+                </div>
+              ))}
+            </div>
+            <input
+              value={userId}
+              onInput={e => setUserId(e.target.value)}
+              placeholder="User ID (optional)"
+              class="w-full px-4 py-3 border border-[#d2d2d7] rounded-xl text-sm font-mono focus:border-primary focus:outline-none mb-3 text-center"
+            />
+            <div class="flex gap-3">
+              <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
+              <button onClick={processDocuments} disabled={processing} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
+                {processing ? 'Processing...' : 'Continue'}
+              </button>
+            </div>
+          </div>
+        </IntroSlide>
+      )}
+
+      {screen === 'intro' && introStep === 1 && (
+        <div class="intro-slide">
+          <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
+            <div class="animate-slideUp">
+              <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Document Processing</div>
+              <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Extract data from<br />collected documents</h2>
+              <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
+                Process pay stubs, W-2s, and tax returns already collected during the application. No payroll connection needed.
+              </p>
+            </div>
+            <div class="grid grid-cols-2 gap-3 mb-8 text-left max-w-lg mx-auto animate-slideUp delay-1">
+              {[
+                { name: 'Pay Stubs', desc: 'Gross/net pay, deductions, employer info, pay period' },
+                { name: 'W-2 Forms', desc: 'Annual wages, federal/state taxes, employer EIN' },
+                { name: 'Tax Returns (1040)', desc: 'Filed income, AGI, tax liability' },
+                { name: 'Bank Statements', desc: 'Deposits, withdrawals, account balances' },
+              ].map(d => (
+                <div key={d.name} class="border border-[#d2d2d7] rounded-2xl px-5 py-4 bg-white">
+                  <h3 class="text-[14px] font-semibold text-[#1d1d1f] mb-1">{d.name}</h3>
+                  <p class="text-[13px] text-[#6e6e73] leading-[1.4]">{d.desc}</p>
+                </div>
+              ))}
+            </div>
+            <div class="animate-slideUp delay-2">
+              <button onClick={() => setIntroStep(2)} class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
+                View Architecture
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div class={isIntro ? 'hidden' : 'max-w-xl mx-auto px-8 py-10'}>
         {screen === 'processing' && (
-          <ProcessingScreen data={collectionData} onContinue={() => { setCurrentStep(2); setScreen('finalize'); }} />
-        )}
-        {screen === 'finalize' && (
-          <FinalizeScreen onFinalize={finalize} finalizing={finalizing} />
+          <div class="text-center py-16">
+            <div class="w-12 h-12 border-[3px] border-[#d2d2d7] border-t-primary rounded-full animate-spin mx-auto mb-6" />
+            <h2 class="text-2xl font-semibold tracking-tight mb-2">Processing Documents</h2>
+            <p class="text-[15px] text-[#86868b]">Creating collection, finalizing, and extracting data...</p>
+          </div>
         )}
         {screen === 'review' && (
           <ReviewScreen data={resultsData} onReset={resetDemo} />
@@ -128,143 +197,43 @@ export function UploadDocumentsDemo() {
   );
 }
 
-function UploadScreen({ files, onAdd, onRemove, onUpload, uploading }) {
-  const [dragOver, setDragOver] = useState(false);
-  const inputRef = useRef(null);
-
-  return (
-    <div>
-      <h2 class="text-2xl font-bold tracking-tight mb-1.5">Upload Documents</h2>
-      <p class="text-sm text-gray-500 mb-7">Upload pay stubs, W-2s, or tax returns for verification.</p>
-
-      <div
-        class={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all mb-4 ${dragOver ? 'border-primary bg-primary-light' : 'border-gray-200 hover:border-primary'}`}
-        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={e => { e.preventDefault(); setDragOver(false); onAdd(e.dataTransfer.files); }}
-        onClick={() => inputRef.current?.click()}
-      >
-        <div class="text-4xl mb-3">📁</div>
-        <div class="text-sm font-semibold mb-1">Drop files here or click to browse</div>
-        <div class="text-xs text-gray-400">PDF, JPEG, PNG, TIFF — up to 100MB</div>
-        <input ref={inputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif" class="hidden" onChange={e => onAdd(e.target.files)} />
-      </div>
-
-      {files.length > 0 && (
-        <div class="mb-6">
-          {files.map((f, i) => (
-            <div key={i} class="flex items-center gap-3 px-4 py-2.5 border border-gray-200 rounded-lg mb-2">
-              <span class="text-lg">📄</span>
-              <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium truncate">{f.name}</div>
-                <div class="text-xs text-gray-400">{formatSize(f.size)}</div>
-              </div>
-              <button onClick={() => onRemove(i)} class="text-gray-400 hover:text-error text-lg">×</button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <button onClick={onUpload} disabled={files.length === 0 || uploading} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
-        {uploading ? 'Uploading...' : `Upload & Process (${files.length})`}
-      </button>
-    </div>
-  );
-}
-
-function ProcessingScreen({ data, onContinue }) {
-  const raw = data?.raw_response || {};
-  const docs = raw.documents || [];
-  const isComplete = data?.status === 'completed';
-
-  return (
-    <div>
-      <h2 class="text-2xl font-bold tracking-tight mb-1.5">Processing</h2>
-      <p class="text-sm text-gray-500 mb-7">Validating uploaded documents...</p>
-
-      <div class="border border-gray-200 rounded-xl p-4 mb-6">
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-sm font-medium">Collection</span>
-          <span class={`text-xs font-semibold px-2 py-0.5 rounded ${isComplete ? 'text-success bg-success-bg' : 'text-warning bg-warning-bg'}`}>
-            {data?.status || 'processing'}
-          </span>
-        </div>
-        {docs.map((doc, i) => (
-          <div key={i} class="flex items-center gap-3 py-2 border-t border-gray-100 text-sm">
-            <span class={doc.is_valid ? 'text-success' : 'text-error'}>{doc.is_valid ? '✓' : '✗'}</span>
-            <span class="flex-1 truncate">{doc.filename || `Document ${i + 1}`}</span>
-            <span class="text-xs text-gray-400">{doc.document_type || '-'}</span>
-          </div>
-        ))}
-      </div>
-
-      {!isComplete && (
-        <div class="flex items-center justify-center gap-2 text-sm text-gray-400 mb-4">
-          <div class="w-4 h-4 border-2 border-gray-200 border-t-primary rounded-full animate-spin" />
-          Polling every 3 seconds...
-        </div>
-      )}
-
-      <button onClick={onContinue} disabled={!isComplete} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
-        Continue to Finalize
-      </button>
-    </div>
-  );
-}
-
-function FinalizeScreen({ onFinalize, finalizing }) {
-  return (
-    <div class="text-center py-12">
-      <h2 class="text-2xl font-bold tracking-tight mb-2">Finalize & Extract</h2>
-      <p class="text-sm text-gray-500 mb-8">Documents validated. Click below to extract structured data.</p>
-      <button onClick={onFinalize} disabled={finalizing} class="px-8 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
-        {finalizing ? 'Finalizing...' : 'Finalize & Extract Data'}
-      </button>
-    </div>
-  );
-}
-
 function ReviewScreen({ data, onReset }) {
-  if (!data || data.status !== 'completed') {
-    return (
-      <div class="text-center py-12">
-        <div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-        <p class="text-sm text-gray-500">Extracting data...</p>
-      </div>
-    );
-  }
+  // Extract documents from users[].links[].documents[]
+  const allDocs = [];
+  (data?.users || []).forEach(user => {
+    (user.links || []).forEach(link => {
+      (link.documents || []).forEach(doc => allDocs.push(doc));
+    });
+  });
 
-  const docs = data.documents || [];
   return (
     <div>
-      <h2 class="text-2xl font-bold tracking-tight mb-1.5">Extracted Data</h2>
-      <p class="text-sm text-gray-500 mb-7">{docs.length} document{docs.length !== 1 ? 's' : ''} processed</p>
+      <h2 class="text-2xl font-semibold tracking-tight mb-1.5">Extracted Data</h2>
+      <p class="text-[15px] text-[#86868b] mb-7">{allDocs.length} document{allDocs.length !== 1 ? 's' : ''} processed</p>
 
-      {docs.map((doc, i) => (
-        <div key={i} class="border border-gray-200 rounded-xl mb-4 overflow-hidden">
-          <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-            <span class="text-sm font-semibold">{doc.document_type || `Document ${i + 1}`}</span>
-            <span class={`text-xs font-semibold px-2 py-0.5 rounded ${doc.is_valid ? 'text-success bg-success-bg' : 'text-error bg-red-50'}`}>
-              {doc.is_valid ? 'Valid' : 'Invalid'}
-            </span>
+      {allDocs.map((doc, i) => (
+        <div key={doc.id || i} class="border border-[#d2d2d7] rounded-xl mb-4 overflow-hidden">
+          <div class="px-4 py-3 bg-[#f5f5f7] border-b border-[#d2d2d7] flex items-center justify-between">
+            <span class="text-sm font-semibold text-[#1d1d1f]">{doc.document_type || `Document ${i + 1}`}</span>
+            {doc.document_subtype && <span class="text-[11px] text-[#86868b] font-mono">{doc.document_subtype}</span>}
           </div>
           <div class="p-4">
-            {doc.parsed_data ? (
+            {doc.parsed_data && Object.keys(doc.parsed_data).length > 0 ? (
               Object.entries(doc.parsed_data).map(([key, val]) => (
-                <div key={key} class="grid grid-cols-[180px_1fr] border-b border-gray-100 last:border-0">
-                  <div class="py-2 text-sm text-gray-500 font-medium">{key.replace(/_/g, ' ')}</div>
-                  <div class="py-2 text-sm font-semibold">{typeof val === 'object' ? JSON.stringify(val) : String(val)}</div>
+                <div key={key} class="grid grid-cols-[180px_1fr] border-b border-[#f5f5f7] last:border-0">
+                  <div class="py-2 text-sm text-[#86868b] font-medium">{key.replace(/_/g, ' ')}</div>
+                  <div class="py-2 text-sm font-medium text-[#1d1d1f]">{typeof val === 'object' ? JSON.stringify(val) : String(val)}</div>
                 </div>
               ))
             ) : (
-              <pre class="text-xs font-mono text-gray-500 whitespace-pre-wrap">{JSON.stringify(doc, null, 2)}</pre>
+              <pre class="text-xs font-mono text-[#86868b] whitespace-pre-wrap max-h-48 overflow-auto">{JSON.stringify(doc, null, 2)}</pre>
             )}
           </div>
         </div>
       ))}
 
-      <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-        <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:border-primary hover:text-primary" onClick={onReset}>Upload More</button>
+      <div class="flex gap-3 mt-6 pt-5 border-t border-[#d2d2d7]">
+        <button class="px-5 py-2.5 text-sm font-semibold border border-[#d2d2d7] rounded-full hover:border-primary hover:text-primary" onClick={onReset}>Process More</button>
       </div>
     </div>
   );

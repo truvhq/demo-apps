@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
-import { Layout, OrderResults, WaitingScreen, usePanel, API_BASE, parsePayload } from '../components/index.js';
+import { Layout, OrderResults, WaitingScreen, usePanel, API_BASE, parsePayload, IntroSlide } from '../components/index.js';
 import { navigate } from '../App.jsx';
 
 const STEPS = [
-  { title: 'Employee list', guide: '<p>View employees and their verification status. Request new verifications or reverify existing ones.</p><pre>POST /v1/orders/\n{\n  "first_name": "...",\n  "products": ["income"]\n}</pre>' },
+  { title: 'Applicant list', guide: '<p>View applicants and their verification status. Request new verifications or reverify existing ones.</p><pre>POST /v1/orders/\n{\n  "first_name": "...",\n  "products": ["income"]\n}</pre>' },
   { title: 'Bridge verification', guide: '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p><p><a href="https://docs.truv.com/docs/bridge-overview" target="_blank">Bridge Docs →</a></p>' },
   { title: 'Webhook processing', guide: '<p>Truv sends webhooks as the verification progresses.</p>' },
   { title: 'View results', guide: '<p>Fetch reports by product type:</p><pre>POST /v1/users/{user_id}/reports/\nPOST /v1/users/{user_id}/assets/reports/</pre>' },
@@ -18,7 +18,22 @@ const EMPLOYEES = [
 
 const WAITING_MIN_MS = 10000;
 
+const PROCESSOR_DIAGRAM = `sequenceDiagram
+  participant Proc as Processor
+  participant Truv as Truv API
+  participant User as User (remote)
+  Proc->>Truv: POST /v1/orders/
+  Note right of Truv: PII + products
+  Truv-->>Proc: order_id, share_url
+  Proc->>User: Send share_url (email/SMS)
+  User->>Truv: Opens share_url, completes Bridge
+  Truv->>Proc: Webhook: order-status-updated
+  Proc->>Truv: POST /v1/users/{user_id}/reports/
+  Truv-->>Proc: Verification report`;
+
 export function EmployeePortalDemo({ screen, param }) {
+  const [introStep, setIntroStep] = useState(1);
+  const [introSeen, setIntroSeen] = useState(false);
   const [employeeOrders, setEmployeeOrders] = useState({});
   const [creating, setCreating] = useState(null);
   const activeEmployeeRef = useRef(null);
@@ -73,9 +88,10 @@ export function EmployeePortalDemo({ screen, param }) {
   }
 
   const isBridge = screen === 'bridge';
+  const showIntro = !screen && !introSeen;
 
   return (
-    <Layout title="Truv Quickstart" badge="Employee Portal" steps={STEPS} panel={panel} flush={isBridge}>
+    <Layout title="Truv Quickstart" badge="Processor Portal" steps={STEPS} panel={panel} flush={isBridge} hidePanel={showIntro}>
       {screen === 'bridge' && (
         <BridgeScreen orderId={param} addBridgeEvent={addBridgeEvent} startPolling={startPolling} />
       )}
@@ -85,10 +101,54 @@ export function EmployeePortalDemo({ screen, param }) {
       {screen === 'results' && (
         <ResultsScreen orderId={param} onBack={() => { reset(); navigate('employee-portal'); }} />
       )}
-      {!screen && (
-        <div class="max-w-3xl mx-auto">
-          <h2 class="text-2xl font-bold tracking-tight mb-1.5">Employee Verifications</h2>
-          <p class="text-sm text-gray-500 leading-relaxed mb-7">Manage verification requests for your employees.</p>
+      {!screen && showIntro && introStep === 2 && (
+        <IntroSlide
+          label="Processor Portal → Architecture"
+          title="Remote verification flow"
+          subtitle="The processor creates orders and sends share links. The user completes verification on their own."
+          diagram={PROCESSOR_DIAGRAM}
+        >
+          <div class="w-full max-w-xs mx-auto flex gap-3">
+            <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
+            <button onClick={() => setIntroSeen(true)} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Continue</button>
+          </div>
+        </IntroSlide>
+      )}
+
+      {!screen && showIntro && introStep === 1 && (
+        <div class="intro-slide">
+          <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
+            <div class="animate-slideUp">
+              <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Processor Portal</div>
+              <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Verify without the<br />user present</h2>
+              <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
+                The user already submitted their application and left. A processor creates verification orders using collected data, sends a link, and tracks completion.
+              </p>
+            </div>
+            <div class="grid gap-3 mb-8 text-left max-w-lg mx-auto animate-slideUp delay-1">
+              {[
+                { name: 'Create orders from collected data', desc: 'No user interaction needed — use PII from the application' },
+                { name: 'Send verification links', desc: 'Share URL via email or SMS for the user to complete later' },
+                { name: 'Track status remotely', desc: 'Monitor webhook events and order status from the dashboard' },
+                { name: 'Fetch reports on completion', desc: 'Pull VOIE, VOE, or VOA reports once the user completes Bridge' },
+              ].map(item => (
+                <div key={item.name} class="border border-[#d2d2d7] rounded-2xl px-5 py-4 bg-white">
+                  <h3 class="text-[14px] font-semibold text-[#1d1d1f] mb-1">{item.name}</h3>
+                  <p class="text-[13px] text-[#6e6e73] leading-[1.4]">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+            <div class="animate-slideUp delay-2">
+              <button onClick={() => setIntroStep(2)} class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
+                View Architecture
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!screen && !showIntro && (
+        <div class="max-w-3xl mx-auto px-8 py-10">
           <div class="space-y-3">
             {EMPLOYEES.map(emp => {
               const order = employeeOrders[emp.id];
@@ -227,7 +287,7 @@ function ResultsScreen({ orderId, onBack }) {
       <p class="text-sm text-gray-500 mb-7">Order {orderData.truv_order_id || ''} • {orderData.status || ''}</p>
       <OrderResults data={orderData} />
       <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-        <button class="px-5 py-2.5 text-sm font-semibold bg-primary text-white rounded-full hover:bg-primary-hover" onClick={onBack}>Back to Employees</button>
+        <button class="px-5 py-2.5 text-sm font-semibold bg-primary text-white rounded-full hover:bg-primary-hover" onClick={onBack}>Back to Applicants</button>
       </div>
     </div>
   );

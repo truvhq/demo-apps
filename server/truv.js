@@ -99,10 +99,13 @@ export class TruvClient {
     if (params.template_id) payload.template_id = params.template_id;
 
     // Employer — sandbox credentials: goodlogin/goodpassword
-    if (params.company_mapping_id) {
-      payload.employers = [{ company_mapping_id: params.company_mapping_id }];
-    } else if (params.employer) {
-      payload.employers = [{ company_name: params.employer }];
+    // employers array only supported for non-assets products
+    if (productType !== 'assets') {
+      if (params.company_mapping_id) {
+        payload.employers = [{ company_mapping_id: params.company_mapping_id }];
+      } else if (params.employer) {
+        payload.employers = [{ company_name: params.employer }];
+      }
     }
 
     // Sandbox test account for deposit_switch and pll products
@@ -187,9 +190,9 @@ export class TruvClient {
 
   // --- Document Collections API ---
 
-  async createDocumentCollection(documents, users) {
+  async createDocumentCollection(documents) {
     return this._request('POST', 'documents/collections/', {
-      json: { documents, ...(users ? { users } : {}) },
+      json: { documents },
     });
   }
 
