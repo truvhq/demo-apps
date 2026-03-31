@@ -1,17 +1,24 @@
 const DEMOS = [
   {
     id: 'application',
-    name: 'Application',
-    useCase: 'User verifies during an application',
+    name: 'New Application',
+    useCase: 'Point of sale',
     desc: 'The user fills in their details, selects their employer, and completes income or employment verification through Bridge.',
     tags: ['Company Search', 'Orders', 'Bridge', 'Reports'],
   },
   {
     id: 'follow-up',
-    name: 'Follow-up',
-    useCase: 'User completes remaining verifications',
+    name: 'Application Follow-up Tasks',
+    useCase: 'Point of sale',
     desc: 'After submitting an application, the user returns to a dashboard of verification tasks and completes them one by one.',
     tags: ['Orders', 'Bridge', 'VOIE', 'VOE', 'Assets'],
+  },
+  {
+    id: 'verifier-portal',
+    name: 'Verifier Portal',
+    useCase: 'Your employee portal',
+    desc: 'The user already submitted and left. A verifier creates orders using collected data, sends a link with email/phone, and tracks completion.',
+    tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'],
   },
   {
     id: 'consumer-credit',
@@ -21,16 +28,9 @@ const DEMOS = [
     tags: ['Users', 'Bridge Tokens', 'Link Reports'],
   },
   {
-    id: 'verifier-portal',
-    name: 'Verifier Portal',
-    useCase: 'Verifier processes without the user present',
-    desc: 'The user already submitted and left. A verifier creates orders using collected data, sends a link with email/phone, and tracks completion.',
-    tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'],
-  },
-  {
     id: 'upload-documents',
     name: 'Document Processing',
-    useCase: 'Extract data from collected documents',
+    useCase: 'Backend submission of documents',
     desc: 'Process pay stubs, W-2s, and tax returns already collected. Truv validates, classifies, and extracts structured data.',
     tags: ['Document Collections', 'Finalize', 'Parsed Data'],
   },
