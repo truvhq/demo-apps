@@ -133,20 +133,22 @@ const FOLLOWUP_TASKS_INFO = [
 
 const FOLLOWUP_DIAGRAM = `sequenceDiagram
   participant App as Your App
-  participant Truv as Truv API
   participant Bridge as Truv Bridge
-  App->>Truv: POST /v1/orders/ (income)
-  App->>Truv: POST /v1/orders/ (employment)
-  App->>Truv: POST /v1/orders/ (assets)
-  App->>Truv: POST /v1/orders/ (income+assets)
+  participant Backend as Your Backend
+  participant Truv as Truv Backend
+  Backend->>Truv: POST /v1/orders/ (income)
+  Backend->>Truv: POST /v1/orders/ (employment)
+  Backend->>Truv: POST /v1/orders/ (assets)
+  Backend->>Truv: POST /v1/orders/ (income+assets)
   Note right of Truv: All share same external_user_id
-  Truv-->>App: 4x bridge_token, shared user_id
+  Truv-->>Backend: 4x bridge_token, shared user_id
   loop For each task
+    Backend-->>App: bridge_token
     App->>Bridge: TruvBridge.init({ bridgeToken })
     Bridge-->>App: User completes verification
-    Truv->>App: Webhook: order-status-updated
-    App->>Truv: POST /v1/users/{user_id}/reports/
-    Truv-->>App: Report data
+    Truv->>Backend: Webhook: order-status-updated
+    Backend->>Truv: POST /v1/users/{user_id}/reports/
+    Truv-->>Backend: Report data
   end`;
 
 function InitScreen({ applicationId, onApplicationIdChange, onInitialize, initializing }) {

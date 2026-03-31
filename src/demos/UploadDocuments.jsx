@@ -18,22 +18,24 @@ const SAMPLE_DOCS = [
 
 const DOC_DIAGRAM = `sequenceDiagram
   participant App as Your App
-  participant Truv as Truv API
-  App->>Truv: POST /v1/users/
-  Truv-->>App: user_id
-  App->>Truv: POST /v1/documents/collections/
+  participant Backend as Your Backend
+  participant Truv as Truv Backend
+  App->>Backend: Upload documents
+  Backend->>Truv: POST /v1/users/
+  Truv-->>Backend: user_id
+  Backend->>Truv: POST /v1/documents/collections/
   Note right of Truv: documents with base64 + user_id
-  Truv-->>App: collection_id
+  Truv-->>Backend: collection_id
   loop Poll until files successful
-    App->>Truv: GET /v1/documents/collections/{id}/
-    Truv-->>App: uploaded_files status
+    Backend->>Truv: GET /v1/documents/collections/{id}/
+    Truv-->>Backend: uploaded_files status
   end
-  App->>Truv: POST /v1/documents/collections/{id}/finalize/
+  Backend->>Truv: POST /v1/documents/collections/{id}/finalize/
   Note right of Truv: { product_type: "income" }
-  Truv-->>App: link_id
-  Truv->>App: Webhook: task-status-updated (done)
-  App->>Truv: GET /v1/links/{link_id}/income/report/
-  Truv-->>App: VOIE Report`;
+  Truv-->>Backend: link_id
+  Truv->>Backend: Webhook: task-status-updated (done)
+  Backend->>Truv: GET /v1/links/{link_id}/income/report/
+  Truv-->>Backend: VOIE Report`;
 
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';

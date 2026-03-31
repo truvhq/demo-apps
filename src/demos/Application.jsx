@@ -99,50 +99,59 @@ const PRODUCTS = [
 const DIAGRAMS = {
   income: `sequenceDiagram
   participant App as Your App
-  participant Truv as Truv API
   participant Bridge as Truv Bridge
-  App->>Truv: GET /v1/company-mappings-search/
-  Truv-->>App: company_mapping_id
-  App->>Truv: POST /v1/orders/
+  participant Backend as Your Backend
+  participant Truv as Truv Backend
+  App->>Backend: Submit applicant info
+  Backend->>Truv: GET /v1/company-mappings-search/
+  Truv-->>Backend: company_mapping_id
+  Backend->>Truv: POST /v1/orders/
   Note right of Truv: PII + employer + products: ["income"]
-  Truv-->>App: bridge_token, user_id
+  Truv-->>Backend: bridge_token, user_id
+  Backend-->>App: bridge_token
   App->>Bridge: TruvBridge.init({ bridgeToken })
   Bridge-->>App: User logs in with employer
-  Truv->>App: Webhook: order-status-updated (completed)
-  App->>Truv: POST /v1/users/{user_id}/reports/
+  Truv->>Backend: Webhook: order-status-updated (completed)
+  Backend->>Truv: POST /v1/users/{user_id}/reports/
   Note right of Truv: { is_voe: false }
-  Truv-->>App: VOIE Report (income + employment data)`,
+  Truv-->>Backend: VOIE Report (income + employment data)`,
   employment: `sequenceDiagram
   participant App as Your App
-  participant Truv as Truv API
   participant Bridge as Truv Bridge
-  App->>Truv: GET /v1/company-mappings-search/
-  Truv-->>App: company_mapping_id
-  App->>Truv: POST /v1/orders/
+  participant Backend as Your Backend
+  participant Truv as Truv Backend
+  App->>Backend: Submit applicant info
+  Backend->>Truv: GET /v1/company-mappings-search/
+  Truv-->>Backend: company_mapping_id
+  Backend->>Truv: POST /v1/orders/
   Note right of Truv: PII + employer + products: ["employment"]
-  Truv-->>App: bridge_token, user_id
+  Truv-->>Backend: bridge_token, user_id
+  Backend-->>App: bridge_token
   App->>Bridge: TruvBridge.init({ bridgeToken })
   Bridge-->>App: User logs in with employer
-  Truv->>App: Webhook: order-status-updated (completed)
-  App->>Truv: POST /v1/users/{user_id}/reports/
+  Truv->>Backend: Webhook: order-status-updated (completed)
+  Backend->>Truv: POST /v1/users/{user_id}/reports/
   Note right of Truv: { is_voe: true }
-  Truv-->>App: VOE Report (employment data)`,
+  Truv-->>Backend: VOE Report (employment data)`,
   assets: `sequenceDiagram
   participant App as Your App
-  participant Truv as Truv API
   participant Bridge as Truv Bridge
-  App->>Truv: GET /v1/company-mappings-search/
-  Truv-->>App: company_mapping_id (bank)
-  App->>Truv: POST /v1/orders/
+  participant Backend as Your Backend
+  participant Truv as Truv Backend
+  App->>Backend: Submit applicant info
+  Backend->>Truv: GET /v1/company-mappings-search/
+  Truv-->>Backend: company_mapping_id (bank)
+  Backend->>Truv: POST /v1/orders/
   Note right of Truv: PII + products: ["assets"]
-  Truv-->>App: bridge_token, user_id
+  Truv-->>Backend: bridge_token, user_id
+  Backend-->>App: bridge_token
   App->>Bridge: TruvBridge.init({ bridgeToken, companyMappingId })
   Bridge-->>App: User connects bank account
-  Truv->>App: Webhook: order-status-updated (completed)
-  App->>Truv: POST /v1/users/{user_id}/assets/reports/
-  Truv-->>App: VOA Report (balances + transactions)
-  App->>Truv: POST /v1/users/{user_id}/income_insights/reports/
-  Truv-->>App: Income Insights Report`,
+  Truv->>Backend: Webhook: order-status-updated (completed)
+  Backend->>Truv: POST /v1/users/{user_id}/assets/reports/
+  Truv-->>Backend: VOA Report (balances + transactions)
+  Backend->>Truv: POST /v1/users/{user_id}/income_insights/reports/
+  Truv-->>Backend: Income Insights Report`,
 };
 
 function IntroScreen({ onStart }) {

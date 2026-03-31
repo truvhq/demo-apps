@@ -15,20 +15,24 @@ const PRODUCTS = [
 
 const CC_DIAGRAM = `sequenceDiagram
   participant App as Your App
-  participant Truv as Truv API
   participant Bridge as Truv Bridge
-  App->>Truv: POST /v1/users/
-  Truv-->>App: user_id
-  App->>Truv: POST /v1/users/{user_id}/tokens/
+  participant Backend as Your Backend
+  participant Truv as Truv Backend
+  App->>Backend: Request bridge token
+  Backend->>Truv: POST /v1/users/
+  Truv-->>Backend: user_id
+  Backend->>Truv: POST /v1/users/{user_id}/tokens/
   Note right of Truv: { product_type, client_name }
-  Truv-->>App: bridge_token
+  Truv-->>Backend: bridge_token
+  Backend-->>App: bridge_token
   App->>Bridge: TruvBridge.init({ bridgeToken })
   Bridge-->>App: onSuccess(public_token)
-  App->>Truv: POST /v1/link-access-tokens/
+  App->>Backend: public_token
+  Backend->>Truv: POST /v1/link-access-tokens/
   Note right of Truv: { public_token }
-  Truv-->>App: link_id
-  App->>Truv: GET /v1/links/{link_id}/{product}/report
-  Truv-->>App: Verification report`;
+  Truv-->>Backend: link_id
+  Backend->>Truv: GET /v1/links/{link_id}/{product}/report
+  Truv-->>Backend: Verification report`;
 
 export function ConsumerCreditDemo() {
   const [screen, setScreen] = useState('select');
