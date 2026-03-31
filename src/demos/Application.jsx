@@ -49,7 +49,7 @@ export function ApplicationDemo({ screen, param }) {
   const [orderId, companyMappingId] = (param || '').split('/');
 
   return (
-    <Layout title="Truv Quickstart" badge="Application" steps={STEPS} panel={panel} flush={isBridge} hidePanel={isIntro}>
+    <Layout title="Truv Quickstart" badge="New Application" steps={STEPS} panel={panel} flush={isBridge} hidePanel={isIntro}>
       {screen === 'bridge' && (
         <BridgeScreen orderId={orderId} demoPath="application" companyMappingId={companyMappingId} addBridgeEvent={addBridgeEvent} startPolling={startPolling} />
       )}
@@ -152,7 +152,7 @@ function IntroScreen({ onStart }) {
   if (step === 2 && selected) {
     return (
       <IntroSlide
-        label={`Application → ${PRODUCTS.find(p => p.id === selected)?.name}`}
+        label={`New Application → ${PRODUCTS.find(p => p.id === selected)?.name}`}
         title="Architecture"
         subtitle={`How the ${selected} verification flow works end-to-end.`}
         diagram={DIAGRAMS[selected]}
@@ -173,7 +173,7 @@ function IntroScreen({ onStart }) {
     <div class="intro-slide">
       <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
         <div class="animate-slideUp">
-          <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Application Flow</div>
+          <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">New Application Flow</div>
           <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Verify income, employment,<br />or assets</h2>
           <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
             The user fills in their details, selects their employer or bank, and completes verification through Bridge.
