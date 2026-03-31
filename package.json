@@ -14,6 +14,7 @@
     "express": "^4.21.2",
     "mermaid": "^11.13.0",
     "node-fetch": "^3.3.2",
+    "tsx": "^4.21.0",
     "uuid": "^9.0.1"
   },
   "engines": {
@@ -29,7 +30,6 @@
     "@types/uuid": "^10.0.0",
     "preact": "^10.29.0",
     "tailwindcss": "^4.2.2",
-    "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "vite": "^8.0.1"
   }

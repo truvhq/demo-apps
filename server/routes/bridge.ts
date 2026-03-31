@@ -9,8 +9,8 @@
 // 3. After Bridge completes, exchange the public_token for a link report
 
 import { Router } from 'express';
-import type { TruvClient } from '../truv.js';
-import type * as apiLogger from '../api-logger.js';
+import type { TruvClient } from '../truv';
+import type * as apiLogger from '../api-logger';
 
 interface RouteDeps {
   truv: TruvClient;

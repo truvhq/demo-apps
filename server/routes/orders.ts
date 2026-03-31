@@ -7,9 +7,9 @@
 // POST /api/orders/:id/refresh — Refresh order data
 
 import { Router } from 'express';
-import type { TruvClient } from '../truv.js';
-import type * as db from '../db.js';
-import type * as apiLogger from '../api-logger.js';
+import type { TruvClient } from '../truv';
+import type * as db from '../db';
+import type * as apiLogger from '../api-logger';
 
 interface RouteDeps {
   truv: TruvClient;

@@ -6,9 +6,9 @@
 // return the stored response. Each product type has its own Truv endpoint.
 
 import { Router } from 'express';
-import type { TruvClient, TruvApiResponse } from '../truv.js';
-import type * as db from '../db.js';
-import type * as apiLogger from '../api-logger.js';
+import type { TruvClient, TruvApiResponse } from '../truv';
+import type * as db from '../db';
+import type * as apiLogger from '../api-logger';
 
 interface RouteDeps {
   truv: TruvClient;

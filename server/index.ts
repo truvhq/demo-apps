@@ -1,15 +1,15 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { TruvClient } from './truv.js';
-import * as db from './db.js';
-import * as apiLogger from './api-logger.js';
-import { verifyWebhookSignature } from './webhooks.js';
-import { setupWebhook, teardownWebhook } from './webhook-setup.js';
-import ordersRoutes from './routes/orders.js';
-import reportsRoutes from './routes/reports.js';
-import bridgeRoutes from './routes/bridge.js';
-import uploadDocumentsRoutes from './routes/upload-documents.js';
+import { TruvClient } from './truv';
+import * as db from './db';
+import * as apiLogger from './api-logger';
+import { verifyWebhookSignature } from './webhooks';
+import { setupWebhook, teardownWebhook } from './webhook-setup';
+import ordersRoutes from './routes/orders';
+import reportsRoutes from './routes/reports';
+import bridgeRoutes from './routes/bridge';
+import uploadDocumentsRoutes from './routes/upload-documents';
 
 declare global {
   namespace Express {

@@ -1,4 +1,4 @@
-import type { TruvClient } from './truv.js';
+import type { TruvClient } from './truv';
 
 // Module-level state for the current webhook registration.
 // Note: this is per-process, so each demo server manages its own webhook.

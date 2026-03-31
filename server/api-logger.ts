@@ -1,5 +1,5 @@
-import * as db from './db.js';
-import type { ApiLogRow, WebhookEventRow } from './db.js';
+import * as db from './db';
+import type { ApiLogRow, WebhookEventRow } from './db';
 
 const REDACTED_KEYS = new Set(['ssn', 'email', 'phone', 'date_of_birth', 'social_security_number']);
 
