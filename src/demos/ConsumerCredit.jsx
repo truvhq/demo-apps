@@ -17,7 +17,7 @@ const CC_DIAGRAM = `sequenceDiagram
   participant App as Your App
   participant Bridge as Truv Bridge
   participant Backend as Your Backend
-  participant Truv as Truv Backend
+  participant Truv as Truv API
   App->>Backend: Request bridge token
   Backend->>Truv: POST /v1/users/
   Truv-->>Backend: user_id

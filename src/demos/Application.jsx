@@ -101,7 +101,7 @@ const DIAGRAMS = {
   participant App as Your App
   participant Bridge as Truv Bridge
   participant Backend as Your Backend
-  participant Truv as Truv Backend
+  participant Truv as Truv API
   App->>Backend: Submit applicant info
   Backend->>Truv: GET /v1/company-mappings-search/
   Truv-->>Backend: company_mapping_id
@@ -119,7 +119,7 @@ const DIAGRAMS = {
   participant App as Your App
   participant Bridge as Truv Bridge
   participant Backend as Your Backend
-  participant Truv as Truv Backend
+  participant Truv as Truv API
   App->>Backend: Submit applicant info
   Backend->>Truv: GET /v1/company-mappings-search/
   Truv-->>Backend: company_mapping_id
@@ -137,7 +137,7 @@ const DIAGRAMS = {
   participant App as Your App
   participant Bridge as Truv Bridge
   participant Backend as Your Backend
-  participant Truv as Truv Backend
+  participant Truv as Truv API
   App->>Backend: Submit applicant info
   Backend->>Truv: GET /v1/company-mappings-search/
   Truv-->>Backend: company_mapping_id (bank)

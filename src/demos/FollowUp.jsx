@@ -135,7 +135,7 @@ const FOLLOWUP_DIAGRAM = `sequenceDiagram
   participant App as Your App
   participant Bridge as Truv Bridge
   participant Backend as Your Backend
-  participant Truv as Truv Backend
+  participant Truv as Truv API
   Backend->>Truv: POST /v1/orders/ (income)
   Backend->>Truv: POST /v1/orders/ (employment)
   Backend->>Truv: POST /v1/orders/ (assets)

@@ -16,7 +16,7 @@ const COMPLETED_APPLICANTS = [
 const VERIFIER_DIAGRAM = `sequenceDiagram
   participant App as Your App
   participant Backend as Your Backend
-  participant Truv as Truv Backend
+  participant Truv as Truv API
   participant Order as Truv Order
   App->>Backend: Submit applicant PII
   Backend->>Truv: POST /v1/orders/

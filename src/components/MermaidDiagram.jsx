@@ -25,6 +25,13 @@ export function MermaidDiagram({ definition, id }) {
           clusterBkg: '#ffffff',
           edgeLabelBackground: '#ffffff',
         },
+        sequence: {
+          actorMargin: 80,
+          messageFontSize: 13,
+          noteMargin: 16,
+          mirrorActors: true,
+          width: 180,
+        },
         flowchart: {
           htmlLabels: true,
           curve: 'basis',
@@ -47,7 +54,7 @@ export function MermaidDiagram({ definition, id }) {
         if (svgEl) {
           svgEl.style.maxWidth = '100%';
           svgEl.style.height = 'auto';
-          ref.current.appendChild(svgEl);
+ref.current.appendChild(svgEl);
         }
       }).catch(err => {
         console.error('Mermaid render error:', err);

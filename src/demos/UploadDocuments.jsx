@@ -19,7 +19,7 @@ const SAMPLE_DOCS = [
 const DOC_DIAGRAM = `sequenceDiagram
   participant App as Your App
   participant Backend as Your Backend
-  participant Truv as Truv Backend
+  participant Truv as Truv API
   App->>Backend: Upload documents
   Backend->>Truv: POST /v1/users/
   Truv-->>Backend: user_id
