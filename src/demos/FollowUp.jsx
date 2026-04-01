@@ -16,7 +16,7 @@ const STEPS = [
     guide: '<p>The Bridge widget is initialized with:</p>'
       + '<pre>TruvBridge.init({\n  bridgeToken: "...",\n  isOrder: true,\n  position: { type: "inline", container: el }\n})</pre>'
       + '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>'
-      + '<p><a href="https://docs.truv.com/docs/bridge-overview" target="_blank">Bridge Docs →</a></p>',
+      + '<p><a href="https://docs.truv.com/docs/truv-bridge" target="_blank">Bridge Docs →</a></p>',
   },
   {
     title: 'Webhook processing',

@@ -12,7 +12,7 @@ const STEPS = [
       + '<p>Then an order is created:</p><pre>POST /v1/orders/</pre>'
       + '<p><a href="https://docs.truv.com/reference/company_autocomplete_search" target="_blank">Company Search →</a> • <a href="https://docs.truv.com/reference/create-an-order" target="_blank">Orders →</a></p>',
   },
-  { title: 'Bridge verification', guide: '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p><p><a href="https://docs.truv.com/docs/bridge-overview" target="_blank">Bridge Docs →</a></p>' },
+  { title: 'Bridge verification', guide: '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p><p><a href="https://docs.truv.com/docs/truv-bridge" target="_blank">Bridge Docs →</a></p>' },
   { title: 'Webhook processing', guide: '<p>Truv sends webhooks as the verification progresses.</p><p><a href="https://docs.truv.com/docs/webhooks" target="_blank">Webhooks Docs →</a></p>' },
   { title: 'Retrieve results', guide: '<p>Fetch reports:</p><pre>POST /v1/users/{user_id}/reports/</pre><p><a href="https://docs.truv.com/reference/users_reports" target="_blank">Reports API →</a></p>' },
 ];
