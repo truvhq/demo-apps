@@ -8,9 +8,9 @@ const STEPS = [
 ];
 
 const PRODUCTS = [
-  { id: 'income', name: 'Income', desc: 'Verify earnings and pay history', useCase: 'Loan underwriting, benefits' },
-  { id: 'deposit_switch', name: 'Direct Deposit', desc: 'Switch direct deposit routing', useCase: 'Neobanks, payroll cards' },
-  { id: 'pll', name: 'Paycheck-Linked Lending', desc: 'Set up payroll deductions', useCase: 'Earned wage access, lending' },
+  { id: 'income', reportType: 'income', name: 'Income', desc: 'Verify earnings and pay history', useCase: 'Loan underwriting, benefits' },
+  { id: 'deposit_switch', reportType: 'direct_deposit', name: 'Direct Deposit', desc: 'Switch direct deposit routing', useCase: 'Neobanks, payroll cards' },
+  { id: 'pll', reportType: 'pll', name: 'Paycheck-Linked Lending', desc: 'Set up payroll deductions', useCase: 'Earned wage access, lending' },
 ];
 
 const CC_DIAGRAM = `sequenceDiagram
@@ -65,7 +65,8 @@ export function ConsumerCreditDemo() {
     setCurrentStep(2);
     setScreen('review');
     try {
-      const resp = await fetch(`${API_BASE}/api/link-report/${encodeURIComponent(publicToken)}/${productType}?user_id=${userId}`);
+      const { reportType } = PRODUCTS.find(p => p.id === productType);
+      const resp = await fetch(`${API_BASE}/api/link-report/${encodeURIComponent(publicToken)}/${reportType}?user_id=${userId}`);
       setReportData(await resp.json());
     } catch (e) { console.error(e); }
   }
