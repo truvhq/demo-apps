@@ -10,11 +10,11 @@ const STEPS = [
     guide: '<p>The form collects applicant PII and employer. Companies are searched via:</p>'
       + '<pre>GET /v1/company-mappings-search/?query=...</pre>'
       + '<p>Then an order is created:</p><pre>POST /v1/orders/</pre>'
-      + '<p><a href="https://docs.truv.com/reference/company_autocomplete_search" target="_blank">Company Search →</a> • <a href="https://docs.truv.com/reference/orders_create" target="_blank">Orders →</a></p>',
+      + '<p><a href="https://docs.truv.com/reference/company_autocomplete_search" target="_blank" rel="noopener noreferrer">Company Search →</a> • <a href="https://docs.truv.com/reference/orders_create" target="_blank" rel="noopener noreferrer">Orders →</a></p>',
   },
-  { title: 'Bridge verification', guide: '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p><p><a href="https://docs.truv.com/docs/truv-bridge" target="_blank">Bridge Docs →</a></p>' },
-  { title: 'Webhook processing', guide: '<p>Truv sends webhooks as the verification progresses.</p><p><a href="https://docs.truv.com/docs/webhooks" target="_blank">Webhooks Docs →</a></p>' },
-  { title: 'Retrieve results', guide: '<p>Fetch reports:</p><pre>POST /v1/users/{user_id}/reports/</pre><p><a href="https://docs.truv.com/reference/users_reports" target="_blank">Reports API →</a></p>' },
+  { title: 'Bridge verification', guide: '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p><p><a href="https://docs.truv.com/docs/truv-bridge" target="_blank" rel="noopener noreferrer">Bridge Docs →</a></p>' },
+  { title: 'Webhook processing', guide: '<p>Truv sends webhooks as the verification progresses.</p><p><a href="https://docs.truv.com/docs/webhooks" target="_blank" rel="noopener noreferrer">Webhooks Docs →</a></p>' },
+  { title: 'Retrieve results', guide: '<p>Fetch reports:</p><pre>POST /v1/users/{user_id}/reports/</pre><p><a href="https://docs.truv.com/reference/users_reports" target="_blank" rel="noopener noreferrer">Reports API →</a></p>' },
 ];
 
 

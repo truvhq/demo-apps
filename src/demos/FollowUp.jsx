@@ -9,26 +9,26 @@ const STEPS = [
     guide: '<p>Enter an Application ID and create verification orders for each product type:</p>'
       + '<pre>POST /v1/orders/\n{\n  "products": ["income"],\n  "external_user_id": "...",\n  "employers": [{"company_name": "..."}]\n}</pre>'
       + '<p>All orders share the same <code>external_user_id</code> so Truv links them to one applicant.</p>'
-      + '<p><a href="https://docs.truv.com/reference/orders_create" target="_blank">API Reference →</a></p>',
+      + '<p><a href="https://docs.truv.com/reference/orders_create" target="_blank" rel="noopener noreferrer">API Reference →</a></p>',
   },
   {
     title: 'Bridge verification',
     guide: '<p>The Bridge widget is initialized with:</p>'
       + '<pre>TruvBridge.init({\n  bridgeToken: "...",\n  isOrder: true,\n  position: { type: "inline", container: el }\n})</pre>'
       + '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>'
-      + '<p><a href="https://docs.truv.com/docs/truv-bridge" target="_blank">Bridge Docs →</a></p>',
+      + '<p><a href="https://docs.truv.com/docs/truv-bridge" target="_blank" rel="noopener noreferrer">Bridge Docs →</a></p>',
   },
   {
     title: 'Webhook processing',
     guide: '<p>Truv sends webhooks as the verification progresses.</p>'
-      + '<p><a href="https://docs.truv.com/docs/webhooks" target="_blank">Webhooks Docs →</a></p>',
+      + '<p><a href="https://docs.truv.com/docs/webhooks" target="_blank" rel="noopener noreferrer">Webhooks Docs →</a></p>',
   },
   {
     title: 'Retrieve reports',
     guide: '<p>Fetch reports based on product type:</p>'
       + '<pre>POST /v1/users/{user_id}/reports/\n{ "is_voe": false }  // income\n{ "is_voe": true }   // employment</pre>'
       + '<pre>POST /v1/users/{user_id}/assets/reports/\nPOST /v1/users/{user_id}/income_insights/reports/</pre>'
-      + '<p><a href="https://docs.truv.com/reference/users_reports" target="_blank">Reports API →</a></p>',
+      + '<p><a href="https://docs.truv.com/reference/users_reports" target="_blank" rel="noopener noreferrer">Reports API →</a></p>',
   },
 ];
 

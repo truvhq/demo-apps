@@ -250,7 +250,7 @@ function UploadScreen({ files, onAddFiles, onRemoveFile, userId, onUserIdChange,
             <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#1d1d1f] mb-2">Upload Documents</h2>
             <p class="text-[15px] text-[#86868b] leading-[1.5] mb-6">
               Upload your own pay stubs, W-2s, or tax returns — or use the pre-loaded test documents.
-              <a href="https://docs.truv.com/docs/testing#document-processing-testing" target="_blank" class="text-primary ml-1 hover:underline">Download test files</a>
+              <a href="https://docs.truv.com/docs/testing#document-processing-testing" target="_blank" rel="noopener noreferrer" class="text-primary ml-1 hover:underline">Download test files</a>
             </p>
           </div>
 

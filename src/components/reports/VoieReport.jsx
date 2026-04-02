@@ -32,7 +32,7 @@ function PayStatement({ st }) {
               </tbody></table>
             </>
           )}
-          {st.file && <a href={st.file} target="_blank" class="inline-block mt-2.5 text-xs text-primary font-medium">Download PDF</a>}
+          {st.file && <a href={st.file} target="_blank" rel="noopener noreferrer" class="inline-block mt-2.5 text-xs text-primary font-medium">Download PDF</a>}
         </div>
       )}
     </div>
@@ -133,7 +133,7 @@ export function VoieReport({ report }) {
                       <td class="px-3 py-2">{w.federal_tax ? $(w.federal_tax) : '-'}</td>
                       <td class="px-3 py-2">{w.social_security_tax ? $(w.social_security_tax) : '-'}</td>
                       <td class="px-3 py-2">{w.medicare_tax ? $(w.medicare_tax) : '-'}</td>
-                      <td class="px-3 py-2">{w.file && <a href={w.file} target="_blank" class="text-primary font-medium text-xs">PDF</a>}</td>
+                      <td class="px-3 py-2">{w.file && <a href={w.file} target="_blank" rel="noopener noreferrer" class="text-primary font-medium text-xs">PDF</a>}</td>
                     </tr>
                   ))}
                 </tbody>
