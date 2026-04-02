@@ -99,32 +99,34 @@ export function EmployeePortalDemo({ screen, param }) {
       {/* Intro step 1 */}
       {showIntro && introStep === 1 && (
         <div class="intro-slide">
-          <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
-            <div class="animate-slideUp">
-              <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Verifier Portal</div>
-              <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Verify without the<br />user present</h2>
-              <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
-                The user already submitted their application and left. A verifier creates orders using collected data — Truv sends the verification link via email and SMS.
-              </p>
+          <div class="flex-1 min-h-0 overflow-y-auto flex flex-col">
+            <div class="my-auto w-full max-w-2xl mx-auto px-4 py-12">
+              <div class="animate-slideUp">
+                <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Verifier Portal</div>
+                <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Verify without the<br />user present</h2>
+                <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
+                  The user already submitted their application and left. A verifier creates orders using collected data — Truv sends the verification link via email and SMS.
+                </p>
+              </div>
+              <div class="grid gap-3 text-left max-w-lg mx-auto animate-slideUp delay-1">
+                {[
+                  { name: 'Create orders from collected data', desc: 'Use PII from the application — no user interaction needed' },
+                  { name: 'Truv sends verification links', desc: 'Email and SMS sent automatically to the applicant' },
+                  { name: 'Track status remotely', desc: 'Monitor webhook events and order status from the dashboard' },
+                  { name: 'Fetch reports on completion', desc: 'Pull VOIE, VOE, or VOA reports once the user completes Bridge' },
+                ].map(item => (
+                  <div key={item.name} class="border border-[#d2d2d7] rounded-2xl px-5 py-4 bg-white">
+                    <h3 class="text-[14px] font-semibold text-[#1d1d1f] mb-1">{item.name}</h3>
+                    <p class="text-[13px] text-[#6e6e73] leading-[1.4]">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div class="grid gap-3 mb-8 text-left max-w-lg mx-auto animate-slideUp delay-1">
-              {[
-                { name: 'Create orders from collected data', desc: 'Use PII from the application — no user interaction needed' },
-                { name: 'Truv sends verification links', desc: 'Email and SMS sent automatically to the applicant' },
-                { name: 'Track status remotely', desc: 'Monitor webhook events and order status from the dashboard' },
-                { name: 'Fetch reports on completion', desc: 'Pull VOIE, VOE, or VOA reports once the user completes Bridge' },
-              ].map(item => (
-                <div key={item.name} class="border border-[#d2d2d7] rounded-2xl px-5 py-4 bg-white">
-                  <h3 class="text-[14px] font-semibold text-[#1d1d1f] mb-1">{item.name}</h3>
-                  <p class="text-[13px] text-[#6e6e73] leading-[1.4]">{item.desc}</p>
-                </div>
-              ))}
-            </div>
-            <div class="animate-slideUp delay-2">
-              <button onClick={() => setIntroStep(2)} class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
-                View Architecture
-              </button>
-            </div>
+          </div>
+          <div class="intro-actions">
+            <button onClick={() => setIntroStep(2)} class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
+              View Architecture
+            </button>
           </div>
         </div>
       )}
@@ -259,48 +261,52 @@ function AddApplicantForm({ onSubmit }) {
   }
 
   return (
-    <div class="intro-slide" style="justify-content: flex-start; padding-top: 3rem;">
-      <div class="w-full max-w-md mx-auto px-4">
-        <div class="animate-slideUp text-center mb-8">
-          <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#1d1d1f] mb-2">Add Test Applicant</h2>
-          <p class="text-[15px] text-[#86868b] leading-[1.5]">
-            Enter applicant details. Truv will send the verification link via email and/or SMS.
-          </p>
-        </div>
+    <div class="intro-slide">
+      <div class="flex-1 min-h-0 overflow-y-auto flex flex-col">
+        <div class="my-auto w-full max-w-md mx-auto px-4 py-12">
+          <div class="animate-slideUp text-center mb-8">
+            <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#1d1d1f] mb-2">Add Test Applicant</h2>
+            <p class="text-[15px] text-[#86868b] leading-[1.5]">
+              Enter applicant details. Truv will send the verification link via email and/or SMS.
+            </p>
+          </div>
 
-        <form onSubmit={handleSubmit} class="animate-slideUp delay-1 text-left">
-          <div class="grid grid-cols-2 gap-3 mb-3">
-            <div>
-              <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">First name</label>
-              <input value={firstName} onInput={e => setFirstName(e.target.value)} placeholder="John" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
+          <form id="add-applicant-form" onSubmit={handleSubmit} class="animate-slideUp delay-1 text-left">
+            <div class="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">First name</label>
+                <input value={firstName} onInput={e => setFirstName(e.target.value)} placeholder="John" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
+              </div>
+              <div>
+                <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Last name</label>
+                <input value={lastName} onInput={e => setLastName(e.target.value)} placeholder="Doe" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
+              </div>
             </div>
-            <div>
-              <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Last name</label>
-              <input value={lastName} onInput={e => setLastName(e.target.value)} placeholder="Doe" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
+            <div class="mb-3">
+              <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Email</label>
+              <input type="email" value={email} onInput={e => setEmail(e.target.value)} placeholder="john@example.com" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
+              <p class="text-[11px] text-[#86868b] mt-1">Truv sends the verification link to this email</p>
             </div>
-          </div>
-          <div class="mb-3">
-            <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Email</label>
-            <input type="email" value={email} onInput={e => setEmail(e.target.value)} placeholder="john@example.com" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
-            <p class="text-[11px] text-[#86868b] mt-1">Truv sends the verification link to this email</p>
-          </div>
-          <div class="mb-3">
-            <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Phone</label>
-            <input type="tel" value={phone} onInput={e => setPhone(e.target.value)} placeholder="+14155551234" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
-            <p class="text-[11px] text-[#86868b] mt-1">Truv sends the verification link via SMS</p>
-          </div>
-          <div class="mb-5">
-            <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Product</label>
-            <select value={product} onChange={e => setProduct(e.target.value)} class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm bg-white focus:border-primary focus:outline-none">
-              <option value="income">Income verification</option>
-              <option value="employment">Employment verification</option>
-              <option value="assets">Assets verification</option>
-            </select>
-          </div>
-          <button type="submit" disabled={!firstName.trim() || !lastName.trim()} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
-            Continue
-          </button>
-        </form>
+            <div class="mb-3">
+              <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Phone</label>
+              <input type="tel" value={phone} onInput={e => setPhone(e.target.value)} placeholder="+14155551234" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
+              <p class="text-[11px] text-[#86868b] mt-1">Truv sends the verification link via SMS</p>
+            </div>
+            <div class="mb-3">
+              <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Product</label>
+              <select value={product} onChange={e => setProduct(e.target.value)} class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm bg-white focus:border-primary focus:outline-none">
+                <option value="income">Income verification</option>
+                <option value="employment">Employment verification</option>
+                <option value="assets">Assets verification</option>
+              </select>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="intro-actions">
+        <button type="submit" form="add-applicant-form" disabled={!firstName.trim() || !lastName.trim()} class="w-full max-w-md mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
+          Continue
+        </button>
       </div>
     </div>
   );

@@ -171,45 +171,47 @@ function IntroScreen({ onStart }) {
 
   return (
     <div class="intro-slide">
-      <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
-        <div class="animate-slideUp">
-          <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">New Application Flow</div>
-          <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Verify income, employment,<br />or assets</h2>
-          <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
-            The user fills in their details, selects their employer or bank, and completes verification through Bridge.
-          </p>
-        </div>
+      <div class="flex-1 min-h-0 overflow-y-auto flex flex-col">
+        <div class="my-auto w-full max-w-2xl mx-auto px-4 py-12">
+          <div class="animate-slideUp">
+            <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">New Application Flow</div>
+            <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Verify income, employment,<br />or assets</h2>
+            <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
+              The user fills in their details, selects their employer or bank, and completes verification through Bridge.
+            </p>
+          </div>
 
-        <div class="grid gap-3 mb-8 text-left animate-slideUp delay-1">
-          {PRODUCTS.map(p => (
-            <div
-              key={p.id}
-              onClick={() => setSelected(p.id)}
-              class={`border rounded-2xl px-6 py-5 cursor-pointer transition-all duration-200 ${
-                selected === p.id
-                  ? 'border-primary bg-[#f5f8ff] shadow-sm'
-                  : 'border-[#d2d2d7] hover:border-[#86868b] bg-white'
-              }`}
-            >
-              <div class="flex items-start justify-between mb-1">
-                <h3 class="text-[15px] font-semibold text-[#1d1d1f]">{p.name}</h3>
-                <span class="text-[11px] font-medium text-[#86868b] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{p.report}</span>
+          <div class="grid gap-3 text-left animate-slideUp delay-1">
+            {PRODUCTS.map(p => (
+              <div
+                key={p.id}
+                onClick={() => setSelected(p.id)}
+                class={`border rounded-2xl px-6 py-5 cursor-pointer transition-all duration-200 ${
+                  selected === p.id
+                    ? 'border-primary bg-[#f5f8ff] shadow-sm'
+                    : 'border-[#d2d2d7] hover:border-[#86868b] bg-white'
+                }`}
+              >
+                <div class="flex items-start justify-between mb-1">
+                  <h3 class="text-[15px] font-semibold text-[#1d1d1f]">{p.name}</h3>
+                  <span class="text-[11px] font-medium text-[#86868b] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{p.report}</span>
+                </div>
+                <p class="text-[14px] text-[#6e6e73] leading-[1.5] mb-2">{p.desc}</p>
+                <p class="text-[12px] text-[#86868b]">{p.useCase}</p>
               </div>
-              <p class="text-[14px] text-[#6e6e73] leading-[1.5] mb-2">{p.desc}</p>
-              <p class="text-[12px] text-[#86868b]">{p.useCase}</p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
+      </div>
 
-        <div class="animate-slideUp delay-2">
-          <button
-            onClick={() => selected && setStep(2)}
-            disabled={!selected}
-            class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40"
-          >
-            View Architecture
-          </button>
-        </div>
+      <div class="intro-actions">
+        <button
+          onClick={() => selected && setStep(2)}
+          disabled={!selected}
+          class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40"
+        >
+          View Architecture
+        </button>
       </div>
     </div>
   );
