@@ -8,9 +8,9 @@ const STEPS = [
 ];
 
 const PRODUCTS = [
-  { id: 'income', name: 'Income', desc: 'Verify earnings and pay history', useCase: 'Loan underwriting, benefits' },
-  { id: 'deposit_switch', name: 'Direct Deposit', desc: 'Switch direct deposit routing', useCase: 'Neobanks, payroll cards' },
-  { id: 'pll', name: 'Paycheck-Linked Lending', desc: 'Set up payroll deductions', useCase: 'Earned wage access, lending' },
+  { id: 'income', reportType: 'income', name: 'Income', desc: 'Verify earnings and pay history', useCase: 'Loan underwriting, benefits' },
+  { id: 'deposit_switch', reportType: 'direct_deposit', name: 'Direct Deposit', desc: 'Switch direct deposit routing', useCase: 'Neobanks, payroll cards' },
+  { id: 'pll', reportType: 'pll', name: 'Paycheck-Linked Lending', desc: 'Set up payroll deductions', useCase: 'Earned wage access, lending' },
 ];
 
 const CC_DIAGRAM = `sequenceDiagram
@@ -65,7 +65,8 @@ export function ConsumerCreditDemo() {
     setCurrentStep(2);
     setScreen('review');
     try {
-      const resp = await fetch(`${API_BASE}/api/link-report/${encodeURIComponent(publicToken)}/${productType}?user_id=${userId}`);
+      const { reportType } = PRODUCTS.find(p => p.id === productType);
+      const resp = await fetch(`${API_BASE}/api/link-report/${encodeURIComponent(publicToken)}/${reportType}?user_id=${userId}`);
       setReportData(await resp.json());
     } catch (e) { console.error(e); }
   }
@@ -84,8 +85,7 @@ export function ConsumerCreditDemo() {
 
   return (
     <Layout title="Truv Quickstart" badge="Consumer Credit" steps={STEPS} panel={panel} hidePanel={isIntro}>
-      <div class={isIntro ? '' : 'max-w-lg mx-auto px-8 py-10'}>
-        {screen === 'select' && introStep === 2 && productType && (
+      {screen === 'select' && introStep === 2 && productType && (
           <IntroSlide
             label={`Consumer Credit → ${PRODUCTS.find(p => p.id === productType)?.name}`}
             title="Architecture"
@@ -105,48 +105,51 @@ export function ConsumerCreditDemo() {
 
         {screen === 'select' && introStep === 1 && (
           <div class="intro-slide">
-            <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
-              <div class="animate-slideUp">
-                <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Consumer Credit Application</div>
-                <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Bundle multiple products<br />into one flow</h2>
-                <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
-                  Combine income verification, direct deposit switching, and payroll-linked lending in a single UI — no orders needed, just Bridge.
-                </p>
-              </div>
+            <div class="flex-1 min-h-0 overflow-y-auto flex flex-col">
+              <div class="my-auto w-full max-w-2xl mx-auto px-4 py-12">
+                <div class="animate-slideUp">
+                  <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Consumer Credit Application</div>
+                  <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Bundle multiple products<br />into one flow</h2>
+                  <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
+                    Combine income verification, direct deposit switching, and payroll-linked lending in a single UI — no orders needed, just Bridge.
+                  </p>
+                </div>
 
-              <div class="grid gap-3 mb-8 text-left animate-slideUp delay-1">
-                {PRODUCTS.map(p => (
-                  <div
-                    key={p.id}
-                    onClick={() => setProductType(p.id)}
-                    class={`border rounded-2xl px-6 py-5 cursor-pointer transition-all duration-200 ${
-                      productType === p.id
-                        ? 'border-primary bg-[#f5f8ff] shadow-sm'
-                        : 'border-[#d2d2d7] hover:border-[#86868b] bg-white'
-                    }`}
-                  >
-                    <div class="flex items-start justify-between mb-1">
-                      <h3 class="text-[15px] font-semibold text-[#1d1d1f]">{p.name}</h3>
+                <div class="grid gap-3 text-left animate-slideUp delay-1">
+                  {PRODUCTS.map(p => (
+                    <div
+                      key={p.id}
+                      onClick={() => setProductType(p.id)}
+                      class={`border rounded-2xl px-6 py-5 cursor-pointer transition-all duration-200 ${
+                        productType === p.id
+                          ? 'border-primary bg-[#f5f8ff] shadow-sm'
+                          : 'border-[#d2d2d7] hover:border-[#86868b] bg-white'
+                      }`}
+                    >
+                      <div class="flex items-start justify-between mb-1">
+                        <h3 class="text-[15px] font-semibold text-[#1d1d1f]">{p.name}</h3>
+                      </div>
+                      <p class="text-[14px] text-[#6e6e73] leading-[1.5] mb-2">{p.desc}</p>
+                      <p class="text-[12px] text-[#86868b]">{p.useCase}</p>
                     </div>
-                    <p class="text-[14px] text-[#6e6e73] leading-[1.5] mb-2">{p.desc}</p>
-                    <p class="text-[12px] text-[#86868b]">{p.useCase}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
+            </div>
 
-              <div class="animate-slideUp delay-2">
-                <button
-                  onClick={() => productType && setIntroStep(2)}
-                  disabled={!productType}
-                  class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40"
-                >
-                  View Architecture
-                </button>
-              </div>
+            <div class="intro-actions">
+              <button
+                onClick={() => productType && setIntroStep(2)}
+                disabled={!productType}
+                class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40"
+              >
+                View Architecture
+              </button>
             </div>
           </div>
         )}
 
+      <div class={isIntro ? '' : 'max-w-lg mx-auto px-8 py-10'}>
         {screen === 'connect' && (
           <div class="text-center py-12">
             <h2 class="text-2xl font-bold tracking-tight mb-2">Connect via Bridge</h2>

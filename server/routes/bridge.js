@@ -42,7 +42,7 @@ export default function choiceConnectRoutes({ truv, apiLogger }) {
 
       const linkId = accessResult.data.link_id;
       const reportResult = await truv.getLinkReport(linkId, reportType);
-      apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/links/${linkId}/${reportType}/report`, responseBody: reportResult.data, statusCode: reportResult.statusCode, durationMs: reportResult.durationMs });
+      apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/links/${linkId}/${reportType}/report/`, responseBody: reportResult.data, statusCode: reportResult.statusCode, durationMs: reportResult.durationMs });
       if (reportResult.statusCode >= 400) return res.status(reportResult.statusCode).json({ error: 'Failed to fetch report', details: reportResult.data });
 
       res.json(reportResult.data);

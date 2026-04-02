@@ -9,26 +9,26 @@ const STEPS = [
     guide: '<p>Enter an Application ID and create verification orders for each product type:</p>'
       + '<pre>POST /v1/orders/\n{\n  "products": ["income"],\n  "external_user_id": "...",\n  "employers": [{"company_name": "..."}]\n}</pre>'
       + '<p>All orders share the same <code>external_user_id</code> so Truv links them to one applicant.</p>'
-      + '<p><a href="https://docs.truv.com/reference/create-an-order" target="_blank">API Reference →</a></p>',
+      + '<p><a href="https://docs.truv.com/reference/orders_create" target="_blank" rel="noopener noreferrer">API Reference →</a></p>',
   },
   {
     title: 'Bridge verification',
     guide: '<p>The Bridge widget is initialized with:</p>'
       + '<pre>TruvBridge.init({\n  bridgeToken: "...",\n  isOrder: true,\n  position: { type: "inline", container: el }\n})</pre>'
       + '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>'
-      + '<p><a href="https://docs.truv.com/docs/bridge-overview" target="_blank">Bridge Docs →</a></p>',
+      + '<p><a href="https://docs.truv.com/docs/truv-bridge" target="_blank" rel="noopener noreferrer">Bridge Docs →</a></p>',
   },
   {
     title: 'Webhook processing',
     guide: '<p>Truv sends webhooks as the verification progresses.</p>'
-      + '<p><a href="https://docs.truv.com/docs/webhooks" target="_blank">Webhooks Docs →</a></p>',
+      + '<p><a href="https://docs.truv.com/docs/webhooks" target="_blank" rel="noopener noreferrer">Webhooks Docs →</a></p>',
   },
   {
     title: 'Retrieve reports',
     guide: '<p>Fetch reports based on product type:</p>'
       + '<pre>POST /v1/users/{user_id}/reports/\n{ "is_voe": false }  // income\n{ "is_voe": true }   // employment</pre>'
       + '<pre>POST /v1/users/{user_id}/assets/reports/\nPOST /v1/users/{user_id}/income_insights/reports/</pre>'
-      + '<p><a href="https://docs.truv.com/reference/users_reports" target="_blank">Reports API →</a></p>',
+      + '<p><a href="https://docs.truv.com/reference/users_reports" target="_blank" rel="noopener noreferrer">Reports API →</a></p>',
   },
 ];
 
@@ -183,43 +183,48 @@ function InitScreen({ applicationId, onApplicationIdChange, onInitialize, initia
 
   return (
     <div class="intro-slide">
-      <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
-        <div class="animate-slideUp">
-          <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Follow-up Flow</div>
-          <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Complete remaining<br />verifications</h2>
-          <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
-            After submitting an application, the user returns to complete multiple verification tasks — all linked to the same person.
-          </p>
-        </div>
+      <div class="flex-1 min-h-0 overflow-y-auto flex flex-col">
+        <div class="my-auto w-full max-w-2xl mx-auto px-4 py-12">
+          <div class="animate-slideUp">
+            <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Follow-up Flow</div>
+            <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Complete remaining<br />verifications</h2>
+            <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
+              After submitting an application, the user returns to complete multiple verification tasks — all linked to the same person.
+            </p>
+          </div>
 
-        <div class="grid grid-cols-2 gap-3 mb-8 text-left animate-slideUp delay-1">
-          {FOLLOWUP_TASKS_INFO.map(t => (
-            <div key={t.name} class="border border-[#d2d2d7] rounded-2xl px-5 py-4 bg-white">
-              <div class="flex items-start justify-between mb-1">
-                <h3 class="text-[14px] font-semibold text-[#1d1d1f]">{t.name}</h3>
-                <span class="text-[11px] font-medium text-[#86868b] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{t.report}</span>
+          <div class="grid grid-cols-2 gap-3 mb-8 text-left animate-slideUp delay-1">
+            {FOLLOWUP_TASKS_INFO.map(t => (
+              <div key={t.name} class="border border-[#d2d2d7] rounded-2xl px-5 py-4 bg-white">
+                <div class="flex items-start justify-between mb-1">
+                  <h3 class="text-[14px] font-semibold text-[#1d1d1f]">{t.name}</h3>
+                  <span class="text-[11px] font-medium text-[#86868b] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{t.report}</span>
+                </div>
+                <p class="text-[13px] text-[#6e6e73] leading-[1.4]">{t.desc}</p>
               </div>
-              <p class="text-[13px] text-[#6e6e73] leading-[1.4]">{t.desc}</p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        <div class="animate-slideUp delay-2 w-full max-w-xs mx-auto">
-          <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block text-left">Application ID</label>
-          <input
-            value={applicationId}
-            onInput={e => onApplicationIdChange(e.target.value)}
-            placeholder="e.g. qs-1774626234913"
-            class="w-full px-4 py-3 border border-[#d2d2d7] rounded-xl text-sm font-mono focus:border-primary focus:outline-none mb-3 text-center"
-          />
-          <p class="text-[11px] text-[#86868b] mb-4 text-left">Sent as <code class="font-mono">external_user_id</code> — all orders share the same Truv user.</p>
-          <button
-            onClick={() => setStep(2)}
-            class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover"
-          >
-            View Architecture
-          </button>
+          <div class="animate-slideUp delay-2 w-full max-w-xs mx-auto">
+            <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block text-left">Application ID</label>
+            <input
+              value={applicationId}
+              onInput={e => onApplicationIdChange(e.target.value)}
+              placeholder="e.g. qs-1774626234913"
+              class="w-full px-4 py-3 border border-[#d2d2d7] rounded-xl text-sm font-mono focus:border-primary focus:outline-none mb-3 text-center"
+            />
+            <p class="text-[11px] text-[#86868b] text-left">Sent as <code class="font-mono">external_user_id</code> — all orders share the same Truv user.</p>
+          </div>
         </div>
+      </div>
+
+      <div class="intro-actions">
+        <button
+          onClick={() => setStep(2)}
+          class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover"
+        >
+          View Architecture
+        </button>
       </div>
     </div>
   );

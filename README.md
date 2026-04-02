@@ -36,18 +36,19 @@ npm install
 cp .env.example .env
 ```
 
-Open `.env` and add your Truv API credentials:
+Open `.env` and add your Truv API credentials (from https://dashboard.truv.com/app/development/keys):
 
 ```
 API_CLIENT_ID=your_client_id
 API_SECRET=your_secret
 ```
 
-### 3. Start ngrok
+### 3. Start ngrok and configure NGROK_URL
 
-Webhooks need a public URL. In a separate terminal:
+Webhooks need a public URL. In a terminal, run:
 
 ```sh
+# Terminal 1 — ngrok
 ngrok http 3000
 ```
 
@@ -59,11 +60,13 @@ NGROK_URL=https://your-tunnel.ngrok-free.dev
 
 ### 4. Run
 
+Keep ngrok terminal opened, open two new terminals and run following commands:
+
 ```sh
-# Terminal 1 — backend (Express on port 3000)
+# Terminal 2 — backend (Express on port 3000)
 npm start
 
-# Terminal 2 — frontend (Vite dev server with hot reload)
+# Terminal 3 — frontend (Vite dev server with hot reload)
 npm run dev
 ```
 
@@ -105,8 +108,8 @@ src/
 
 Each demo follows the same general flow:
 
-1. **Create** — POST to Truv to create an order (or user + bridge token)
-2. **Bridge** — Launch the [Truv Bridge](https://docs.truv.com/docs/bridge-overview) widget inline
+1. **Create** — POST from the backend to Truv to create an order (or user + bridge token)
+2. **Bridge** — Launch the [Truv Bridge](https://docs.truv.com/docs/truv-bridge) widget inline
 3. **Webhooks** — Receive real-time status updates as verification progresses
 4. **Reports** — Fetch structured verification data (income, employment, assets)
 
@@ -116,7 +119,7 @@ The right-side panel shows API calls, Bridge events, and webhook payloads as the
 
 - [Truv documentation](https://docs.truv.com)
 - [API reference](https://docs.truv.com/reference)
-- [Bridge overview](https://docs.truv.com/docs/bridge-overview)
+- [Bridge overview](https://docs.truv.com/docs/truv-bridge)
 - [Webhooks guide](https://docs.truv.com/docs/webhooks)
 
 ## License

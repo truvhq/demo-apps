@@ -171,32 +171,34 @@ export function UploadDocumentsDemo() {
 
       {screen === 'intro' && introStep === 1 && (
         <div class="intro-slide">
-          <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
-            <div class="animate-slideUp">
-              <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Document Processing</div>
-              <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Extract data from<br />collected documents</h2>
-              <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
-                Process pay stubs, W-2s, and tax returns already collected during the application. No payroll connection needed.
-              </p>
+          <div class="flex-1 min-h-0 overflow-y-auto flex flex-col">
+            <div class="my-auto w-full max-w-2xl mx-auto px-4 py-12">
+              <div class="animate-slideUp">
+                <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Document Processing</div>
+                <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Extract data from<br />collected documents</h2>
+                <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
+                  Process pay stubs, W-2s, and tax returns already collected during the application. No payroll connection needed.
+                </p>
+              </div>
+              <div class="grid grid-cols-2 gap-3 text-left max-w-lg mx-auto animate-slideUp delay-1">
+                {[
+                  { name: 'Pay Stubs', desc: 'Gross/net pay, deductions, employer info, pay period' },
+                  { name: 'W-2 Forms', desc: 'Annual wages, federal/state taxes, employer EIN' },
+                  { name: 'Tax Returns (1040)', desc: 'Filed income, AGI, tax liability' },
+                  { name: 'Bank Statements', desc: 'Deposits, withdrawals, account balances' },
+                ].map(d => (
+                  <div key={d.name} class="border border-[#d2d2d7] rounded-2xl px-5 py-4 bg-white">
+                    <h3 class="text-[14px] font-semibold text-[#1d1d1f] mb-1">{d.name}</h3>
+                    <p class="text-[13px] text-[#6e6e73] leading-[1.4]">{d.desc}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div class="grid grid-cols-2 gap-3 mb-8 text-left max-w-lg mx-auto animate-slideUp delay-1">
-              {[
-                { name: 'Pay Stubs', desc: 'Gross/net pay, deductions, employer info, pay period' },
-                { name: 'W-2 Forms', desc: 'Annual wages, federal/state taxes, employer EIN' },
-                { name: 'Tax Returns (1040)', desc: 'Filed income, AGI, tax liability' },
-                { name: 'Bank Statements', desc: 'Deposits, withdrawals, account balances' },
-              ].map(d => (
-                <div key={d.name} class="border border-[#d2d2d7] rounded-2xl px-5 py-4 bg-white">
-                  <h3 class="text-[14px] font-semibold text-[#1d1d1f] mb-1">{d.name}</h3>
-                  <p class="text-[13px] text-[#6e6e73] leading-[1.4]">{d.desc}</p>
-                </div>
-              ))}
-            </div>
-            <div class="animate-slideUp delay-2">
-              <button onClick={() => setIntroStep(2)} class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
-                View Architecture
-              </button>
-            </div>
+          </div>
+          <div class="intro-actions">
+            <button onClick={() => setIntroStep(2)} class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
+              View Architecture
+            </button>
           </div>
         </div>
       )}
@@ -241,76 +243,79 @@ function UploadScreen({ files, onAddFiles, onRemoveFile, userId, onUserIdChange,
   const inputRef = useRef(null);
 
   return (
-    <div class="intro-slide" style="justify-content: flex-start; padding-top: 2rem;">
-      <div class="w-full max-w-lg mx-auto px-4">
-        <div class="animate-slideUp">
-          <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#1d1d1f] mb-2">Upload Documents</h2>
-          <p class="text-[15px] text-[#86868b] leading-[1.5] mb-6">
-            Upload your own pay stubs, W-2s, or tax returns — or use the pre-loaded test documents.
-            <a href="https://docs.truv.com/docs/testing#document-processing-testing" target="_blank" class="text-primary ml-1 hover:underline">Download test files</a>
-          </p>
-        </div>
-
-        <div class="animate-slideUp delay-1 text-left">
-          {/* Drag-drop zone */}
-          <div
-            role="button"
-            tabIndex={0}
-            class={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all mb-4 ${dragOver ? 'border-primary bg-[#f5f8ff]' : 'border-[#d2d2d7] hover:border-[#86868b]'}`}
-            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={e => { e.preventDefault(); setDragOver(false); onAddFiles(e.dataTransfer.files); }}
-            onClick={() => inputRef.current?.click()}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputRef.current?.click(); } }}
-          >
-            <div class="text-[15px] font-medium text-[#1d1d1f] mb-1">Drop files here or click to browse</div>
-            <div class="text-[13px] text-[#86868b]">PDF, JPEG, PNG, TIFF</div>
-            <input ref={inputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif" class="hidden" onChange={e => { onAddFiles(e.target.files); e.target.value = ''; }} />
+    <div class="intro-slide">
+      <div class="flex-1 min-h-0 overflow-y-auto flex flex-col">
+        <div class="my-auto w-full max-w-lg mx-auto px-4 py-12">
+          <div class="animate-slideUp">
+            <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#1d1d1f] mb-2">Upload Documents</h2>
+            <p class="text-[15px] text-[#86868b] leading-[1.5] mb-6">
+              Upload your own pay stubs, W-2s, or tax returns — or use the pre-loaded test documents.
+              <a href="https://docs.truv.com/docs/testing#document-processing-testing" target="_blank" rel="noopener noreferrer" class="text-primary ml-1 hover:underline">Download test files</a>
+            </p>
           </div>
 
-          {/* Test documents — always visible */}
-          <div class="border border-[#d2d2d7] rounded-xl p-4 mb-4">
-            <div class="text-[11px] font-semibold text-[#86868b] uppercase tracking-wide mb-2">Test documents (included)</div>
-            {SAMPLE_DOCS.map((d, i) => (
-              <div key={i} class="flex items-center gap-3 py-1.5 text-[13px]">
-                <span>📄</span>
-                <span class="flex-1 text-[#6e6e73]">{d.name}</span>
-                <span class="text-[11px] text-[#34c759] font-medium">Ready</span>
-              </div>
-            ))}
-          </div>
+          <div class="animate-slideUp delay-1 text-left">
+            {/* Drag-drop zone */}
+            <div
+              role="button"
+              tabIndex={0}
+              class={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all mb-4 ${dragOver ? 'border-primary bg-[#f5f8ff]' : 'border-[#d2d2d7] hover:border-[#86868b]'}`}
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={e => { e.preventDefault(); setDragOver(false); onAddFiles(e.dataTransfer.files); }}
+              onClick={() => inputRef.current?.click()}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputRef.current?.click(); } }}
+            >
+              <div class="text-[15px] font-medium text-[#1d1d1f] mb-1">Drop files here or click to browse</div>
+              <div class="text-[13px] text-[#86868b]">PDF, JPEG, PNG, TIFF</div>
+              <input ref={inputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif" class="hidden" onChange={e => { onAddFiles(e.target.files); e.target.value = ''; }} />
+            </div>
 
-          {/* Uploaded files list */}
-          {files.length > 0 && (
-            <div class="mb-4">
-              <div class="text-[11px] font-semibold text-[#86868b] uppercase tracking-wide mb-2">Your documents ({files.length})</div>
-              {files.map((f, i) => (
-                <div key={i} class="flex items-center gap-3 px-4 py-2.5 border border-[#d2d2d7] rounded-lg mb-2">
-                  <span class="text-base">📄</span>
-                  <div class="flex-1 min-w-0">
-                    <div class="text-[13px] font-medium truncate text-[#1d1d1f]">{f.name}</div>
-                    <div class="text-[11px] text-[#86868b]">{formatSize(f.size)}</div>
-                  </div>
-                  <button onClick={(e) => { e.stopPropagation(); onRemoveFile(i); }} class="text-[#86868b] hover:text-[#ff3b30] text-lg leading-none">&times;</button>
+            {/* Test documents — always visible */}
+            <div class="border border-[#d2d2d7] rounded-xl p-4 mb-4">
+              <div class="text-[11px] font-semibold text-[#86868b] uppercase tracking-wide mb-2">Test documents (included)</div>
+              {SAMPLE_DOCS.map((d, i) => (
+                <div key={i} class="flex items-center gap-3 py-1.5 text-[13px]">
+                  <span>📄</span>
+                  <span class="flex-1 text-[#6e6e73]">{d.name}</span>
+                  <span class="text-[11px] text-[#34c759] font-medium">Ready</span>
                 </div>
               ))}
             </div>
-          )}
 
-          {/* User ID */}
-          <input
-            value={userId}
-            onInput={e => onUserIdChange(e.target.value)}
-            placeholder="external_user_id (optional)"
-            class="w-full px-4 py-3 border border-[#d2d2d7] rounded-xl text-sm font-mono focus:border-primary focus:outline-none mb-4 text-center"
-          />
+            {/* Uploaded files list */}
+            {files.length > 0 && (
+              <div class="mb-4">
+                <div class="text-[11px] font-semibold text-[#86868b] uppercase tracking-wide mb-2">Your documents ({files.length})</div>
+                {files.map((f, i) => (
+                  <div key={i} class="flex items-center gap-3 px-4 py-2.5 border border-[#d2d2d7] rounded-lg mb-2">
+                    <span class="text-base">📄</span>
+                    <div class="flex-1 min-w-0">
+                      <div class="text-[13px] font-medium truncate text-[#1d1d1f]">{f.name}</div>
+                      <div class="text-[11px] text-[#86868b]">{formatSize(f.size)}</div>
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); onRemoveFile(i); }} class="text-[#86868b] hover:text-[#ff3b30] text-lg leading-none">&times;</button>
+                  </div>
+                ))}
+              </div>
+            )}
 
-          <div class="flex gap-3">
-            <button onClick={onBack} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
-            <button onClick={onContinue} disabled={processing} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
-              {processing ? 'Processing...' : 'Process Documents'}
-            </button>
+            {/* User ID */}
+            <input
+              value={userId}
+              onInput={e => onUserIdChange(e.target.value)}
+              placeholder="external_user_id (optional)"
+              class="w-full px-4 py-3 border border-[#d2d2d7] rounded-xl text-sm font-mono focus:border-primary focus:outline-none text-center"
+            />
           </div>
+        </div>
+      </div>
+      <div class="intro-actions">
+        <div class="flex gap-3 max-w-lg mx-auto">
+          <button onClick={onBack} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
+          <button onClick={onContinue} disabled={processing} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
+            {processing ? 'Processing...' : 'Process Documents'}
+          </button>
         </div>
       </div>
     </div>
