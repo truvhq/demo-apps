@@ -45,8 +45,9 @@ export function MermaidDiagram({ definition, id }) {
         wrapper.innerHTML = svg; // Safe: mermaid generates SVG from developer-defined diagram strings
         const svgEl = wrapper.querySelector('svg');
         if (svgEl) {
-          svgEl.style.maxWidth = '100%';
+          svgEl.style.width = '100%';
           svgEl.style.height = 'auto';
+          svgEl.removeAttribute('height');
           ref.current.appendChild(svgEl);
         }
       }).catch(err => {
