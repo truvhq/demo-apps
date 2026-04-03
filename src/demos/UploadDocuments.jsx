@@ -159,7 +159,7 @@ export function UploadDocumentsDemo() {
           title="Extract income data from documents"
           subtitle="Upload pay stubs, W-2s, and tax returns already collected. Truv validates the documents and extracts structured income data for underwriting."
           diagram={DOC_DIAGRAM}
-          actions={<button onClick={() => setScreen('upload')} class="py-3 px-8 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Get started</button>}
+          actions={<button onClick={() => setScreen('upload')} class="w-full max-w-[280px] py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
         >
           <div class="grid grid-cols-2 gap-3">
             {[
@@ -168,7 +168,7 @@ export function UploadDocumentsDemo() {
               { name: 'Tax Returns (1040)', desc: 'Filed income, AGI, tax liability' },
               { name: 'Bank Statements', desc: 'Deposits, withdrawals, account balances' },
             ].map(d => (
-              <div key={d.name} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
+              <div key={d.name} class="rounded-xl border border-[#e8e8ed] px-5 py-4">
                 <h3 class="text-[14px] font-semibold text-[#171717] mb-1">{d.name}</h3>
                 <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{d.desc}</p>
               </div>
@@ -203,7 +203,7 @@ export function UploadDocumentsDemo() {
             <p class="text-[15px] text-[#8E8E93] mb-7">Documents processed via Document Collections API</p>
             {orderData ? <OrderResults data={orderData} /> : <p class="text-[#8E8E93]">No report data available yet.</p>}
             <div class="flex gap-3 mt-6 pt-5 border-t border-[#d2d2d7]">
-              <button class="px-5 py-2.5 text-sm font-semibold border border-[#d2d2d7] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Process More</button>
+              <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Process More</button>
             </div>
           </div>
         )}
@@ -282,7 +282,7 @@ function UploadScreen({ files, onAddFiles, onRemoveFile, userId, onUserIdChange,
           />
 
           <div class="flex gap-3">
-            <button onClick={onBack} class="flex-1 py-3 border border-[#d2d2d7] text-[#171717] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
+            <button onClick={onBack} class="flex-1 py-3 border border-[#e8e8ed] font-semibold rounded-full hover:border-primary hover:text-primary">Back</button>
             <button onClick={onContinue} disabled={processing} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
               {processing ? 'Processing...' : 'Process Documents'}
             </button>

@@ -108,7 +108,7 @@ export function DepositSwitchDemo() {
             title="Switch direct deposit to your bank"
             subtitle="A new customer connects their payroll provider and switches their direct deposit routing to your bank. The change takes effect on their next paycheck."
             diagram={DIAGRAM}
-            actions={<button onClick={() => setShowForm(true)} class="py-3 px-8 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Get started</button>}
+            actions={<button onClick={() => setShowForm(true)} class="w-full max-w-[280px] py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
           />
         )}
 
@@ -126,7 +126,7 @@ export function DepositSwitchDemo() {
               <div>
                 <DDSReport report={reportData} />
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-                  <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
+                  <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
                 </div>
               </div>
             ) : (

@@ -204,7 +204,7 @@ function FollowUpReportResults({ reportData, reportLoading, reportError, taskInf
       {reportData.assets && <AssetsReport report={reportData.assets} />}
       {reportData.income_insights && <IncomeInsightsReport report={reportData.income_insights} />}
       <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-        <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:border-primary hover:text-primary" onClick={onBack}>{backLabel}</button>
+        <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={onBack}>{backLabel}</button>
       </div>
     </div>
   );
@@ -269,7 +269,7 @@ function InitScreen({ applicationId, onApplicationIdChange, onInitialize, initia
     >
       <div class="grid grid-cols-2 gap-3">
         {FOLLOWUP_TASKS_INFO.map(t => (
-          <div key={t.name} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
+          <div key={t.name} class="rounded-xl border border-[#e8e8ed] px-5 py-4">
             <div class="flex items-start justify-between mb-1">
               <h3 class="text-[14px] font-semibold text-[#171717]">{t.name}</h3>
               <span class="text-[11px] font-medium text-[#8E8E93] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{t.report}</span>
@@ -289,7 +289,7 @@ function TaskList({ tasks, taskOrders, taskStatus, onStart }) {
         const completed = taskStatus[task.id] === 'completed';
         const order = taskOrders[task.id];
         return (
-          <div key={task.id} class="flex items-center gap-4 border border-border rounded-xl px-5 py-4 bg-white">
+          <div key={task.id} class="flex items-center gap-4 rounded-xl border border-[#e8e8ed] px-5 py-4">
             <div class={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border border-[#e8e8ed] ${task.iconBg}`}><task.Icon size={18} /></div>
             <div class="flex-1">
               <div class="text-sm font-semibold mb-0.5">{task.name}</div>

@@ -108,7 +108,7 @@ export function PayrollIncomeDemo() {
             title="Verify income directly from payroll"
             subtitle="Connect to the applicant's payroll provider to verify current income, employment, and pay history. The fastest and most accurate path for lending decisions."
             diagram={DIAGRAM}
-            actions={<button onClick={() => setShowForm(true)} class="py-3 px-8 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Get started</button>}
+            actions={<button onClick={() => setShowForm(true)} class="w-full max-w-[280px] py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
           />
         )}
         {screen === 'select' && showForm && (
@@ -123,7 +123,7 @@ export function PayrollIncomeDemo() {
               <div>
                 <VoieReport report={reportData} />
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-                  <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
+                  <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
                 </div>
               </div>
             ) : (

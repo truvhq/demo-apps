@@ -130,7 +130,7 @@ export function EmployeePortalDemo({ screen, param }) {
           title="Verify without the applicant present"
           subtitle="A case worker creates verification orders using applicant data on file and sends verification links via email or SMS. Track completion from a dashboard."
           diagram={VERIFIER_DIAGRAM}
-          actions={<button onClick={() => setIntroSeen(true)} class="py-3 px-8 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Get started</button>}
+          actions={<button onClick={() => setIntroSeen(true)} class="w-full max-w-[280px] py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
         >
           <div class="grid gap-3">
             {[
@@ -139,7 +139,7 @@ export function EmployeePortalDemo({ screen, param }) {
               { name: 'Track status remotely', desc: 'Monitor webhook events and order status from the dashboard' },
               { name: 'Fetch reports on completion', desc: 'Pull VOIE, VOE, or VOA reports once the user completes Bridge' },
             ].map(item => (
-              <div key={item.name} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
+              <div key={item.name} class="rounded-xl border border-[#e8e8ed] px-5 py-4">
                 <h3 class="text-[14px] font-semibold text-[#171717] mb-1">{item.name}</h3>
                 <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{item.desc}</p>
               </div>
@@ -238,7 +238,7 @@ export function EmployeePortalDemo({ screen, param }) {
           )}
 
           <div class="mt-6 pt-5 border-t border-[#d2d2d7]">
-            <button class="px-5 py-2.5 text-sm font-semibold border border-[#d2d2d7] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
+            <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
           </div>
         </div>
       )}

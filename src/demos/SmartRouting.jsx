@@ -201,14 +201,14 @@ export function SmartRoutingDemo() {
             subtitle="The system checks the applicant's employer payroll coverage and recommends the fastest path: payroll, bank transactions, or document upload. The applicant can accept or override."
             diagram={DIAGRAM}
             actions={
-              <button onClick={() => setShowForm(true)} class="w-full max-w-xs block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
+              <button onClick={() => setShowForm(true)} class="w-full max-w-[280px] block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
                 Get started
               </button>
             }
           >
             <div class="grid gap-3 text-left">
               {METHODS.map(m => (
-                <div key={m.id} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
+                <div key={m.id} class="rounded-xl border border-[#e8e8ed] px-5 py-4">
                   <div class="flex items-center gap-3 mb-1">
                     <div class={`icon-box ${m.color}`}><m.Icon size={18} /></div>
                     <h3 class="text-[14px] font-semibold text-[#171717]">{m.name}</h3>
@@ -248,10 +248,10 @@ export function SmartRoutingDemo() {
                         key={m.id}
                         onClick={() => handleMethodSelect(m)}
                         disabled={loading}
-                        class={`border rounded-2xl px-6 py-5 text-left cursor-pointer transition-all duration-200 disabled:opacity-40 ${
+                        class={`rounded-xl border px-5 py-4 text-left cursor-pointer transition-all duration-150 disabled:opacity-40 ${
                           isRecommended
-                            ? 'border-primary bg-[#f5f8ff] shadow-sm'
-                            : 'border-[#d2d2d7] hover:border-primary hover:bg-[#f5f8ff]'
+                            ? 'border-primary bg-primary/[0.04]'
+                            : 'border-[#e8e8ed] hover:border-[#c0c0c5]'
                         }`}
                       >
                         <div class="flex items-center gap-3 mb-1">
@@ -288,7 +288,7 @@ export function SmartRoutingDemo() {
                   ? <IncomeInsightsReport report={reportData} />
                   : <VoieReport report={reportData} />}
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-                  <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
+                  <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
                 </div>
               </div>
             ) : (

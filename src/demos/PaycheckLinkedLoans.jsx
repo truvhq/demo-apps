@@ -119,7 +119,7 @@ export function PaycheckLinkedLoansDemo() {
             title="Set up payroll loan repayment"
             subtitle="The applicant connects their payroll provider and authorizes automatic deductions for loan repayment. Payments start on the next pay cycle."
             diagram={DIAGRAM}
-            actions={<button onClick={() => setShowForm(true)} class="py-3 px-8 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Get started</button>}
+            actions={<button onClick={() => setShowForm(true)} class="w-full max-w-[280px] py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
           />
         )}
 
@@ -138,7 +138,7 @@ export function PaycheckLinkedLoansDemo() {
                 {ddsReport && <DDSReport report={ddsReport} />}
                 {incomeReport && <VoieReport report={incomeReport} />}
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-                  <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
+                  <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
                 </div>
               </div>
             ) : (

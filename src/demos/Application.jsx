@@ -130,7 +130,7 @@ function ReportResults({ reportData, reportLoading, reportError, productType, on
       {reportData.assets && <AssetsReport report={reportData.assets} />}
       {reportData.income_insights && <IncomeInsightsReport report={reportData.income_insights} />}
       <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-        <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:border-primary hover:text-primary" onClick={onBack}>{backLabel}</button>
+        <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={onBack}>{backLabel}</button>
       </div>
     </div>
   );
@@ -200,7 +200,7 @@ function IntroScreen({ onStart }) {
         <button
           onClick={() => selected && onStart(selected)}
           disabled={!selected}
-          class="w-full max-w-xs block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40"
+          class="w-full max-w-[280px] block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40"
         >
           Get started
         </button>
@@ -211,10 +211,10 @@ function IntroScreen({ onStart }) {
           <div
             key={p.id}
             onClick={() => setSelected(p.id)}
-            class={`border rounded-2xl px-6 py-5 cursor-pointer transition-all duration-200 ${
+            class={`rounded-xl border px-5 py-4 cursor-pointer transition-all duration-150 ${
               selected === p.id
-                ? 'border-primary bg-[#f5f8ff] shadow-sm'
-                : 'border-[#d2d2d7]/60 hover:border-[#8E8E93] bg-white/80 backdrop-blur-sm'
+                ? 'border-primary bg-primary/[0.04]'
+                : 'border-[#e8e8ed] hover:border-[#c0c0c5]'
             }`}
           >
             <div class="flex items-start justify-between mb-1">
