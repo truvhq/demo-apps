@@ -60,7 +60,7 @@ export function IndustryPage({ industry }) {
             <h1 class="text-[40px] font-semibold tracking-[-0.03em] text-[#171717] leading-[1.1] mb-3">{industry.name}</h1>
             <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[480px]">{industry.desc}</p>
           </div>
-          <div class="-mx-6 divide-y divide-[#d2d2d7]/30">
+          <div class="-mx-6">
             {industry.demos.map((d, i) => (
               <DemoCard key={d.id} demo={d} industryId={industry.id} index={i} />
             ))}
