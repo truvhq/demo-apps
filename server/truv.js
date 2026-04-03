@@ -49,12 +49,16 @@ export class TruvClient {
     return this._request('POST', 'users/', { json: payload });
   }
 
-  async createUserBridgeToken(userId, productType) {
+  async createUserBridgeToken(userId, productType, { data_sources } = {}) {
     const payload = {
       product_type: productType,
       client_name: 'Truv Quickstart',
       tracking_info: '1338-0111-A', // Replace with your internal reference (e.g. loan number)
     };
+
+    if (data_sources && data_sources.length > 0) {
+      payload.data_sources = data_sources;
+    }
 
     // Sandbox test account for deposit_switch and pll products
     if (productType === 'deposit_switch' || productType === 'pll') {
