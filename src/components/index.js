@@ -1,3 +1,4 @@
+// Barrel export for shared components.
 export { Layout } from './Layout.jsx';
 export { Panel } from './Panel.jsx';
 export { OrderResults } from './OrderResults.jsx';

@@ -1,3 +1,11 @@
+// Truv API client
+//
+// Wraps all Truv REST endpoints used by this quickstart:
+//   Users + Bridge tokens, company/provider search, orders,
+//   token exchange, reports (VOIE, VOE, assets, income insights,
+//   deposit switch), and document collections.
+// See: https://docs.truv.com/reference
+
 import fetch from 'node-fetch';
 import { v4 as uuidv4 } from 'uuid';
 

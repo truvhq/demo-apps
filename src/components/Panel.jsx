@@ -1,3 +1,7 @@
+// Panel -- Sidebar panel with four tabs: Guide, API, Bridge, and Webhooks.
+//
+// Guide shows step-by-step progress. API shows logged Truv API calls.
+// Bridge shows Bridge SDK events. Webhooks shows received webhook events.
 import { useState } from 'preact/hooks';
 
 function TabButton({ active, label, count, onClick }) {

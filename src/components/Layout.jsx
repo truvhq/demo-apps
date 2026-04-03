@@ -1,3 +1,7 @@
+// Layout -- App shell with Header and optional sidebar Panel.
+//
+// Wraps every demo screen after the intro. Pass hidePanel to render
+// full-width content without the sidebar.
 import { Panel } from './Panel.jsx';
 import { Header } from './Header.jsx';
 

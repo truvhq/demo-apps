@@ -1,3 +1,9 @@
+// Database: SQLite setup and queries
+//
+// Tables: orders, api_logs (with session_id for pre-order log grouping),
+// webhook_events, reports, and document_collections.
+// All writes go through helper functions that handle JSON serialization.
+
 import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
 import path from 'path';

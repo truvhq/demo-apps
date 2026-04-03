@@ -1,3 +1,7 @@
+// MermaidDiagram -- Renders Mermaid sequence diagrams as inline SVG.
+//
+// Accepts a Mermaid definition string and renders it with Truv brand
+// colors. Re-renders when the definition changes.
 import { useEffect, useRef } from 'preact/hooks';
 import mermaid from 'mermaid';
 

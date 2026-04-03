@@ -1,3 +1,7 @@
+// CompanySearch -- Typeahead search for employers or banks.
+//
+// Calls /v1/company-mappings-search/ (payroll employers) or /v1/providers/ (banks)
+// depending on the dataSource prop. Returns company_mapping_id or provider_id.
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { API_BASE } from './hooks.js';
 

@@ -1,3 +1,7 @@
+// WebhookFeed -- Displays webhook events in the sidebar Webhooks tab.
+//
+// Also exports WaitingScreen, a placeholder component for demos that
+// are waiting on a webhook callback before showing results.
 export function parsePayload(raw) {
   if (!raw) return {};
   if (typeof raw !== 'string') return raw;

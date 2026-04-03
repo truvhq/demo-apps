@@ -1,3 +1,7 @@
+// OrderResults -- Renders typed report components based on order data.
+//
+// Checks for VOIE, VOE, assets, and income-insights reports, then renders
+// the matching report component (VoieReport, AssetsReport, IncomeInsightsReport).
 import { Section, Row } from './reports/shared.jsx';
 import { VoieReport } from './reports/VoieReport.jsx';
 import { AssetsReport } from './reports/AssetsReport.jsx';

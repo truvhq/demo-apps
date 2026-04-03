@@ -70,6 +70,7 @@ export function DepositSwitchDemo() {
     setLoading(false);
   }
 
+  // Wait for webhook "done", then fetch report. fetchedRef prevents double-fetching on rapid poll updates.
   useEffect(() => {
     if (screen !== 'waiting' || !userId || fetchedRef.current) return;
     const done = panel.webhooks.some(w => {

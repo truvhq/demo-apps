@@ -6,63 +6,90 @@ Built with Preact, Vite, Tailwind CSS v4, and Express.
 
 ## Demos
 
-Demos are organized by industry. Each starts with an intro screen and architecture diagram, then walks through the integration step by step with a live sidebar showing API calls, Bridge events, and webhooks.
+Demos are organized by industry. Each starts with a split intro screen (business context on the left, architecture diagram on the right), then walks through the integration step by step with a live sidebar showing API calls, Bridge events, and webhooks.
 
 ### Mortgage
 
 | Demo | What it shows |
 |------|---------------|
-| **POS Application** | Collect applicant PII, search for employer, create an order, verify through Bridge |
-| **POS Tasks** | Create multiple verification tasks for one applicant (income, employment, assets) |
-| **LOS** | Create orders with PII and send verification links via email/SMS — no user present |
-| **Document Processing** | Upload pay stubs, W-2s, and tax returns. Truv validates and extracts structured data |
+| **POS Application** | A borrower fills out a loan application and verifies their income or assets in real time |
+| **POS Tasks** | After submitting, the borrower returns to complete remaining verifications: income, employment, assets |
+| **LOS** | A Loan Processor creates verification orders from the LOS using borrower data on file |
+| **Document Processing** | Process pay stubs, W-2s, and tax returns. Truv validates and extracts structured income data |
 
 ### Public Sector
 
 | Demo | What it shows |
 |------|---------------|
-| **Customer Portal** | Same flow as POS Application, branded for public sector |
-| **Document Processing** | Same flow as Mortgage Document Processing |
-| **Verifier Portal** | Same flow as LOS, branded for public sector |
+| **Customer Portal** | An applicant applies for benefits and verifies income through a self-service portal |
+| **Document Processing** | Process pay stubs, W-2s, and tax returns for benefit eligibility decisions |
+| **Case Worker Portal** | A Case Worker creates verification orders using applicant data on file |
 
 ### Consumer Credit
 
 | Demo | What it shows |
 |------|---------------|
-| **Smart Routing** | Check employer's `success_rate` via company search, recommend payroll/bank/documents, user picks |
-| **Bank Income** | Connect to a bank via `financial_accounts` data source, fetch income insights report |
-| **Payroll Income** | Connect to payroll via `payroll` data source, fetch VOIE report |
-| **Paycheck-Linked Loans** | Set up payroll deductions (`pll` product), fetch both VOIE and DDS reports |
+| **Smart Routing** | Check employer coverage and recommend the best verification method: payroll, bank, or documents |
+| **Bank Income** | Verify applicant income from bank transactions when payroll data isn't available |
+| **Payroll Income** | Verify income and employment directly from payroll data |
+| **Paycheck-Linked Loans** | Set up automatic loan repayment through payroll deductions |
 
 ### Retail Banking
 
 | Demo | What it shows |
 |------|---------------|
-| **Direct Deposit Switch** | Switch direct deposit routing via `deposit_switch` product |
+| **Direct Deposit Switch** | Switch a customer's direct deposit to your bank through their payroll provider |
 
-## Two integration patterns
+## Architecture
 
-The demos illustrate two Truv integration patterns:
+All demos follow the same 3-tier architecture. API keys never touch the frontend.
+
+```
+Your Frontend (browser)  -->  Your Backend (server)  -->  Truv API
+       |                            |                        |
+   Bridge widget             API credentials           Verification
+   User interaction          Webhook receiver           Reports
+```
 
 ### Orders API (Mortgage, Public Sector)
 
 ```
-POST /v1/orders/ → bridge_token → Bridge (inline) → webhooks → POST /v1/users/{id}/reports/
+Frontend                    Backend                     Truv API
+   |                           |                           |
+   |-- submit form ----------->|                           |
+   |                           |-- POST /v1/orders/ ------>|
+   |                           |<---- bridge_token --------|
+   |<---- bridge_token --------|                           |
+   |-- TruvBridge.init() ------------------------------------>
+   |                           |<---- webhook: completed --|
+   |                           |-- POST /v1/users/{id}/reports/ -->
+   |                           |<---- report data ---------|
 ```
 
-The server creates an order with applicant PII. Truv returns a `bridge_token`. Bridge opens inline. Reports are fetched by user ID. Best for workflows where you collect applicant data upfront.
+Best for workflows where you collect applicant data upfront. The server creates an order with PII, Truv returns a `bridge_token`, and reports are fetched by user ID.
 
-**Key files:** `server/routes/orders.js`, `server/routes/reports.js`, `src/demos/Application.jsx`
+**Key files:** `server/routes/orders.js`, `server/routes/user-reports.js`, `src/demos/Application.jsx`
 
 ### Bridge / User+Token (Consumer Credit, Retail Banking)
 
 ```
-POST /v1/users/ → POST /v1/users/{id}/tokens/ → Bridge (popup) → public_token → link report
+Frontend                    Backend                     Truv API
+   |                           |                           |
+   |-- submit form ----------->|                           |
+   |                           |-- POST /v1/users/ ------->|
+   |                           |<---- user_id -------------|
+   |                           |-- POST /v1/users/{id}/tokens/ -->
+   |                           |<---- bridge_token --------|
+   |<---- bridge_token --------|                           |
+   |-- TruvBridge.init() ------------------------------------>
+   |                           |<---- webhook: done -------|
+   |                           |-- POST /v1/users/{id}/reports/ -->
+   |                           |<---- report data ---------|
 ```
 
-The server creates a user, then generates a bridge token with `product_type` and `data_sources`. Bridge opens as a popup. On success, the `public_token` is exchanged for a link report. Best for consumer-facing flows where you want to control which verification methods Bridge shows.
+Best for consumer-facing flows. The server creates a user, generates a bridge token with `product_type` and `data_sources`, and reports are fetched by user ID.
 
-**Key files:** `server/routes/bridge.js`, `src/demos/SmartRouting.jsx`
+**Key files:** `server/routes/bridge.js`, `server/routes/user-reports.js`, `src/demos/SmartRouting.jsx`
 
 ## Quick start
 
@@ -129,37 +156,47 @@ Open **http://localhost:5173** and pick an industry.
 ```
 server/
   index.js               Express entry point, webhooks, company/provider search
-  truv.js                Truv API client — all v1 endpoint wrappers
+  truv.js                Truv API client with all v1 endpoint wrappers
   db.js                  SQLite (local, ephemeral) for orders, logs, webhooks
+  api-logger.js          API call logging with PII redaction
+  webhooks.js            HMAC-SHA256 webhook signature verification
+  webhook-setup.js       Auto-registers ngrok webhook on startup
   routes/
-    orders.js            Orders API (Mortgage demos)
-    reports.js           VOIE, VOE, assets, income insights reports
-    bridge.js            Bridge Token flow (Consumer Credit demos)
+    orders.js            Orders API (Mortgage, Public Sector demos)
+    user-reports.js      Unified report fetching by userId and reportType
+    reports.js           Legacy order-based report fetching
+    bridge.js            Bridge Token flow (Consumer Credit, Retail Banking demos)
     upload-documents.js  Document collections
 
 src/
-  App.jsx                Router + industry/demo registry
-  Home.jsx               Home page — industry picker
+  App.jsx                Router + industry/demo registry (INDUSTRIES config)
+  Home.jsx               Home page with industry cards
   IndustryPage.jsx       Demo list for a selected industry
   demos/
-    SmartRouting.jsx      ★ Best starting point for Consumer Credit pattern
-    Application.jsx       ★ Best starting point for Mortgage/Orders pattern
-    BankIncome.jsx        Bank income (financial_accounts)
-    PayrollIncome.jsx     Payroll income (payroll data source)
+    SmartRouting.jsx      Best starting point for Consumer Credit (Bridge flow)
+    Application.jsx       Best starting point for Mortgage (Orders flow)
+    BankIncome.jsx        Bank income via financial_accounts
+    PayrollIncome.jsx     Payroll income via payroll data source
     DepositSwitch.jsx     Direct deposit switch
-    PaycheckLinkedLoans.jsx  PLL with dual reports
-    FollowUp.jsx          Multi-task verification
-    EmployeePortal.jsx    Remote verifier portal
-    UploadDocuments.jsx   Document processing
+    PaycheckLinkedLoans.jsx  PLL with dual reports (income + deposit switch)
+    FollowUp.jsx          Multi-task verification with shared external_user_id
+    LOS.jsx               Loan Processor creates orders, sends verification links
+    EmployeePortal.jsx    Case Worker portal (same as LOS, government context)
+    CustomerPortal.jsx    Self-service verification (same as Application, government context)
+    UploadDocuments.jsx   Document processing via Document Collections API
+    PSDocuments.jsx       Document processing (same as UploadDocuments, government context)
   components/
+    Header.jsx            Shared header bar with Truv logo
     ApplicationForm.jsx   Shared PII form (handles employer vs bank search)
-    CompanySearch.jsx     Typeahead — uses /v1/company-mappings-search/ or /v1/providers/
-    Layout.jsx            App shell with sidebar
+    CompanySearch.jsx     Typeahead search for employers or financial institutions
+    IntroSlide.jsx        Split intro layout (text left, diagram right)
+    Layout.jsx            App shell with Header and optional sidebar Panel
     Panel.jsx             Sidebar tabs (Guide, API, Bridge, Webhooks)
-    hooks.js              usePanel() — state management for sidebar polling
-    Icons.jsx             SVG icon library
-    reports/              Report renderers (VoieReport, AssetsReport, DDSReport, etc.)
-    screens/              Shared screens (BridgeScreen, OrderWaitingScreen, etc.)
+    hooks.js              usePanel() hook for sidebar state and polling
+    Icons.jsx             SVG icon library including Truv wordmark
+    MermaidDiagram.jsx    Renders architecture diagrams as inline SVG
+    reports/              Typed report renderers (VoieReport, AssetsReport, DDSReport, etc.)
+    screens/              Shared demo screens (BridgeScreen, OrderWaitingScreen)
 ```
 
 ## Key concepts
@@ -180,13 +217,29 @@ Controls which verification methods Bridge shows to the user. Pass when creating
 | Endpoint | When to use | Returns |
 |----------|-------------|---------|
 | `GET /v1/company-mappings-search/?query=...` | Payroll employer search | `company_mapping_id` |
-| `GET /v1/providers/?data_source=financial_accounts` | Bank/institution search | `provider_id` |
+| `GET /v1/providers/?search=...` | Bank/institution search | `provider_id` |
 
 When creating a bridge token, pass `company_mapping_id` for employers or `provider_id` for banks to deeplink Bridge directly to that institution.
 
+### Reports
+
+All reports are fetched via the user reports endpoints (never link reports):
+
+| Report | Endpoint |
+|--------|----------|
+| Income (VOIE) | `POST /v1/users/{id}/reports/` with `{ is_voe: false }` |
+| Employment (VOE) | `POST /v1/users/{id}/reports/` with `{ is_voe: true }` |
+| Assets (VOA) | `POST /v1/users/{id}/assets/reports/` |
+| Income Insights | `POST /v1/users/{id}/income_insights/reports/` |
+| Deposit Switch | `GET /v1/users/{id}/deposit-switch/reports/` |
+
 ### Webhooks
 
-All demos wait for webhooks before fetching reports. The key event is `task-status-updated` with status `done`. The server verifies webhook signatures via HMAC-SHA256.
+All demos wait for webhooks before fetching reports. The key events are:
+- `task-status-updated` with status `done` (Bridge flow)
+- `order-status-updated` with status `completed` (Orders flow)
+
+The server verifies webhook signatures via HMAC-SHA256.
 
 ## Learn more
 
@@ -195,7 +248,9 @@ All demos wait for webhooks before fetching reports. The key event is `task-stat
 - [Bridge overview](https://docs.truv.com/docs/bridge-overview)
 - [Webhooks guide](https://docs.truv.com/docs/webhooks)
 - [Company Search API](https://docs.truv.com/reference/company_autocomplete_search)
+- [Providers API](https://docs.truv.com/reference/list_providers)
 - [Bridge Tokens API](https://docs.truv.com/reference/users_tokens)
+- [User Reports API](https://docs.truv.com/reference/users_reports)
 
 ## License
 

@@ -1,3 +1,19 @@
+// LOS.jsx -- Mortgage demo: LOS Integration
+//
+// Backend-initiated flow: creates an order with borrower PII, and Truv
+// sends a verification link via email/SMS. No Bridge widget here.
+//
+// SCREEN FLOW (state-driven):
+//   !introSeen              -> Intro slide with architecture diagram
+//   introSeen && !applicant -> Add borrower form (name, email, phone, products)
+//   introSeen && applicant  -> Order table with status tracking + report
+//
+// API FLOW:
+//   1. POST /api/orders (with PII + email/phone, no company)
+//   2. Truv sends email/SMS with share_url to borrower
+//   3. Wait for order-status-updated webhook with status "completed"
+//   4. GET /api/users/:userId/reports/:type -> fetch report
+
 import { useState, useEffect } from 'preact/hooks';
 import { Layout, WebhookFeed, usePanel, API_BASE, parsePayload, IntroSlide } from '../components/index.js';
 import { VoieReport } from '../components/reports/VoieReport.jsx';

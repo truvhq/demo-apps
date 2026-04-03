@@ -1,3 +1,21 @@
+// FollowUp.jsx -- Mortgage demo: Follow-up Tasks
+//
+// Creates multiple orders sharing one external_user_id so Truv links
+// them to a single borrower. Each task goes through bridge -> waiting
+// -> results independently.
+//
+// SCREEN FLOW (URL-driven via `screen` prop):
+//   ''        -> Intro slide with task picker + application ID input
+//   'bridge'  -> Bridge widget for the active task's order
+//   'waiting' -> Webhook waiting spinner
+//   'results' -> Report for the completed task
+//
+// API FLOW (per task):
+//   1. POST /api/orders (all tasks created at once, same external_user_id)
+//   2. Bridge opened per task with that task's order_id
+//   3. Wait for task-status-updated webhook with status "done"
+//   4. GET /api/users/:userId/reports/:type -> fetch report
+
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { Layout, usePanel, API_BASE, IntroSlide } from '../components/index.js';
 import { Icons } from '../components/Icons.jsx';

@@ -1,3 +1,8 @@
+// API Logger: PII redaction and request/response logging
+//
+// Redacts sensitive fields (SSN, email, phone, DOB) before persisting
+// API call logs and webhook events to the database.
+
 import * as db from './db.js';
 
 const REDACTED_KEYS = new Set(['ssn', 'email', 'phone', 'date_of_birth', 'social_security_number']);

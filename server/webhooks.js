@@ -1,3 +1,9 @@
+// Webhooks: HMAC-SHA256 signature verification
+//
+// Verifies inbound webhook requests using the X-Webhook-Sign header.
+// Uses timing-safe comparison to prevent timing attacks.
+// See: https://docs.truv.com/docs/webhooks
+
 import crypto from 'crypto';
 
 export function generateWebhookSign(body, secret) {

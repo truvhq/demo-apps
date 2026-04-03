@@ -1,3 +1,13 @@
+// Server: Express entry point
+//
+// GET  /api/companies         -- Company/employer search (company-mappings-search)
+// GET  /api/providers         -- Financial institution search (providers)
+// POST /api/webhooks/truv     -- Webhook receiver with HMAC-SHA256 verification
+// GET  /api/users/:id/webhooks -- Poll webhook events for a user
+// GET  /api/users/:id/logs    -- Poll API logs for a user (with optional session_id)
+//
+// Registers sub-routes from server/routes/ for orders, reports, bridge, uploads, and user-reports.
+
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';

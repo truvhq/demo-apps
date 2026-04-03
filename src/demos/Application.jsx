@@ -1,3 +1,17 @@
+// Application.jsx -- Mortgage demo: POS Application
+//
+// SCREEN FLOW (URL-driven via `screen` prop):
+//   ''        -> Intro slide with product picker (income, employment, assets)
+//   'bridge'  -> Bridge widget (order-based, inline)
+//   'waiting' -> Webhook waiting spinner
+//   'results' -> Verification report
+//
+// API FLOW:
+//   1. POST /api/orders        -> create order with PII + products
+//   2. Bridge opened with order_id (deeplinked via company_mapping_id)
+//   3. Wait for task-status-updated webhook with status "done"
+//   4. GET /api/users/:userId/reports/:type -> fetch report
+
 import { useState, useEffect } from 'preact/hooks';
 import { Layout, usePanel, API_BASE, IntroSlide } from '../components/index.js';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';

@@ -1,3 +1,21 @@
+// UploadDocuments.jsx -- Mortgage demo: Document Processing
+//
+// Upload pay stubs, W-2s, or tax returns. Truv validates, classifies,
+// and extracts structured data. Uses the Document Collections API.
+//
+// SCREEN FLOW (state-driven):
+//   'intro'      -> Intro slide with architecture diagram
+//   'upload'     -> File picker + sample test documents
+//   'processing' -> Polling collection status, then finalize + webhook wait
+//   'review'     -> Extracted income data results
+//
+// API FLOW:
+//   1. POST /api/collections           -> create user + document collection
+//   2. GET  /api/collections/:id       -> poll until all files are "successful"
+//   3. POST /api/collections/:id/finalize -> trigger data extraction
+//   4. Wait for task-status-updated webhook with status "done"
+//   5. GET  /api/collections/:id/report   -> fetch extracted income data
+
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { Layout, OrderResults, WebhookFeed, usePanel, API_BASE, parsePayload, IntroSlide } from '../components/index.js';
 
