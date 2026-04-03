@@ -8,6 +8,12 @@ import { UploadDocumentsDemo } from './demos/UploadDocuments.jsx';
 import { LOSDemo } from './demos/LOS.jsx';
 import { CustomerPortalDemo } from './demos/CustomerPortal.jsx';
 import { PSDocumentsDemo } from './demos/PSDocuments.jsx';
+import { ChoiceConnectDemo } from './demos/ChoiceConnect.jsx';
+import { SmartRoutingDemo } from './demos/SmartRouting.jsx';
+import { BankIncomeDemo } from './demos/BankIncome.jsx';
+import { PayrollIncomeDemo } from './demos/PayrollIncome.jsx';
+import { PaycheckLinkedLoansDemo } from './demos/PaycheckLinkedLoans.jsx';
+import { DepositSwitchDemo } from './demos/DepositSwitch.jsx';
 
 export const INDUSTRIES = [
   {
@@ -35,13 +41,21 @@ export const INDUSTRIES = [
     id: 'consumer-credit',
     name: 'Consumer Credit',
     desc: 'Income verification, payroll-linked lending, smart routing, and choice-based verification.',
-    demos: [],  // Populated in Units 5-7
+    demos: [
+      { id: 'choice-connect', name: 'Choice Connect', component: ChoiceConnectDemo, desc: 'User fills out an application, then selects between payroll, bank, or document upload verification.', tags: ['data_sources', 'User Choice', 'Bridge', 'Reports'] },
+      { id: 'smart-routing', name: 'Smart Routing', component: SmartRoutingDemo, desc: 'System checks employer payroll coverage and auto-routes to the best verification method.', tags: ['Company Search', 'Confidence', 'Auto-Route', 'Reports'] },
+      { id: 'bank-income', name: 'Bank Income', component: BankIncomeDemo, desc: 'Verify income from bank transactions using the financial_accounts data source.', tags: ['financial_accounts', 'Bridge', 'Income Insights'] },
+      { id: 'payroll-income', name: 'Payroll Income', component: PayrollIncomeDemo, desc: 'Verify income and employment from payroll data using the payroll data source.', tags: ['payroll', 'Bridge', 'VOIE Report'] },
+      { id: 'pll', name: 'Paycheck-Linked Loans', component: PaycheckLinkedLoansDemo, desc: 'Set up automatic payroll deductions for loan repayment.', tags: ['pll', 'Bridge', 'Payroll Deductions'] },
+    ],
   },
   {
     id: 'retail-banking',
     name: 'Retail Banking',
     desc: 'Direct deposit switching and payroll card enrollment.',
-    demos: [],  // Populated in Unit 5
+    demos: [
+      { id: 'deposit-switch', name: 'Direct Deposit Switch', component: DepositSwitchDemo, desc: 'Switch direct deposit routing to a new account via payroll provider.', tags: ['deposit_switch', 'Bridge', 'Payroll'] },
+    ],
   },
 ];
 
