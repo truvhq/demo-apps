@@ -1,3 +1,6 @@
+// PayrollIncome.jsx — Consumer Credit demo: Payroll Income Verification
+// Follows the same Bridge (User+Token) flow as SmartRouting.jsx (the canonical example).
+// Uses data_sources: ['payroll'] and GET /v1/company-mappings-search/ for employer search.
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { Layout, WaitingScreen, parsePayload, usePanel, API_BASE, IntroSlide } from '../components/index.js';
 import { VoieReport } from '../components/reports/VoieReport.jsx';

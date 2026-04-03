@@ -1,3 +1,6 @@
+// DepositSwitch.jsx — Retail Banking demo: Direct Deposit Switch
+// Follows the same Bridge (User+Token) flow as SmartRouting.jsx (the canonical example).
+// Uses product_type: 'deposit_switch'. Report rendered with DDSReport component.
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { Layout, WaitingScreen, parsePayload, usePanel, API_BASE, IntroSlide } from '../components/index.js';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';

@@ -1,3 +1,24 @@
+// SmartRouting.jsx — Consumer Credit demo: Smart Routing
+//
+// This is the CANONICAL example for Consumer Credit demos using the Bridge
+// (User+Token) flow. Other demos (BankIncome, PayrollIncome, etc.) follow
+// the same pattern with fewer screens.
+//
+// SCREEN STATE MACHINE:
+//   'select' (introStep 1) → Intro slide (fullscreen, no panel)
+//   'select' (introStep 2) → Architecture diagram (fullscreen, no panel)
+//   'select' (introStep 3) → Application form (with panel)
+//   'choose'               → Method picker with "Recommended" tag (with panel)
+//   'waiting'              → Webhook waiting spinner (with panel)
+//   'review'               → Report results (with panel)
+//
+// API FLOW:
+//   1. GET /api/companies?q=... → check success_rate for routing recommendation
+//   2. POST /api/bridge-token   → create user + bridge token with data_sources
+//   3. TruvBridge.init().open() → Bridge popup (employer deeplinked via server-side company_mapping_id)
+//   4. Wait for task-status-updated webhook with status "done"
+//   5. GET /api/link-report/:publicToken/:reportType → fetch verification report
+
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { Layout, WaitingScreen, parsePayload, usePanel, API_BASE, IntroSlide } from '../components/index.js';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
@@ -5,6 +26,7 @@ import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
 import { Icons } from '../components/Icons.jsx';
 
+// STEPS: sidebar Guide tab content. Each step highlights when setCurrentStep(index) is called.
 const STEPS = [
   { title: 'Collect applicant info', guide: '<p>The form collects applicant details and employer. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>For financial institutions use:</p><pre>GET /v1/providers/?data_source=financial_accounts</pre><p>The employer is used to determine the recommended verification method.</p>' },
   {
@@ -43,6 +65,9 @@ const DIAGRAM = `sequenceDiagram
   App->>Truv: GET /v1/links/{link_id}/income/report
   Truv-->>App: Verification report`;
 
+// METHODS: verification method cards shown on the 'choose' screen.
+// The `dataSources` array is sent to POST /api/bridge-token to control what Bridge shows.
+// `reportType` determines which link report endpoint to call after verification.
 const METHODS = [
   { id: 'payroll', name: 'Payroll Income', desc: 'Connect to payroll provider for verified income and employment data', Icon: Icons.briefcase, color: 'icon-box-blue', dataSources: ['payroll'], reportType: 'income' },
   { id: 'bank', name: 'Bank Transactions', desc: 'Connect bank account for transaction-based income insights', Icon: Icons.bankBuilding, color: 'icon-box-emerald', dataSources: ['financial_accounts'], reportType: 'income' },
@@ -63,6 +88,9 @@ export function SmartRoutingDemo() {
 
   const { panel, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
 
+  // After the application form is submitted, check the employer's payroll coverage
+  // using the company search API. The success_rate field determines the recommendation.
+  // See: https://docs.truv.com/reference/company_autocomplete_search
   async function handleFormSubmit(data) {
     setFormData(data);
     setLoading(true);
@@ -89,6 +117,9 @@ export function SmartRoutingDemo() {
     setLoading(false);
   }
 
+  // When the user picks a method, create a bridge token and open Bridge immediately.
+  // The data_sources param restricts which providers Bridge shows (payroll, financial_accounts, or docs).
+  // See: https://docs.truv.com/reference/users_tokens
   async function handleMethodSelect(method) {
     setSelectedMethod(method);
     setLoading(true);
@@ -117,6 +148,9 @@ export function SmartRoutingDemo() {
     setLoading(false);
   }
 
+  // Watch for the task-status-updated webhook with status "done".
+  // Once it arrives, exchange the public_token for a link report.
+  // fetchedRef prevents double-fetching when webhooks array updates multiple times.
   useEffect(() => {
     if (screen !== 'waiting' || !publicToken || fetchedRef.current) return;
     const done = panel.webhooks.some(w => {

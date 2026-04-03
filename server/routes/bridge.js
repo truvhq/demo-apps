@@ -1,12 +1,23 @@
-// Routes: Choice Connect demo
+// Routes: Bridge (User + Token) flow
 //
-// POST /api/bridge-token                        — Create user + bridge token
-// GET  /api/link-report/:publicToken/:reportType — Exchange token + get report
+// POST /api/bridge-token                         — Create user + bridge token
+// GET  /api/link-report/:publicToken/:reportType  — Exchange public_token + fetch report
 //
-// Choice Connect uses the User + Bridge Token flow (not Orders).
-// 1. Create a Truv user
-// 2. Generate a bridge token for that user
-// 3. After Bridge completes, exchange the public_token for a link report
+// Used by all Consumer Credit and Retail Banking demos.
+// This is the alternative to the Orders flow (used by Mortgage demos).
+//
+// Flow:
+//   1. POST /v1/users/                    → create a Truv user
+//   2. POST /v1/users/{id}/tokens/        → generate a bridge token
+//      - Pass company_mapping_id for payroll employers
+//      - Pass provider_id for financial institutions (banks)
+//      - Pass data_sources to restrict Bridge options
+//   3. Frontend opens Bridge popup with the token
+//   4. Bridge calls onSuccess(public_token) when the user completes
+//   5. POST /v1/link-access-tokens/       → exchange public_token for link_id
+//   6. GET /v1/links/{link_id}/{product}/report → fetch the verification report
+//
+// See: https://docs.truv.com/reference/users_tokens
 
 import { Router } from 'express';
 

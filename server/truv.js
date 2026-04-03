@@ -60,7 +60,11 @@ export class TruvClient {
       payload.data_sources = data_sources;
     }
 
-    // Employers use company_mapping_id, financial institutions use provider_id
+    // Deeplink the employer/institution so the user skips the Bridge search screen.
+    // The Truv API uses different field names:
+    //   - Payroll providers: company_mapping_id (from GET /v1/company-mappings-search/)
+    //   - Financial institutions: provider_id (from GET /v1/providers/)
+    // See: https://docs.truv.com/reference/users_tokens
     if (company_mapping_id) payload.company_mapping_id = company_mapping_id;
     if (provider_id) payload.provider_id = provider_id;
 
@@ -118,9 +122,12 @@ export class TruvClient {
     if (params.ssn) payload.social_security_number = params.ssn;
     if (params.template_id) payload.template_id = params.template_id;
 
-    // Employer / financial institution — sandbox credentials: goodlogin/goodpassword
+    // The Truv Orders API uses different arrays for payroll vs bank:
+    //   - Payroll products: employers: [{ company_mapping_id }]
+    //   - Bank/assets products: financial_institutions: [{ id, name }]
+    // See: https://docs.truv.com/reference/orders_create
+    // Sandbox credentials: goodlogin / goodpassword
     if (productType === 'assets' || (params.data_sources && params.data_sources.includes('financial_accounts'))) {
-      // Assets and financial_accounts use financial_institutions: [{ id }]
       if (params.provider_id || params.employer) {
         const fi = {};
         if (params.provider_id) fi.id = params.provider_id;

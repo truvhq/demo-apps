@@ -1,3 +1,17 @@
+// App.jsx — Root router and demo registry.
+//
+// Demos are organized by industry. Each industry lists its demos in the
+// INDUSTRIES array below. The hash-based router maps URLs to components:
+//
+//   #                                        → Home (industry picker)
+//   #consumer-credit                         → Industry page (list of demos)
+//   #consumer-credit/smart-routing           → Demo intro screen
+//   #consumer-credit/smart-routing/bridge/id → Demo active screen
+//
+// Each demo component receives { screen, param } props from the router.
+// See SmartRouting.jsx for the Consumer Credit pattern (Bridge flow)
+// and Application.jsx for the Mortgage pattern (Orders flow).
+
 import { useState, useEffect } from 'preact/hooks';
 import { Home } from './Home.jsx';
 import { IndustryPage } from './IndustryPage.jsx';
@@ -57,12 +71,17 @@ export const INDUSTRIES = [
   },
 ];
 
+// Parse the URL hash into route segments.
+// e.g. "#consumer-credit/smart-routing/bridge/abc123"
+//   → { industry: "consumer-credit", demo: "smart-routing", screen: "bridge", param: "abc123" }
 function parseHash() {
   const hash = window.location.hash.slice(1);
   const [industry, demo, screen, ...rest] = hash.split('/');
   return { industry: industry || '', demo: demo || '', screen: screen || '', param: rest.join('/') || '' };
 }
 
+// Navigate to a new route. Demo components call this to transition between screens.
+// e.g. navigate('consumer-credit/smart-routing/waiting/abc123')
 export function navigate(path) {
   window.location.hash = path;
 }

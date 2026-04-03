@@ -1,3 +1,6 @@
+// BankIncome.jsx — Consumer Credit demo: Bank Income Verification
+// Follows the same Bridge (User+Token) flow as SmartRouting.jsx (the canonical example).
+// Uses data_sources: ['financial_accounts'] and GET /v1/providers/ for bank search.
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { Layout, WaitingScreen, parsePayload, usePanel, API_BASE, IntroSlide } from '../components/index.js';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';

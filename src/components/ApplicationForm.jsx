@@ -1,3 +1,15 @@
+// ApplicationForm — Shared form component used by all demos that collect applicant PII.
+//
+// Props:
+//   onSubmit(data)   — called with form data including employer/institution ID
+//   submitting       — disables the button and shows spinner
+//   productType      — Truv product type (income, employment, assets, deposit_switch, pll)
+//   showEmployer     — whether to show the employer/institution search (default: true)
+//   employerLabel    — custom label for the search field (default: "Employer")
+//   dataSource       — when set to 'financial_accounts', the search uses GET /v1/providers/
+//                       instead of GET /v1/company-mappings-search/, and the form outputs
+//                       `provider_id` instead of `company_mapping_id`
+
 import { useState } from 'preact/hooks';
 import { CompanySearch } from './CompanySearch.jsx';
 

@@ -1,3 +1,15 @@
+// usePanel() — Central state hook used by every demo.
+//
+// Provides the sidebar Panel with live data (API logs, Bridge events, webhooks)
+// by polling the backend every 3 seconds once startPolling(userId) is called.
+//
+// Returns:
+//   panel          — { apiLogs, bridgeEvents, webhooks, tunnelUrl, currentStep }
+//   setCurrentStep — advance the Guide tab to step N
+//   startPolling   — begin polling API logs + webhooks for a user ID
+//   addBridgeEvent — push a Bridge SDK event to the panel
+//   reset          — clear all state and stop polling
+
 import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 
 const API_BASE = window.location.origin;

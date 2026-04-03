@@ -1,3 +1,6 @@
+// PaycheckLinkedLoans.jsx — Consumer Credit demo: Paycheck-Linked Loans
+// Follows the same Bridge (User+Token) flow as SmartRouting.jsx (the canonical example).
+// Uses product_type: 'pll'. Fetches BOTH income and deposit_switch reports in parallel.
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { Layout, WaitingScreen, parsePayload, usePanel, API_BASE, IntroSlide } from '../components/index.js';
 import { VoieReport } from '../components/reports/VoieReport.jsx';
