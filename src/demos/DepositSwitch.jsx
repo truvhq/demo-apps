@@ -113,7 +113,7 @@ export function DepositSwitchDemo() {
                 </p>
               </div>
               <div class="animate-slideUp delay-2">
-                <button onClick={() => setIntroStep(2)} class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">View Architecture</button>
+                <button onClick={() => setIntroStep(2)} class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Get started →</button>
               </div>
             </div>
           </div>

@@ -218,7 +218,7 @@ function InitScreen({ applicationId, onApplicationIdChange, onInitialize, initia
             onClick={() => setStep(2)}
             class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover"
           >
-            View Architecture
+            Get started →
           </button>
         </div>
       </div>

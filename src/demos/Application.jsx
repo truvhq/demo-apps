@@ -207,7 +207,7 @@ function IntroScreen({ onStart }) {
             disabled={!selected}
             class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40"
           >
-            View Architecture
+            Get started →
           </button>
         </div>
       </div>

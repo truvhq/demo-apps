@@ -194,7 +194,7 @@ export function PSDocumentsDemo() {
             </div>
             <div class="animate-slideUp delay-2">
               <button onClick={() => setIntroStep(2)} class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
-                View Architecture
+                Get started →
               </button>
             </div>
           </div>
