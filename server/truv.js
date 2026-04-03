@@ -196,8 +196,8 @@ export class TruvClient {
     return this._request('POST', 'link-access-tokens/', { json: { public_token: publicToken } });
   }
 
-  async getLinkReport(linkId, productType) {
-    return this._request('GET', `links/${linkId}/${productType}/report`);
+  async getLinkReport(linkId, reportType) {
+    return this._request('GET', `links/${linkId}/${reportType}/report/`);
   }
 
   // --- Reports ---

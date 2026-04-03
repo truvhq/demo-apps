@@ -38,19 +38,19 @@ const STEPS = [
     guide: '<p>The Bridge widget is initialized with:</p>'
       + '<pre>TruvBridge.init({\n  bridgeToken: "...",\n  isOrder: true,\n  position: { type: "inline", container: el }\n})</pre>'
       + '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>'
-      + '<p><a href="https://docs.truv.com/docs/bridge-overview" target="_blank">Bridge Docs →</a></p>',
+      + '<p><a href="https://docs.truv.com/docs/truv-bridge" target="_blank" rel="noopener noreferrer">Bridge Docs →</a></p>',
   },
   {
     title: 'Truv sends updates',
     guide: '<p>Truv sends webhooks as the verification progresses.</p>'
-      + '<p><a href="https://docs.truv.com/docs/webhooks" target="_blank">Webhooks Docs →</a></p>',
+      + '<p><a href="https://docs.truv.com/docs/webhooks" target="_blank" rel="noopener noreferrer">Webhooks Docs →</a></p>',
   },
   {
     title: 'Loan Processor reviews reports',
     guide: '<p>Fetch reports based on product type:</p>'
       + '<pre>POST /v1/users/{user_id}/reports/\n{ "is_voe": false }  // income\n{ "is_voe": true }   // employment</pre>'
       + '<pre>POST /v1/users/{user_id}/assets/reports/\nPOST /v1/users/{user_id}/income_insights/reports/</pre>'
-      + '<p><a href="https://docs.truv.com/reference/users_reports" target="_blank">Reports API →</a></p>',
+      + '<p><a href="https://docs.truv.com/reference/users_reports" target="_blank" rel="noopener noreferrer">Reports API →</a></p>',
   },
 ];
 

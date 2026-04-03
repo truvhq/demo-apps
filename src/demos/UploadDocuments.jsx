@@ -289,15 +289,23 @@ function UploadScreen({ files, onAddFiles, onRemoveFile, userId, onUserIdChange,
                 </div>
               ))}
             </div>
-          )}
 
-          {/* User ID */}
-          <input
-            value={userId}
-            onInput={e => onUserIdChange(e.target.value)}
-            placeholder="external_user_id (optional)"
-            class="w-full px-4 py-3 border border-[#d2d2d7] rounded-xl text-sm font-mono focus:border-primary focus:outline-none mb-4 text-center"
-          />
+            {/* Uploaded files list */}
+            {files.length > 0 && (
+              <div class="mb-4">
+                <div class="text-[11px] font-semibold text-[#86868b] uppercase tracking-wide mb-2">Your documents ({files.length})</div>
+                {files.map((f, i) => (
+                  <div key={i} class="flex items-center gap-3 px-4 py-2.5 border border-[#d2d2d7] rounded-lg mb-2">
+                    <span class="text-base">📄</span>
+                    <div class="flex-1 min-w-0">
+                      <div class="text-[13px] font-medium truncate text-[#1d1d1f]">{f.name}</div>
+                      <div class="text-[11px] text-[#86868b]">{formatSize(f.size)}</div>
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); onRemoveFile(i); }} class="text-[#86868b] hover:text-[#ff3b30] text-lg leading-none">&times;</button>
+                  </div>
+                ))}
+              </div>
+            )}
 
           <div class="flex gap-3">
             <button onClick={onBack} class="flex-1 py-3 border border-[#e8e8ed] font-semibold rounded-full hover:border-primary hover:text-primary">Back</button>
@@ -305,6 +313,14 @@ function UploadScreen({ files, onAddFiles, onRemoveFile, userId, onUserIdChange,
               {processing ? 'Processing...' : 'Process Documents'}
             </button>
           </div>
+        </div>
+      </div>
+      <div class="intro-actions">
+        <div class="flex gap-3 max-w-lg mx-auto">
+          <button onClick={onBack} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
+          <button onClick={onContinue} disabled={processing} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
+            {processing ? 'Processing...' : 'Process Documents'}
+          </button>
         </div>
       </div>
     </div>

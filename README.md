@@ -120,11 +120,12 @@ API_CLIENT_ID=your_client_id
 API_SECRET=your_secret
 ```
 
-### 3. Start ngrok
+### 3. Start ngrok and configure NGROK_URL
 
-Webhooks need a public URL. In a separate terminal:
+Webhooks need a public URL. In a terminal, run:
 
 ```sh
+# Terminal 1 — ngrok
 ngrok http 3000
 ```
 
@@ -135,6 +136,8 @@ NGROK_URL=https://your-tunnel.ngrok-free.dev
 ```
 
 ### 4. Run
+
+Keep ngrok terminal opened, open two new terminals and run following commands:
 
 ```sh
 npm start      # Backend (Express, port 3000)
@@ -245,7 +248,7 @@ The server verifies webhook signatures via HMAC-SHA256.
 
 - [Truv documentation](https://docs.truv.com)
 - [API reference](https://docs.truv.com/reference)
-- [Bridge overview](https://docs.truv.com/docs/bridge-overview)
+- [Bridge overview](https://docs.truv.com/docs/truv-bridge)
 - [Webhooks guide](https://docs.truv.com/docs/webhooks)
 - [Company Search API](https://docs.truv.com/reference/company_autocomplete_search)
 - [Providers API](https://docs.truv.com/reference/list_providers)

@@ -26,6 +26,10 @@ export function IntroSlide({ label, title, subtitle, diagram, children, actions 
           </div>
         )}
       </div>
+
+      <div class="intro-actions">
+        {children}
+      </div>
     </div>
   );
 }
