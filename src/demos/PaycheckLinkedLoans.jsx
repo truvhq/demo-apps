@@ -1,5 +1,5 @@
-import { useState } from 'preact/hooks';
-import { Layout, usePanel, API_BASE, IntroSlide } from '../components/index.js';
+import { useState, useEffect, useRef } from 'preact/hooks';
+import { Layout, WaitingScreen, parsePayload, usePanel, API_BASE, IntroSlide } from '../components/index.js';
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { DDSReport } from '../components/reports/DDSReport.jsx';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
@@ -7,6 +7,7 @@ import { ApplicationForm } from '../components/ApplicationForm.jsx';
 const STEPS = [
   { title: 'Collect applicant info', guide: '<p>The form collects applicant details. The backend creates a user and generates a Bridge token:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>Token uses <code>product_type: pll</code> with account details for payroll deductions.</p>' },
   { title: 'Connect via Bridge', guide: '<p>Bridge opens as a popup. The user selects their employer and confirms the payroll deduction.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
+  { title: 'Webhook processing', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
   { title: 'Review results', guide: '<p>The public token is exchanged for a link report:</p><pre>POST /v1/link-access-tokens/\nGET /v1/links/{link_id}/pll/report</pre><p>Confirms the payroll deduction was set up.</p>' },
 ];
 
@@ -21,6 +22,7 @@ const DIAGRAM = `sequenceDiagram
   Truv-->>App: bridge_token
   App->>Bridge: TruvBridge.init({ bridgeToken })
   Bridge-->>App: onSuccess(public_token)
+  Truv->>App: Webhook: task-status-updated (done)
   App->>Truv: POST /v1/link-access-tokens/
   Truv-->>App: link_id
   App->>Truv: GET /v1/links/{link_id}/pll/report
@@ -31,9 +33,11 @@ export function PaycheckLinkedLoansDemo() {
   const [introStep, setIntroStep] = useState(1);
   const [bridgeToken, setBridgeToken] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [publicToken, setPublicToken] = useState(null);
   const [incomeReport, setIncomeReport] = useState(null);
   const [ddsReport, setDdsReport] = useState(null);
   const [loading, setLoading] = useState(false);
+  const fetchedRef = useRef(false);
 
   const { panel, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
 
@@ -57,26 +61,45 @@ export function PaycheckLinkedLoansDemo() {
     setLoading(false);
   }
 
-  async function onBridgeSuccess(publicToken) {
+  function onBridgeSuccess(token) {
+    setPublicToken(token);
     setCurrentStep(2);
-    setScreen('review');
-    const encoded = encodeURIComponent(publicToken);
-    try {
-      const [incomeResp, ddsResp] = await Promise.all([
-        fetch(`${API_BASE}/api/link-report/${encoded}/income?user_id=${userId}`),
-        fetch(`${API_BASE}/api/link-report/${encoded}/deposit_switch?user_id=${userId}`),
-      ]);
-      if (incomeResp.ok) setIncomeReport(await incomeResp.json());
-      if (ddsResp.ok) setDdsReport(await ddsResp.json());
-    } catch (e) { console.error(e); }
+    setScreen('waiting');
   }
+
+  useEffect(() => {
+    if (screen !== 'waiting' || !publicToken || fetchedRef.current) return;
+    const done = panel.webhooks.some(w => {
+      const p = parsePayload(w.payload);
+      return (p.event_type === 'task-status-updated' && p.status === 'done')
+        || (w.event_type === 'task-status-updated' && w.status === 'done');
+    });
+    if (done) {
+      fetchedRef.current = true;
+      setCurrentStep(3);
+      setScreen('review');
+      (async () => {
+        const encoded = encodeURIComponent(publicToken);
+        try {
+          const [incomeResp, ddsResp] = await Promise.all([
+            fetch(`${API_BASE}/api/link-report/${encoded}/income?user_id=${userId}`),
+            fetch(`${API_BASE}/api/link-report/${encoded}/deposit_switch?user_id=${userId}`),
+          ]);
+          if (incomeResp.ok) setIncomeReport(await incomeResp.json());
+          if (ddsResp.ok) setDdsReport(await ddsResp.json());
+        } catch (e) { console.error(e); }
+      })();
+    }
+  }, [panel.webhooks, screen, publicToken]);
 
   function resetDemo() {
     reset();
+    fetchedRef.current = false;
     setScreen('select');
     setIntroStep(1);
     setBridgeToken(null);
     setUserId(null);
+    setPublicToken(null);
     setIncomeReport(null);
     setDdsReport(null);
   }
@@ -118,10 +141,12 @@ export function PaycheckLinkedLoansDemo() {
             <p class="text-sm text-gray-500 mb-8">Click below to open Bridge and set up your payroll deduction.</p>
             <button onClick={() => {
               if (!bridgeToken || !window.TruvBridge) return;
-              window.TruvBridge.init({ bridgeToken, onSuccess: (token) => onBridgeSuccess(token), onEvent: (name, data) => addBridgeEvent(name, data) }).open();
+              window.TruvBridge.init({ bridgeToken, onSuccess: (t) => onBridgeSuccess(t), onEvent: (name, data) => addBridgeEvent(name, data) }).open();
             }} class="px-8 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-lg">Open Bridge</button>
           </div>
         )}
+
+        {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}
 
         {screen === 'review' && (
           <div>

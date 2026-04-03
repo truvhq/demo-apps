@@ -1,5 +1,5 @@
-import { useState } from 'preact/hooks';
-import { Layout, usePanel, API_BASE, IntroSlide } from '../components/index.js';
+import { useState, useEffect, useRef } from 'preact/hooks';
+import { Layout, WaitingScreen, parsePayload, usePanel, API_BASE, IntroSlide } from '../components/index.js';
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
@@ -20,6 +20,7 @@ const STEPS = [
       + '<p>The selected method determines the <code>data_sources</code> on the bridge token.</p>',
   },
   { title: 'Connect via Bridge', guide: '<p>Bridge opens as a popup. The user selects their employer and logs in.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
+  { title: 'Webhook processing', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
   { title: 'Review results', guide: '<p>The public token is exchanged for a link report:</p><pre>POST /v1/link-access-tokens/\nGET /v1/links/{link_id}/{product}/report</pre>' },
 ];
 
@@ -36,6 +37,7 @@ const DIAGRAM = `sequenceDiagram
   Truv-->>App: bridge_token
   App->>Bridge: TruvBridge.init({ bridgeToken })
   Bridge-->>App: onSuccess(public_token)
+  Truv->>App: Webhook: task-status-updated (done)
   App->>Truv: POST /v1/link-access-tokens/
   Truv-->>App: link_id
   App->>Truv: GET /v1/links/{link_id}/{product}/report
@@ -54,8 +56,10 @@ export function ChoiceConnectDemo() {
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [bridgeToken, setBridgeToken] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [publicToken, setPublicToken] = useState(null);
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const fetchedRef = useRef(false);
 
   const { panel, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
 
@@ -95,24 +99,43 @@ export function ChoiceConnectDemo() {
     }).open();
   }
 
-  async function onBridgeSuccess(publicToken) {
+  function onBridgeSuccess(token) {
+    setPublicToken(token);
     setCurrentStep(3);
-    setScreen('review');
-    try {
-      const reportType = selectedMethod?.reportType || 'income';
-      const resp = await fetch(`${API_BASE}/api/link-report/${encodeURIComponent(publicToken)}/${reportType}?user_id=${userId}`);
-      setReportData(await resp.json());
-    } catch (e) { console.error(e); }
+    setScreen('waiting');
   }
+
+  useEffect(() => {
+    if (screen !== 'waiting' || !publicToken || fetchedRef.current) return;
+    const done = panel.webhooks.some(w => {
+      const p = parsePayload(w.payload);
+      return (p.event_type === 'task-status-updated' && p.status === 'done')
+        || (w.event_type === 'task-status-updated' && w.status === 'done');
+    });
+    if (done) {
+      fetchedRef.current = true;
+      setCurrentStep(4);
+      setScreen('review');
+      (async () => {
+        try {
+          const reportType = selectedMethod?.reportType || 'income';
+          const resp = await fetch(`${API_BASE}/api/link-report/${encodeURIComponent(publicToken)}/${reportType}?user_id=${userId}`);
+          setReportData(await resp.json());
+        } catch (e) { console.error(e); }
+      })();
+    }
+  }, [panel.webhooks, screen, publicToken]);
 
   function resetDemo() {
     reset();
+    fetchedRef.current = false;
     setScreen('select');
     setIntroStep(1);
     setFormData(null);
     setSelectedMethod(null);
     setBridgeToken(null);
     setUserId(null);
+    setPublicToken(null);
     setReportData(null);
   }
 
@@ -212,6 +235,9 @@ export function ChoiceConnectDemo() {
             </button>
           </div>
         )}
+
+        {/* Waiting for webhook */}
+        {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}
 
         {/* Review results */}
         {screen === 'review' && (
