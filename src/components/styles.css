@@ -54,8 +54,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex: 1;
-  min-height: 0;
+  min-height: calc(100vh - 48px);
   text-align: center;
   overflow-y: auto;
   padding: 3rem 0;
