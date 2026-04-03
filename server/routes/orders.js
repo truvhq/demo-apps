@@ -38,6 +38,7 @@ export default function ordersRoutes({ truv, db, apiLogger }) {
         external_user_id: data.external_user_id,
         employer: data.employer,
         company_mapping_id: data.company_mapping_id,
+        data_sources: data.data_sources,
       };
 
       const result = await truv.createOrder(params);

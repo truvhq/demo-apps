@@ -93,6 +93,10 @@ export class TruvClient {
       products: params.products || [productType],
     };
 
+    if (params.data_sources && params.data_sources.length > 0) {
+      payload.data_sources = params.data_sources;
+    }
+
     if (params.email) payload.email = params.email;
     if (params.phone) payload.phone = params.phone;
     if (params.ssn) payload.social_security_number = params.ssn;
