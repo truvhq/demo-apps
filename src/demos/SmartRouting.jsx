@@ -3,6 +3,7 @@ import { Layout, WaitingScreen, parsePayload, usePanel, API_BASE, IntroSlide } f
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
+import { Icons } from '../components/Icons.jsx';
 
 const STEPS = [
   { title: 'Collect applicant info', guide: '<p>The form collects applicant details and employer. The employer is used to determine the recommended verification method.</p>' },
@@ -43,9 +44,9 @@ const DIAGRAM = `sequenceDiagram
   Truv-->>App: Verification report`;
 
 const METHODS = [
-  { id: 'payroll', name: 'Payroll Income', desc: 'Connect to payroll provider for verified income and employment data', icon: '💼', dataSources: ['payroll'], reportType: 'income' },
-  { id: 'bank', name: 'Bank Transactions', desc: 'Connect bank account for transaction-based income insights', icon: '🏦', dataSources: ['financial_accounts'], reportType: 'income' },
-  { id: 'documents', name: 'Upload Documents', desc: 'Upload pay stubs, W-2s, or tax returns for document-based verification', icon: '📄', dataSources: ['docs'], reportType: 'income' },
+  { id: 'payroll', name: 'Payroll Income', desc: 'Connect to payroll provider for verified income and employment data', Icon: Icons.briefcase, dataSources: ['payroll'], reportType: 'income' },
+  { id: 'bank', name: 'Bank Transactions', desc: 'Connect bank account for transaction-based income insights', Icon: Icons.bankBuilding, dataSources: ['financial_accounts'], reportType: 'income' },
+  { id: 'documents', name: 'Upload Documents', desc: 'Upload pay stubs, W-2s, or tax returns for document-based verification', Icon: Icons.upload, dataSources: ['docs'], reportType: 'income' },
 ];
 
 export function SmartRoutingDemo() {
@@ -170,7 +171,7 @@ export function SmartRoutingDemo() {
                 {METHODS.map(m => (
                   <div key={m.id} class="border border-[#d2d2d7] rounded-2xl px-5 py-4 bg-white">
                     <div class="flex items-center gap-3 mb-1">
-                      <span class="text-lg">{m.icon}</span>
+                      <div class="w-8 h-8 rounded-lg bg-[#f5f5f7] border border-[#e8e8ed] flex items-center justify-center text-[#6e6e73]"><m.Icon size={16} /></div>
                       <h3 class="text-[14px] font-semibold text-[#1d1d1f]">{m.name}</h3>
                     </div>
                     <p class="text-[13px] text-[#6e6e73] leading-[1.4]">{m.desc}</p>
@@ -229,7 +230,7 @@ export function SmartRoutingDemo() {
                         }`}
                       >
                         <div class="flex items-center gap-3 mb-1">
-                          <span class="text-xl">{m.icon}</span>
+                          <div class="w-9 h-9 rounded-lg bg-[#f5f5f7] border border-[#e8e8ed] flex items-center justify-center text-[#6e6e73]"><m.Icon size={18} /></div>
                           <h3 class="text-[15px] font-semibold text-[#1d1d1f]">{m.name}</h3>
                           {isRecommended && (
                             <span class="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Recommended</span>

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { Layout, usePanel, API_BASE, IntroSlide } from '../components/index.js';
+import { Icons } from '../components/Icons.jsx';
 import { BridgeScreen, OrderWaitingScreen, OrderResultsScreen } from '../components/screens/index.js';
 import { navigate } from '../App.jsx';
 
@@ -33,10 +34,10 @@ const STEPS = [
 ];
 
 const TASKS = [
-  { id: 'income', name: 'Verify Income', desc: 'Home Depot', products: ['income'], employer: 'Home Depot', icon: '💰', iconBg: 'bg-green-100' },
-  { id: 'employment', name: 'Verify Employment', desc: 'Walmart', products: ['employment'], employer: 'Walmart', icon: '📋', iconBg: 'bg-blue-100' },
-  { id: 'assets', name: 'Verify Assets', desc: 'Bank accounts & transactions', products: ['assets'], employer: null, icon: '🏦', iconBg: 'bg-amber-100' },
-  { id: 'assets-income', name: 'Assets + Income', desc: 'Combined order', products: ['income', 'assets'], employer: 'Home Depot', icon: '📊', iconBg: 'bg-purple-100' },
+  { id: 'income', name: 'Verify Income', desc: 'Home Depot', products: ['income'], employer: 'Home Depot', Icon: Icons.dollarSign, iconBg: 'bg-green-50' },
+  { id: 'employment', name: 'Verify Employment', desc: 'Walmart', products: ['employment'], employer: 'Walmart', Icon: Icons.clipboard, iconBg: 'bg-blue-50' },
+  { id: 'assets', name: 'Verify Assets', desc: 'Bank accounts & transactions', products: ['assets'], employer: null, Icon: Icons.bankBuilding, iconBg: 'bg-amber-50' },
+  { id: 'assets-income', name: 'Assets + Income', desc: 'Combined order', products: ['income', 'assets'], employer: 'Home Depot', Icon: Icons.barChart, iconBg: 'bg-purple-50' },
 ];
 
 
@@ -233,7 +234,7 @@ function TaskList({ tasks, taskOrders, taskStatus, onStart }) {
         const order = taskOrders[task.id];
         return (
           <div key={task.id} class="flex items-center gap-4 border border-border rounded-xl px-5 py-4 bg-white">
-            <div class={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 ${task.iconBg}`}>{task.icon}</div>
+            <div class={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border border-[#e8e8ed] ${task.iconBg}`}><task.Icon size={18} /></div>
             <div class="flex-1">
               <div class="text-sm font-semibold mb-0.5">{task.name}</div>
               <div class="text-xs text-gray-500">{task.desc}</div>
