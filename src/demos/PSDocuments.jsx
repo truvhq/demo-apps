@@ -49,7 +49,6 @@ export function PSDocumentsDemo() {
   const [collectionId, setCollectionId] = useState(null);
   const [orderData, setOrderData] = useState(null);
   const [processing, setProcessing] = useState(false);
-  const [introStep, setIntroStep] = useState(1);
 
   const { panel, setCurrentStep, startPolling, reset: resetPanel } = usePanel();
 
@@ -144,7 +143,6 @@ export function PSDocumentsDemo() {
     linkIdRef.current = null;
     resetPanel();
     setScreen('intro');
-    setIntroStep(1);
     setUserId('');
     setFiles([]);
     setTruvUserId(null);
@@ -155,50 +153,28 @@ export function PSDocumentsDemo() {
 
   return (
     <Layout badge="Public Sector · Document Processing" steps={STEPS} panel={panel} hidePanel={isIntro}>
-      {screen === 'intro' && introStep === 2 && (
+      {screen === 'intro' && (
         <IntroSlide
-          label="Document Processing → Architecture"
-          title="Processing pipeline"
-          subtitle="Documents are uploaded, validated, then finalized to extract structured data."
+          label="Public Sector . Document Processing"
+          title="Extract income data from applicant documents"
+          subtitle="Process pay stubs, W-2s, and tax returns submitted by applicants. Truv validates the documents and extracts structured income data for eligibility decisions."
           diagram={DOC_DIAGRAM}
+          actions={<button onClick={() => setScreen('upload')} class="py-3 px-8 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Get started</button>}
         >
-          <div class="w-full max-w-xs mx-auto flex gap-3">
-            <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#171717] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
-            <button onClick={() => setScreen('upload')} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Continue</button>
+          <div class="grid grid-cols-2 gap-3">
+            {[
+              { name: 'Pay Stubs', desc: 'Gross/net pay, deductions, employer info, pay period' },
+              { name: 'W-2 Forms', desc: 'Annual wages, federal/state taxes, employer EIN' },
+              { name: 'Tax Returns (1040)', desc: 'Filed income, AGI, tax liability' },
+              { name: 'Bank Statements', desc: 'Deposits, withdrawals, account balances' },
+            ].map(d => (
+              <div key={d.name} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
+                <h3 class="text-[14px] font-semibold text-[#171717] mb-1">{d.name}</h3>
+                <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{d.desc}</p>
+              </div>
+            ))}
           </div>
         </IntroSlide>
-      )}
-
-      {screen === 'intro' && introStep === 1 && (
-        <div class="intro-slide">
-          <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
-            <div class="animate-slideUp">
-              <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Public Sector · Document Processing</div>
-              <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#171717] mb-4">Extract income data<br />from applicant documents</h2>
-              <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[440px] mx-auto mb-7">
-                Process pay stubs, W-2s, and tax returns submitted by applicants. Truv validates the documents and extracts structured income data for eligibility decisions.
-              </p>
-            </div>
-            <div class="grid grid-cols-2 gap-3 mb-8 text-left max-w-lg mx-auto animate-slideUp delay-1">
-              {[
-                { name: 'Pay Stubs', desc: 'Gross/net pay, deductions, employer info, pay period' },
-                { name: 'W-2 Forms', desc: 'Annual wages, federal/state taxes, employer EIN' },
-                { name: 'Tax Returns (1040)', desc: 'Filed income, AGI, tax liability' },
-                { name: 'Bank Statements', desc: 'Deposits, withdrawals, account balances' },
-              ].map(d => (
-                <div key={d.name} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
-                  <h3 class="text-[14px] font-semibold text-[#171717] mb-1">{d.name}</h3>
-                  <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{d.desc}</p>
-                </div>
-              ))}
-            </div>
-            <div class="animate-slideUp delay-2">
-              <button onClick={() => setIntroStep(2)} class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
-                Get started →
-              </button>
-            </div>
-          </div>
-        </div>
       )}
       {screen === 'upload' && (
         <UploadScreen

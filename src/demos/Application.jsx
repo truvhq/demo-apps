@@ -189,71 +189,44 @@ const DIAGRAMS = {
 
 function IntroScreen({ onStart }) {
   const [selected, setSelected] = useState(null);
-  const [step, setStep] = useState(1);
-
-  if (step === 2 && selected) {
-    return (
-      <IntroSlide
-        label={`New Application → ${PRODUCTS.find(p => p.id === selected)?.name}`}
-        title="Architecture"
-        subtitle={`How the ${selected} verification flow works end-to-end.`}
-        diagram={DIAGRAMS[selected]}
-      >
-        <div class="w-full max-w-xs mx-auto flex gap-3">
-          <button onClick={() => setStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#171717] font-semibold rounded-full hover:bg-[#f5f5f7]">
-            Back
-          </button>
-          <button onClick={() => onStart(selected)} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
-            Continue
-          </button>
-        </div>
-      </IntroSlide>
-    );
-  }
 
   return (
-    <div class="intro-slide">
-      <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
-        <div class="animate-slideUp">
-          <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Mortgage · Point of Sale</div>
-          <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#171717] mb-4">Verify during the<br />loan application</h2>
-          <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[440px] mx-auto mb-7">
-            A borrower fills out a loan application and verifies their income or assets in real time. Truv creates an order, launches Bridge, and returns a GSE-ready report.
-          </p>
-        </div>
-
-        <div class="grid gap-3 mb-8 text-left animate-slideUp delay-1">
-          {PRODUCTS.map(p => (
-            <div
-              key={p.id}
-              onClick={() => setSelected(p.id)}
-              class={`border rounded-2xl px-6 py-5 cursor-pointer transition-all duration-200 ${
-                selected === p.id
-                  ? 'border-primary bg-[#f5f8ff] shadow-sm'
-                  : 'border-[#d2d2d7]/60 hover:border-[#8E8E93] bg-white/80 backdrop-blur-sm'
-              }`}
-            >
-              <div class="flex items-start justify-between mb-1">
-                <h3 class="text-[15px] font-semibold text-[#171717]">{p.name}</h3>
-                <span class="text-[11px] font-medium text-[#8E8E93] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{p.report}</span>
-              </div>
-              <p class="text-[14px] text-[#8E8E93] leading-[1.5] mb-2">{p.desc}</p>
-              <p class="text-[12px] text-[#8E8E93]">{p.useCase}</p>
-            </div>
-          ))}
-        </div>
-
-        <div class="animate-slideUp delay-2">
-          <button
-            onClick={() => selected && setStep(2)}
-            disabled={!selected}
-            class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40"
+    <IntroSlide
+      label="Mortgage · Point of Sale"
+      title={<>Verify during the<br />loan application</>}
+      subtitle="A borrower fills out a loan application and verifies their income or assets in real time. Truv creates an order, launches Bridge, and returns a GSE-ready report."
+      diagram={DIAGRAMS[selected] || DIAGRAMS.income}
+      actions={
+        <button
+          onClick={() => selected && onStart(selected)}
+          disabled={!selected}
+          class="w-full max-w-xs block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40"
+        >
+          Get started
+        </button>
+      }
+    >
+      <div class="grid gap-3 text-left">
+        {PRODUCTS.map(p => (
+          <div
+            key={p.id}
+            onClick={() => setSelected(p.id)}
+            class={`border rounded-2xl px-6 py-5 cursor-pointer transition-all duration-200 ${
+              selected === p.id
+                ? 'border-primary bg-[#f5f8ff] shadow-sm'
+                : 'border-[#d2d2d7]/60 hover:border-[#8E8E93] bg-white/80 backdrop-blur-sm'
+            }`}
           >
-            Get started →
-          </button>
-        </div>
+            <div class="flex items-start justify-between mb-1">
+              <h3 class="text-[15px] font-semibold text-[#171717]">{p.name}</h3>
+              <span class="text-[11px] font-medium text-[#8E8E93] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{p.report}</span>
+            </div>
+            <p class="text-[14px] text-[#8E8E93] leading-[1.5] mb-2">{p.desc}</p>
+            <p class="text-[12px] text-[#8E8E93]">{p.useCase}</p>
+          </div>
+        ))}
       </div>
-    </div>
+    </IntroSlide>
   );
 }
 

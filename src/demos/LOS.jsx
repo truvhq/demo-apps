@@ -30,7 +30,6 @@ const VERIFIER_DIAGRAM = `sequenceDiagram
   Truv-->>V: Verification report`;
 
 export function LOSDemo({ screen, param }) {
-  const [introStep, setIntroStep] = useState(1);
   const [introSeen, setIntroSeen] = useState(false);
   const [testApplicant, setTestApplicant] = useState(null);
   const [order, setOrder] = useState(null);
@@ -115,7 +114,6 @@ export function LOSDemo({ screen, param }) {
   function resetDemo() {
     resetPanel();
     setIntroSeen(false);
-    setIntroStep(1);
     setTestApplicant(null);
     setOrder(null);
     setReportData(null);
@@ -125,50 +123,27 @@ export function LOSDemo({ screen, param }) {
   return (
     <Layout badge="LOS" steps={STEPS} panel={panel} hidePanel={showIntro || showAddForm}>
 
-      {/* Intro step 1 */}
-      {showIntro && introStep === 1 && (
-        <div class="intro-slide">
-          <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
-            <div class="animate-slideUp">
-              <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Mortgage · LOS Integration</div>
-              <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#171717] mb-4">Verify from your<br />loan origination system</h2>
-              <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[440px] mx-auto mb-7">
-                A Loan Processor creates verification orders using borrower data on file and sends a verification link via email or SMS. The borrower completes verification on their own device.
-              </p>
-            </div>
-            <div class="grid gap-3 mb-8 text-left max-w-lg mx-auto animate-slideUp delay-1">
-              {[
-                { name: 'Create orders from collected data', desc: 'Use PII from the application. No user interaction needed.' },
-                { name: 'Truv sends verification links', desc: 'Email and SMS sent automatically to the borrower' },
-                { name: 'Track status remotely', desc: 'Monitor webhook events and order status from the dashboard' },
-                { name: 'Fetch reports on completion', desc: 'Pull VOIE, VOE, or VOA reports once the user completes Bridge' },
-              ].map(item => (
-                <div key={item.name} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
-                  <h3 class="text-[14px] font-semibold text-[#171717] mb-1">{item.name}</h3>
-                  <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{item.desc}</p>
-                </div>
-              ))}
-            </div>
-            <div class="animate-slideUp delay-2">
-              <button onClick={() => setIntroStep(2)} class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
-                Get started →
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Intro step 2 — architecture */}
-      {showIntro && introStep === 2 && (
+      {/* Intro */}
+      {showIntro && (
         <IntroSlide
-          label="LOS → Architecture"
-          title="Remote verification flow"
-          subtitle="The verifier creates orders with borrower PII. Truv sends the verification link via email/SMS. The user completes it on their own."
+          label="Mortgage . LOS Integration"
+          title="Verify from your loan origination system"
+          subtitle="A Loan Processor creates verification orders using borrower data on file and sends a verification link via email or SMS. The borrower completes verification on their own device."
           diagram={VERIFIER_DIAGRAM}
+          actions={<button onClick={() => setIntroSeen(true)} class="py-3 px-8 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Get started</button>}
         >
-          <div class="w-full max-w-xs mx-auto flex gap-3">
-            <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#171717] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
-            <button onClick={() => setIntroSeen(true)} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Continue</button>
+          <div class="grid gap-3">
+            {[
+              { name: 'Create orders from collected data', desc: 'Use PII from the application. No user interaction needed.' },
+              { name: 'Truv sends verification links', desc: 'Email and SMS sent automatically to the borrower' },
+              { name: 'Track status remotely', desc: 'Monitor webhook events and order status from the dashboard' },
+              { name: 'Fetch reports on completion', desc: 'Pull VOIE, VOE, or VOA reports once the user completes Bridge' },
+            ].map(item => (
+              <div key={item.name} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
+                <h3 class="text-[14px] font-semibold text-[#171717] mb-1">{item.name}</h3>
+                <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{item.desc}</p>
+              </div>
+            ))}
           </div>
         </IntroSlide>
       )}

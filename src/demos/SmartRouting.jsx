@@ -5,9 +5,8 @@
 // the same pattern with fewer screens.
 //
 // SCREEN STATE MACHINE:
-//   'select' (introStep 1) → Intro slide (fullscreen, no panel)
-//   'select' (introStep 2) → Architecture diagram (fullscreen, no panel)
-//   'select' (introStep 3) → Application form (with panel)
+//   'select' (!showForm)   → Intro slide with method cards + architecture diagram (fullscreen, no panel)
+//   'select' (showForm)    → Application form (with panel)
 //   'choose'               → Method picker with "Recommended" tag (with panel)
 //   'waiting'              → Webhook waiting spinner (with panel)
 //   'review'               → Report results (with panel)
@@ -77,7 +76,7 @@ const METHODS = [
 
 export function SmartRoutingDemo() {
   const [screen, setScreen] = useState('select');
-  const [introStep, setIntroStep] = useState(1);
+  const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(null);
   const [recommended, setRecommended] = useState(null);
   const [selectedMethod, setSelectedMethod] = useState(null);
@@ -181,7 +180,7 @@ export function SmartRoutingDemo() {
     reset();
     fetchedRef.current = false;
     setScreen('select');
-    setIntroStep(1);
+    setShowForm(false);
     setFormData(null);
     setRecommended(null);
     setSelectedMethod(null);
@@ -189,52 +188,40 @@ export function SmartRoutingDemo() {
     setReportData(null);
   }
 
-  const isIntro = screen === 'select' && introStep <= 2;
+  const isIntro = screen === 'select' && !showForm;
 
   return (
     <Layout badge="Smart Routing" steps={STEPS} panel={panel} hidePanel={isIntro}>
       <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
-        {/* Intro step 1 */}
-        {screen === 'select' && introStep === 1 && (
-          <div class="intro-slide">
-            <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
-              <div class="animate-slideUp">
-                <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Consumer Credit · Smart Routing</div>
-                <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#171717] mb-4">Find the fastest<br />verification path</h2>
-                <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[440px] mx-auto mb-7">
-                  The system checks the applicant's employer payroll coverage and recommends the fastest path: payroll, bank transactions, or document upload. The applicant can accept or override.
-                </p>
-              </div>
-              <div class="grid gap-3 mb-8 text-left max-w-lg mx-auto animate-slideUp delay-1">
-                {METHODS.map(m => (
-                  <div key={m.id} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
-                    <div class="flex items-center gap-3 mb-1">
-                      <div class={`icon-box ${m.color}`}><m.Icon size={18} /></div>
-                      <h3 class="text-[14px] font-semibold text-[#171717]">{m.name}</h3>
-                    </div>
-                    <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{m.desc}</p>
+        {/* Intro — method cards + architecture diagram */}
+        {screen === 'select' && !showForm && (
+          <IntroSlide
+            label="Consumer Credit · Smart Routing"
+            title={<>Find the fastest<br />verification path</>}
+            subtitle="The system checks the applicant's employer payroll coverage and recommends the fastest path: payroll, bank transactions, or document upload. The applicant can accept or override."
+            diagram={DIAGRAM}
+            actions={
+              <button onClick={() => setShowForm(true)} class="w-full max-w-xs block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
+                Get started
+              </button>
+            }
+          >
+            <div class="grid gap-3 text-left">
+              {METHODS.map(m => (
+                <div key={m.id} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
+                  <div class="flex items-center gap-3 mb-1">
+                    <div class={`icon-box ${m.color}`}><m.Icon size={18} /></div>
+                    <h3 class="text-[14px] font-semibold text-[#171717]">{m.name}</h3>
                   </div>
-                ))}
-              </div>
-              <div class="animate-slideUp delay-2">
-                <button onClick={() => setIntroStep(2)} class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Get started →</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Intro step 2 — architecture */}
-        {screen === 'select' && introStep === 2 && (
-          <IntroSlide label="Smart Routing → Architecture" title="Confidence-based routing" subtitle="Company search determines the recommended path. The user can override the recommendation." diagram={DIAGRAM}>
-            <div class="w-full max-w-xs mx-auto flex gap-3">
-              <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#171717] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
-              <button onClick={() => setIntroStep(3)} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Continue</button>
+                  <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{m.desc}</p>
+                </div>
+              ))}
             </div>
           </IntroSlide>
         )}
 
         {/* Application form */}
-        {screen === 'select' && introStep === 3 && (
+        {screen === 'select' && showForm && (
           <div class="max-w-lg mx-auto px-8 py-10">
             <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="income" />
           </div>
@@ -279,7 +266,7 @@ export function SmartRoutingDemo() {
                     );
                   })}
                 </div>
-                <button onClick={() => { setFormData(null); setRecommended(null); setScreen('select'); setIntroStep(3); }} class="mt-6 text-sm text-[#8E8E93] hover:text-primary">
+                <button onClick={() => { setFormData(null); setRecommended(null); setScreen('select'); setShowForm(true); }} class="mt-6 text-sm text-[#8E8E93] hover:text-primary">
                   &larr; Back to application
                 </button>
               </>

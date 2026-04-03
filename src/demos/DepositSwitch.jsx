@@ -32,7 +32,7 @@ const DIAGRAM = `sequenceDiagram
 
 export function DepositSwitchDemo() {
   const [screen, setScreen] = useState('select');
-  const [introStep, setIntroStep] = useState(1);
+  const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(null);
   const [userId, setUserId] = useState(null);
   const [reportData, setReportData] = useState(null);
@@ -91,47 +91,29 @@ export function DepositSwitchDemo() {
     reset();
     fetchedRef.current = false;
     setScreen('select');
-    setIntroStep(1);
+    setShowForm(false);
     setFormData(null);
     setUserId(null);
     setReportData(null);
   }
 
-  const isIntro = screen === 'select' && introStep <= 2;
+  const isIntro = screen === 'select' && !showForm;
 
   return (
-    <Layout badge="Retail Banking · Deposit Switch" steps={STEPS} panel={panel} hidePanel={isIntro}>
+    <Layout badge="Retail Banking . Deposit Switch" steps={STEPS} panel={panel} hidePanel={isIntro}>
       <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
-        {screen === 'select' && introStep === 1 && (
-          <div class="intro-slide">
-            <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
-              <div class="animate-slideUp">
-                <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Retail Banking · Deposit Switch</div>
-                <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#171717] mb-4">Switch direct deposit<br />to your bank</h2>
-                <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[440px] mx-auto mb-7">
-                  A new customer connects their payroll provider and switches their direct deposit routing to your bank. The change takes effect on their next paycheck.
-                </p>
-              </div>
-              <div class="animate-slideUp delay-2">
-                <button onClick={() => setIntroStep(2)} class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Get started →</button>
-              </div>
-            </div>
-          </div>
+        {screen === 'select' && !showForm && (
+          <IntroSlide
+            label="Retail Banking . Deposit Switch"
+            title="Switch direct deposit to your bank"
+            subtitle="A new customer connects their payroll provider and switches their direct deposit routing to your bank. The change takes effect on their next paycheck."
+            diagram={DIAGRAM}
+            actions={<button onClick={() => setShowForm(true)} class="py-3 px-8 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Get started</button>}
+          />
         )}
 
-        {screen === 'select' && introStep === 2 && (
-          <IntroSlide label="Deposit Switch → Architecture" title="Direct deposit switch flow" subtitle="Uses the User + Bridge Token flow with product_type: deposit_switch and target account details." diagram={DIAGRAM}>
-            <div class="w-full max-w-xs mx-auto flex gap-3">
-              <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#171717] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
-              <button onClick={() => setIntroStep(3)} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Continue</button>
-            </div>
-          </IntroSlide>
-        )}
-
-        {screen === 'select' && introStep === 3 && (
-          <div class="max-w-lg mx-auto px-8 py-10">
-            <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="deposit_switch" />
-          </div>
+        {screen === 'select' && showForm && (
+          <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="deposit_switch" />
         )}
 
         {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}

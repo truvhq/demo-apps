@@ -32,7 +32,7 @@ const DIAGRAM = `sequenceDiagram
 
 export function PayrollIncomeDemo() {
   const [screen, setScreen] = useState('select');
-  const [introStep, setIntroStep] = useState(1);
+  const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(null);
   const [userId, setUserId] = useState(null);
   const [reportData, setReportData] = useState(null);
@@ -91,43 +91,28 @@ export function PayrollIncomeDemo() {
     reset();
     fetchedRef.current = false;
     setScreen('select');
-    setIntroStep(1);
+    setShowForm(false);
     setFormData(null);
     setUserId(null);
     setReportData(null);
   }
 
-  const isIntro = screen === 'select' && introStep <= 2;
+  const isIntro = screen === 'select' && !showForm;
 
   return (
     <Layout badge="Payroll Income" steps={STEPS} panel={panel} hidePanel={isIntro}>
       <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
-        {screen === 'select' && introStep === 1 && (
-          <div class="intro-slide">
-            <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
-              <div class="animate-slideUp">
-                <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Consumer Credit · Payroll Income</div>
-                <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#171717] mb-4">Verify income directly<br />from payroll</h2>
-                <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[440px] mx-auto mb-7">Connect to the applicant's payroll provider to verify current income, employment, and pay history. The fastest and most accurate path for lending decisions.</p>
-              </div>
-              <div class="animate-slideUp delay-2">
-                <button onClick={() => setIntroStep(2)} class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Get started →</button>
-              </div>
-            </div>
-          </div>
+        {screen === 'select' && !showForm && (
+          <IntroSlide
+            label="Consumer Credit . Payroll Income"
+            title="Verify income directly from payroll"
+            subtitle="Connect to the applicant's payroll provider to verify current income, employment, and pay history. The fastest and most accurate path for lending decisions."
+            diagram={DIAGRAM}
+            actions={<button onClick={() => setShowForm(true)} class="py-3 px-8 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Get started</button>}
+          />
         )}
-        {screen === 'select' && introStep === 2 && (
-          <IntroSlide label="Payroll Income → Architecture" title="Payroll income flow" subtitle="Uses the User + Bridge Token flow with data_sources: [payroll]." diagram={DIAGRAM}>
-            <div class="w-full max-w-xs mx-auto flex gap-3">
-              <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#171717] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
-              <button onClick={() => setIntroStep(3)} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Continue</button>
-            </div>
-          </IntroSlide>
-        )}
-        {screen === 'select' && introStep === 3 && (
-          <div class="max-w-lg mx-auto px-8 py-10">
-            <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="income" />
-          </div>
+        {screen === 'select' && showForm && (
+          <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="income" />
         )}
         {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}
         {screen === 'review' && (

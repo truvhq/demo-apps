@@ -236,78 +236,49 @@ const FOLLOWUP_DIAGRAM = `sequenceDiagram
   end`;
 
 function InitScreen({ applicationId, onApplicationIdChange, onInitialize, initializing }) {
-  const [step, setStep] = useState(1);
-
-  if (step === 2) {
-    return (
-      <IntroSlide
-        label="Follow-up → Architecture"
-        title="Multi-order flow"
-        subtitle="All orders share the same external_user_id, linking them to one borrower in Truv."
-        diagram={FOLLOWUP_DIAGRAM}
-      >
-        <div class="w-full max-w-xs mx-auto flex gap-3">
-          <button onClick={() => setStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#171717] font-semibold rounded-full hover:bg-[#f5f5f7]">
-            Back
-          </button>
+  return (
+    <IntroSlide
+      label="Mortgage . Follow-up Tasks"
+      title="Complete remaining loan verifications"
+      subtitle="After submitting a loan application, the borrower returns to complete outstanding verification tasks: income, employment, and assets."
+      diagram={FOLLOWUP_DIAGRAM}
+      actions={
+        <div>
+          <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Application ID</label>
+          <input
+            value={applicationId}
+            onInput={e => onApplicationIdChange(e.target.value)}
+            placeholder="e.g. qs-1774626234913"
+            class="w-full px-4 py-3 border border-[#d2d2d7] rounded-xl text-sm font-mono focus:border-primary focus:outline-none mb-3"
+          />
+          <p class="text-[11px] text-[#8E8E93] mb-4">Sent as <code class="font-mono">external_user_id</code> so all orders share the same Truv user.</p>
           <button
             onClick={onInitialize}
             disabled={initializing || !applicationId.trim()}
-            class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40"
+            class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40"
           >
             {initializing ? (
               <span class="inline-flex items-center gap-2">
                 <span class="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 Creating...
               </span>
-            ) : 'Continue'}
-            </button>
-          </div>
-      </IntroSlide>
-    );
-  }
-
-  return (
-    <div class="intro-slide">
-      <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
-        <div class="animate-slideUp">
-          <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Mortgage · Follow-up Tasks</div>
-          <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#171717] mb-4">Complete remaining<br />loan verifications</h2>
-          <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[440px] mx-auto mb-7">
-            After submitting a loan application, the borrower returns to complete outstanding verification tasks: income, employment, and assets.
-          </p>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3 mb-8 text-left animate-slideUp delay-1">
-          {FOLLOWUP_TASKS_INFO.map(t => (
-            <div key={t.name} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
-              <div class="flex items-start justify-between mb-1">
-                <h3 class="text-[14px] font-semibold text-[#171717]">{t.name}</h3>
-                <span class="text-[11px] font-medium text-[#8E8E93] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{t.report}</span>
-              </div>
-              <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{t.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        <div class="animate-slideUp delay-2 w-full max-w-xs mx-auto">
-          <label class="text-[13px] font-medium text-[#171717] mb-1.5 block text-left">Application ID</label>
-          <input
-            value={applicationId}
-            onInput={e => onApplicationIdChange(e.target.value)}
-            placeholder="e.g. qs-1774626234913"
-            class="w-full px-4 py-3 border border-[#d2d2d7] rounded-xl text-sm font-mono focus:border-primary focus:outline-none mb-3 text-center"
-          />
-          <p class="text-[11px] text-[#8E8E93] mb-4 text-left">Sent as <code class="font-mono">external_user_id</code> so all orders share the same Truv user.</p>
-          <button
-            onClick={() => setStep(2)}
-            class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover"
-          >
-            Get started →
+            ) : 'Get started'}
           </button>
         </div>
+      }
+    >
+      <div class="grid grid-cols-2 gap-3">
+        {FOLLOWUP_TASKS_INFO.map(t => (
+          <div key={t.name} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
+            <div class="flex items-start justify-between mb-1">
+              <h3 class="text-[14px] font-semibold text-[#171717]">{t.name}</h3>
+              <span class="text-[11px] font-medium text-[#8E8E93] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{t.report}</span>
+            </div>
+            <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{t.desc}</p>
+          </div>
+        ))}
       </div>
-    </div>
+    </IntroSlide>
   );
 }
 

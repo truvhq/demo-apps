@@ -52,28 +52,15 @@
 .delay-4 { animation-delay: 400ms; }
 .delay-5 { animation-delay: 500ms; }
 
-/* Pinned action bar at the bottom of intro slides */
-.intro-actions {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  padding: 0.75rem 1rem 2rem;
-  background: #fff;
-  box-shadow: 0 -24px 16px 8px #fff;
-}
-
 /* Intro slide */
 .intro-slide {
   position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   flex: 1;
   min-height: 0;
-  text-align: center;
   overflow-y: auto;
-  padding: 3rem 0;
   background:
     radial-gradient(ellipse 80% 60% at 50% 0%, rgba(44, 100, 227, 0.06) 0%, transparent 60%),
     radial-gradient(ellipse 60% 50% at 80% 20%, rgba(99, 102, 241, 0.04) 0%, transparent 50%),

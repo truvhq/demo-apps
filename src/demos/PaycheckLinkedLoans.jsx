@@ -35,7 +35,7 @@ const DIAGRAM = `sequenceDiagram
 
 export function PaycheckLinkedLoansDemo() {
   const [screen, setScreen] = useState('select');
-  const [introStep, setIntroStep] = useState(1);
+  const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(null);
   const [userId, setUserId] = useState(null);
   const [incomeReport, setIncomeReport] = useState(null);
@@ -101,48 +101,30 @@ export function PaycheckLinkedLoansDemo() {
     reset();
     fetchedRef.current = false;
     setScreen('select');
-    setIntroStep(1);
+    setShowForm(false);
     setFormData(null);
     setUserId(null);
     setIncomeReport(null);
     setDdsReport(null);
   }
 
-  const isIntro = screen === 'select' && introStep <= 2;
+  const isIntro = screen === 'select' && !showForm;
 
   return (
     <Layout badge="Paycheck-Linked Loans" steps={STEPS} panel={panel} hidePanel={isIntro}>
       <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
-        {screen === 'select' && introStep === 1 && (
-          <div class="intro-slide">
-            <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
-              <div class="animate-slideUp">
-                <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Consumer Credit · Paycheck-Linked Loans</div>
-                <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#171717] mb-4">Set up payroll<br />loan repayment</h2>
-                <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[440px] mx-auto mb-7">
-                  The applicant connects their payroll provider and authorizes automatic deductions for loan repayment. Payments start on the next pay cycle.
-                </p>
-              </div>
-              <div class="animate-slideUp delay-2">
-                <button onClick={() => setIntroStep(2)} class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Get started →</button>
-              </div>
-            </div>
-          </div>
+        {screen === 'select' && !showForm && (
+          <IntroSlide
+            label="Consumer Credit . Paycheck-Linked Loans"
+            title="Set up payroll loan repayment"
+            subtitle="The applicant connects their payroll provider and authorizes automatic deductions for loan repayment. Payments start on the next pay cycle."
+            diagram={DIAGRAM}
+            actions={<button onClick={() => setShowForm(true)} class="py-3 px-8 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Get started</button>}
+          />
         )}
 
-        {screen === 'select' && introStep === 2 && (
-          <IntroSlide label="PLL → Architecture" title="Paycheck-linked lending flow" subtitle="Uses the User + Bridge Token flow with product_type: pll and account details for the deduction target." diagram={DIAGRAM}>
-            <div class="w-full max-w-xs mx-auto flex gap-3">
-              <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#171717] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
-              <button onClick={() => setIntroStep(3)} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Continue</button>
-            </div>
-          </IntroSlide>
-        )}
-
-        {screen === 'select' && introStep === 3 && (
-          <div class="max-w-lg mx-auto px-8 py-10">
-            <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="pll" />
-          </div>
+        {screen === 'select' && showForm && (
+          <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="pll" />
         )}
 
         {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}
