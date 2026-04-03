@@ -151,7 +151,7 @@ export function SmartRoutingDemo() {
     setReportData(null);
   }
 
-  const isIntro = screen === 'select';
+  const isIntro = screen === 'select' && introStep <= 2;
 
   return (
     <Layout title="Truv Quickstart" badge="Smart Routing" steps={STEPS} panel={panel} hidePanel={isIntro}>

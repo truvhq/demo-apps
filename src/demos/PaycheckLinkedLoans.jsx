@@ -105,7 +105,7 @@ export function PaycheckLinkedLoansDemo() {
     setDdsReport(null);
   }
 
-  const isIntro = screen === 'select';
+  const isIntro = screen === 'select' && introStep <= 2;
 
   return (
     <Layout title="Truv Quickstart" badge="Paycheck-Linked Loans" steps={STEPS} panel={panel} hidePanel={isIntro}>
