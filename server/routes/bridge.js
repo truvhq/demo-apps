@@ -19,14 +19,15 @@ export default function choiceConnectRoutes({ truv, apiLogger }) {
       const pt = data.product_type || 'income';
       const ds = data.data_sources;
       const cmid = data.company_mapping_id;
+      const pid = data.provider_id;
 
       const userResult = await truv.createUser();
       apiLogger.logApiCall({ userId: null, method: 'POST', endpoint: '/v1/users/', requestBody: { product_type: pt }, responseBody: userResult.data, statusCode: userResult.statusCode, durationMs: userResult.durationMs });
       if (userResult.statusCode >= 400 || !userResult.data?.id) return res.status(userResult.statusCode || 500).json({ error: 'Failed to create user', details: userResult.data });
 
       const userId = userResult.data.id;
-      const tokenResult = await truv.createUserBridgeToken(userId, pt, { data_sources: ds, company_mapping_id: cmid });
-      apiLogger.logApiCall({ userId, method: 'POST', endpoint: `/v1/users/${userId}/tokens/`, requestBody: { product_type: pt, data_sources: ds, company_mapping_id: cmid }, responseBody: tokenResult.data, statusCode: tokenResult.statusCode, durationMs: tokenResult.durationMs });
+      const tokenResult = await truv.createUserBridgeToken(userId, pt, { data_sources: ds, company_mapping_id: cmid, provider_id: pid });
+      apiLogger.logApiCall({ userId, method: 'POST', endpoint: `/v1/users/${userId}/tokens/`, requestBody: { product_type: pt, data_sources: ds, company_mapping_id: cmid, provider_id: pid }, responseBody: tokenResult.data, statusCode: tokenResult.statusCode, durationMs: tokenResult.durationMs });
       if (tokenResult.statusCode >= 400 || !tokenResult.data?.bridge_token) return res.status(tokenResult.statusCode || 500).json({ error: 'Failed to create bridge token', details: tokenResult.data });
 
       res.json({ bridge_token: tokenResult.data.bridge_token, user_id: userId });

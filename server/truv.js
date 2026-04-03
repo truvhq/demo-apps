@@ -49,7 +49,7 @@ export class TruvClient {
     return this._request('POST', 'users/', { json: payload });
   }
 
-  async createUserBridgeToken(userId, productType, { data_sources, company_mapping_id } = {}) {
+  async createUserBridgeToken(userId, productType, { data_sources, company_mapping_id, provider_id } = {}) {
     const payload = {
       product_type: productType,
       client_name: 'Truv Quickstart',
@@ -60,9 +60,9 @@ export class TruvClient {
       payload.data_sources = data_sources;
     }
 
-    if (company_mapping_id) {
-      payload.company_mapping_id = company_mapping_id;
-    }
+    // Employers use company_mapping_id, financial institutions use provider_id
+    if (company_mapping_id) payload.company_mapping_id = company_mapping_id;
+    if (provider_id) payload.provider_id = provider_id;
 
     // Sandbox test account for deposit_switch and pll products
     if (productType === 'deposit_switch' || productType === 'pll') {
@@ -120,14 +120,15 @@ export class TruvClient {
 
     // Employer / financial institution — sandbox credentials: goodlogin/goodpassword
     if (productType === 'assets' || (params.data_sources && params.data_sources.includes('financial_accounts'))) {
-      // Assets and financial_accounts use the financial_institutions array
-      if (params.company_mapping_id || params.employer) {
+      // Assets and financial_accounts use financial_institutions: [{ id }]
+      if (params.provider_id || params.employer) {
         const fi = {};
-        if (params.company_mapping_id) fi.id = params.company_mapping_id;
+        if (params.provider_id) fi.id = params.provider_id;
         if (params.employer) fi.name = params.employer;
         payload.financial_institutions = [fi];
       }
     } else {
+      // Payroll products use employers: [{ company_mapping_id }]
       if (params.company_mapping_id) {
         payload.employers = [{ company_mapping_id: params.company_mapping_id }];
       } else if (params.employer) {

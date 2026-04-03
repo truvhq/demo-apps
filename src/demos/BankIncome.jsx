@@ -47,7 +47,7 @@ export function BankIncomeDemo() {
       const resp = await fetch(`${API_BASE}/api/bridge-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_type: 'income', data_sources: ['financial_accounts'], company_mapping_id: data.company_mapping_id }),
+        body: JSON.stringify({ product_type: 'income', data_sources: ['financial_accounts'], provider_id: data.provider_id }),
       });
       const result = await resp.json();
       if (!resp.ok) { alert('Error: ' + (result.error || 'Unknown')); setLoading(false); return; }

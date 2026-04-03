@@ -12,7 +12,8 @@ export function ApplicationForm({ onSubmit, submitting, productType, showEmploye
     if (!agree) return;
     if (showEmployer && !isAssets && !employer.name) return;
     const fd = new FormData(e.target);
-    onSubmit({
+    const isBank = dataSource === 'financial_accounts';
+    const formResult = {
       first_name: fd.get('first_name') || undefined,
       last_name: fd.get('last_name') || undefined,
       email: fd.get('email') || undefined,
@@ -20,8 +21,16 @@ export function ApplicationForm({ onSubmit, submitting, productType, showEmploye
       ssn: fd.get('ssn') || undefined,
       product_type: productType,
       employer: employer.name || undefined,
-      company_mapping_id: employer.id || undefined,
-    });
+    };
+    // Employers use company_mapping_id, financial institutions use provider_id
+    if (employer.id) {
+      if (isBank) {
+        formResult.provider_id = employer.id;
+      } else {
+        formResult.company_mapping_id = employer.id;
+      }
+    }
+    onSubmit(formResult);
   };
 
   return (
