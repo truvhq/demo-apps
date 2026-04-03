@@ -130,7 +130,7 @@ export function EmployeePortalDemo({ screen, param }) {
           title="Verify without the applicant present"
           subtitle="A case worker creates verification orders using applicant data on file and sends verification links via email or SMS. Track completion from a dashboard."
           diagram={VERIFIER_DIAGRAM}
-          actions={<button onClick={() => setIntroSeen(true)} class="w-full max-w-[280px] py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
+          actions={<button onClick={() => setIntroSeen(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
         >
           <div class="grid gap-3">
             {[

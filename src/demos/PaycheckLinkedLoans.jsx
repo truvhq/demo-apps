@@ -121,7 +121,7 @@ export function PaycheckLinkedLoansDemo() {
             title="Set up payroll loan repayment"
             subtitle="The applicant connects their payroll provider and authorizes automatic deductions for loan repayment. Payments start on the next pay cycle."
             diagram={DIAGRAM}
-            actions={<button onClick={() => setShowForm(true)} class="w-full max-w-[280px] py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
+            actions={<button onClick={() => setShowForm(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
           />
         )}
 

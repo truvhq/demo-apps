@@ -110,7 +110,7 @@ export function BankIncomeDemo() {
             title="Verify income from bank transactions"
             subtitle="When payroll data is not available, verify income by connecting to the applicant's bank account. Truv analyzes transaction history and generates an income insights report."
             diagram={DIAGRAM}
-            actions={<button onClick={() => setShowForm(true)} class="w-full max-w-[280px] py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
+            actions={<button onClick={() => setShowForm(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
           />
         )}
 

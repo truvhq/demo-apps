@@ -159,7 +159,7 @@ export function UploadDocumentsDemo() {
           title="Extract income data from documents"
           subtitle="Upload pay stubs, W-2s, and tax returns already collected. Truv validates the documents and extracts structured income data for underwriting."
           diagram={DOC_DIAGRAM}
-          actions={<button onClick={() => setScreen('upload')} class="w-full max-w-[280px] py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
+          actions={<button onClick={() => setScreen('upload')} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
         >
           <div class="grid grid-cols-2 gap-3">
             {[

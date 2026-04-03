@@ -226,7 +226,7 @@ function CPIntroScreen({ onStart }) {
         <button
           onClick={() => selected && onStart(selected)}
           disabled={!selected}
-          class="w-full max-w-[280px] block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40"
+          class="w-full block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40"
         >
           Get started
         </button>

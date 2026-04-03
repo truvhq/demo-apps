@@ -130,7 +130,7 @@ export function LOSDemo({ screen, param }) {
           title="Verify from your loan origination system"
           subtitle="A Loan Processor creates verification orders using borrower data on file and sends a verification link via email or SMS. The borrower completes verification on their own device."
           diagram={VERIFIER_DIAGRAM}
-          actions={<button onClick={() => setIntroSeen(true)} class="w-full max-w-[280px] py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
+          actions={<button onClick={() => setIntroSeen(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
         >
           <div class="grid gap-3">
             {[

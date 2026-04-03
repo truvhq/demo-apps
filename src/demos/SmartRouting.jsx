@@ -202,7 +202,7 @@ export function SmartRoutingDemo() {
             subtitle="The system checks the applicant's employer payroll coverage and recommends the fastest path: payroll, bank transactions, or document upload. The applicant can accept or override."
             diagram={DIAGRAM}
             actions={
-              <button onClick={() => setShowForm(true)} class="w-full max-w-[280px] block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
+              <button onClick={() => setShowForm(true)} class="w-full block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
                 Get started
               </button>
             }
