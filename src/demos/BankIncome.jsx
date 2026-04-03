@@ -4,7 +4,7 @@ import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 
 const STEPS = [
-  { title: 'Collect applicant info', guide: '<p>The form collects applicant details. The backend creates a user and generates a Bridge token:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>Token uses <code>data_sources: [financial_accounts]</code> to restrict Bridge to bank connections.</p>' },
+  { title: 'Collect applicant info', guide: '<p>The form collects applicant details. Financial institutions are searched via:</p><pre>GET /v1/providers/?data_source=financial_accounts</pre><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>Token uses <code>data_sources: [financial_accounts]</code> to restrict Bridge to bank connections.</p>' },
   { title: 'Connect via Bridge', guide: '<p>Bridge opens as a popup. The user selects their bank and logs in.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
   { title: 'Webhook processing', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
   { title: 'Review results', guide: '<p>The public token is exchanged for a link report:</p><pre>POST /v1/link-access-tokens/\nGET /v1/links/{link_id}/income/report</pre><p>Returns income insights derived from bank transactions.</p>' },

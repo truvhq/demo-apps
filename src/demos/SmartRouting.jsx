@@ -6,7 +6,7 @@ import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport
 import { Icons } from '../components/Icons.jsx';
 
 const STEPS = [
-  { title: 'Collect applicant info', guide: '<p>The form collects applicant details and employer. The employer is used to determine the recommended verification method.</p>' },
+  { title: 'Collect applicant info', guide: '<p>The form collects applicant details and employer. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>For financial institutions use:</p><pre>GET /v1/providers/?data_source=financial_accounts</pre><p>The employer is used to determine the recommended verification method.</p>' },
   {
     title: 'Choose verification method',
     guide: '<p>Company search checks payroll coverage:</p>'
