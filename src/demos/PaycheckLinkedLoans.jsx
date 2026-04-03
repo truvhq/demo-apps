@@ -1,5 +1,7 @@
 import { useState } from 'preact/hooks';
 import { Layout, usePanel, API_BASE, IntroSlide } from '../components/index.js';
+import { VoieReport } from '../components/reports/VoieReport.jsx';
+import { DDSReport } from '../components/reports/DDSReport.jsx';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 
 const STEPS = [
@@ -29,7 +31,8 @@ export function PaycheckLinkedLoansDemo() {
   const [introStep, setIntroStep] = useState(1);
   const [bridgeToken, setBridgeToken] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [reportData, setReportData] = useState(null);
+  const [incomeReport, setIncomeReport] = useState(null);
+  const [ddsReport, setDdsReport] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const { panel, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
@@ -57,9 +60,14 @@ export function PaycheckLinkedLoansDemo() {
   async function onBridgeSuccess(publicToken) {
     setCurrentStep(2);
     setScreen('review');
+    const encoded = encodeURIComponent(publicToken);
     try {
-      const resp = await fetch(`${API_BASE}/api/link-report/${encodeURIComponent(publicToken)}/pll?user_id=${userId}`);
-      setReportData(await resp.json());
+      const [incomeResp, ddsResp] = await Promise.all([
+        fetch(`${API_BASE}/api/link-report/${encoded}/income?user_id=${userId}`),
+        fetch(`${API_BASE}/api/link-report/${encoded}/deposit_switch?user_id=${userId}`),
+      ]);
+      if (incomeResp.ok) setIncomeReport(await incomeResp.json());
+      if (ddsResp.ok) setDdsReport(await ddsResp.json());
     } catch (e) { console.error(e); }
   }
 
@@ -69,7 +77,8 @@ export function PaycheckLinkedLoansDemo() {
     setIntroStep(1);
     setBridgeToken(null);
     setUserId(null);
-    setReportData(null);
+    setIncomeReport(null);
+    setDdsReport(null);
   }
 
   const isIntro = screen === 'select';
@@ -118,9 +127,10 @@ export function PaycheckLinkedLoansDemo() {
           <div>
             <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Report</h2>
             <p class="text-sm text-gray-500 mb-7">Paycheck-linked lending</p>
-            {reportData ? (
+            {(incomeReport || ddsReport) ? (
               <div>
-                <pre class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-xs font-mono overflow-auto max-h-96 whitespace-pre-wrap">{JSON.stringify(reportData, null, 2)}</pre>
+                {ddsReport && <DDSReport report={ddsReport} />}
+                {incomeReport && <VoieReport report={incomeReport} />}
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
                   <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
                 </div>

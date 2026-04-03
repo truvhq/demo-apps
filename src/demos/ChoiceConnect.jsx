@@ -1,5 +1,7 @@
 import { useState } from 'preact/hooks';
 import { Layout, usePanel, API_BASE, IntroSlide } from '../components/index.js';
+import { VoieReport } from '../components/reports/VoieReport.jsx';
+import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 
 const STEPS = [
@@ -218,7 +220,9 @@ export function ChoiceConnectDemo() {
             <p class="text-sm text-gray-500 mb-7">{selectedMethod?.name} verification</p>
             {reportData ? (
               <div>
-                <pre class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-xs font-mono overflow-auto max-h-96 whitespace-pre-wrap">{JSON.stringify(reportData, null, 2)}</pre>
+                {selectedMethod?.id === 'bank'
+                  ? <IncomeInsightsReport report={reportData} />
+                  : <VoieReport report={reportData} />}
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
                   <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
                 </div>

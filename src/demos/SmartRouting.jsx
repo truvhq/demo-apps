@@ -1,6 +1,8 @@
 import { useState } from 'preact/hooks';
 import { Layout, usePanel, API_BASE, IntroSlide } from '../components/index.js';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
+import { VoieReport } from '../components/reports/VoieReport.jsx';
+import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
 
 const STEPS = [
   { title: 'Collect applicant info', guide: '<p>The form collects applicant details and employer. The employer is used to determine the best verification method.</p>' },
@@ -234,7 +236,9 @@ export function SmartRoutingDemo() {
             <p class="text-sm text-gray-500 mb-7">Smart routing → {routing?.recommendation} verification</p>
             {reportData ? (
               <div>
-                <pre class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-xs font-mono overflow-auto max-h-96 whitespace-pre-wrap">{JSON.stringify(reportData, null, 2)}</pre>
+                {routing?.recommendation === 'bank'
+                  ? <IncomeInsightsReport report={reportData} />
+                  : <VoieReport report={reportData} />}
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
                   <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
                 </div>

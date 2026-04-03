@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { Layout, usePanel, API_BASE, IntroSlide } from '../components/index.js';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
+import { DDSReport } from '../components/reports/DDSReport.jsx';
 
 const STEPS = [
   { title: 'Collect applicant info', guide: '<p>The form collects applicant details. The backend creates a user and generates a Bridge token:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>Token uses <code>product_type: deposit_switch</code> with target account details.</p>' },
@@ -120,7 +121,7 @@ export function DepositSwitchDemo() {
             <p class="text-sm text-gray-500 mb-7">Direct deposit switch</p>
             {reportData ? (
               <div>
-                <pre class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-xs font-mono overflow-auto max-h-96 whitespace-pre-wrap">{JSON.stringify(reportData, null, 2)}</pre>
+                <DDSReport report={reportData} />
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
                   <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
                 </div>
