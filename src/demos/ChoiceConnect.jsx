@@ -81,22 +81,20 @@ export function ChoiceConnectDemo() {
       const data = await resp.json();
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setLoading(false); return; }
 
-      setBridgeToken(data.bridge_token);
       setUserId(data.user_id);
       startPolling(data.user_id);
       setCurrentStep(2);
-      setScreen('connect');
+
+      // Open Bridge immediately
+      if (window.TruvBridge) {
+        window.TruvBridge.init({
+          bridgeToken: data.bridge_token,
+          onSuccess: (token) => onBridgeSuccess(token),
+          onEvent: (name, d) => addBridgeEvent(name, d),
+        }).open();
+      }
     } catch (e) { console.error(e); }
     setLoading(false);
-  }
-
-  function openBridge() {
-    if (!bridgeToken || !window.TruvBridge) return;
-    window.TruvBridge.init({
-      bridgeToken,
-      onSuccess: (token) => onBridgeSuccess(token),
-      onEvent: (name, data) => addBridgeEvent(name, data),
-    }).open();
   }
 
   function onBridgeSuccess(token) {
@@ -222,18 +220,6 @@ export function ChoiceConnectDemo() {
               &larr; Back to application
             </button>
           </>
-        )}
-
-        {/* Connect via Bridge */}
-        {screen === 'connect' && (
-          <div class="text-center py-12">
-            <h2 class="text-2xl font-bold tracking-tight mb-2">Connect via Bridge</h2>
-            <p class="text-sm text-gray-500 mb-2">Method: <span class="font-medium text-[#1d1d1f]">{selectedMethod?.name}</span></p>
-            <p class="text-sm text-gray-500 mb-8">Click below to open Bridge and connect your account.</p>
-            <button onClick={openBridge} class="px-8 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-lg">
-              Open Bridge
-            </button>
-          </div>
         )}
 
         {/* Waiting for webhook */}

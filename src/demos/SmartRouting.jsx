@@ -100,19 +100,19 @@ export function SmartRoutingDemo() {
       const data = await resp.json();
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setLoading(false); return; }
 
-      setBridgeToken(data.bridge_token);
       setUserId(data.user_id);
       startPolling(data.user_id);
       setCurrentStep(2);
-      setScreen('connect');
+
+      if (window.TruvBridge) {
+        window.TruvBridge.init({
+          bridgeToken: data.bridge_token,
+          onSuccess: (t) => { setPublicToken(t); setCurrentStep(3); setScreen('waiting'); },
+          onEvent: (name, d) => addBridgeEvent(name, d),
+        }).open();
+      }
     } catch (e) { console.error(e); }
     setLoading(false);
-  }
-
-  function onBridgeSuccess(token) {
-    setPublicToken(token);
-    setCurrentStep(3);
-    setScreen('waiting');
   }
 
   useEffect(() => {
@@ -236,19 +236,6 @@ export function SmartRoutingDemo() {
                 </div>
               </div>
             ) : null}
-          </div>
-        )}
-
-        {/* Connect via Bridge */}
-        {screen === 'connect' && (
-          <div class="text-center py-12">
-            <h2 class="text-2xl font-bold tracking-tight mb-2">Connect via Bridge</h2>
-            <p class="text-sm text-gray-500 mb-2">Routed to: <span class="font-medium text-[#1d1d1f]">{BADGES[routing?.recommendation]?.label}</span></p>
-            <p class="text-sm text-gray-500 mb-8">Click below to open Bridge and connect your account.</p>
-            <button onClick={() => {
-              if (!bridgeToken || !window.TruvBridge) return;
-              window.TruvBridge.init({ bridgeToken, onSuccess: (token) => onBridgeSuccess(token), onEvent: (name, data) => addBridgeEvent(name, data) }).open();
-            }} class="px-8 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-lg">Open Bridge</button>
           </div>
         )}
 

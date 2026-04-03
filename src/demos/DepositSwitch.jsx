@@ -50,19 +50,19 @@ export function DepositSwitchDemo() {
       const data = await resp.json();
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setLoading(false); return; }
 
-      setBridgeToken(data.bridge_token);
       setUserId(data.user_id);
       startPolling(data.user_id);
       setCurrentStep(1);
-      setScreen('connect');
+
+      if (window.TruvBridge) {
+        window.TruvBridge.init({
+          bridgeToken: data.bridge_token,
+          onSuccess: (t) => { setPublicToken(t); setCurrentStep(2); setScreen('waiting'); },
+          onEvent: (name, d) => addBridgeEvent(name, d),
+        }).open();
+      }
     } catch (e) { console.error(e); }
     setLoading(false);
-  }
-
-  function onBridgeSuccess(token) {
-    setPublicToken(token);
-    setCurrentStep(2);
-    setScreen('waiting');
   }
 
   useEffect(() => {
@@ -125,17 +125,6 @@ export function DepositSwitchDemo() {
               <button onClick={getBridgeToken} disabled={loading} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">{loading ? 'Creating...' : 'Continue'}</button>
             </div>
           </IntroSlide>
-        )}
-
-        {screen === 'connect' && (
-          <div class="text-center py-12">
-            <h2 class="text-2xl font-bold tracking-tight mb-2">Connect via Bridge</h2>
-            <p class="text-sm text-gray-500 mb-8">Click below to open Bridge and switch your direct deposit.</p>
-            <button onClick={() => {
-              if (!bridgeToken || !window.TruvBridge) return;
-              window.TruvBridge.init({ bridgeToken, onSuccess: (t) => onBridgeSuccess(t), onEvent: (name, data) => addBridgeEvent(name, data) }).open();
-            }} class="px-8 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-lg">Open Bridge</button>
-          </div>
         )}
 
         {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}
