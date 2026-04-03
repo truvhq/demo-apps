@@ -10,7 +10,6 @@ import ordersRoutes from './routes/orders.js';
 import reportsRoutes from './routes/reports.js';
 import bridgeRoutes from './routes/bridge.js';
 import uploadDocumentsRoutes from './routes/upload-documents.js';
-import smartRouteRoutes from './routes/smart-route.js';
 
 const PORT = process.env.PORT || 3000;
 const { API_CLIENT_ID, API_SECRET } = process.env;
@@ -69,7 +68,6 @@ app.use(ordersRoutes(deps));
 app.use(reportsRoutes(deps));
 app.use(bridgeRoutes(deps));
 app.use(uploadDocumentsRoutes(deps));
-app.use(smartRouteRoutes(deps));
 
 // --- Start ---
 app.listen(PORT, async () => {

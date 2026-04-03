@@ -5,17 +5,18 @@ import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
 
 const STEPS = [
-  { title: 'Collect applicant info', guide: '<p>The form collects applicant details and employer. The employer is used to determine the best verification method.</p>' },
+  { title: 'Collect applicant info', guide: '<p>The form collects applicant details and employer. The employer is used to determine the recommended verification method.</p>' },
   {
-    title: 'Smart routing',
-    guide: '<p>The system checks payroll coverage for the employer:</p>'
-      + '<pre>GET /api/smart-route?q=employer</pre>'
-      + '<p>Based on confidence:</p>'
-      + '<ul><li><b>High</b> → Payroll (data_sources: [payroll])</li>'
-      + '<li><b>Low</b> → Bank (data_sources: [financial_accounts])</li>'
-      + '<li><b>None</b> → Document upload</li></ul>',
+    title: 'Choose verification method',
+    guide: '<p>Company search checks payroll coverage:</p>'
+      + '<pre>GET /v1/company-mappings-search/?query=employer</pre>'
+      + '<p>Based on <code>success_rate</code>:</p>'
+      + '<ul><li><b>high</b> → Payroll recommended</li>'
+      + '<li><b>low</b> → Bank recommended</li>'
+      + '<li><b>unsupported/null</b> → Documents recommended</li></ul>'
+      + '<p>The user can override and pick any method.</p>',
   },
-  { title: 'Connect via Bridge', guide: '<p>Bridge opens as a popup with the auto-selected data source.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
+  { title: 'Connect via Bridge', guide: '<p>Bridge opens as a popup with the selected data source.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
   { title: 'Webhook processing', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
   { title: 'Review results', guide: '<p>The public token is exchanged for a link report:</p><pre>POST /v1/link-access-tokens/\nGET /v1/links/{link_id}/{product}/report</pre>' },
 ];
@@ -25,17 +26,15 @@ const DIAGRAM = `sequenceDiagram
   participant Truv as Truv API
   participant Bridge as Truv Bridge
   App->>Truv: GET /v1/company-mappings-search/?query=employer
-  Truv-->>App: company results with coverage info
-  App->>App: Evaluate payroll confidence
-  alt High confidence
-    App->>Truv: POST /v1/users/ + POST tokens/ (data_sources: [payroll])
-    App->>Bridge: Bridge opens — payroll only
-  else Low confidence
-    App->>Truv: POST /v1/users/ + POST tokens/ (data_sources: [financial_accounts])
-    App->>Bridge: Bridge opens — bank connection
-  else No coverage
-    Note right of App: Fallback to document upload
-  end
+  Truv-->>App: results with success_rate
+  App->>App: Recommend method based on success_rate
+  App->>App: User confirms or overrides
+  App->>Truv: POST /v1/users/
+  Truv-->>App: user_id
+  App->>Truv: POST /v1/users/{user_id}/tokens/
+  Note right of Truv: { product_type, data_sources }
+  Truv-->>App: bridge_token
+  App->>Bridge: TruvBridge.init({ bridgeToken })
   Bridge-->>App: onSuccess(public_token)
   Truv->>App: Webhook: task-status-updated (done)
   App->>Truv: POST /v1/link-access-tokens/
@@ -43,18 +42,18 @@ const DIAGRAM = `sequenceDiagram
   App->>Truv: GET /v1/links/{link_id}/income/report
   Truv-->>App: Verification report`;
 
-const BADGES = {
-  payroll: { label: 'Payroll verification available', color: 'text-[#34c759]', bg: 'bg-green-50', icon: '💼' },
-  bank: { label: 'Using bank verification', color: 'text-[#ff9f0a]', bg: 'bg-amber-50', icon: '🏦' },
-  documents: { label: 'Document upload required', color: 'text-[#86868b]', bg: 'bg-[#f5f5f7]', icon: '📄' },
-};
+const METHODS = [
+  { id: 'payroll', name: 'Payroll Income', desc: 'Connect to payroll provider for verified income and employment data', icon: '💼', dataSources: ['payroll'], reportType: 'income' },
+  { id: 'bank', name: 'Bank Transactions', desc: 'Connect bank account for transaction-based income insights', icon: '🏦', dataSources: ['financial_accounts'], reportType: 'income' },
+  { id: 'documents', name: 'Upload Documents', desc: 'Upload pay stubs, W-2s, or tax returns for document-based verification', icon: '📄', dataSources: ['docs'], reportType: 'income' },
+];
 
 export function SmartRoutingDemo() {
   const [screen, setScreen] = useState('select');
   const [introStep, setIntroStep] = useState(1);
   const [formData, setFormData] = useState(null);
-  const [routing, setRouting] = useState(null);
-  const [bridgeToken, setBridgeToken] = useState(null);
+  const [recommended, setRecommended] = useState(null);
+  const [selectedMethod, setSelectedMethod] = useState(null);
   const [userId, setUserId] = useState(null);
   const [publicToken, setPublicToken] = useState(null);
   const [reportData, setReportData] = useState(null);
@@ -67,35 +66,36 @@ export function SmartRoutingDemo() {
     setFormData(data);
     setLoading(true);
     setCurrentStep(1);
-    setScreen('routing');
+    setScreen('choose');
 
     try {
       const employer = data.employer || '';
-      const resp = await fetch(`${API_BASE}/api/smart-route?q=${encodeURIComponent(employer)}&product_type=income`);
-      const result = await resp.json();
-      setRouting(result);
+      const resp = await fetch(`${API_BASE}/api/companies?q=${encodeURIComponent(employer)}&product_type=income`);
+      const companies = await resp.json();
+      const top = Array.isArray(companies) && companies.length > 0 ? companies[0] : null;
+
+      if (top?.success_rate === 'high') {
+        setRecommended('payroll');
+      } else if (top?.success_rate === 'low') {
+        setRecommended('bank');
+      } else {
+        setRecommended('documents');
+      }
     } catch (e) {
       console.error(e);
-      setRouting({ recommendation: 'documents', confidence: 0, company: null });
+      setRecommended('documents');
     }
     setLoading(false);
   }
 
-  async function handleContinue() {
-    if (!routing) return;
+  async function handleMethodSelect(method) {
+    setSelectedMethod(method);
     setLoading(true);
-
-    const dataSources = routing.recommendation === 'payroll'
-      ? ['payroll']
-      : routing.recommendation === 'bank'
-        ? ['financial_accounts']
-        : ['docs'];
-
     try {
       const resp = await fetch(`${API_BASE}/api/bridge-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_type: 'income', data_sources: dataSources }),
+        body: JSON.stringify({ product_type: method.reportType, data_sources: method.dataSources }),
       });
       const data = await resp.json();
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setLoading(false); return; }
@@ -128,7 +128,8 @@ export function SmartRoutingDemo() {
       setScreen('review');
       (async () => {
         try {
-          const resp = await fetch(`${API_BASE}/api/link-report/${encodeURIComponent(publicToken)}/income?user_id=${userId}`);
+          const rt = selectedMethod?.reportType || 'income';
+          const resp = await fetch(`${API_BASE}/api/link-report/${encodeURIComponent(publicToken)}/${rt}?user_id=${userId}`);
           setReportData(await resp.json());
         } catch (e) { console.error(e); }
       })();
@@ -141,8 +142,8 @@ export function SmartRoutingDemo() {
     setScreen('select');
     setIntroStep(1);
     setFormData(null);
-    setRouting(null);
-    setBridgeToken(null);
+    setRecommended(null);
+    setSelectedMethod(null);
     setUserId(null);
     setPublicToken(null);
     setReportData(null);
@@ -159,23 +160,19 @@ export function SmartRoutingDemo() {
             <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
               <div class="animate-slideUp">
                 <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Smart Routing</div>
-                <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Automatically pick the<br />best verification method</h2>
+                <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Route to the best<br />verification method</h2>
                 <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
-                  The system checks the employer's payroll coverage and automatically routes to the best verification method — payroll, bank, or document upload.
+                  The system checks the employer's payroll coverage and recommends the best method — but the user can always choose.
                 </p>
               </div>
               <div class="grid gap-3 mb-8 text-left max-w-lg mx-auto animate-slideUp delay-1">
-                {[
-                  { name: 'Company search', desc: 'Check payroll provider coverage for the employer', icon: '🔍' },
-                  { name: 'Confidence scoring', desc: 'Evaluate how likely payroll verification will succeed', icon: '📊' },
-                  { name: 'Automatic routing', desc: 'Route to payroll, bank, or documents based on confidence', icon: '🔀' },
-                ].map(item => (
-                  <div key={item.name} class="border border-[#d2d2d7] rounded-2xl px-5 py-4 bg-white">
+                {METHODS.map(m => (
+                  <div key={m.id} class="border border-[#d2d2d7] rounded-2xl px-5 py-4 bg-white">
                     <div class="flex items-center gap-3 mb-1">
-                      <span class="text-lg">{item.icon}</span>
-                      <h3 class="text-[14px] font-semibold text-[#1d1d1f]">{item.name}</h3>
+                      <span class="text-lg">{m.icon}</span>
+                      <h3 class="text-[14px] font-semibold text-[#1d1d1f]">{m.name}</h3>
                     </div>
-                    <p class="text-[13px] text-[#6e6e73] leading-[1.4]">{item.desc}</p>
+                    <p class="text-[13px] text-[#6e6e73] leading-[1.4]">{m.desc}</p>
                   </div>
                 ))}
               </div>
@@ -188,7 +185,7 @@ export function SmartRoutingDemo() {
 
         {/* Intro step 2 — architecture */}
         {screen === 'select' && introStep === 2 && (
-          <IntroSlide label="Smart Routing → Architecture" title="Confidence-based routing" subtitle="Company search results determine the verification path. High-confidence employers use payroll; others fall back to bank or documents." diagram={DIAGRAM}>
+          <IntroSlide label="Smart Routing → Architecture" title="Confidence-based routing" subtitle="Company search determines the recommended path. The user can override the recommendation." diagram={DIAGRAM}>
             <div class="w-full max-w-xs mx-auto flex gap-3">
               <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
               <button onClick={() => setIntroStep(3)} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Continue</button>
@@ -203,39 +200,50 @@ export function SmartRoutingDemo() {
           </div>
         )}
 
-        {/* Routing result */}
-        {screen === 'routing' && (
+        {/* Method choice with recommendation */}
+        {screen === 'choose' && (
           <div>
-            {loading ? (
+            {loading && !recommended ? (
               <div class="text-center py-16">
                 <div class="w-12 h-12 border-[3px] border-[#d2d2d7] border-t-primary rounded-full animate-spin mx-auto mb-6" />
-                <h2 class="text-2xl font-semibold tracking-tight mb-2">Determining best method...</h2>
-                <p class="text-[15px] text-[#86868b]">Checking payroll coverage for the employer</p>
+                <h2 class="text-2xl font-semibold tracking-tight mb-2">Checking coverage...</h2>
+                <p class="text-[15px] text-[#86868b]">Evaluating payroll coverage for the employer</p>
               </div>
-            ) : routing ? (
-              <div>
-                <h2 class="text-2xl font-bold tracking-tight mb-1.5">Routing Decision</h2>
-                <p class="text-sm text-gray-500 leading-relaxed mb-7">Based on employer payroll coverage analysis.</p>
-
-                <div class={`border rounded-2xl px-6 py-5 mb-6 ${BADGES[routing.recommendation].bg}`}>
-                  <div class="flex items-center gap-3 mb-2">
-                    <span class="text-2xl">{BADGES[routing.recommendation].icon}</span>
-                    <div>
-                      <h3 class={`text-[16px] font-semibold ${BADGES[routing.recommendation].color}`}>{BADGES[routing.recommendation].label}</h3>
-                      <p class="text-[13px] text-[#6e6e73]">Confidence: {Math.round((routing.confidence || 0) * 100)}%</p>
-                    </div>
-                  </div>
-                  {routing.company?.name && (
-                    <p class="text-[13px] text-[#86868b] mt-2">Matched employer: <span class="font-medium text-[#1d1d1f]">{routing.company.name}</span></p>
-                  )}
+            ) : (
+              <>
+                <h2 class="text-2xl font-bold tracking-tight mb-1.5">Choose verification method</h2>
+                <p class="text-sm text-gray-500 leading-relaxed mb-7">Based on employer coverage, we recommend a method — but you can pick any.</p>
+                <div class="grid gap-3">
+                  {METHODS.map(m => {
+                    const isRecommended = m.id === recommended;
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => handleMethodSelect(m)}
+                        disabled={loading}
+                        class={`border rounded-2xl px-6 py-5 text-left cursor-pointer transition-all duration-200 disabled:opacity-40 ${
+                          isRecommended
+                            ? 'border-primary bg-[#f5f8ff] shadow-sm'
+                            : 'border-[#d2d2d7] hover:border-primary hover:bg-[#f5f8ff]'
+                        }`}
+                      >
+                        <div class="flex items-center gap-3 mb-1">
+                          <span class="text-xl">{m.icon}</span>
+                          <h3 class="text-[15px] font-semibold text-[#1d1d1f]">{m.name}</h3>
+                          {isRecommended && (
+                            <span class="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Recommended</span>
+                          )}
+                        </div>
+                        <p class="text-[14px] text-[#6e6e73] leading-[1.5]">{m.desc}</p>
+                      </button>
+                    );
+                  })}
                 </div>
-
-                <div class="flex gap-3">
-                  <button onClick={() => { setFormData(null); setRouting(null); setScreen('select'); setIntroStep(3); }} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
-                  <button onClick={handleContinue} disabled={loading} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">{loading ? 'Creating...' : 'Continue'}</button>
-                </div>
-              </div>
-            ) : null}
+                <button onClick={() => { setFormData(null); setRecommended(null); setScreen('select'); setIntroStep(3); }} class="mt-6 text-sm text-[#86868b] hover:text-primary">
+                  &larr; Back to application
+                </button>
+              </>
+            )}
           </div>
         )}
 
@@ -246,10 +254,10 @@ export function SmartRoutingDemo() {
         {screen === 'review' && (
           <div>
             <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Report</h2>
-            <p class="text-sm text-gray-500 mb-7">Smart routing → {routing?.recommendation} verification</p>
+            <p class="text-sm text-gray-500 mb-7">{selectedMethod?.name} verification</p>
             {reportData ? (
               <div>
-                {routing?.recommendation === 'bank'
+                {selectedMethod?.id === 'bank'
                   ? <IncomeInsightsReport report={reportData} />
                   : <VoieReport report={reportData} />}
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
