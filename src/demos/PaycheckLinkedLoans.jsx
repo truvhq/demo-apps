@@ -65,8 +65,20 @@ export function PaycheckLinkedLoansDemo() {
       if (window.TruvBridge) {
         const opts = {
           bridgeToken: result.bridge_token,
-          onSuccess: () => { setCurrentStep(2); setScreen('waiting'); },
-          onEvent: (name, d) => addBridgeEvent(name, d),
+          onLoad: () => addBridgeEvent('onLoad()', null),
+          onSuccess: (publicToken, meta) => {
+            addBridgeEvent('onSuccess(publicToken, meta)', [
+              { label: 'publicToken', value: publicToken },
+              { label: 'meta', value: meta },
+            ]);
+            setCurrentStep(2);
+            setScreen('waiting');
+          },
+          onEvent: (type, payload) => {
+            const payloadStr = payload ? 'payload' : 'undefined';
+            addBridgeEvent(`onEvent("${type}", ${payloadStr})`, payload ? [{ label: 'payload', value: payload }] : null);
+          },
+          onClose: () => addBridgeEvent('onClose()', null),
         };
         window.TruvBridge.init(opts).open();
       }

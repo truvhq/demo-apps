@@ -33,17 +33,19 @@ export function BridgeScreen({ orderId, demoPath, companyMappingId, addBridgeEve
     if (companyMappingId) bridgeOpts.companyMappingId = companyMappingId;
     const b = window.TruvBridge.init({
       ...bridgeOpts,
-      onLoad: () => addBridgeEvent('onLoad', null),
-      onEvent: (type, _, source) => {
-        addBridgeEvent('onEvent', { eventType: type, source });
+      onLoad: () => addBridgeEvent('onLoad()', null),
+      onEvent: (type, payload, source) => {
+        const payloadStr = payload ? 'payload' : 'undefined';
+
+        addBridgeEvent(`onEvent("${type}", ${payloadStr}, "${source}")`, payload ? [{ label: 'payload', value: payload }] : null);
         if (type === 'COMPLETED' && source === 'order') {
           if (onCompleted) onCompleted();
           navigate(`${demoPath}/waiting/${orderId}`);
         }
       },
-      onSuccess: () => addBridgeEvent('onSuccess', null),
+      onSuccess: () => addBridgeEvent('onSuccess()', null),
       onClose: () => {
-        addBridgeEvent('onClose', null);
+        addBridgeEvent('onClose()', null);
         navigate(`${demoPath}`);
       },
     });

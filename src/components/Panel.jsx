@@ -96,7 +96,9 @@ function BridgeEvent({ evt }) {
       </div>
       {open && hasData && (
         <div class="border-t border-border-light p-3 bg-gray-50">
-          <pre class="text-[11px] leading-relaxed whitespace-pre-wrap break-all text-gray-500 font-mono">{tryFormat(evt.data)}</pre>
+          {evt.data.map(({ label, value }) => (
+            <pre class="text-[11px] leading-relaxed whitespace-pre-wrap break-all font-mono"><span class="text-gray-400">{label} = </span><span class="text-gray-500">{tryFormat(value)}</span></pre>
+          ))}
         </div>
       )}
     </div>
