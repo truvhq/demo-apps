@@ -3,9 +3,9 @@ import { MermaidDiagram } from './MermaidDiagram.jsx';
 export function IntroSlide({ label, title, subtitle, diagram, children, actions }) {
   return (
     <div class="flex flex-1 min-h-0">
-      {/* Left half: white, scrollable */}
-      <div class="w-1/2 overflow-y-auto bg-white">
-        <div class="px-10 py-14 max-w-[560px]">
+      {/* Left half: white, scrollable, content centered */}
+      <div class="w-1/2 overflow-y-auto bg-white flex justify-center">
+        <div class="px-10 py-14 w-full max-w-[520px]">
           <div class="animate-slideUp">
             <div class="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary/70 mb-5">{label}</div>
             <h2 class="text-[36px] font-bold tracking-[-0.03em] leading-[1.08] text-[#171717] mb-5">{title}</h2>
