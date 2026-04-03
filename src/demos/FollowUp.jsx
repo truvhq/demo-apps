@@ -59,7 +59,7 @@ export function FollowUpDemo({ screen, param }) {
     const results = {};
     for (const task of TASKS) {
       try {
-        const body = { products: task.products, demo_id: 'follow-up', external_user_id: applicationId.trim() };
+        const body = { products: task.products, demo_id: 'pos-tasks', external_user_id: applicationId.trim() };
         if (task.employer) body.employer = task.employer;
         const resp = await fetch(`${API_BASE}/api/orders`, {
           method: 'POST',
@@ -78,18 +78,18 @@ export function FollowUpDemo({ screen, param }) {
     const order = taskOrders?.[task.id];
     if (!order) return;
     activeTaskRef.current = task.id;
-    navigate(`follow-up/bridge/${order.order_id}`);
+    navigate(`mortgage/pos-tasks/bridge/${order.order_id}`);
   }
 
   const isBridge = screen === 'bridge';
   const isIntro = !screen && !taskOrders;
 
   return (
-    <Layout title="Truv Quickstart" badge="Follow-up" steps={STEPS} panel={panel} flush={isBridge} hidePanel={isIntro}>
+    <Layout title="Truv Quickstart" badge="POS Tasks" steps={STEPS} panel={panel} flush={isBridge} hidePanel={isIntro}>
       {screen === 'bridge' && (
         <BridgeScreen
           orderId={param}
-          demoPath="follow-up"
+          demoPath="mortgage/pos-tasks"
           addBridgeEvent={addBridgeEvent}
           startPolling={startPolling}
           onCompleted={() => {
@@ -98,10 +98,10 @@ export function FollowUpDemo({ screen, param }) {
         />
       )}
       {screen === 'waiting' && (
-        <OrderWaitingScreen orderId={param} demoPath="follow-up" webhooks={panel.webhooks} startPolling={startPolling} maxWidth="max-w-2xl" />
+        <OrderWaitingScreen orderId={param} demoPath="mortgage/pos-tasks" webhooks={panel.webhooks} startPolling={startPolling} maxWidth="max-w-2xl" />
       )}
       {screen === 'results' && (
-        <OrderResultsScreen orderId={param} onBack={() => { reset(); navigate('follow-up'); }} backLabel="Back to Tasks" maxWidth="max-w-2xl" />
+        <OrderResultsScreen orderId={param} onBack={() => { reset(); navigate('mortgage/pos-tasks'); }} backLabel="Back to Tasks" maxWidth="max-w-2xl" />
       )}
       {!screen && (
         !taskOrders ? (
