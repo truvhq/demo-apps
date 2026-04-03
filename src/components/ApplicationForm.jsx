@@ -35,7 +35,7 @@ export function ApplicationForm({ onSubmit, submitting, productType, showEmploye
       {showEmployer && (
         <div class="mb-4">
           <label class="text-sm font-medium mb-1.5 block">{label}</label>
-          <CompanySearch value={employer.name} onChange={setEmployer} productType={productType} dataSource={dataSource} placeholder={dataSource === 'financial_accounts' ? 'Search for bank or institution...' : 'Search for employer...'} />
+          <CompanySearch value={employer.name} onChange={setEmployer} productType={productType} dataSource={dataSource} placeholder={`Search for ${label.toLowerCase()}...`} />
         </div>
       )}
       <div class="mb-4"><label class="text-sm font-medium mb-1.5 block">Email</label><input name="email" type="email" placeholder="joe@example.com" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
