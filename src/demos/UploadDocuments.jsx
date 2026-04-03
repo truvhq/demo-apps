@@ -186,7 +186,7 @@ export function UploadDocumentsDemo() {
                 { name: 'Tax Returns (1040)', desc: 'Filed income, AGI, tax liability' },
                 { name: 'Bank Statements', desc: 'Deposits, withdrawals, account balances' },
               ].map(d => (
-                <div key={d.name} class="border border-[#d2d2d7] rounded-2xl px-5 py-4 bg-white">
+                <div key={d.name} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
                   <h3 class="text-[14px] font-semibold text-[#1d1d1f] mb-1">{d.name}</h3>
                   <p class="text-[13px] text-[#6e6e73] leading-[1.4]">{d.desc}</p>
                 </div>

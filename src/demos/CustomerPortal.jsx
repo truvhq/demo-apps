@@ -188,7 +188,7 @@ function CPIntroScreen({ onStart }) {
               class={`border rounded-2xl px-6 py-5 cursor-pointer transition-all duration-200 ${
                 selected === p.id
                   ? 'border-primary bg-[#f5f8ff] shadow-sm'
-                  : 'border-[#d2d2d7] hover:border-[#86868b] bg-white'
+                  : 'border-[#d2d2d7]/60 hover:border-[#86868b] bg-white/80 backdrop-blur-sm'
               }`}
             >
               <div class="flex items-start justify-between mb-1">

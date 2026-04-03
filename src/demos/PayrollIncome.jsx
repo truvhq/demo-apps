@@ -101,7 +101,7 @@ export function PayrollIncomeDemo() {
 
   return (
     <Layout title="Truv Quickstart" badge="Payroll Income" steps={STEPS} panel={panel} hidePanel={isIntro}>
-      <div class={isIntro ? '' : 'max-w-lg mx-auto px-8 py-10'}>
+      <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
         {screen === 'select' && introStep === 1 && (
           <div class="intro-slide">
             <div class="relative z-10 w-full max-w-2xl mx-auto px-4">

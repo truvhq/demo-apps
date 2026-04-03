@@ -195,7 +195,7 @@ function InitScreen({ applicationId, onApplicationIdChange, onInitialize, initia
 
         <div class="grid grid-cols-2 gap-3 mb-8 text-left animate-slideUp delay-1">
           {FOLLOWUP_TASKS_INFO.map(t => (
-            <div key={t.name} class="border border-[#d2d2d7] rounded-2xl px-5 py-4 bg-white">
+            <div key={t.name} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
               <div class="flex items-start justify-between mb-1">
                 <h3 class="text-[14px] font-semibold text-[#1d1d1f]">{t.name}</h3>
                 <span class="text-[11px] font-medium text-[#86868b] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{t.report}</span>

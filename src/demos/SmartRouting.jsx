@@ -44,9 +44,9 @@ const DIAGRAM = `sequenceDiagram
   Truv-->>App: Verification report`;
 
 const METHODS = [
-  { id: 'payroll', name: 'Payroll Income', desc: 'Connect to payroll provider for verified income and employment data', Icon: Icons.briefcase, dataSources: ['payroll'], reportType: 'income' },
-  { id: 'bank', name: 'Bank Transactions', desc: 'Connect bank account for transaction-based income insights', Icon: Icons.bankBuilding, dataSources: ['financial_accounts'], reportType: 'income' },
-  { id: 'documents', name: 'Upload Documents', desc: 'Upload pay stubs, W-2s, or tax returns for document-based verification', Icon: Icons.upload, dataSources: ['docs'], reportType: 'income' },
+  { id: 'payroll', name: 'Payroll Income', desc: 'Connect to payroll provider for verified income and employment data', Icon: Icons.briefcase, color: 'icon-box-blue', dataSources: ['payroll'], reportType: 'income' },
+  { id: 'bank', name: 'Bank Transactions', desc: 'Connect bank account for transaction-based income insights', Icon: Icons.bankBuilding, color: 'icon-box-emerald', dataSources: ['financial_accounts'], reportType: 'income' },
+  { id: 'documents', name: 'Upload Documents', desc: 'Upload pay stubs, W-2s, or tax returns for document-based verification', Icon: Icons.upload, color: 'icon-box-amber', dataSources: ['docs'], reportType: 'income' },
 ];
 
 export function SmartRoutingDemo() {
@@ -155,7 +155,7 @@ export function SmartRoutingDemo() {
 
   return (
     <Layout title="Truv Quickstart" badge="Smart Routing" steps={STEPS} panel={panel} hidePanel={isIntro}>
-      <div class={isIntro ? '' : 'max-w-lg mx-auto px-8 py-10'}>
+      <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
         {/* Intro step 1 */}
         {screen === 'select' && introStep === 1 && (
           <div class="intro-slide">
@@ -169,9 +169,9 @@ export function SmartRoutingDemo() {
               </div>
               <div class="grid gap-3 mb-8 text-left max-w-lg mx-auto animate-slideUp delay-1">
                 {METHODS.map(m => (
-                  <div key={m.id} class="border border-[#d2d2d7] rounded-2xl px-5 py-4 bg-white">
+                  <div key={m.id} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
                     <div class="flex items-center gap-3 mb-1">
-                      <div class="w-8 h-8 rounded-lg bg-[#f5f5f7] border border-[#e8e8ed] flex items-center justify-center text-[#6e6e73]"><m.Icon size={16} /></div>
+                      <div class={`icon-box ${m.color}`}><m.Icon size={18} /></div>
                       <h3 class="text-[14px] font-semibold text-[#1d1d1f]">{m.name}</h3>
                     </div>
                     <p class="text-[13px] text-[#6e6e73] leading-[1.4]">{m.desc}</p>

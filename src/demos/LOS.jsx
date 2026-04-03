@@ -114,7 +114,7 @@ export function LOSDemo({ screen, param }) {
                 { name: 'Track status remotely', desc: 'Monitor webhook events and order status from the dashboard' },
                 { name: 'Fetch reports on completion', desc: 'Pull VOIE, VOE, or VOA reports once the user completes Bridge' },
               ].map(item => (
-                <div key={item.name} class="border border-[#d2d2d7] rounded-2xl px-5 py-4 bg-white">
+                <div key={item.name} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
                   <h3 class="text-[14px] font-semibold text-[#1d1d1f] mb-1">{item.name}</h3>
                   <p class="text-[13px] text-[#6e6e73] leading-[1.4]">{item.desc}</p>
                 </div>

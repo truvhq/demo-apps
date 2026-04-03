@@ -59,6 +59,21 @@
   text-align: center;
   overflow-y: auto;
   padding: 3rem 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0, 113, 227, 0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 20%, rgba(99, 102, 241, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 50% at 20% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 50%),
+    #ffffff;
+}
+.intro-slide::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h60v60H0z' fill='none'/%3E%3Cpath d='M30 0v60M0 30h60' stroke='%23e5e7eb' stroke-width='0.5' opacity='0.4'/%3E%3C/svg%3E");
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 70% 50% at 50% 50%, black 20%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 50% at 50% 50%, black 20%, transparent 70%);
+  pointer-events: none;
 }
 
 /* Flow pipeline */
@@ -127,3 +142,22 @@
   border: none;
   border-radius: 12px;
 }
+
+/* Colored icon boxes for intro cards */
+.icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.icon-box-blue { background: #eff6ff; color: #3b82f6; border: 1px solid #dbeafe; }
+.icon-box-indigo { background: #eef2ff; color: #6366f1; border: 1px solid #e0e7ff; }
+.icon-box-emerald { background: #ecfdf5; color: #10b981; border: 1px solid #d1fae5; }
+.icon-box-amber { background: #fffbeb; color: #f59e0b; border: 1px solid #fef3c7; }
+.icon-box-rose { background: #fff1f2; color: #f43f5e; border: 1px solid #ffe4e6; }
+.icon-box-violet { background: #f5f3ff; color: #8b5cf6; border: 1px solid #ede9fe; }
+.icon-box-cyan { background: #ecfeff; color: #06b6d4; border: 1px solid #cffafe; }
+.icon-box-orange { background: #fff7ed; color: #f97316; border: 1px solid #ffedd5; }
