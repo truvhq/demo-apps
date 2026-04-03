@@ -39,6 +39,9 @@ export function CompanySearch({ value, onChange, productType, dataSource, placeh
   }
 
   function select(item) {
+    // Payroll search (/v1/company-mappings-search/) returns company_mapping_id.
+    // Bank search (/v1/providers/) returns id (used as provider_id).
+    // ApplicationForm reads this as employer.id and maps it to the correct API field.
     const id = item.company_mapping_id || item.id || null;
     setQuery(item.name);
     onChange({ name: item.name, id });

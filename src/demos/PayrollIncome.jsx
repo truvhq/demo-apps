@@ -7,7 +7,7 @@ import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 
 const STEPS = [
-  { title: 'Collect applicant info', guide: '<p>The form collects applicant details. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>Token uses <code>data_sources: [payroll]</code> to restrict Bridge to payroll providers.</p>' },
+  { title: 'Collect applicant info', guide: '<p>The form collects applicant details. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>This returns a <code>company_mapping_id</code> (not <code>provider_id</code> — that\'s for banks). Pass <code>company_mapping_id</code> when creating the bridge token to deeplink Bridge to that employer.</p><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>The <code>data_sources: [payroll]</code> parameter restricts Bridge to payroll providers only.</p>' },
   { title: 'Connect via Bridge', guide: '<p>Bridge opens as a popup. The user selects their employer and logs in.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
   { title: 'Webhook processing', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
   { title: 'Review results', guide: '<p>The public token is exchanged for a link report:</p><pre>POST /v1/link-access-tokens/\nGET /v1/links/{link_id}/income/report</pre><p>Returns VOIE report with income and employment data.</p>' },
@@ -77,13 +77,12 @@ export function PayrollIncomeDemo() {
         || (w.event_type === 'task-status-updated' && w.status === 'done');
     });
     if (done) {
-      fetchedRef.current = true;
       setCurrentStep(3);
       setScreen('review');
       (async () => {
         try {
           const resp = await fetch(`${API_BASE}/api/link-report/${encodeURIComponent(publicToken)}/income?user_id=${userId}`);
-          setReportData(await resp.json());
+          if (resp.ok) { fetchedRef.current = true; setReportData(await resp.json()); }
         } catch (e) { console.error(e); }
       })();
     }

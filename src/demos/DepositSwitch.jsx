@@ -77,13 +77,12 @@ export function DepositSwitchDemo() {
         || (w.event_type === 'task-status-updated' && w.status === 'done');
     });
     if (done) {
-      fetchedRef.current = true;
       setCurrentStep(3);
       setScreen('review');
       (async () => {
         try {
           const resp = await fetch(`${API_BASE}/api/link-report/${encodeURIComponent(publicToken)}/deposit_switch?user_id=${userId}`);
-          setReportData(await resp.json());
+          if (resp.ok) { fetchedRef.current = true; setReportData(await resp.json()); }
         } catch (e) { console.error(e); }
       })();
     }

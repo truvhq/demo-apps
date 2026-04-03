@@ -79,7 +79,6 @@ export function PaycheckLinkedLoansDemo() {
         || (w.event_type === 'task-status-updated' && w.status === 'done');
     });
     if (done) {
-      fetchedRef.current = true;
       setCurrentStep(3);
       setScreen('review');
       (async () => {
@@ -91,6 +90,7 @@ export function PaycheckLinkedLoansDemo() {
           ]);
           if (incomeResp.ok) setIncomeReport(await incomeResp.json());
           if (ddsResp.ok) setDdsReport(await ddsResp.json());
+          if (incomeResp.ok || ddsResp.ok) fetchedRef.current = true;
         } catch (e) { console.error(e); }
       })();
     }

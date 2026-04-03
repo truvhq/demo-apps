@@ -28,7 +28,7 @@ import { Icons } from '../components/Icons.jsx';
 
 // STEPS: sidebar Guide tab content. Each step highlights when setCurrentStep(index) is called.
 const STEPS = [
-  { title: 'Collect applicant info', guide: '<p>The form collects applicant details and employer. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>For financial institutions use:</p><pre>GET /v1/providers/?data_source=financial_accounts</pre><p>The employer is used to determine the recommended verification method.</p>' },
+  { title: 'Collect applicant info', guide: '<p>The form collects applicant details and employer. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>For financial institutions (banks) use:</p><pre>GET /v1/providers/?data_source=financial_accounts</pre><p><b>Key distinction:</b> Payroll employers return <code>company_mapping_id</code>. Banks return <code>provider_id</code>. Pass the correct one when creating a bridge token to deeplink Bridge to that institution.</p><p>The employer is used to determine the recommended verification method.</p>' },
   {
     title: 'Choose verification method',
     guide: '<p>Company search checks payroll coverage:</p>'
@@ -127,7 +127,13 @@ export function SmartRoutingDemo() {
       const resp = await fetch(`${API_BASE}/api/bridge-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_type: method.reportType, data_sources: method.dataSources, company_mapping_id: formData?.company_mapping_id }),
+        // Only pass company_mapping_id for payroll methods — it deeplinks Bridge to that employer.
+        // Bank and document methods don't use it (Bridge shows its own provider search).
+        body: JSON.stringify({
+          product_type: method.reportType,
+          data_sources: method.dataSources,
+          ...(method.id === 'payroll' && formData?.company_mapping_id ? { company_mapping_id: formData.company_mapping_id } : {}),
+        }),
       });
       const data = await resp.json();
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setLoading(false); return; }
@@ -159,14 +165,13 @@ export function SmartRoutingDemo() {
         || (w.event_type === 'task-status-updated' && w.status === 'done');
     });
     if (done) {
-      fetchedRef.current = true;
       setCurrentStep(4);
       setScreen('review');
       (async () => {
         try {
           const rt = selectedMethod?.reportType || 'income';
           const resp = await fetch(`${API_BASE}/api/link-report/${encodeURIComponent(publicToken)}/${rt}?user_id=${userId}`);
-          setReportData(await resp.json());
+          if (resp.ok) { fetchedRef.current = true; setReportData(await resp.json()); }
         } catch (e) { console.error(e); }
       })();
     }

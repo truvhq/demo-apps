@@ -21,7 +21,7 @@
 
 import { Router } from 'express';
 
-export default function choiceConnectRoutes({ truv, apiLogger }) {
+export default function bridgeRoutes({ truv, apiLogger }) {
   const router = Router();
 
   router.post('/api/bridge-token', async (req, res) => {
