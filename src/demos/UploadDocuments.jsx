@@ -289,23 +289,7 @@ function UploadScreen({ files, onAddFiles, onRemoveFile, userId, onUserIdChange,
                 </div>
               ))}
             </div>
-
-            {/* Uploaded files list */}
-            {files.length > 0 && (
-              <div class="mb-4">
-                <div class="text-[11px] font-semibold text-[#86868b] uppercase tracking-wide mb-2">Your documents ({files.length})</div>
-                {files.map((f, i) => (
-                  <div key={i} class="flex items-center gap-3 px-4 py-2.5 border border-[#d2d2d7] rounded-lg mb-2">
-                    <span class="text-base">📄</span>
-                    <div class="flex-1 min-w-0">
-                      <div class="text-[13px] font-medium truncate text-[#1d1d1f]">{f.name}</div>
-                      <div class="text-[11px] text-[#86868b]">{formatSize(f.size)}</div>
-                    </div>
-                    <button onClick={(e) => { e.stopPropagation(); onRemoveFile(i); }} class="text-[#86868b] hover:text-[#ff3b30] text-lg leading-none">&times;</button>
-                  </div>
-                ))}
-              </div>
-            )}
+          )}
 
           <div class="flex gap-3">
             <button onClick={onBack} class="flex-1 py-3 border border-[#e8e8ed] font-semibold rounded-full hover:border-primary hover:text-primary">Back</button>
