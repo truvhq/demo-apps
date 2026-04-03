@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'preact/hooks';
 import mermaid from 'mermaid';
 
+// Reset on HMR so config changes take effect during development
 let initialized = false;
+if (import.meta.hot) import.meta.hot.accept(() => { initialized = false; });
 
 export function MermaidDiagram({ definition, id }) {
   const ref = useRef();
@@ -12,18 +14,26 @@ export function MermaidDiagram({ definition, id }) {
         startOnLoad: false,
         theme: 'base',
         themeVariables: {
-          primaryColor: '#f5f5f7',
+          primaryColor: '#eef2ff',
           primaryTextColor: '#171717',
-          primaryBorderColor: '#d2d2d7',
-          lineColor: '#d2d2d7',
-          secondaryColor: '#f5f5f7',
+          primaryBorderColor: '#2C64E3',
+          lineColor: '#94a3b8',
+          secondaryColor: '#f0f2f5',
           tertiaryColor: '#ffffff',
-          fontFamily: '-apple-system, BlinkMacSystemFont, SF Pro Text, Inter, Helvetica Neue, sans-serif',
+          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
           fontSize: '13px',
-          nodeBorder: '#d2d2d7',
-          mainBkg: '#f5f5f7',
+          nodeBorder: '#2C64E3',
+          mainBkg: '#eef2ff',
           clusterBkg: '#ffffff',
           edgeLabelBackground: '#ffffff',
+          noteBkgColor: '#fef3c7',
+          noteBorderColor: '#f59e0b',
+          noteTextColor: '#92400e',
+          actorBkg: '#eef2ff',
+          actorBorder: '#2C64E3',
+          actorTextColor: '#1e3a5f',
+          signalColor: '#334155',
+          signalTextColor: '#334155',
         },
         flowchart: {
           htmlLabels: true,
