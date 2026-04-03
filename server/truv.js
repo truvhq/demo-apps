@@ -83,6 +83,14 @@ export class TruvClient {
 
   // --- Company Search ---
 
+  async searchProviders(query, productType, dataSource) {
+    const params = new URLSearchParams();
+    if (query) params.set('search', query);
+    if (productType) params.set('product_type', productType);
+    if (dataSource) params.set('data_source', dataSource);
+    return this._request('GET', `providers/?${params}`);
+  }
+
   async searchCompanies(query, productType) {
     const params = new URLSearchParams({ query });
     if (productType) params.set('product_type', productType);

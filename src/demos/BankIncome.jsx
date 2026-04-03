@@ -130,7 +130,7 @@ export function BankIncomeDemo() {
 
         {screen === 'select' && introStep === 3 && (
           <div class="max-w-lg mx-auto px-8 py-10">
-            <ApplicationForm onSubmit={handleFormSubmit} submitting={loading} productType="income" employerLabel="Financial institution" />
+            <ApplicationForm onSubmit={handleFormSubmit} submitting={loading} productType="income" employerLabel="Financial institution" dataSource="financial_accounts" />
           </div>
         )}
 

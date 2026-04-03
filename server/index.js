@@ -36,6 +36,17 @@ app.get('/api/companies', async (req, res) => {
   } catch (err) { console.error(err); res.json([]); }
 });
 
+// --- Provider search (financial institutions) ---
+app.get('/api/providers', async (req, res) => {
+  try {
+    const query = req.query.q;
+    if (!query) return res.json([]);
+    const result = await truv.searchProviders(query, req.query.product_type, req.query.data_source);
+    const data = result.data?.results || result.data || [];
+    res.json(Array.isArray(data) ? data : []);
+  } catch (err) { console.error(err); res.json([]); }
+});
+
 // --- Webhook receiver ---
 let tunnelUrl = null;
 

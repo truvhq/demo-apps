@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import { CompanySearch } from './CompanySearch.jsx';
 
-export function ApplicationForm({ onSubmit, submitting, productType, showEmployer = true, employerLabel }) {
+export function ApplicationForm({ onSubmit, submitting, productType, showEmployer = true, employerLabel, dataSource }) {
   const [agree, setAgree] = useState(true);
   const [employer, setEmployer] = useState({ name: '', id: null });
   const isAssets = productType === 'assets';
@@ -35,8 +35,7 @@ export function ApplicationForm({ onSubmit, submitting, productType, showEmploye
       {showEmployer && (
         <div class="mb-4">
           <label class="text-sm font-medium mb-1.5 block">{label}</label>
-          <CompanySearch value={employer.name} onChange={setEmployer} productType={productType} placeholder={isAssets ? 'Search for bank or institution...' : 'Search for employer...'} />
-          <p class="text-xs text-gray-400 mt-1">Search uses <code>GET /v1/company-mappings-search/</code></p>
+          <CompanySearch value={employer.name} onChange={setEmployer} productType={productType} dataSource={dataSource} placeholder={dataSource === 'financial_accounts' ? 'Search for bank or institution...' : 'Search for employer...'} />
         </div>
       )}
       <div class="mb-4"><label class="text-sm font-medium mb-1.5 block">Email</label><input name="email" type="email" placeholder="joe@example.com" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
