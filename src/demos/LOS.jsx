@@ -230,7 +230,7 @@ export function LOSDemo({ screen, param }) {
           {order?.share_url && (
             <div class="border border-[#d2d2d7] rounded-xl p-4 mb-6 bg-[#f5f5f7]">
               <div class="text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-2">Share URL (sent to borrower)</div>
-              <a href={order.share_url} target="_blank" class="text-[13px] text-primary font-mono break-all hover:underline">{order.share_url}</a>
+              <a href={order.share_url} target="_blank" rel="noopener noreferrer" class="text-[13px] text-primary font-mono break-all hover:underline">{order.share_url}</a>
             </div>
           )}
 

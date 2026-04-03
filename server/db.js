@@ -151,7 +151,8 @@ export function insertApiLog({ userId, sessionId, method, endpoint, requestBody,
 
 export function getApiLogsByUserId(userId, sessionId) {
   if (sessionId) {
-    return getDb().prepare('SELECT * FROM api_logs WHERE user_id = ? OR session_id = ? ORDER BY id ASC').all(userId, sessionId);
+    // Return user-scoped logs + session-scoped logs that have no user_id (pre-order search calls)
+    return getDb().prepare('SELECT * FROM api_logs WHERE user_id = ? OR (user_id IS NULL AND session_id = ?) ORDER BY id ASC').all(userId, sessionId);
   }
   return getDb().prepare('SELECT * FROM api_logs WHERE user_id = ? ORDER BY id ASC').all(userId);
 }
