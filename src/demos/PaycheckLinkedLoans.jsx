@@ -8,14 +8,14 @@ import { DDSReport } from '../components/reports/DDSReport.jsx';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 
 const STEPS = [
-  { title: 'Collect applicant info', guide: '<p>The form collects applicant details. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>Token uses <code>product_type: pll</code> with account details for payroll deductions.</p>' },
-  { title: 'Connect via Bridge', guide: '<p>Bridge opens as a popup. The user selects their employer and confirms the payroll deduction.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
-  { title: 'Webhook processing', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
-  { title: 'Review results', guide: '<p>The public token is exchanged for a link report:</p><pre>POST /v1/link-access-tokens/\nGET /v1/links/{link_id}/pll/report</pre><p>Confirms the payroll deduction was set up.</p>' },
+  { title: 'Applicant submits information', guide: '<p>The form collects applicant details. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>Token uses <code>product_type: pll</code> with account details for payroll deductions.</p>' },
+  { title: 'Applicant connects payroll', guide: '<p>Bridge opens as a popup. The user selects their employer and confirms the payroll deduction.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
+  { title: 'Truv sets up deduction', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
+  { title: 'Team Member reviews confirmation', guide: '<p>Reports are fetched via user reports endpoints:</p><pre>POST /v1/users/{user_id}/reports/\nGET /v1/users/{user_id}/deposit_switch/reports/</pre><p>Returns income verification and deposit switch confirmation.</p>' },
 ];
 
 const DIAGRAM = `sequenceDiagram
-  participant App as Your App
+  participant App as Lending Platform
   participant Truv as Truv API
   participant Bridge as Truv Bridge
   App->>Truv: POST /v1/users/
@@ -25,24 +25,25 @@ const DIAGRAM = `sequenceDiagram
   Truv-->>App: bridge_token
   App->>Bridge: TruvBridge.init({ bridgeToken })
   Bridge-->>App: onSuccess(public_token)
-  Truv->>App: Webhook: task-status-updated (done)
   App->>Truv: POST /v1/link-access-tokens/
-  Truv-->>App: link_id
-  App->>Truv: GET /v1/links/{link_id}/pll/report
-  Truv-->>App: Payroll deduction confirmed`;
+  Truv-->>App: access_token
+  Truv->>App: Webhook: task-status-updated (done)
+  App->>Truv: POST /v1/users/{user_id}/reports/
+  Truv-->>App: VOIE Report
+  App->>Truv: GET /v1/users/{user_id}/deposit-switch/reports/
+  Truv-->>App: Deposit switch report`;
 
 export function PaycheckLinkedLoansDemo() {
   const [screen, setScreen] = useState('select');
   const [introStep, setIntroStep] = useState(1);
   const [formData, setFormData] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [publicToken, setPublicToken] = useState(null);
   const [incomeReport, setIncomeReport] = useState(null);
   const [ddsReport, setDdsReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const fetchedRef = useRef(false);
 
-  const { panel, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
+  const { panel, sessionId, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
 
   async function handleFormSubmit(data) {
     setFormData(data);
@@ -62,7 +63,7 @@ export function PaycheckLinkedLoansDemo() {
       if (window.TruvBridge) {
         const opts = {
           bridgeToken: result.bridge_token,
-          onSuccess: (t) => { setPublicToken(t); setCurrentStep(2); setScreen('waiting'); },
+          onSuccess: () => { setCurrentStep(2); setScreen('waiting'); },
           onEvent: (name, d) => addBridgeEvent(name, d),
         };
         window.TruvBridge.init(opts).open();
@@ -72,7 +73,7 @@ export function PaycheckLinkedLoansDemo() {
   }
 
   useEffect(() => {
-    if (screen !== 'waiting' || !publicToken || fetchedRef.current) return;
+    if (screen !== 'waiting' || !userId || fetchedRef.current) return;
     const done = panel.webhooks.some(w => {
       const p = parsePayload(w.payload);
       return (p.event_type === 'task-status-updated' && p.status === 'done')
@@ -82,11 +83,11 @@ export function PaycheckLinkedLoansDemo() {
       setCurrentStep(3);
       setScreen('review');
       (async () => {
-        const encoded = encodeURIComponent(publicToken);
+        const encodedUserId = encodeURIComponent(userId);
         try {
           const [incomeResp, ddsResp] = await Promise.all([
-            fetch(`${API_BASE}/api/link-report/${encoded}/income?user_id=${userId}`),
-            fetch(`${API_BASE}/api/link-report/${encoded}/deposit_switch?user_id=${userId}`),
+            fetch(`${API_BASE}/api/users/${encodedUserId}/reports/income`),
+            fetch(`${API_BASE}/api/users/${encodedUserId}/reports/deposit_switch`),
           ]);
           if (incomeResp.ok) setIncomeReport(await incomeResp.json());
           if (ddsResp.ok) setDdsReport(await ddsResp.json());
@@ -94,7 +95,7 @@ export function PaycheckLinkedLoansDemo() {
         } catch (e) { console.error(e); }
       })();
     }
-  }, [panel.webhooks, screen, publicToken]);
+  }, [panel.webhooks, screen, userId]);
 
   function resetDemo() {
     reset();
@@ -103,7 +104,6 @@ export function PaycheckLinkedLoansDemo() {
     setIntroStep(1);
     setFormData(null);
     setUserId(null);
-    setPublicToken(null);
     setIncomeReport(null);
     setDdsReport(null);
   }
@@ -111,16 +111,16 @@ export function PaycheckLinkedLoansDemo() {
   const isIntro = screen === 'select' && introStep <= 2;
 
   return (
-    <Layout title="Truv Quickstart" badge="Paycheck-Linked Loans" steps={STEPS} panel={panel} hidePanel={isIntro}>
+    <Layout badge="Paycheck-Linked Loans" steps={STEPS} panel={panel} hidePanel={isIntro}>
       <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
         {screen === 'select' && introStep === 1 && (
           <div class="intro-slide">
             <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
               <div class="animate-slideUp">
-                <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Paycheck-Linked Lending</div>
-                <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Set up payroll<br />deductions</h2>
-                <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
-                  Connect to a payroll provider and set up automatic payroll deductions for loan repayment.
+                <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Consumer Credit · Paycheck-Linked Loans</div>
+                <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#171717] mb-4">Set up payroll<br />loan repayment</h2>
+                <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[440px] mx-auto mb-7">
+                  The applicant connects their payroll provider and authorizes automatic deductions for loan repayment. Payments start on the next pay cycle.
                 </p>
               </div>
               <div class="animate-slideUp delay-2">
@@ -133,7 +133,7 @@ export function PaycheckLinkedLoansDemo() {
         {screen === 'select' && introStep === 2 && (
           <IntroSlide label="PLL → Architecture" title="Paycheck-linked lending flow" subtitle="Uses the User + Bridge Token flow with product_type: pll and account details for the deduction target." diagram={DIAGRAM}>
             <div class="w-full max-w-xs mx-auto flex gap-3">
-              <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
+              <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#171717] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
               <button onClick={() => setIntroStep(3)} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Continue</button>
             </div>
           </IntroSlide>
@@ -141,7 +141,7 @@ export function PaycheckLinkedLoansDemo() {
 
         {screen === 'select' && introStep === 3 && (
           <div class="max-w-lg mx-auto px-8 py-10">
-            <ApplicationForm onSubmit={handleFormSubmit} submitting={loading} productType="pll" />
+            <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="pll" />
           </div>
         )}
 

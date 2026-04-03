@@ -36,6 +36,7 @@ export function initDb() {
     CREATE TABLE IF NOT EXISTS api_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id TEXT,
+      session_id TEXT,
       method TEXT NOT NULL,
       endpoint TEXT NOT NULL,
       request_body TEXT,
@@ -134,15 +135,18 @@ export function getAllOrders() {
 
 // --- API Logs ---
 
-export function insertApiLog({ userId, method, endpoint, requestBody, responseBody, statusCode, durationMs }) {
+export function insertApiLog({ userId, sessionId, method, endpoint, requestBody, responseBody, statusCode, durationMs }) {
   const conn = getDb();
   const info = conn.prepare(
-    'INSERT INTO api_logs (user_id, method, endpoint, request_body, response_body, status_code, duration_ms) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run(userId || null, method, endpoint, requestBody || null, responseBody || null, statusCode || null, durationMs || null);
+    'INSERT INTO api_logs (user_id, session_id, method, endpoint, request_body, response_body, status_code, duration_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(userId || null, sessionId || null, method, endpoint, requestBody || null, responseBody || null, statusCode || null, durationMs || null);
   return conn.prepare('SELECT * FROM api_logs WHERE id = ?').get(info.lastInsertRowid);
 }
 
-export function getApiLogsByUserId(userId) {
+export function getApiLogsByUserId(userId, sessionId) {
+  if (sessionId) {
+    return getDb().prepare('SELECT * FROM api_logs WHERE user_id = ? OR session_id = ? ORDER BY id ASC').all(userId, sessionId);
+  }
   return getDb().prepare('SELECT * FROM api_logs WHERE user_id = ? ORDER BY id ASC').all(userId);
 }
 

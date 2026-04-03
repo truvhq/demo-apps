@@ -13,7 +13,7 @@ export function MermaidDiagram({ definition, id }) {
         theme: 'base',
         themeVariables: {
           primaryColor: '#f5f5f7',
-          primaryTextColor: '#1d1d1f',
+          primaryTextColor: '#171717',
           primaryBorderColor: '#d2d2d7',
           lineColor: '#d2d2d7',
           secondaryColor: '#f5f5f7',

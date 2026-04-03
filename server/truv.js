@@ -223,6 +223,12 @@ export class TruvClient {
     return this._request('GET', `users/${userId}/income_insights/reports/${reportId}/`);
   }
 
+  // Deposit switch report
+  // See: https://docs.truv.com/reference/dds-report-retrieve
+  async getDepositSwitchReport(userId) {
+    return this._request('GET', `users/${userId}/deposit-switch/reports/`);
+  }
+
   // --- Document Collections API ---
 
   async createDocumentCollection(documents) {

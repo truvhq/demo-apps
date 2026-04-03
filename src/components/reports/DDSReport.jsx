@@ -23,7 +23,7 @@ export function DDSReport({ report }) {
             <div key={i} class={i > 0 ? 'mt-4 pt-4 border-t border-[#f5f5f7]' : ''}>
               {acct.bank_name && <Row label="Bank" value={acct.bank_name} />}
               {acct.account_type && <Row label="Account Type" value={acct.account_type} />}
-              {acct.account_number && <Row label="Account Number" value={`••••${acct.account_number.slice(-4)}`} />}
+              {acct.account_number && <Row label="Account Number" value={`••••${String(acct.account_number).slice(-4)}`} />}
               {acct.routing_number && <Row label="Routing Number" value={acct.routing_number} />}
               {acct.deposit_type && <Row label="Deposit Type" value={acct.deposit_type} />}
               {acct.deposit_value && (

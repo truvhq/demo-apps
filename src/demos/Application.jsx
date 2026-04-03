@@ -1,32 +1,69 @@
 import { useState, useEffect } from 'preact/hooks';
 import { Layout, usePanel, API_BASE, IntroSlide } from '../components/index.js';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
-import { BridgeScreen, OrderWaitingScreen, OrderResultsScreen } from '../components/screens/index.js';
+import { BridgeScreen, OrderWaitingScreen } from '../components/screens/index.js';
+import { VoieReport } from '../components/reports/VoieReport.jsx';
+import { AssetsReport } from '../components/reports/AssetsReport.jsx';
+import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
 import { navigate } from '../App.jsx';
 
 const STEPS = [
   {
-    title: 'Collect applicant info',
-    guide: '<p>The form collects applicant PII and employer. Companies are searched via:</p>'
+    title: 'Borrower fills out application',
+    guide: '<p>The form collects borrower PII and employer/institution. Employers are searched via:</p>'
       + '<pre>GET /v1/company-mappings-search/?query=...</pre>'
+      + '<p>For financial institutions (banks):</p>'
+      + '<pre>GET /v1/providers/?search=...</pre>'
       + '<p>Then an order is created:</p><pre>POST /v1/orders/</pre>'
-      + '<p><a href="https://docs.truv.com/reference/company_autocomplete_search" target="_blank">Company Search</a> · <a href="https://docs.truv.com/reference/create-an-order" target="_blank">Orders</a></p>',
+      + '<p><a href="https://docs.truv.com/reference/company_autocomplete_search" target="_blank">Company Search</a> · <a href="https://docs.truv.com/reference/list_providers" target="_blank">Providers</a> · <a href="https://docs.truv.com/reference/create-an-order" target="_blank">Orders</a></p>',
   },
-  { title: 'Bridge verification', guide: '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p><p><a href="https://docs.truv.com/docs/bridge-overview" target="_blank">Bridge Docs →</a></p>' },
-  { title: 'Webhook processing', guide: '<p>Truv sends webhooks as the verification progresses.</p><p><a href="https://docs.truv.com/docs/webhooks" target="_blank">Webhooks Docs →</a></p>' },
-  { title: 'Retrieve results', guide: '<p>Fetch reports:</p><pre>POST /v1/users/{user_id}/reports/</pre><p><a href="https://docs.truv.com/reference/users_reports" target="_blank">Reports API →</a></p>' },
+  { title: 'Borrower completes verification', guide: '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p><p><a href="https://docs.truv.com/docs/bridge-overview" target="_blank">Bridge Docs →</a></p>' },
+  { title: 'Truv processes results', guide: '<p>Truv sends webhooks as the verification progresses.</p><p><a href="https://docs.truv.com/docs/webhooks" target="_blank">Webhooks Docs →</a></p>' },
+  { title: 'Loan Processor reviews report', guide: '<p>Fetch reports:</p><pre>POST /v1/users/{user_id}/reports/</pre><p><a href="https://docs.truv.com/reference/users_reports" target="_blank">Reports API →</a></p>' },
 ];
 
 
 export function ApplicationDemo({ screen, param }) {
   const [productType, setProductType] = useState(null);
+  const [userId, setUserId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const { panel, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
+  const [reportData, setReportData] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState(null);
+  const { panel, sessionId, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
 
   useEffect(() => {
     const stepMap = { '': 0, 'bridge': 1, 'waiting': 2, 'results': 3 };
     setCurrentStep(stepMap[screen] ?? 0);
   }, [screen]);
+
+  // Fetch reports when navigating to results screen
+  useEffect(() => {
+    if (screen !== 'results' || !userId || !productType || reportData) return;
+    setReportLoading(true);
+    (async () => {
+      try {
+        const reports = {};
+        if (productType === 'assets') {
+          const [assetsResp, insightsResp] = await Promise.all([
+            fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/reports/assets`),
+            fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/reports/income_insights`),
+          ]);
+          if (assetsResp.ok) reports.assets = await assetsResp.json();
+          if (insightsResp.ok) reports.income_insights = await insightsResp.json();
+        } else {
+          const reportType = productType === 'employment' ? 'employment' : 'income';
+          const resp = await fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/reports/${reportType}`);
+          if (resp.ok) reports[reportType] = await resp.json();
+        }
+        setReportData(reports);
+      } catch (e) {
+        console.error(e);
+        setReportError('Failed to load report');
+      }
+      setReportLoading(false);
+    })();
+  }, [screen, userId, productType]);
 
   async function handleSubmit(formData) {
     setSubmitting(true);
@@ -38,9 +75,10 @@ export function ApplicationDemo({ screen, param }) {
       });
       const data = await resp.json();
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setSubmitting(false); return; }
+      if (data.user_id) setUserId(data.user_id);
       const cmid = formData.company_mapping_id;
       navigate(`mortgage/pos-application/bridge/${data.order_id}${cmid ? '/' + cmid : ''}`);
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); alert('Network error. Please try again.'); }
     setSubmitting(false);
   }
 
@@ -49,7 +87,7 @@ export function ApplicationDemo({ screen, param }) {
   const [orderId, companyMappingId] = (param || '').split('/');
 
   return (
-    <Layout title="Truv Quickstart" badge="POS Application" steps={STEPS} panel={panel} flush={isBridge} hidePanel={isIntro}>
+    <Layout badge="POS Application" steps={STEPS} panel={panel} flush={isBridge} hidePanel={isIntro}>
       {screen === 'bridge' && (
         <BridgeScreen orderId={orderId} demoPath="mortgage/pos-application" companyMappingId={companyMappingId} addBridgeEvent={addBridgeEvent} startPolling={startPolling} />
       )}
@@ -57,12 +95,19 @@ export function ApplicationDemo({ screen, param }) {
         <OrderWaitingScreen orderId={param} demoPath="mortgage/pos-application" webhooks={panel.webhooks} startPolling={startPolling} />
       )}
       {screen === 'results' && (
-        <OrderResultsScreen orderId={param} onBack={() => { reset(); setProductType(null); navigate('mortgage/pos-application'); }} backLabel="New Application" />
+        <ReportResults
+          reportData={reportData}
+          reportLoading={reportLoading}
+          reportError={reportError}
+          productType={productType}
+          onBack={() => { reset(); setProductType(null); setUserId(null); setReportData(null); setReportError(null); navigate('mortgage/pos-application'); }}
+          backLabel="New Application"
+        />
       )}
       {!screen && (
         productType ? (
           <div class="max-w-lg mx-auto">
-            <ApplicationForm onSubmit={handleSubmit} submitting={submitting} productType={productType} />
+            <ApplicationForm sessionId={sessionId} onSubmit={handleSubmit} submitting={submitting} productType={productType} />
           </div>
         ) : (
           <IntroScreen onStart={setProductType} />
@@ -72,33 +117,45 @@ export function ApplicationDemo({ screen, param }) {
   );
 }
 
+function ReportResults({ reportData, reportLoading, reportError, productType, onBack, backLabel = 'Back', maxWidth = 'max-w-lg' }) {
+  if (reportError) return <div class={`${maxWidth} mx-auto text-center py-16 text-red-600`}>{reportError}</div>;
+  if (reportLoading || !reportData) return <div class={`${maxWidth} mx-auto text-center py-16`}><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;
+
+  return (
+    <div class={`${maxWidth} mx-auto`}>
+      <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Results</h2>
+      <p class="text-sm text-gray-500 mb-7">{productType} verification</p>
+      {reportData.income && <VoieReport report={reportData.income} />}
+      {reportData.employment && <VoieReport report={reportData.employment} />}
+      {reportData.assets && <AssetsReport report={reportData.assets} />}
+      {reportData.income_insights && <IncomeInsightsReport report={reportData.income_insights} />}
+      <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
+        <button class="px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:border-primary hover:text-primary" onClick={onBack}>{backLabel}</button>
+      </div>
+    </div>
+  );
+}
+
 const PRODUCTS = [
   {
     id: 'income',
     name: 'Income Verification',
-    desc: 'Verify pay history, earnings, and employment income from payroll data.',
-    useCase: 'Loan underwriting, rental applications, benefits eligibility',
+    desc: 'Verify current income, pay frequency, and YTD earnings for loan qualification.',
+    useCase: 'Purchase loans, refinances, HELOCs',
     report: 'VOIE Report',
-  },
-  {
-    id: 'employment',
-    name: 'Employment Verification',
-    desc: 'Verify job title, employer, employment status, and tenure.',
-    useCase: 'Background checks, mortgage pre-approval, I-9 compliance',
-    report: 'VOE Report',
   },
   {
     id: 'assets',
     name: 'Assets Verification',
-    desc: 'Verify bank account balances, transactions, and deposit history.',
-    useCase: 'Mortgage qualification, proof of funds, account ownership',
+    desc: 'Verify bank balances, account ownership, and deposit history.',
+    useCase: 'Proof of funds, mortgage qualification',
     report: 'VOA + Income Insights',
   },
 ];
 
 const DIAGRAMS = {
   income: `sequenceDiagram
-  participant App as Your App
+  participant App as Lender POS
   participant Truv as Truv API
   participant Bridge as Truv Bridge
   App->>Truv: GET /v1/company-mappings-search/
@@ -112,32 +169,17 @@ const DIAGRAMS = {
   App->>Truv: POST /v1/users/{user_id}/reports/
   Note right of Truv: { is_voe: false }
   Truv-->>App: VOIE Report (income + employment data)`,
-  employment: `sequenceDiagram
-  participant App as Your App
+  assets: `sequenceDiagram
+  participant App as Lender POS
   participant Truv as Truv API
   participant Bridge as Truv Bridge
-  App->>Truv: GET /v1/company-mappings-search/
-  Truv-->>App: company_mapping_id
+  App->>Truv: GET /v1/providers/?data_source=financial_accounts
+  Truv-->>App: provider_id
   App->>Truv: POST /v1/orders/
-  Note right of Truv: PII + employer + products: ["employment"]
+  Note right of Truv: PII + financial_institutions: [{ id: provider_id }] + products: ["assets"]
   Truv-->>App: bridge_token, user_id
   App->>Bridge: TruvBridge.init({ bridgeToken })
-  Bridge-->>App: User logs in with employer
-  Truv->>App: Webhook: order-status-updated (completed)
-  App->>Truv: POST /v1/users/{user_id}/reports/
-  Note right of Truv: { is_voe: true }
-  Truv-->>App: VOE Report (employment data)`,
-  assets: `sequenceDiagram
-  participant App as Your App
-  participant Truv as Truv API
-  participant Bridge as Truv Bridge
-  App->>Truv: GET /v1/company-mappings-search/
-  Truv-->>App: company_mapping_id (bank)
-  App->>Truv: POST /v1/orders/
-  Note right of Truv: PII + products: ["assets"]
-  Truv-->>App: bridge_token, user_id
-  App->>Bridge: TruvBridge.init({ bridgeToken, companyMappingId })
-  Bridge-->>App: User connects bank account
+  Bridge-->>App: Borrower connects bank account
   Truv->>App: Webhook: order-status-updated (completed)
   App->>Truv: POST /v1/users/{user_id}/assets/reports/
   Truv-->>App: VOA Report (balances + transactions)
@@ -158,7 +200,7 @@ function IntroScreen({ onStart }) {
         diagram={DIAGRAMS[selected]}
       >
         <div class="w-full max-w-xs mx-auto flex gap-3">
-          <button onClick={() => setStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">
+          <button onClick={() => setStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#171717] font-semibold rounded-full hover:bg-[#f5f5f7]">
             Back
           </button>
           <button onClick={() => onStart(selected)} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
@@ -173,10 +215,10 @@ function IntroScreen({ onStart }) {
     <div class="intro-slide">
       <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
         <div class="animate-slideUp">
-          <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">New Application Flow</div>
-          <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Verify income, employment,<br />or assets</h2>
-          <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
-            The user fills in their details, selects their employer or bank, and completes verification through Bridge.
+          <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Mortgage · Point of Sale</div>
+          <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#171717] mb-4">Verify during the<br />loan application</h2>
+          <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[440px] mx-auto mb-7">
+            A borrower fills out a loan application and verifies their income or assets in real time. Truv creates an order, launches Bridge, and returns a GSE-ready report.
           </p>
         </div>
 
@@ -188,15 +230,15 @@ function IntroScreen({ onStart }) {
               class={`border rounded-2xl px-6 py-5 cursor-pointer transition-all duration-200 ${
                 selected === p.id
                   ? 'border-primary bg-[#f5f8ff] shadow-sm'
-                  : 'border-[#d2d2d7]/60 hover:border-[#86868b] bg-white/80 backdrop-blur-sm'
+                  : 'border-[#d2d2d7]/60 hover:border-[#8E8E93] bg-white/80 backdrop-blur-sm'
               }`}
             >
               <div class="flex items-start justify-between mb-1">
-                <h3 class="text-[15px] font-semibold text-[#1d1d1f]">{p.name}</h3>
-                <span class="text-[11px] font-medium text-[#86868b] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{p.report}</span>
+                <h3 class="text-[15px] font-semibold text-[#171717]">{p.name}</h3>
+                <span class="text-[11px] font-medium text-[#8E8E93] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{p.report}</span>
               </div>
-              <p class="text-[14px] text-[#6e6e73] leading-[1.5] mb-2">{p.desc}</p>
-              <p class="text-[12px] text-[#86868b]">{p.useCase}</p>
+              <p class="text-[14px] text-[#8E8E93] leading-[1.5] mb-2">{p.desc}</p>
+              <p class="text-[12px] text-[#8E8E93]">{p.useCase}</p>
             </div>
           ))}
         </div>

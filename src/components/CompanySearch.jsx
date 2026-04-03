@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { API_BASE } from './hooks.js';
 
-export function CompanySearch({ value, onChange, productType, dataSource, placeholder }) {
+export function CompanySearch({ value, onChange, productType, dataSource, placeholder, sessionId }) {
   const [query, setQuery] = useState(value || '');
   const [results, setResults] = useState([]);
   const [open, setOpen] = useState(false);
@@ -25,10 +25,11 @@ export function CompanySearch({ value, onChange, productType, dataSource, placeh
     timerRef.current = setTimeout(async () => {
       try {
         let resp;
+        const sid = sessionId ? `&session_id=${encodeURIComponent(sessionId)}` : '';
         if (dataSource === 'financial_accounts') {
-          resp = await fetch(`${API_BASE}/api/providers?q=${encodeURIComponent(q)}&product_type=${encodeURIComponent(productType || 'income')}&data_source=financial_accounts`);
+          resp = await fetch(`${API_BASE}/api/providers?q=${encodeURIComponent(q)}&product_type=${encodeURIComponent(productType || 'income')}&data_source=financial_accounts${sid}`);
         } else {
-          resp = await fetch(`${API_BASE}/api/companies?q=${encodeURIComponent(q)}&product_type=${encodeURIComponent(productType || 'income')}`);
+          resp = await fetch(`${API_BASE}/api/companies?q=${encodeURIComponent(q)}&product_type=${encodeURIComponent(productType || 'income')}${sid}`);
         }
         const data = await resp.json();
         setResults(data.slice(0, 8));

@@ -10,6 +10,7 @@ import ordersRoutes from './routes/orders.js';
 import reportsRoutes from './routes/reports.js';
 import bridgeRoutes from './routes/bridge.js';
 import uploadDocumentsRoutes from './routes/upload-documents.js';
+import userReportsRoutes from './routes/user-reports.js';
 
 const PORT = process.env.PORT || 3000;
 const { API_CLIENT_ID, API_SECRET } = process.env;
@@ -32,6 +33,7 @@ app.get('/api/companies', async (req, res) => {
     const query = req.query.q;
     if (!query) return res.json([]);
     const result = await truv.searchCompanies(query, req.query.product_type);
+    apiLogger.logApiCall({ sessionId: req.query.session_id, method: 'GET', endpoint: `/v1/company-mappings-search/?query=${query}`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
     res.json(result.data || []);
   } catch (err) { console.error(err); res.json([]); }
 });
@@ -42,6 +44,7 @@ app.get('/api/providers', async (req, res) => {
     const query = req.query.q;
     if (!query) return res.json([]);
     const result = await truv.searchProviders(query, req.query.product_type, req.query.data_source);
+    apiLogger.logApiCall({ sessionId: req.query.session_id, method: 'GET', endpoint: `/v1/providers/?search=${query}`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
     const data = result.data?.results || result.data || [];
     res.json(Array.isArray(data) ? data : []);
   } catch (err) { console.error(err); res.json([]); }
@@ -71,7 +74,7 @@ app.get('/api/tunnel-url', (_req, res) => res.json({ url: tunnelUrl }));
 
 // --- Polling endpoints ---
 app.get('/api/users/:userId/webhooks', (req, res) => res.json(db.getWebhookEventsByUserId(req.params.userId)));
-app.get('/api/users/:userId/logs', (req, res) => res.json(db.getApiLogsByUserId(req.params.userId)));
+app.get('/api/users/:userId/logs', (req, res) => res.json(db.getApiLogsByUserId(req.params.userId, req.query.session_id)));
 
 // --- Demo routes ---
 const deps = { truv, db, apiLogger };
@@ -79,6 +82,7 @@ app.use(ordersRoutes(deps));
 app.use(reportsRoutes(deps));
 app.use(bridgeRoutes(deps));
 app.use(uploadDocumentsRoutes(deps));
+app.use(userReportsRoutes(deps));
 
 // --- Start ---
 app.listen(PORT, async () => {

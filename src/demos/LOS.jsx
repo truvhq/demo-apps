@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'preact/hooks';
-import { Layout, OrderResults, WebhookFeed, usePanel, API_BASE, parsePayload, IntroSlide } from '../components/index.js';
+import { Layout, WebhookFeed, usePanel, API_BASE, parsePayload, IntroSlide } from '../components/index.js';
+import { VoieReport } from '../components/reports/VoieReport.jsx';
+import { AssetsReport } from '../components/reports/AssetsReport.jsx';
+import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
 
 const STEPS = [
-  { title: 'Create order', guide: '<p>Create a verification order with applicant PII. Truv sends the share link via email/SMS.</p><pre>POST /v1/orders/\n{\n  "first_name": "...",\n  "email": "...",\n  "phone": "...",\n  "products": ["income"]\n}</pre>' },
-  { title: 'Waiting for user', guide: '<p>The user receives an email/SMS with a verification link. They complete Bridge on their own device.</p><p>Monitor webhooks for status updates.</p>' },
-  { title: 'View results', guide: '<p>Once the user completes verification, fetch reports:</p><pre>POST /v1/users/{user_id}/reports/</pre>' },
+  { title: 'Loan Processor creates order', guide: '<p>Create a verification order with borrower PII. Truv sends the share link via email/SMS.</p><pre>POST /v1/orders/\n{\n  "first_name": "...",\n  "email": "...",\n  "phone": "...",\n  "products": ["income"]\n}</pre>' },
+  { title: 'Borrower receives link', guide: '<p>The user receives an email/SMS with a verification link. They complete Bridge on their own device.</p><p>Monitor webhooks for status updates.</p>' },
+  { title: 'Loan Processor reviews results', guide: '<p>Once the user completes verification, fetch reports:</p><pre>POST /v1/users/{user_id}/reports/</pre>' },
 ];
 
 const COMPLETED_APPLICANTS = [
@@ -14,9 +17,9 @@ const COMPLETED_APPLICANTS = [
 ];
 
 const VERIFIER_DIAGRAM = `sequenceDiagram
-  participant V as Verifier
+  participant V as Loan Processor
   participant Truv as Truv API
-  participant User as User (remote)
+  participant User as Borrower
   V->>Truv: POST /v1/orders/
   Note right of Truv: PII + email + phone + products
   Truv-->>V: order_id, share_url
@@ -73,11 +76,37 @@ export function LOSDemo({ screen, param }) {
     if (isDone && !reportData) {
       setOrder(prev => ({ ...prev, status: 'completed' }));
       setCurrentStep(2);
-      // Fetch report
+      // Fetch reports via user reports endpoint
       (async () => {
         try {
-          const resp = await fetch(`${API_BASE}/api/orders/${order.order_id}/report`);
-          if (resp.ok) setReportData(await resp.json());
+          const uid = encodeURIComponent(order.user_id);
+          const products = testApplicant?.products || [];
+          const reports = {};
+          const fetches = [];
+          if (products.includes('income')) {
+            fetches.push(
+              fetch(`${API_BASE}/api/users/${uid}/reports/income`)
+                .then(r => r.ok ? r.json() : null).then(d => { if (d) reports.income = d; })
+            );
+          }
+          if (products.includes('employment')) {
+            fetches.push(
+              fetch(`${API_BASE}/api/users/${uid}/reports/employment`)
+                .then(r => r.ok ? r.json() : null).then(d => { if (d) reports.employment = d; })
+            );
+          }
+          if (products.includes('assets')) {
+            fetches.push(
+              fetch(`${API_BASE}/api/users/${uid}/reports/assets`)
+                .then(r => r.ok ? r.json() : null).then(d => { if (d) reports.assets = d; })
+            );
+            fetches.push(
+              fetch(`${API_BASE}/api/users/${uid}/reports/income_insights`)
+                .then(r => r.ok ? r.json() : null).then(d => { if (d) reports.income_insights = d; })
+            );
+          }
+          await Promise.all(fetches);
+          setReportData(reports);
         } catch (e) { console.error(e); }
       })();
     }
@@ -94,29 +123,29 @@ export function LOSDemo({ screen, param }) {
   }
 
   return (
-    <Layout title="Truv Quickstart" badge="LOS" steps={STEPS} panel={panel} hidePanel={showIntro || showAddForm}>
+    <Layout badge="LOS" steps={STEPS} panel={panel} hidePanel={showIntro || showAddForm}>
 
       {/* Intro step 1 */}
       {showIntro && introStep === 1 && (
         <div class="intro-slide">
           <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
             <div class="animate-slideUp">
-              <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">LOS</div>
-              <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Verify from your<br />LOS</h2>
-              <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
-                Initiate verifications directly from your loan origination system. Create orders using borrower data on file — Truv sends the verification link via email and SMS.
+              <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Mortgage · LOS Integration</div>
+              <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#171717] mb-4">Verify from your<br />loan origination system</h2>
+              <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[440px] mx-auto mb-7">
+                A Loan Processor creates verification orders using borrower data on file and sends a verification link via email or SMS. The borrower completes verification on their own device.
               </p>
             </div>
             <div class="grid gap-3 mb-8 text-left max-w-lg mx-auto animate-slideUp delay-1">
               {[
-                { name: 'Create orders from collected data', desc: 'Use PII from the application — no user interaction needed' },
-                { name: 'Truv sends verification links', desc: 'Email and SMS sent automatically to the applicant' },
+                { name: 'Create orders from collected data', desc: 'Use PII from the application. No user interaction needed.' },
+                { name: 'Truv sends verification links', desc: 'Email and SMS sent automatically to the borrower' },
                 { name: 'Track status remotely', desc: 'Monitor webhook events and order status from the dashboard' },
                 { name: 'Fetch reports on completion', desc: 'Pull VOIE, VOE, or VOA reports once the user completes Bridge' },
               ].map(item => (
                 <div key={item.name} class="border border-[#d2d2d7]/60 rounded-2xl px-5 py-4 bg-white/80 backdrop-blur-sm">
-                  <h3 class="text-[14px] font-semibold text-[#1d1d1f] mb-1">{item.name}</h3>
-                  <p class="text-[13px] text-[#6e6e73] leading-[1.4]">{item.desc}</p>
+                  <h3 class="text-[14px] font-semibold text-[#171717] mb-1">{item.name}</h3>
+                  <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{item.desc}</p>
                 </div>
               ))}
             </div>
@@ -134,11 +163,11 @@ export function LOSDemo({ screen, param }) {
         <IntroSlide
           label="LOS → Architecture"
           title="Remote verification flow"
-          subtitle="The verifier creates orders with applicant PII. Truv sends the verification link via email/SMS. The user completes it on their own."
+          subtitle="The verifier creates orders with borrower PII. Truv sends the verification link via email/SMS. The user completes it on their own."
           diagram={VERIFIER_DIAGRAM}
         >
           <div class="w-full max-w-xs mx-auto flex gap-3">
-            <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
+            <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#171717] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
             <button onClick={() => setIntroSeen(true)} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Continue</button>
           </div>
         </IntroSlide>
@@ -150,13 +179,13 @@ export function LOSDemo({ screen, param }) {
       {/* Dashboard table */}
       {showTable && (
         <div class="max-w-4xl mx-auto px-8 py-10">
-          <h2 class="text-xl font-semibold tracking-tight mb-1 text-[#1d1d1f]">Applicants</h2>
-          <p class="text-[13px] text-[#86868b] mb-5">Completed applicants shown for reference. Your test applicant will receive a verification link.</p>
+          <h2 class="text-xl font-semibold tracking-tight mb-1 text-[#171717]">Borrowers</h2>
+          <p class="text-[13px] text-[#8E8E93] mb-5">Completed borrowers shown for reference. Your test borrower will receive a verification link.</p>
 
           <div class="border border-[#d2d2d7] rounded-xl overflow-hidden bg-white mb-6">
             <table class="w-full text-sm">
               <thead>
-                <tr class="border-b border-[#d2d2d7] bg-[#f5f5f7] text-[#86868b] text-[12px] font-medium uppercase tracking-wide">
+                <tr class="border-b border-[#d2d2d7] bg-[#f5f5f7] text-[#8E8E93] text-[12px] font-medium uppercase tracking-wide">
                   <th class="text-left px-4 py-3">Name</th>
                   <th class="text-left px-4 py-3">Email</th>
                   <th class="text-left px-4 py-3">Phone</th>
@@ -168,23 +197,23 @@ export function LOSDemo({ screen, param }) {
               <tbody>
                 {COMPLETED_APPLICANTS.map((app, i) => (
                   <tr key={i} class="border-b border-[#f5f5f7]">
-                    <td class="px-4 py-3 text-[#6e6e73]">{app.firstName} {app.lastName}</td>
-                    <td class="px-4 py-3 text-[#86868b] font-mono text-[12px]">{app.email}</td>
-                    <td class="px-4 py-3 text-[#86868b] font-mono text-[12px]">{app.phone}</td>
-                    <td class="px-4 py-3">{app.products.map(p => <span key={p} class="inline-block text-[11px] font-medium bg-[#f5f5f7] text-[#6e6e73] px-2 py-0.5 rounded mr-1">{p}</span>)}</td>
+                    <td class="px-4 py-3 text-[#8E8E93]">{app.firstName} {app.lastName}</td>
+                    <td class="px-4 py-3 text-[#8E8E93] font-mono text-[12px]">{app.email}</td>
+                    <td class="px-4 py-3 text-[#8E8E93] font-mono text-[12px]">{app.phone}</td>
+                    <td class="px-4 py-3">{app.products.map(p => <span key={p} class="inline-block text-[11px] font-medium bg-[#f5f5f7] text-[#8E8E93] px-2 py-0.5 rounded mr-1">{p}</span>)}</td>
                     <td class="px-4 py-3"><span class="text-[11px] font-semibold text-[#34c759] bg-green-50 px-2 py-0.5 rounded">completed</span></td>
-                    <td class="px-4 py-3 text-right text-[12px] text-[#86868b]">—</td>
+                    <td class="px-4 py-3 text-right text-[12px] text-[#8E8E93]">—</td>
                   </tr>
                 ))}
 
                 {/* Test applicant */}
                 <tr class="bg-[#fafafa]">
-                  <td class="px-4 py-3 font-medium text-[#1d1d1f]">{testApplicant.firstName} {testApplicant.lastName}</td>
-                  <td class="px-4 py-3 text-[#6e6e73] font-mono text-[12px]">{testApplicant.email || '—'}</td>
-                  <td class="px-4 py-3 text-[#6e6e73] font-mono text-[12px]">{testApplicant.phone || '—'}</td>
+                  <td class="px-4 py-3 font-medium text-[#171717]">{testApplicant.firstName} {testApplicant.lastName}</td>
+                  <td class="px-4 py-3 text-[#8E8E93] font-mono text-[12px]">{testApplicant.email || '—'}</td>
+                  <td class="px-4 py-3 text-[#8E8E93] font-mono text-[12px]">{testApplicant.phone || '—'}</td>
                   <td class="px-4 py-3">{testApplicant.products.map(p => <span key={p} class="inline-block text-[11px] font-medium bg-primary-light text-primary px-2 py-0.5 rounded mr-1">{p}</span>)}</td>
                   <td class="px-4 py-3">
-                    <span class={`text-[11px] font-semibold px-2 py-0.5 rounded ${order?.status === 'completed' ? 'text-[#34c759] bg-green-50' : order ? 'text-[#ff9f0a] bg-amber-50' : 'text-[#86868b] bg-[#f5f5f7]'}`}>
+                    <span class={`text-[11px] font-semibold px-2 py-0.5 rounded ${order?.status === 'completed' ? 'text-[#34c759] bg-green-50' : order ? 'text-[#ff9f0a] bg-amber-50' : 'text-[#8E8E93] bg-[#f5f5f7]'}`}>
                       {order?.status || 'pending'}
                     </span>
                   </td>
@@ -195,7 +224,7 @@ export function LOSDemo({ screen, param }) {
                       </button>
                     )}
                     {order && order.status !== 'completed' && (
-                      <span class="text-[11px] text-[#86868b]">Waiting for user...</span>
+                      <span class="text-[11px] text-[#8E8E93]">Waiting for user...</span>
                     )}
                     {order?.status === 'completed' && (
                       <span class="text-[11px] text-[#34c759] font-medium">Done</span>
@@ -209,7 +238,7 @@ export function LOSDemo({ screen, param }) {
           {/* Share URL display */}
           {order?.share_url && (
             <div class="border border-[#d2d2d7] rounded-xl p-4 mb-6 bg-[#f5f5f7]">
-              <div class="text-[11px] font-semibold text-[#86868b] uppercase tracking-wide mb-2">Share URL (sent to applicant)</div>
+              <div class="text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-2">Share URL (sent to borrower)</div>
               <a href={order.share_url} target="_blank" class="text-[13px] text-primary font-mono break-all hover:underline">{order.share_url}</a>
             </div>
           )}
@@ -217,7 +246,7 @@ export function LOSDemo({ screen, param }) {
           {/* Webhook feed while waiting */}
           {order && order.status !== 'completed' && (
             <div class="mb-6">
-              <div class="text-[13px] font-medium text-[#1d1d1f] mb-3">Waiting for verification...</div>
+              <div class="text-[13px] font-medium text-[#171717] mb-3">Waiting for verification...</div>
               <WebhookFeed webhooks={panel.webhooks} />
             </div>
           )}
@@ -225,8 +254,11 @@ export function LOSDemo({ screen, param }) {
           {/* Report when completed */}
           {reportData && (
             <div class="border border-[#d2d2d7] rounded-xl p-6 bg-white">
-              <h3 class="text-lg font-semibold text-[#1d1d1f] mb-4">Verification Report</h3>
-              <OrderResults data={reportData} />
+              <h3 class="text-lg font-semibold text-[#171717] mb-4">Verification Report</h3>
+              {reportData.income && <VoieReport report={reportData.income} />}
+              {reportData.employment && <VoieReport report={reportData.employment} />}
+              {reportData.assets && <AssetsReport report={reportData.assets} />}
+              {reportData.income_insights && <IncomeInsightsReport report={reportData.income_insights} />}
             </div>
           )}
 
@@ -262,35 +294,35 @@ function AddApplicantForm({ onSubmit }) {
     <div class="intro-slide" style="justify-content: flex-start; padding-top: 3rem;">
       <div class="w-full max-w-md mx-auto px-4">
         <div class="animate-slideUp text-center mb-8">
-          <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#1d1d1f] mb-2">Add Test Applicant</h2>
-          <p class="text-[15px] text-[#86868b] leading-[1.5]">
-            Enter applicant details. Truv will send the verification link via email and/or SMS.
+          <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#171717] mb-2">Add Test Borrower</h2>
+          <p class="text-[15px] text-[#8E8E93] leading-[1.5]">
+            Enter borrower details. Truv will send the verification link via email and/or SMS.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} class="animate-slideUp delay-1 text-left">
           <div class="grid grid-cols-2 gap-3 mb-3">
             <div>
-              <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">First name</label>
+              <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">First name</label>
               <input value={firstName} onInput={e => setFirstName(e.target.value)} placeholder="John" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
             </div>
             <div>
-              <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Last name</label>
+              <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Last name</label>
               <input value={lastName} onInput={e => setLastName(e.target.value)} placeholder="Doe" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
             </div>
           </div>
           <div class="mb-3">
-            <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Email</label>
+            <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Email</label>
             <input type="email" value={email} onInput={e => setEmail(e.target.value)} placeholder="john@example.com" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
-            <p class="text-[11px] text-[#86868b] mt-1">Truv sends the verification link to this email</p>
+            <p class="text-[11px] text-[#8E8E93] mt-1">Truv sends the verification link to this email</p>
           </div>
           <div class="mb-3">
-            <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Phone</label>
+            <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Phone</label>
             <input type="tel" value={phone} onInput={e => setPhone(e.target.value)} placeholder="+14155551234" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
-            <p class="text-[11px] text-[#86868b] mt-1">Truv sends the verification link via SMS</p>
+            <p class="text-[11px] text-[#8E8E93] mt-1">Truv sends the verification link via SMS</p>
           </div>
           <div class="mb-5">
-            <label class="text-[13px] font-medium text-[#1d1d1f] mb-1.5 block">Product</label>
+            <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Product</label>
             <select value={product} onChange={e => setProduct(e.target.value)} class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm bg-white focus:border-primary focus:outline-none">
               <option value="income">Income verification</option>
               <option value="employment">Employment verification</option>

@@ -7,14 +7,14 @@ import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 
 const STEPS = [
-  { title: 'Collect applicant info', guide: '<p>The form collects applicant details. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>This returns a <code>company_mapping_id</code> (not <code>provider_id</code> — that\'s for banks). Pass <code>company_mapping_id</code> when creating the bridge token to deeplink Bridge to that employer.</p><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>The <code>data_sources: [payroll]</code> parameter restricts Bridge to payroll providers only.</p>' },
-  { title: 'Connect via Bridge', guide: '<p>Bridge opens as a popup. The user selects their employer and logs in.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
-  { title: 'Webhook processing', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
-  { title: 'Review results', guide: '<p>The public token is exchanged for a link report:</p><pre>POST /v1/link-access-tokens/\nGET /v1/links/{link_id}/income/report</pre><p>Returns VOIE report with income and employment data.</p>' },
+  { title: 'Applicant submits information', guide: '<p>The form collects applicant details. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>This returns a <code>company_mapping_id</code> (not <code>provider_id</code> — that\'s for banks). Pass <code>company_mapping_id</code> when creating the bridge token to deeplink Bridge to that employer.</p><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>The <code>data_sources: [payroll]</code> parameter restricts Bridge to payroll providers only.</p>' },
+  { title: 'Applicant connects payroll', guide: '<p>Bridge opens as a popup. The user selects their employer and logs in.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
+  { title: 'Truv processes verification', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
+  { title: 'Team Member reviews income report', guide: '<p>The report is fetched via the user reports endpoint:</p><pre>POST /v1/users/{user_id}/reports/</pre><p>Returns VOIE report with income and employment data.</p>' },
 ];
 
 const DIAGRAM = `sequenceDiagram
-  participant App as Your App
+  participant App as Lending Platform
   participant Truv as Truv API
   participant Bridge as Truv Bridge
   App->>Truv: POST /v1/users/
@@ -24,10 +24,10 @@ const DIAGRAM = `sequenceDiagram
   Truv-->>App: bridge_token
   App->>Bridge: TruvBridge.init({ bridgeToken })
   Bridge-->>App: onSuccess(public_token)
-  Truv->>App: Webhook: task-status-updated (done)
   App->>Truv: POST /v1/link-access-tokens/
-  Truv-->>App: link_id
-  App->>Truv: GET /v1/links/{link_id}/income/report
+  Truv-->>App: access_token
+  Truv->>App: Webhook: task-status-updated (done)
+  App->>Truv: POST /v1/users/{user_id}/reports/
   Truv-->>App: VOIE Report`;
 
 export function PayrollIncomeDemo() {
@@ -35,12 +35,11 @@ export function PayrollIncomeDemo() {
   const [introStep, setIntroStep] = useState(1);
   const [formData, setFormData] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [publicToken, setPublicToken] = useState(null);
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const fetchedRef = useRef(false);
 
-  const { panel, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
+  const { panel, sessionId, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
 
   async function handleFormSubmit(data) {
     setFormData(data);
@@ -60,7 +59,7 @@ export function PayrollIncomeDemo() {
       if (window.TruvBridge) {
         const opts = {
           bridgeToken: result.bridge_token,
-          onSuccess: (t) => { setPublicToken(t); setCurrentStep(2); setScreen('waiting'); },
+          onSuccess: () => { setCurrentStep(2); setScreen('waiting'); },
           onEvent: (name, d) => addBridgeEvent(name, d),
         };
         window.TruvBridge.init(opts).open();
@@ -70,7 +69,7 @@ export function PayrollIncomeDemo() {
   }
 
   useEffect(() => {
-    if (screen !== 'waiting' || !publicToken || fetchedRef.current) return;
+    if (screen !== 'waiting' || !userId || fetchedRef.current) return;
     const done = panel.webhooks.some(w => {
       const p = parsePayload(w.payload);
       return (p.event_type === 'task-status-updated' && p.status === 'done')
@@ -81,12 +80,12 @@ export function PayrollIncomeDemo() {
       setScreen('review');
       (async () => {
         try {
-          const resp = await fetch(`${API_BASE}/api/link-report/${encodeURIComponent(publicToken)}/income?user_id=${userId}`);
+          const resp = await fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/reports/income`);
           if (resp.ok) { fetchedRef.current = true; setReportData(await resp.json()); }
         } catch (e) { console.error(e); }
       })();
     }
-  }, [panel.webhooks, screen, publicToken]);
+  }, [panel.webhooks, screen, userId]);
 
   function resetDemo() {
     reset();
@@ -95,22 +94,21 @@ export function PayrollIncomeDemo() {
     setIntroStep(1);
     setFormData(null);
     setUserId(null);
-    setPublicToken(null);
     setReportData(null);
   }
 
   const isIntro = screen === 'select' && introStep <= 2;
 
   return (
-    <Layout title="Truv Quickstart" badge="Payroll Income" steps={STEPS} panel={panel} hidePanel={isIntro}>
+    <Layout badge="Payroll Income" steps={STEPS} panel={panel} hidePanel={isIntro}>
       <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
         {screen === 'select' && introStep === 1 && (
           <div class="intro-slide">
             <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
               <div class="animate-slideUp">
-                <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Payroll Income Verification</div>
-                <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Verify income from<br />payroll data</h2>
-                <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">Connect to a payroll provider and verify income, employment, and pay history.</p>
+                <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Consumer Credit · Payroll Income</div>
+                <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#171717] mb-4">Verify income directly<br />from payroll</h2>
+                <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[440px] mx-auto mb-7">Connect to the applicant's payroll provider to verify current income, employment, and pay history. The fastest and most accurate path for lending decisions.</p>
               </div>
               <div class="animate-slideUp delay-2">
                 <button onClick={() => setIntroStep(2)} class="w-full max-w-xs mx-auto block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Get started →</button>
@@ -121,14 +119,14 @@ export function PayrollIncomeDemo() {
         {screen === 'select' && introStep === 2 && (
           <IntroSlide label="Payroll Income → Architecture" title="Payroll income flow" subtitle="Uses the User + Bridge Token flow with data_sources: [payroll]." diagram={DIAGRAM}>
             <div class="w-full max-w-xs mx-auto flex gap-3">
-              <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
+              <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#171717] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
               <button onClick={() => setIntroStep(3)} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Continue</button>
             </div>
           </IntroSlide>
         )}
         {screen === 'select' && introStep === 3 && (
           <div class="max-w-lg mx-auto px-8 py-10">
-            <ApplicationForm onSubmit={handleFormSubmit} submitting={loading} productType="income" />
+            <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="income" />
           </div>
         )}
         {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}

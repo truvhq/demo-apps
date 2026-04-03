@@ -24,6 +24,8 @@ export function usePanel() {
 
   const userIdRef = useRef(null);
   const pollingRef = useRef(null);
+  // Session ID ties pre-order API calls (company search) to this demo run
+  const sessionIdRef = useRef(`s-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
 
   // Fetch tunnel URL on mount
   useEffect(() => {
@@ -39,8 +41,9 @@ export function usePanel() {
       const uid = userIdRef.current;
       if (!uid) return;
       try {
+        const sid = sessionIdRef.current;
         const [logs, whs] = await Promise.all([
-          fetch(`${API_BASE}/api/users/${uid}/logs`).then(r => r.json()),
+          fetch(`${API_BASE}/api/users/${uid}/logs?session_id=${sid}`).then(r => r.json()),
           fetch(`${API_BASE}/api/users/${uid}/webhooks`).then(r => r.json()),
         ]);
         setApiLogs(logs || []);
@@ -70,12 +73,14 @@ export function usePanel() {
     setBridgeEvents([]);
     setWebhooks([]);
     setCurrentStep(0);
+    sessionIdRef.current = `s-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }, [stopPolling]);
 
   useEffect(() => () => stopPolling(), []);
 
   return {
     panel: { apiLogs, bridgeEvents, webhooks, tunnelUrl, currentStep },
+    sessionId: sessionIdRef.current,
     setCurrentStep,
     startPolling,
     stopPolling,

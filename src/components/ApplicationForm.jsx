@@ -13,7 +13,7 @@
 import { useState } from 'preact/hooks';
 import { CompanySearch } from './CompanySearch.jsx';
 
-export function ApplicationForm({ onSubmit, submitting, productType, showEmployer = true, employerLabel, dataSource }) {
+export function ApplicationForm({ onSubmit, submitting, productType, showEmployer = true, employerLabel, dataSource, sessionId }) {
   const [agree, setAgree] = useState(true);
   const [employer, setEmployer] = useState({ name: '', id: null });
   const isAssets = productType === 'assets';
@@ -24,7 +24,7 @@ export function ApplicationForm({ onSubmit, submitting, productType, showEmploye
     if (!agree) return;
     if (showEmployer && !isAssets && !employer.name) return;
     const fd = new FormData(e.target);
-    const isBank = dataSource === 'financial_accounts';
+    const isBank = isAssets || dataSource === 'financial_accounts';
     const formResult = {
       first_name: fd.get('first_name') || undefined,
       last_name: fd.get('last_name') || undefined,
@@ -47,16 +47,15 @@ export function ApplicationForm({ onSubmit, submitting, productType, showEmploye
 
   return (
     <form onSubmit={handleSubmit}>
-      <h2 class="text-2xl font-bold tracking-tight mb-1.5">Your information</h2>
-      <p class="text-sm text-gray-500 leading-relaxed mb-7">Enter your details to start the verification process.</p>
+      <h2 class="text-2xl font-bold tracking-tight mb-7">Tell us about yourself</h2>
       <div class="grid grid-cols-2 gap-4 mb-4">
-        <div><label class="text-sm font-medium mb-1.5 block">First name</label><input name="first_name" placeholder="Joe" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
-        <div><label class="text-sm font-medium mb-1.5 block">Last name</label><input name="last_name" placeholder="Doe" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
+        <div><label class="text-sm font-medium mb-1.5 block">First name <span class="text-red-400">*</span></label><input name="first_name" placeholder="Joe" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
+        <div><label class="text-sm font-medium mb-1.5 block">Last name <span class="text-red-400">*</span></label><input name="last_name" placeholder="Doe" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
       </div>
       {showEmployer && (
         <div class="mb-4">
-          <label class="text-sm font-medium mb-1.5 block">{label}</label>
-          <CompanySearch value={employer.name} onChange={setEmployer} productType={productType} dataSource={dataSource} placeholder={`Search for ${label.toLowerCase()}...`} />
+          <label class="text-sm font-medium mb-1.5 block">{label}{!isAssets && <span class="text-red-400"> *</span>}</label>
+          <CompanySearch value={employer.name} onChange={setEmployer} productType={productType} dataSource={isAssets ? 'financial_accounts' : dataSource} placeholder={`Search for ${label.toLowerCase()}...`} sessionId={sessionId} />
         </div>
       )}
       <div class="mb-4"><label class="text-sm font-medium mb-1.5 block">Email</label><input name="email" type="email" placeholder="joe@example.com" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>

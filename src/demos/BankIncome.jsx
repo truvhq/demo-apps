@@ -7,14 +7,14 @@ import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 
 const STEPS = [
-  { title: 'Collect applicant info', guide: '<p>The form collects applicant details. Financial institutions (banks) are searched via:</p><pre>GET /v1/providers/?data_source=financial_accounts</pre><p>This returns a <code>provider_id</code> (not <code>company_mapping_id</code> — that\'s for payroll employers). Pass <code>provider_id</code> when creating the bridge token to deeplink Bridge to that bank.</p><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>The <code>data_sources: [financial_accounts]</code> parameter restricts Bridge to bank connections only.</p>' },
-  { title: 'Connect via Bridge', guide: '<p>Bridge opens as a popup. The user selects their bank and logs in.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
-  { title: 'Webhook processing', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
-  { title: 'Review results', guide: '<p>The public token is exchanged for a link report:</p><pre>POST /v1/link-access-tokens/\nGET /v1/links/{link_id}/income/report</pre><p>Returns income insights derived from bank transactions.</p>' },
+  { title: 'Applicant submits information', guide: '<p>The form collects applicant details. Financial institutions (banks) are searched via:</p><pre>GET /v1/providers/?data_source=financial_accounts</pre><p>This returns a <code>provider_id</code> (not <code>company_mapping_id</code> — that\'s for payroll employers). Pass <code>provider_id</code> when creating the bridge token to deeplink Bridge to that bank.</p><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>The <code>data_sources: [financial_accounts]</code> parameter restricts Bridge to bank connections only.</p>' },
+  { title: 'Applicant connects bank account', guide: '<p>Bridge opens as a popup. The user selects their bank and logs in.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
+  { title: 'Truv processes transactions', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
+  { title: 'Team Member reviews income report', guide: '<p>The report is fetched via the user reports endpoint:</p><pre>POST /v1/users/{user_id}/income_insights/reports/</pre><p>Returns income insights derived from bank transactions.</p>' },
 ];
 
 const DIAGRAM = `sequenceDiagram
-  participant App as Your App
+  participant App as Lending Platform
   participant Truv as Truv API
   participant Bridge as Truv Bridge
   App->>Truv: POST /v1/users/
@@ -24,10 +24,10 @@ const DIAGRAM = `sequenceDiagram
   Truv-->>App: bridge_token
   App->>Bridge: TruvBridge.init({ bridgeToken })
   Bridge-->>App: onSuccess(public_token)
-  Truv->>App: Webhook: task-status-updated (done)
   App->>Truv: POST /v1/link-access-tokens/
-  Truv-->>App: link_id
-  App->>Truv: GET /v1/links/{link_id}/income/report
+  Truv-->>App: access_token
+  Truv->>App: Webhook: task-status-updated (done)
+  App->>Truv: POST /v1/users/{user_id}/income_insights/reports/
   Truv-->>App: Income Insights Report`;
 
 export function BankIncomeDemo() {
@@ -35,12 +35,11 @@ export function BankIncomeDemo() {
   const [introStep, setIntroStep] = useState(1);
   const [formData, setFormData] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [publicToken, setPublicToken] = useState(null);
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const fetchedRef = useRef(false);
 
-  const { panel, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
+  const { panel, sessionId, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
 
   async function handleFormSubmit(data) {
     setFormData(data);
@@ -60,7 +59,7 @@ export function BankIncomeDemo() {
       if (window.TruvBridge) {
         const opts = {
           bridgeToken: result.bridge_token,
-          onSuccess: (t) => { setPublicToken(t); setCurrentStep(2); setScreen('waiting'); },
+          onSuccess: () => { setCurrentStep(2); setScreen('waiting'); },
           onEvent: (name, d) => addBridgeEvent(name, d),
         };
         window.TruvBridge.init(opts).open();
@@ -70,7 +69,7 @@ export function BankIncomeDemo() {
   }
 
   useEffect(() => {
-    if (screen !== 'waiting' || !publicToken || fetchedRef.current) return;
+    if (screen !== 'waiting' || !userId || fetchedRef.current) return;
     const done = panel.webhooks.some(w => {
       const p = parsePayload(w.payload);
       return (p.event_type === 'task-status-updated' && p.status === 'done')
@@ -81,12 +80,12 @@ export function BankIncomeDemo() {
       setScreen('review');
       (async () => {
         try {
-          const resp = await fetch(`${API_BASE}/api/link-report/${encodeURIComponent(publicToken)}/income?user_id=${userId}`);
+          const resp = await fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/reports/income_insights`);
           if (resp.ok) { fetchedRef.current = true; setReportData(await resp.json()); }
         } catch (e) { console.error(e); }
       })();
     }
-  }, [panel.webhooks, screen, publicToken]);
+  }, [panel.webhooks, screen, userId]);
 
   function resetDemo() {
     reset();
@@ -95,23 +94,22 @@ export function BankIncomeDemo() {
     setIntroStep(1);
     setFormData(null);
     setUserId(null);
-    setPublicToken(null);
     setReportData(null);
   }
 
   const isIntro = screen === 'select' && introStep <= 2;
 
   return (
-    <Layout title="Truv Quickstart" badge="Bank Income" steps={STEPS} panel={panel} hidePanel={isIntro}>
+    <Layout badge="Bank Income" steps={STEPS} panel={panel} hidePanel={isIntro}>
       <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
         {screen === 'select' && introStep === 1 && (
           <div class="intro-slide">
             <div class="relative z-10 w-full max-w-2xl mx-auto px-4">
               <div class="animate-slideUp">
-                <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Bank Income Verification</div>
-                <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1d1d1f] mb-4">Verify income from<br />bank transactions</h2>
-                <p class="text-[17px] text-[#86868b] leading-[1.5] max-w-[440px] mx-auto mb-7">
-                  Connect to a bank account and generate an income insights report from transaction data.
+                <div class="text-[12px] font-medium uppercase tracking-[0.08em] text-primary mb-4">Consumer Credit · Bank Income</div>
+                <h2 class="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#171717] mb-4">Verify income from<br />bank transactions</h2>
+                <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[440px] mx-auto mb-7">
+                  When payroll data isn't available, verify income by connecting to the applicant's bank account. Truv analyzes transaction history and generates an income insights report.
                 </p>
               </div>
               <div class="animate-slideUp delay-2">
@@ -124,7 +122,7 @@ export function BankIncomeDemo() {
         {screen === 'select' && introStep === 2 && (
           <IntroSlide label="Bank Income → Architecture" title="Bank income flow" subtitle="Uses the User + Bridge Token flow with data_sources: [financial_accounts]." diagram={DIAGRAM}>
             <div class="w-full max-w-xs mx-auto flex gap-3">
-              <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
+              <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#171717] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
               <button onClick={() => setIntroStep(3)} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Continue</button>
             </div>
           </IntroSlide>
@@ -132,7 +130,7 @@ export function BankIncomeDemo() {
 
         {screen === 'select' && introStep === 3 && (
           <div class="max-w-lg mx-auto px-8 py-10">
-            <ApplicationForm onSubmit={handleFormSubmit} submitting={loading} productType="income" employerLabel="Financial institution" dataSource="financial_accounts" />
+            <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="income" employerLabel="Financial institution" dataSource="financial_accounts" />
           </div>
         )}
 
