@@ -31,7 +31,7 @@ const STEPS = [
     guide: '<p>Enter an Application ID and create verification orders for each product type:</p>'
       + '<pre>POST /v1/orders/\n{\n  "products": ["income"],\n  "external_user_id": "...",\n  "employers": [{"company_name": "..."}]\n}</pre>'
       + '<p>All orders share the same <code>external_user_id</code> so Truv links them to one borrower.</p>'
-      + '<p><a href="https://docs.truv.com/reference/create-an-order" target="_blank">API Reference →</a></p>',
+      + '<p><a href="https://docs.truv.com/reference/orders_create" target="_blank">API Reference →</a></p>',
   },
   {
     title: 'Borrower completes verification',

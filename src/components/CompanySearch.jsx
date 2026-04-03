@@ -67,7 +67,10 @@ export function CompanySearch({ value, onChange, productType, dataSource, placeh
         <div class="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
           {results.map((c, i) => (
             <div key={c.company_mapping_id || c.id || i} class="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer" onClick={() => select(c)}>
-              {c.logo_url && <img src={c.logo_url} class="w-6 h-6 rounded object-contain" />}
+              {c.logo_url
+                ? <img src={c.logo_url} class="w-6 h-6 rounded object-contain flex-shrink-0" />
+                : <div class="w-6 h-6 rounded bg-gray-100 flex items-center justify-center flex-shrink-0 text-xs font-medium text-gray-500">{c.name?.[0]?.toUpperCase()}</div>
+              }
               <div class="flex-1 min-w-0">
                 <div class="text-sm font-medium truncate">{c.name}</div>
                 {c.domain && <div class="text-xs text-gray-400">{c.domain}</div>}
