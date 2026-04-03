@@ -17,17 +17,17 @@ const COMPLETED_APPLICANTS = [
 ];
 
 const VERIFIER_DIAGRAM = `sequenceDiagram
-  participant V as Loan Processor
+  participant BE as Your Backend
   participant Truv as Truv API
   participant User as Borrower
-  V->>Truv: POST /v1/orders/
+  BE->>Truv: POST /v1/orders/
   Note right of Truv: PII + email + phone + products
-  Truv-->>V: order_id, share_url
+  Truv-->>BE: order_id, share_url
   Truv->>User: Email/SMS with share_url
   User->>Truv: Opens share_url, completes Bridge
-  Truv->>V: Webhook: order-status-updated
-  V->>Truv: POST /v1/users/{user_id}/reports/
-  Truv-->>V: Verification report`;
+  Truv->>BE: Webhook: order-status-updated
+  BE->>Truv: POST /v1/users/{user_id}/reports/
+  Truv-->>BE: Verification report`;
 
 export function LOSDemo({ screen, param }) {
   const [introSeen, setIntroSeen] = useState(false);

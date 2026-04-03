@@ -14,21 +14,23 @@ const STEPS = [
 ];
 
 const DIAGRAM = `sequenceDiagram
-  participant App as Lending Platform
+  participant FE as Your Frontend
+  participant BE as Your Backend
   participant Truv as Truv API
-  participant Bridge as Truv Bridge
-  App->>Truv: POST /v1/users/
-  Truv-->>App: user_id
-  App->>Truv: POST /v1/users/{user_id}/tokens/
+  FE->>BE: Applicant submits information
+  BE->>Truv: POST /v1/users/
+  Truv-->>BE: user_id
+  BE->>Truv: POST /v1/users/{user_id}/tokens/
   Note right of Truv: { product_type: income, data_sources: [financial_accounts] }
-  Truv-->>App: bridge_token
-  App->>Bridge: TruvBridge.init({ bridgeToken })
-  Bridge-->>App: onSuccess(public_token)
-  App->>Truv: POST /v1/link-access-tokens/
-  Truv-->>App: access_token
-  Truv->>App: Webhook: task-status-updated (done)
-  App->>Truv: POST /v1/users/{user_id}/income_insights/reports/
-  Truv-->>App: Income Insights Report`;
+  Truv-->>BE: bridge_token
+  BE-->>FE: bridge_token
+  FE->>Truv: TruvBridge.init({ bridgeToken })
+  Note over FE: Applicant connects bank account
+  BE->>Truv: POST /v1/link-access-tokens/
+  Truv-->>BE: access_token
+  Truv->>BE: Webhook: task-status-updated (done)
+  BE->>Truv: POST /v1/users/{user_id}/income_insights/reports/
+  Truv-->>BE: Income Insights Report`;
 
 export function BankIncomeDemo() {
   const [screen, setScreen] = useState('select');

@@ -218,22 +218,24 @@ const FOLLOWUP_TASKS_INFO = [
 ];
 
 const FOLLOWUP_DIAGRAM = `sequenceDiagram
-  participant App as Lender POS
+  participant FE as Your Frontend
+  participant BE as Your Backend
   participant Truv as Truv API
-  participant Bridge as Truv Bridge
-  App->>Truv: POST /v1/orders/ (income)
-  App->>Truv: POST /v1/orders/ (employment)
-  App->>Truv: POST /v1/orders/ (assets)
-  App->>Truv: POST /v1/orders/ (income+assets)
+  FE->>BE: Loan Processor creates tasks
+  BE->>Truv: POST /v1/orders/ (income)
+  BE->>Truv: POST /v1/orders/ (employment)
+  BE->>Truv: POST /v1/orders/ (assets)
+  BE->>Truv: POST /v1/orders/ (income+assets)
   Note right of Truv: All share same external_user_id
-  Truv-->>App: 4x bridge_token, shared user_id
+  Truv-->>BE: bridge_tokens, shared user_id
+  BE-->>FE: bridge_tokens
   loop For each task
-    App->>Bridge: TruvBridge.init({ bridgeToken })
-    Bridge-->>App: User completes verification
-    Truv->>App: Webhook: order-status-updated
-    App->>Truv: POST /v1/users/{user_id}/reports/
-    Truv-->>App: Report data
-  end`;
+    FE->>Truv: TruvBridge.init({ bridgeToken })
+    Note over FE: Borrower completes verification
+  end
+  Truv->>BE: Webhook: order-status-updated
+  BE->>Truv: POST /v1/users/{user_id}/reports/
+  Truv-->>BE: Report data`;
 
 function InitScreen({ applicationId, onApplicationIdChange, onInitialize, initializing }) {
   return (

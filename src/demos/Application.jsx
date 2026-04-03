@@ -155,36 +155,39 @@ const PRODUCTS = [
 
 const DIAGRAMS = {
   income: `sequenceDiagram
-  participant App as Lender POS
+  participant FE as Your Frontend
+  participant BE as Your Backend
   participant Truv as Truv API
-  participant Bridge as Truv Bridge
-  App->>Truv: GET /v1/company-mappings-search/
-  Truv-->>App: company_mapping_id
-  App->>Truv: POST /v1/orders/
+  FE->>BE: Borrower submits application
+  BE->>Truv: GET /v1/company-mappings-search/
+  Truv-->>BE: company_mapping_id
+  BE->>Truv: POST /v1/orders/
   Note right of Truv: PII + employer + products: ["income"]
-  Truv-->>App: bridge_token, user_id
-  App->>Bridge: TruvBridge.init({ bridgeToken })
-  Bridge-->>App: User logs in with employer
-  Truv->>App: Webhook: order-status-updated (completed)
-  App->>Truv: POST /v1/users/{user_id}/reports/
-  Note right of Truv: { is_voe: false }
-  Truv-->>App: VOIE Report (income + employment data)`,
+  Truv-->>BE: bridge_token, user_id
+  BE-->>FE: bridge_token
+  FE->>Truv: TruvBridge.init({ bridgeToken })
+  Note over FE: Borrower logs in with employer
+  Truv->>BE: Webhook: order-status-updated (completed)
+  BE->>Truv: POST /v1/users/{user_id}/reports/
+  Truv-->>BE: VOIE Report`,
   assets: `sequenceDiagram
-  participant App as Lender POS
+  participant FE as Your Frontend
+  participant BE as Your Backend
   participant Truv as Truv API
-  participant Bridge as Truv Bridge
-  App->>Truv: GET /v1/providers/?data_source=financial_accounts
-  Truv-->>App: provider_id
-  App->>Truv: POST /v1/orders/
-  Note right of Truv: PII + financial_institutions: [{ id: provider_id }] + products: ["assets"]
-  Truv-->>App: bridge_token, user_id
-  App->>Bridge: TruvBridge.init({ bridgeToken })
-  Bridge-->>App: Borrower connects bank account
-  Truv->>App: Webhook: order-status-updated (completed)
-  App->>Truv: POST /v1/users/{user_id}/assets/reports/
-  Truv-->>App: VOA Report (balances + transactions)
-  App->>Truv: POST /v1/users/{user_id}/income_insights/reports/
-  Truv-->>App: Income Insights Report`,
+  FE->>BE: Borrower submits application
+  BE->>Truv: GET /v1/providers/?data_source=financial_accounts
+  Truv-->>BE: provider_id
+  BE->>Truv: POST /v1/orders/
+  Note right of Truv: PII + financial_institutions: [{ id }] + products: ["assets"]
+  Truv-->>BE: bridge_token, user_id
+  BE-->>FE: bridge_token
+  FE->>Truv: TruvBridge.init({ bridgeToken })
+  Note over FE: Borrower connects bank account
+  Truv->>BE: Webhook: order-status-updated (completed)
+  BE->>Truv: POST /v1/users/{user_id}/assets/reports/
+  Truv-->>BE: VOA Report
+  BE->>Truv: POST /v1/users/{user_id}/income_insights/reports/
+  Truv-->>BE: Income Insights Report`,
 };
 
 function IntroScreen({ onStart }) {

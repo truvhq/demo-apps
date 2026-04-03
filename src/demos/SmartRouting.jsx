@@ -44,25 +44,26 @@ const STEPS = [
 ];
 
 const DIAGRAM = `sequenceDiagram
-  participant App as Lending Platform
+  participant FE as Your Frontend
+  participant BE as Your Backend
   participant Truv as Truv API
-  participant Bridge as Truv Bridge
-  App->>Truv: GET /v1/company-mappings-search/?query=employer
-  Truv-->>App: results with success_rate
-  App->>App: Recommend method based on success_rate
-  App->>App: User confirms or overrides
-  App->>Truv: POST /v1/users/
-  Truv-->>App: user_id
-  App->>Truv: POST /v1/users/{user_id}/tokens/
+  FE->>BE: Applicant submits information
+  BE->>Truv: GET /v1/company-mappings-search/?query=employer
+  Truv-->>BE: results with success_rate
+  BE-->>FE: Recommend method based on success_rate
+  FE->>FE: Applicant confirms or overrides
+  FE->>BE: Selected method + data_sources
+  BE->>Truv: POST /v1/users/
+  Truv-->>BE: user_id
+  BE->>Truv: POST /v1/users/{user_id}/tokens/
   Note right of Truv: { product_type, data_sources }
-  Truv-->>App: bridge_token
-  App->>Bridge: TruvBridge.init({ bridgeToken })
-  Bridge-->>App: onSuccess(public_token)
-  App->>Truv: POST /v1/link-access-tokens/
-  Truv-->>App: access_token
-  Truv->>App: Webhook: task-status-updated (done)
-  App->>Truv: POST /v1/users/{user_id}/reports/
-  Truv-->>App: Verification report`;
+  Truv-->>BE: bridge_token
+  BE-->>FE: bridge_token
+  FE->>Truv: TruvBridge.init({ bridgeToken })
+  Note over FE: Applicant connects provider
+  Truv->>BE: Webhook: task-status-updated (done)
+  BE->>Truv: POST /v1/users/{user_id}/reports/
+  Truv-->>BE: Verification report`;
 
 // METHODS: verification method cards shown on the 'choose' screen.
 // The `dataSources` array is sent to POST /api/bridge-token to control what Bridge shows.

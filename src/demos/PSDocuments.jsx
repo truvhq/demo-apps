@@ -17,23 +17,23 @@ const SAMPLE_DOCS = [
 ];
 
 const DOC_DIAGRAM = `sequenceDiagram
-  participant App as Benefits Portal
+  participant FE as Your Frontend
+  participant BE as Your Backend
   participant Truv as Truv API
-  App->>Truv: POST /v1/users/
-  Truv-->>App: user_id
-  App->>Truv: POST /v1/documents/collections/
+  FE->>BE: Upload documents (base64)
+  BE->>Truv: POST /v1/users/
+  Truv-->>BE: user_id
+  BE->>Truv: POST /v1/documents/collections/
   Note right of Truv: documents with base64 + user_id
-  Truv-->>App: collection_id
-  loop Poll until files successful
-    App->>Truv: GET /v1/documents/collections/{id}/
-    Truv-->>App: uploaded_files status
+  Truv-->>BE: collection_id
+  loop Poll until files processed
+    BE->>Truv: GET /v1/documents/collections/{id}/
+    Truv-->>BE: status per file
   end
-  App->>Truv: POST /v1/documents/collections/{id}/finalize/
-  Note right of Truv: { product_type: "income" }
-  Truv-->>App: link_id
-  Truv->>App: Webhook: task-status-updated (done)
-  App->>Truv: GET /v1/links/{link_id}/income/report/
-  Truv-->>App: VOIE Report`;
+  BE->>Truv: POST /v1/documents/collections/{id}/finalize/
+  Truv-->>BE: Finalized
+  BE->>Truv: GET /v1/documents/collections/{id}/finalize/
+  Truv-->>BE: Extracted income data`;
 
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
