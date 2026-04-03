@@ -49,7 +49,7 @@ export function Home() {
               See how Truv helps verify income, employment, and assets across mortgage, consumer lending, government, and banking.
             </p>
           </div>
-          <div class="-mx-6 divide-y divide-[#d2d2d7]/30">
+          <div class="-mx-6">
             {INDUSTRIES.filter(i => i.demos.length > 0).map((ind, i) => (
               <IndustryCard key={ind.id} industry={ind} index={i} />
             ))}
