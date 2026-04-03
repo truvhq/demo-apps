@@ -95,7 +95,7 @@ export function SmartRoutingDemo() {
       const resp = await fetch(`${API_BASE}/api/bridge-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_type: method.reportType, data_sources: method.dataSources }),
+        body: JSON.stringify({ product_type: method.reportType, data_sources: method.dataSources, company_mapping_id: formData?.company_mapping_id }),
       });
       const data = await resp.json();
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setLoading(false); return; }
@@ -105,11 +105,12 @@ export function SmartRoutingDemo() {
       setCurrentStep(2);
 
       if (window.TruvBridge) {
-        window.TruvBridge.init({
+        const opts = {
           bridgeToken: data.bridge_token,
           onSuccess: (t) => { setPublicToken(t); setCurrentStep(3); setScreen('waiting'); },
           onEvent: (name, d) => addBridgeEvent(name, d),
-        }).open();
+        };
+        window.TruvBridge.init(opts).open();
       }
     } catch (e) { console.error(e); }
     setLoading(false);

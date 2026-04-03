@@ -31,7 +31,7 @@ const DIAGRAM = `sequenceDiagram
 export function PaycheckLinkedLoansDemo() {
   const [screen, setScreen] = useState('select');
   const [introStep, setIntroStep] = useState(1);
-  const [bridgeToken, setBridgeToken] = useState(null);
+  const [formData, setFormData] = useState(null);
   const [userId, setUserId] = useState(null);
   const [publicToken, setPublicToken] = useState(null);
   const [incomeReport, setIncomeReport] = useState(null);
@@ -41,27 +41,28 @@ export function PaycheckLinkedLoansDemo() {
 
   const { panel, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
 
-  async function getBridgeToken() {
+  async function handleFormSubmit(data) {
+    setFormData(data);
     setLoading(true);
+    setCurrentStep(1);
     try {
       const resp = await fetch(`${API_BASE}/api/bridge-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_type: 'pll' }),
+        body: JSON.stringify({ product_type: 'pll', company_mapping_id: data.company_mapping_id }),
       });
-      const data = await resp.json();
-      if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setLoading(false); return; }
-
-      setUserId(data.user_id);
-      startPolling(data.user_id);
-      setCurrentStep(1);
+      const result = await resp.json();
+      if (!resp.ok) { alert('Error: ' + (result.error || 'Unknown')); setLoading(false); return; }
+      setUserId(result.user_id);
+      startPolling(result.user_id);
 
       if (window.TruvBridge) {
-        window.TruvBridge.init({
-          bridgeToken: data.bridge_token,
+        const opts = {
+          bridgeToken: result.bridge_token,
           onSuccess: (t) => { setPublicToken(t); setCurrentStep(2); setScreen('waiting'); },
           onEvent: (name, d) => addBridgeEvent(name, d),
-        }).open();
+        };
+        window.TruvBridge.init(opts).open();
       }
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -97,7 +98,7 @@ export function PaycheckLinkedLoansDemo() {
     fetchedRef.current = false;
     setScreen('select');
     setIntroStep(1);
-    setBridgeToken(null);
+    setFormData(null);
     setUserId(null);
     setPublicToken(null);
     setIncomeReport(null);
@@ -130,9 +131,15 @@ export function PaycheckLinkedLoansDemo() {
           <IntroSlide label="PLL → Architecture" title="Paycheck-linked lending flow" subtitle="Uses the User + Bridge Token flow with product_type: pll and account details for the deduction target." diagram={DIAGRAM}>
             <div class="w-full max-w-xs mx-auto flex gap-3">
               <button onClick={() => setIntroStep(1)} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
-              <button onClick={getBridgeToken} disabled={loading} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">{loading ? 'Creating...' : 'Continue'}</button>
+              <button onClick={() => setIntroStep(3)} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">Continue</button>
             </div>
           </IntroSlide>
+        )}
+
+        {screen === 'select' && introStep === 3 && (
+          <div class="max-w-lg mx-auto px-8 py-10">
+            <ApplicationForm onSubmit={handleFormSubmit} submitting={loading} productType="pll" />
+          </div>
         )}
 
         {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}

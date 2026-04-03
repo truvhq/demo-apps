@@ -49,7 +49,7 @@ export class TruvClient {
     return this._request('POST', 'users/', { json: payload });
   }
 
-  async createUserBridgeToken(userId, productType, { data_sources } = {}) {
+  async createUserBridgeToken(userId, productType, { data_sources, company_mapping_id } = {}) {
     const payload = {
       product_type: productType,
       client_name: 'Truv Quickstart',
@@ -58,6 +58,10 @@ export class TruvClient {
 
     if (data_sources && data_sources.length > 0) {
       payload.data_sources = data_sources;
+    }
+
+    if (company_mapping_id) {
+      payload.company_mapping_id = company_mapping_id;
     }
 
     // Sandbox test account for deposit_switch and pll products
