@@ -134,11 +134,11 @@ function WebhooksTab({ webhooks, tunnelUrl }) {
       {tunnelUrl && (
         <div class="bg-gray-50 rounded-lg px-3 py-2.5 mb-3 text-xs text-gray-500">
           <span class="font-medium text-gray-400">Tunnel: </span>
-          <a href={tunnelUrl} target="_blank" class="text-primary break-all hover:underline">{tunnelUrl}</a>
+          <a href={tunnelUrl} target="_blank" rel="noopener noreferrer" class="text-primary break-all hover:underline">{tunnelUrl}</a>
         </div>
       )}
       <div class="mb-3 text-xs">
-        <a href="https://dashboard.truv.com/app/development/webhooks" target="_blank" class="text-primary font-medium">See webhook config</a>
+        <a href="https://dashboard.truv.com/app/development/webhooks" target="_blank" rel="noopener noreferrer" class="text-primary font-medium">See webhook config</a>
       </div>
       {!webhooks.length ? (
         <div class="flex items-center justify-center h-32 text-gray-400 text-sm">No webhooks received yet.</div>

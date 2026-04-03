@@ -42,7 +42,10 @@ export function BridgeScreen({ orderId, demoPath, companyMappingId, addBridgeEve
         }
       },
       onSuccess: () => addBridgeEvent('onSuccess', null),
-      onClose: () => addBridgeEvent('onClose', null),
+      onClose: () => {
+        addBridgeEvent('onClose', null);
+        navigate(`${demoPath}`);
+      },
     });
     b.open();
     return () => { try { b.close(); } catch {} };
