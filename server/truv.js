@@ -118,9 +118,16 @@ export class TruvClient {
     if (params.ssn) payload.social_security_number = params.ssn;
     if (params.template_id) payload.template_id = params.template_id;
 
-    // Employer — sandbox credentials: goodlogin/goodpassword
-    // employers array only supported for non-assets products
-    if (productType !== 'assets') {
+    // Employer / financial institution — sandbox credentials: goodlogin/goodpassword
+    if (productType === 'assets' || (params.data_sources && params.data_sources.includes('financial_accounts'))) {
+      // Assets and financial_accounts use the financial_institutions array
+      if (params.company_mapping_id || params.employer) {
+        const fi = {};
+        if (params.company_mapping_id) fi.id = params.company_mapping_id;
+        if (params.employer) fi.name = params.employer;
+        payload.financial_institutions = [fi];
+      }
+    } else {
       if (params.company_mapping_id) {
         payload.employers = [{ company_mapping_id: params.company_mapping_id }];
       } else if (params.employer) {
