@@ -299,14 +299,6 @@ function UploadScreen({ files, onAddFiles, onRemoveFile, userId, onUserIdChange,
           </div>
         </div>
       </div>
-      <div class="intro-actions">
-        <div class="flex gap-3 max-w-lg mx-auto">
-          <button onClick={onBack} class="flex-1 py-3 border border-[#d2d2d7] text-[#1d1d1f] font-semibold rounded-full hover:bg-[#f5f5f7]">Back</button>
-          <button onClick={onContinue} disabled={processing} class="flex-1 py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
-            {processing ? 'Processing...' : 'Process Documents'}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
