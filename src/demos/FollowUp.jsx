@@ -248,7 +248,7 @@ const FOLLOWUP_DIAGRAM = `sequenceDiagram
   Truv-->>BE: bridge_tokens, shared user_id
   BE-->>FE: bridge_tokens
   loop For each task
-    FE->>Truv: TruvBridge.init({ bridgeToken })
+    FE->>Truv: TruvBridge.init({ bridgeToken, isOrder: true })
     Note over FE: Borrower completes verification
   end
   Truv->>BE: Webhook: order-status-updated

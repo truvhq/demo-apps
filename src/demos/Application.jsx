@@ -179,7 +179,7 @@ const DIAGRAMS = {
   Note right of Truv: PII + employer + products: ["income"]
   Truv-->>BE: bridge_token, user_id
   BE-->>FE: bridge_token
-  FE->>Truv: TruvBridge.init({ bridgeToken })
+  FE->>Truv: TruvBridge.init({ bridgeToken, isOrder: true })
   Note over FE: Borrower logs in with employer
   Truv->>BE: Webhook: order-status-updated (completed)
   BE->>Truv: POST /v1/users/{user_id}/reports/
@@ -195,7 +195,7 @@ const DIAGRAMS = {
   Note right of Truv: PII + financial_institutions: [{ id }] + products: ["assets"]
   Truv-->>BE: bridge_token, user_id
   BE-->>FE: bridge_token
-  FE->>Truv: TruvBridge.init({ bridgeToken })
+  FE->>Truv: TruvBridge.init({ bridgeToken, isOrder: true })
   Note over FE: Borrower connects bank account
   Truv->>BE: Webhook: order-status-updated (completed)
   BE->>Truv: POST /v1/users/{user_id}/assets/reports/
