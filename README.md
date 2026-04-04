@@ -234,7 +234,7 @@ All reports are fetched via the user reports endpoints (never link reports):
 | Employment (VOE) | `POST /v1/users/{id}/reports/` with `{ is_voe: true }` |
 | Assets (VOA) | `POST /v1/users/{id}/assets/reports/` |
 | Income Insights | `POST /v1/users/{id}/income_insights/reports/` |
-| Deposit Switch | `GET /v1/users/{id}/deposit-switch/reports/` |
+| Deposit Switch | `GET /v1/users/{id}/deposit_switch/report/` |
 
 ### Webhooks
 

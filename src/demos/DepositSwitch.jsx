@@ -29,7 +29,7 @@ const DIAGRAM = `sequenceDiagram
   BE->>Truv: POST /v1/link-access-tokens/
   Truv-->>BE: access_token
   Truv->>BE: Webhook: task-status-updated (done)
-  BE->>Truv: GET /v1/users/{user_id}/deposit-switch/reports/
+  BE->>Truv: GET /v1/users/{user_id}/deposit_switch/report/
   Truv-->>BE: Deposit switch confirmed`;
 
 export function DepositSwitchDemo() {

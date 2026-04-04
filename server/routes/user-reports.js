@@ -9,7 +9,7 @@
 //   employment      → POST /v1/users/{id}/reports/ { is_voe: true }
 //   assets          → POST /v1/users/{id}/assets/reports/
 //   income_insights → POST /v1/users/{id}/income_insights/reports/
-//   deposit_switch  → GET  /v1/users/{id}/deposit-switch/reports/
+//   deposit_switch  → GET  /v1/users/{id}/deposit_switch/report/
 //
 // See: https://docs.truv.com/reference/users_reports
 
@@ -38,7 +38,7 @@ const REPORT_CONFIG = {
   },
   deposit_switch: {
     fetch: (truv, userId) => truv.getDepositSwitchReport(userId),
-    endpoint: userId => `/v1/users/${userId}/deposit-switch/reports/`,
+    endpoint: userId => `/v1/users/${userId}/deposit_switch/report/`,
     method: 'GET',
   },
 };

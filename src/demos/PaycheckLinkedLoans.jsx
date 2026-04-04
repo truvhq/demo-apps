@@ -32,7 +32,7 @@ const DIAGRAM = `sequenceDiagram
   Truv->>BE: Webhook: task-status-updated (done)
   BE->>Truv: POST /v1/users/{user_id}/reports/
   Truv-->>BE: VOIE Report
-  BE->>Truv: GET /v1/users/{user_id}/deposit-switch/reports/
+  BE->>Truv: GET /v1/users/{user_id}/deposit_switch/report/
   Truv-->>BE: Deposit switch report`;
 
 export function PaycheckLinkedLoansDemo() {
