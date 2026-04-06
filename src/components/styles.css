@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #2C64E3;
+  --color-primary-light: #f5f5f7;
+  --color-primary-hover: #143b95;
+  --color-primary-active: #0e2968;
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f5f5f7;
+  --color-text: #171717;
+  --color-text-secondary: #8E8E93;
+  --color-text-tertiary: #AEAEB2;
+  --color-muted: #8E8E93;
+  --color-border: #d2d2d7;
+  --color-border-light: #e8e8ed;
+  --color-success: #34c759;
+  --color-success-bg: #f0fdf4;
+  --color-warning: #ff9f0a;
+  --color-warning-bg: #fffbeb;
+  --color-error: #ff3b30;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', SFMono-Regular, Menlo, monospace;
+}
+
+@layer base {
+  body {
+    @apply font-sans text-gray-900 antialiased;
+    background: #ffffff;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.01em;
+    line-height: 1.47059;
+  }
+}
+
+/* Animations */
+@keyframes spin { to { transform: rotate(360deg); } }
+.animate-spin { animation: spin 0.8s linear infinite; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.animate-fadeIn { animation: fadeIn 0.3s ease; }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slideUp { animation: slideUp 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+
+.delay-1 { animation-delay: 100ms; }
+.delay-2 { animation-delay: 200ms; }
+.delay-3 { animation-delay: 300ms; }
+.delay-4 { animation-delay: 400ms; }
+.delay-5 { animation-delay: 500ms; }
+
+/* Full-bleed background for form screens (AddApplicant, Upload) */
+.intro-slide {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: #ffffff;
+}
+
+/* Colored icon boxes for intro cards */
+.icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.icon-box-blue { background: #eff6ff; color: #3b82f6; border: 1px solid #dbeafe; }
+.icon-box-indigo { background: #eef2ff; color: #6366f1; border: 1px solid #e0e7ff; }
+.icon-box-emerald { background: #ecfdf5; color: #10b981; border: 1px solid #d1fae5; }
+.icon-box-amber { background: #fffbeb; color: #f59e0b; border: 1px solid #fef3c7; }
+.icon-box-rose { background: #fff1f2; color: #f43f5e; border: 1px solid #ffe4e6; }
+.icon-box-violet { background: #f5f3ff; color: #8b5cf6; border: 1px solid #ede9fe; }
+.icon-box-cyan { background: #ecfeff; color: #06b6d4; border: 1px solid #cffafe; }
+.icon-box-orange { background: #fff7ed; color: #f97316; border: 1px solid #ffedd5; }
