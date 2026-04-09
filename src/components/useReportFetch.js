@@ -12,7 +12,7 @@
 //     products: ['income'],
 //     webhooks: panel.webhooks,
 //     stopPolling,
-//     webhookEvent: 'order',       // 'order' or 'task'
+//     webhookEvent: 'task',        // 'task' (default) or 'order'
 //     onComplete: () => { ... },   // demo-specific side effects
 //   });
 
@@ -58,20 +58,25 @@ export function useReportFetch({
   const prevUserIdRef = useRef(userId);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+  const stopPollingRef = useRef(stopPolling);
+  stopPollingRef.current = stopPolling;
 
   // Stabilize products array to avoid spurious effect re-runs
   const productsKey = JSON.stringify(products);
 
-  // Reset when userId changes (handles FollowUp task-switching)
+  // Reset when userId or products change (handles FollowUp task-switching where
+  // all tasks share the same userId but have different products)
+  const prevProductsKeyRef = useRef(productsKey);
   useEffect(() => {
-    if (userId !== prevUserIdRef.current) {
+    if (userId !== prevUserIdRef.current || productsKey !== prevProductsKeyRef.current) {
       prevUserIdRef.current = userId;
+      prevProductsKeyRef.current = productsKey;
       fetchedRef.current = false;
       setReports(null);
       setLoading(false);
       setError(null);
     }
-  }, [userId]);
+  }, [userId, productsKey]);
 
   // Watch webhooks and fetch reports when done
   useEffect(() => {
@@ -93,20 +98,24 @@ export function useReportFetch({
               .then(d => { if (d) results[rt] = d; })
           )
         );
-        setReports(results);
-        if (onCompleteRef.current) onCompleteRef.current(results);
+        if (Object.keys(results).length === 0) {
+          setError('Failed to load report');
+        } else {
+          setReports(results);
+          if (onCompleteRef.current) onCompleteRef.current(results);
+        }
       } catch (e) {
         console.error(e);
         setError('Failed to load report');
       }
-      stopPolling();
+      stopPollingRef.current();
       setLoading(false);
     })();
-  }, [webhooks, userId, productsKey, webhookEvent, stopPolling]);
+  }, [webhooks, userId, productsKey, webhookEvent]);
 
   const reset = useCallback(() => {
     fetchedRef.current = false;
-    prevUserIdRef.current = null;
+    prevUserIdRef.current = undefined;
     setReports(null);
     setLoading(false);
     setError(null);

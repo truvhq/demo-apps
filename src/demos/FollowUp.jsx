@@ -13,8 +13,8 @@
 // API FLOW (per task):
 //   1. POST /api/orders (all tasks created at once, same external_user_id)
 //   2. Bridge opened per task with that task's order_id
-//   3. Wait for task-status-updated webhook with status "done"
-//   4. GET /api/users/:userId/reports/:type -> fetch report
+//   3. Wait for order-status-updated webhook with status "completed"
+//   4. POST /api/users/:userId/reports/ -> GET /api/users/:userId/reports/:report_id
 
 import { useState, useRef, useEffect, useMemo } from 'preact/hooks';
 import { Layout, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';

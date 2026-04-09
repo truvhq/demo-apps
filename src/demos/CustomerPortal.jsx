@@ -12,8 +12,8 @@
 // API FLOW:
 //   1. POST /api/orders        -> create order with PII + products
 //   2. Bridge opened with order_id (deeplinked via company_mapping_id)
-//   3. Wait for task-status-updated webhook with status "done"
-//   4. GET /api/users/:userId/reports/:type -> fetch report
+//   3. Wait for order-status-updated webhook with status "completed"
+//   4. POST /api/users/:userId/reports/ -> GET /api/users/:userId/reports/:report_id
 
 import { useState, useEffect } from 'preact/hooks';
 import { Layout, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
