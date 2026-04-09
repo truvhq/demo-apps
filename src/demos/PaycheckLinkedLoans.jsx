@@ -1,8 +1,8 @@
 // PaycheckLinkedLoans.jsx — Consumer Credit demo: Paycheck-Linked Loans
 // Follows the same Bridge (User+Token) flow as SmartRouting.jsx (the canonical example).
 // Uses product_type: 'pll'. Fetches BOTH income and deposit_switch reports in parallel.
-import { useState, useEffect, useRef } from 'preact/hooks';
-import { Layout, WaitingScreen, parsePayload, usePanel, API_BASE, IntroSlide } from '../components/index.js';
+import { useState } from 'preact/hooks';
+import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { DDSReport } from '../components/reports/DDSReport.jsx';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
@@ -40,12 +40,18 @@ export function PaycheckLinkedLoansDemo() {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [incomeReport, setIncomeReport] = useState(null);
-  const [ddsReport, setDdsReport] = useState(null);
   const [loading, setLoading] = useState(false);
-  const fetchedRef = useRef(false);
 
-  const { panel, sessionId, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
+  const { panel, sessionId, setCurrentStep, startPolling, stopPolling, addBridgeEvent, reset } = usePanel();
+
+  const { reports, loading: reportLoading, reset: resetReports } = useReportFetch({
+    userId,
+    products: ['income', 'deposit_switch'],
+    webhooks: panel.webhooks,
+    stopPolling,
+    webhookEvent: 'task',
+    onComplete: () => { setCurrentStep(3); setScreen('review'); },
+  });
 
   async function handleFormSubmit(data) {
     setFormData(data);
@@ -86,41 +92,13 @@ export function PaycheckLinkedLoansDemo() {
     setLoading(false);
   }
 
-  // Wait for webhook "done", then fetch report. fetchedRef prevents double-fetching on rapid poll updates.
-  useEffect(() => {
-    if (screen !== 'waiting' || !userId || fetchedRef.current) return;
-    const done = panel.webhooks.some(w => {
-      const p = parsePayload(w.payload);
-      return (p.event_type === 'task-status-updated' && p.status === 'done')
-        || (w.event_type === 'task-status-updated' && w.status === 'done');
-    });
-    if (done) {
-      setCurrentStep(3);
-      setScreen('review');
-      (async () => {
-        const encodedUserId = encodeURIComponent(userId);
-        try {
-          const [incomeResp, ddsResp] = await Promise.all([
-            fetch(`${API_BASE}/api/users/${encodedUserId}/reports/income`),
-            fetch(`${API_BASE}/api/users/${encodedUserId}/reports/deposit_switch`),
-          ]);
-          if (incomeResp.ok) setIncomeReport(await incomeResp.json());
-          if (ddsResp.ok) setDdsReport(await ddsResp.json());
-          if (incomeResp.ok || ddsResp.ok) fetchedRef.current = true;
-        } catch (e) { console.error(e); }
-      })();
-    }
-  }, [panel.webhooks, screen, userId]);
-
   function resetDemo() {
     reset();
-    fetchedRef.current = false;
+    resetReports();
     setScreen('select');
     setShowForm(false);
     setFormData(null);
     setUserId(null);
-    setIncomeReport(null);
-    setDdsReport(null);
   }
 
   const isIntro = screen === 'select' && !showForm;
@@ -148,10 +126,10 @@ export function PaycheckLinkedLoansDemo() {
           <div>
             <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Report</h2>
             <p class="text-sm text-gray-500 mb-7">Paycheck-linked lending</p>
-            {(incomeReport || ddsReport) ? (
+            {reports && !reportLoading ? (
               <div>
-                {ddsReport && <DDSReport report={ddsReport} />}
-                {incomeReport && <VoieReport report={incomeReport} />}
+                {reports.deposit_switch && <DDSReport report={reports.deposit_switch} />}
+                {reports.income && <VoieReport report={reports.income} />}
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
                   <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
                 </div>

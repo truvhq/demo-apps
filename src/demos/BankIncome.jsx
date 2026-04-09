@@ -1,8 +1,8 @@
 // BankIncome.jsx — Consumer Credit demo: Bank Income Verification
 // Follows the same Bridge (User+Token) flow as SmartRouting.jsx (the canonical example).
 // Uses data_sources: ['financial_accounts'] and GET /v1/providers/ for bank search.
-import { useState, useEffect, useRef } from 'preact/hooks';
-import { Layout, WaitingScreen, parsePayload, usePanel, API_BASE, IntroSlide } from '../components/index.js';
+import { useState } from 'preact/hooks';
+import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 
@@ -37,11 +37,18 @@ export function BankIncomeDemo() {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const fetchedRef = useRef(false);
 
-  const { panel, sessionId, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
+  const { panel, sessionId, setCurrentStep, startPolling, stopPolling, addBridgeEvent, reset } = usePanel();
+
+  const { reports, loading: reportLoading, reset: resetReports } = useReportFetch({
+    userId,
+    products: ['income_insights'],
+    webhooks: panel.webhooks,
+    stopPolling,
+    webhookEvent: 'task',
+    onComplete: () => { setCurrentStep(3); setScreen('review'); },
+  });
 
   async function handleFormSubmit(data) {
     setFormData(data);
@@ -82,34 +89,13 @@ export function BankIncomeDemo() {
     setLoading(false);
   }
 
-  // Wait for webhook "done", then fetch report. fetchedRef prevents double-fetching on rapid poll updates.
-  useEffect(() => {
-    if (screen !== 'waiting' || !userId || fetchedRef.current) return;
-    const done = panel.webhooks.some(w => {
-      const p = parsePayload(w.payload);
-      return (p.event_type === 'task-status-updated' && p.status === 'done')
-        || (w.event_type === 'task-status-updated' && w.status === 'done');
-    });
-    if (done) {
-      setCurrentStep(3);
-      setScreen('review');
-      (async () => {
-        try {
-          const resp = await fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/reports/income_insights`);
-          if (resp.ok) { fetchedRef.current = true; setReportData(await resp.json()); }
-        } catch (e) { console.error(e); }
-      })();
-    }
-  }, [panel.webhooks, screen, userId]);
-
   function resetDemo() {
     reset();
-    fetchedRef.current = false;
+    resetReports();
     setScreen('select');
     setShowForm(false);
     setFormData(null);
     setUserId(null);
-    setReportData(null);
   }
 
   const isIntro = screen === 'select' && !showForm;
@@ -137,9 +123,9 @@ export function BankIncomeDemo() {
           <div>
             <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Report</h2>
             <p class="text-sm text-gray-500 mb-7">Bank income verification</p>
-            {reportData ? (
+            {reports?.income_insights && !reportLoading ? (
               <div>
-                <IncomeInsightsReport report={reportData} />
+                <IncomeInsightsReport report={reports.income_insights} />
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
                   <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
                 </div>

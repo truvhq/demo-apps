@@ -68,7 +68,7 @@ export function UploadDocumentsDemo() {
   const [orderData, setOrderData] = useState(null);
   const [processing, setProcessing] = useState(false);
 
-  const { panel, setCurrentStep, startPolling, reset: resetPanel } = usePanel();
+  const { panel, setCurrentStep, startPolling, stopPolling, reset: resetPanel } = usePanel();
 
   const isIntro = screen === 'intro' || screen === 'upload';
 
@@ -151,6 +151,7 @@ export function UploadDocumentsDemo() {
           const resp = await fetch(`${API_BASE}/api/collections/${collectionId}/report?link_id=${linkId}`);
           if (resp.ok) setOrderData(await resp.json());
         } catch (e) { console.error(e); }
+        stopPolling();
         setScreen('review');
       })();
     }

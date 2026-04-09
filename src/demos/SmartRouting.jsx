@@ -18,8 +18,8 @@
 //   4. Wait for task-status-updated webhook with status "done"
 //   5. GET /api/users/:userId/reports/:reportType → fetch verification report
 
-import { useState, useEffect, useRef } from 'preact/hooks';
-import { Layout, WaitingScreen, parsePayload, usePanel, API_BASE, IntroSlide } from '../components/index.js';
+import { useState, useEffect } from 'preact/hooks';
+import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
@@ -82,11 +82,18 @@ export function SmartRoutingDemo() {
   const [recommended, setRecommended] = useState(null);
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const fetchedRef = useRef(false);
 
-  const { panel, sessionId, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
+  const { panel, sessionId, setCurrentStep, startPolling, stopPolling, addBridgeEvent, reset } = usePanel();
+
+  const { reports, loading: reportLoading, reset: resetReports } = useReportFetch({
+    userId,
+    products: selectedMethod ? [selectedMethod.reportType || 'income'] : [],
+    webhooks: panel.webhooks,
+    stopPolling,
+    webhookEvent: 'task',
+    onComplete: () => { setCurrentStep(4); setScreen('review'); },
+  });
 
   // After the application form is submitted, check the employer's payroll coverage
   // using the company search API. The success_rate field determines the recommendation.
@@ -166,39 +173,15 @@ export function SmartRoutingDemo() {
     setLoading(false);
   }
 
-  // Watch for the task-status-updated webhook with status "done".
-  // Once it arrives, fetch the report via the user reports endpoint.
-  // fetchedRef prevents double-fetching when webhooks array updates multiple times.
-  useEffect(() => {
-    if (screen !== 'waiting' || !userId || fetchedRef.current) return;
-    const done = panel.webhooks.some(w => {
-      const p = parsePayload(w.payload);
-      return (p.event_type === 'task-status-updated' && p.status === 'done')
-        || (w.event_type === 'task-status-updated' && w.status === 'done');
-    });
-    if (done) {
-      setCurrentStep(4);
-      setScreen('review');
-      (async () => {
-        try {
-          const rt = selectedMethod?.reportType || 'income';
-          const resp = await fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/reports/${rt}`);
-          if (resp.ok) { fetchedRef.current = true; setReportData(await resp.json()); }
-        } catch (e) { console.error(e); }
-      })();
-    }
-  }, [panel.webhooks, screen, userId]);
-
   function resetDemo() {
     reset();
-    fetchedRef.current = false;
+    resetReports();
     setScreen('select');
     setShowForm(false);
     setFormData(null);
     setRecommended(null);
     setSelectedMethod(null);
     setUserId(null);
-    setReportData(null);
   }
 
   const isIntro = screen === 'select' && !showForm;
@@ -295,11 +278,10 @@ export function SmartRoutingDemo() {
           <div>
             <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Report</h2>
             <p class="text-sm text-gray-500 mb-7">{selectedMethod?.name} verification</p>
-            {reportData ? (
+            {reports && !reportLoading ? (
               <div>
-                {selectedMethod?.id === 'bank'
-                  ? <IncomeInsightsReport report={reportData} />
-                  : <VoieReport report={reportData} />}
+                {reports.income_insights && <IncomeInsightsReport report={reports.income_insights} />}
+                {reports.income && <VoieReport report={reports.income} />}
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
                   <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
                 </div>

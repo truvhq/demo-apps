@@ -47,7 +47,7 @@ export const INDUSTRIES = [
     demos: [
       { id: 'customer-portal', name: 'Customer Portal', component: CustomerPortalDemo, desc: 'An applicant applies for benefits and verifies their income and employment through a self-service portal.', tags: ['Company Search', 'Orders', 'Bridge', 'Reports'] },
       { id: 'documents', name: 'Document Processing', component: PSDocumentsDemo, desc: 'Process pay stubs, W-2s, and tax returns to verify income for benefit eligibility decisions.', tags: ['Document Collections', 'Finalize', 'Parsed Data'] },
-      { id: 'verifier-portal', name: 'Verifier Portal', component: EmployeePortalDemo, desc: 'A Case Worker creates verification orders using applicant data on file and sends verification links via email or SMS.', tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'] },
+      { id: 'verifier-portal', name: 'Case Worker Portal', component: EmployeePortalDemo, desc: 'A Case Worker creates verification orders using applicant data on file and sends verification links via email or SMS.', tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'] },
     ],
   },
   {

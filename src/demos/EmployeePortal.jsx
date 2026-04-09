@@ -14,8 +14,8 @@
 //   3. Wait for order-status-updated webhook with status "completed"
 //   4. GET /api/users/:userId/reports/:type -> fetch report
 
-import { useState, useEffect } from 'preact/hooks';
-import { Layout, WebhookFeed, usePanel, API_BASE, parsePayload, IntroSlide } from '../components/index.js';
+import { useState } from 'preact/hooks';
+import { Layout, WebhookFeed, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { AssetsReport } from '../components/reports/AssetsReport.jsx';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
@@ -49,9 +49,17 @@ export function EmployeePortalDemo({ screen, param }) {
   const [introSeen, setIntroSeen] = useState(false);
   const [testApplicant, setTestApplicant] = useState(null);
   const [order, setOrder] = useState(null);
-  const [reportData, setReportData] = useState(null);
   const [creating, setCreating] = useState(false);
-  const { panel, setCurrentStep, startPolling, reset: resetPanel } = usePanel();
+  const { panel, setCurrentStep, startPolling, stopPolling, reset: resetPanel } = usePanel();
+
+  const { reports, reset: resetReports } = useReportFetch({
+    userId: order?.user_id,
+    products: testApplicant?.products || [],
+    webhooks: panel.webhooks,
+    stopPolling,
+    webhookEvent: 'order',
+    onComplete: () => { setOrder(prev => ({ ...prev, status: 'completed' })); setCurrentStep(2); },
+  });
 
   const showIntro = !introSeen;
   const showAddForm = introSeen && !testApplicant;
@@ -80,59 +88,12 @@ export function EmployeePortalDemo({ screen, param }) {
     setCreating(false);
   }
 
-  // Watch webhooks for order completion
-  useEffect(() => {
-    if (!order) return;
-    const isDone = panel.webhooks.some(w => {
-      const p = parsePayload(w.payload);
-      return (p.event_type === 'order-status-updated' && p.status === 'completed')
-        || (w.event_type === 'order-status-updated' && w.status === 'completed');
-    });
-    if (isDone && !reportData) {
-      setOrder(prev => ({ ...prev, status: 'completed' }));
-      setCurrentStep(2);
-      // Fetch reports via user reports endpoint
-      (async () => {
-        try {
-          const uid = encodeURIComponent(order.user_id);
-          const products = testApplicant?.products || [];
-          const reports = {};
-          const fetches = [];
-          if (products.includes('income')) {
-            fetches.push(
-              fetch(`${API_BASE}/api/users/${uid}/reports/income`)
-                .then(r => r.ok ? r.json() : null).then(d => { if (d) reports.income = d; })
-            );
-          }
-          if (products.includes('employment')) {
-            fetches.push(
-              fetch(`${API_BASE}/api/users/${uid}/reports/employment`)
-                .then(r => r.ok ? r.json() : null).then(d => { if (d) reports.employment = d; })
-            );
-          }
-          if (products.includes('assets')) {
-            fetches.push(
-              fetch(`${API_BASE}/api/users/${uid}/reports/assets`)
-                .then(r => r.ok ? r.json() : null).then(d => { if (d) reports.assets = d; })
-            );
-            fetches.push(
-              fetch(`${API_BASE}/api/users/${uid}/reports/income_insights`)
-                .then(r => r.ok ? r.json() : null).then(d => { if (d) reports.income_insights = d; })
-            );
-          }
-          await Promise.all(fetches);
-          setReportData(reports);
-        } catch (e) { console.error(e); }
-      })();
-    }
-  }, [panel.webhooks, order]);
-
   function resetDemo() {
     resetPanel();
+    resetReports();
     setIntroSeen(false);
     setTestApplicant(null);
     setOrder(null);
-    setReportData(null);
     setCurrentStep(0);
   }
 
@@ -243,13 +204,13 @@ export function EmployeePortalDemo({ screen, param }) {
           )}
 
           {/* Report when completed */}
-          {reportData && (
+          {reports && (
             <div class="border border-[#d2d2d7] rounded-xl p-6 bg-white">
               <h3 class="text-lg font-semibold text-[#171717] mb-4">Verification Report</h3>
-              {reportData.income && <VoieReport report={reportData.income} />}
-              {reportData.employment && <VoieReport report={reportData.employment} />}
-              {reportData.assets && <AssetsReport report={reportData.assets} />}
-              {reportData.income_insights && <IncomeInsightsReport report={reportData.income_insights} />}
+              {reports.income && <VoieReport report={reports.income} />}
+              {reports.employment && <VoieReport report={reports.employment} />}
+              {reports.assets && <AssetsReport report={reports.assets} />}
+              {reports.income_insights && <IncomeInsightsReport report={reports.income_insights} />}
             </div>
           )}
 

@@ -13,7 +13,7 @@
 //   4. GET /api/users/:userId/reports/:type -> fetch report
 
 import { useState, useEffect } from 'preact/hooks';
-import { Layout, usePanel, API_BASE, IntroSlide } from '../components/index.js';
+import { Layout, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 import { BridgeScreen, OrderWaitingScreen } from '../components/screens/index.js';
 import { VoieReport } from '../components/reports/VoieReport.jsx';
@@ -41,43 +41,20 @@ export function ApplicationDemo({ screen, param }) {
   const [productType, setProductType] = useState(null);
   const [userId, setUserId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [reportData, setReportData] = useState(null);
-  const [reportLoading, setReportLoading] = useState(false);
-  const [reportError, setReportError] = useState(null);
-  const { panel, sessionId, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
+  const { panel, sessionId, setCurrentStep, startPolling, stopPolling, addBridgeEvent, reset } = usePanel();
+
+  const { reports, loading: reportLoading, error: reportError, reset: resetReports } = useReportFetch({
+    userId,
+    products: productType ? [productType] : [],
+    webhooks: panel.webhooks,
+    stopPolling,
+    webhookEvent: 'order',
+  });
 
   useEffect(() => {
     const stepMap = { '': 0, 'bridge': 1, 'waiting': 2, 'results': 3 };
     setCurrentStep(stepMap[screen] ?? 0);
   }, [screen]);
-
-  // Fetch reports when navigating to results screen
-  useEffect(() => {
-    if (screen !== 'results' || !userId || !productType || reportData) return;
-    setReportLoading(true);
-    (async () => {
-      try {
-        const reports = {};
-        if (productType === 'assets') {
-          const [assetsResp, insightsResp] = await Promise.all([
-            fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/reports/assets`),
-            fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/reports/income_insights`),
-          ]);
-          if (assetsResp.ok) reports.assets = await assetsResp.json();
-          if (insightsResp.ok) reports.income_insights = await insightsResp.json();
-        } else {
-          const reportType = productType === 'employment' ? 'employment' : 'income';
-          const resp = await fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/reports/${reportType}`);
-          if (resp.ok) reports[reportType] = await resp.json();
-        }
-        setReportData(reports);
-      } catch (e) {
-        console.error(e);
-        setReportError('Failed to load report');
-      }
-      setReportLoading(false);
-    })();
-  }, [screen, userId, productType]);
 
   async function handleSubmit(formData) {
     setSubmitting(true);
@@ -110,11 +87,11 @@ export function ApplicationDemo({ screen, param }) {
       )}
       {screen === 'results' && (
         <ReportResults
-          reportData={reportData}
+          reportData={reports}
           reportLoading={reportLoading}
           reportError={reportError}
           productType={productType}
-          onBack={() => { reset(); setProductType(null); setUserId(null); setReportData(null); setReportError(null); navigate('mortgage/pos-application'); }}
+          onBack={() => { reset(); resetReports(); setProductType(null); setUserId(null); navigate('mortgage/pos-application'); }}
           backLabel="New Application"
         />
       )}

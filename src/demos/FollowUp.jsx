@@ -16,8 +16,8 @@
 //   3. Wait for task-status-updated webhook with status "done"
 //   4. GET /api/users/:userId/reports/:type -> fetch report
 
-import { useState, useRef, useEffect } from 'preact/hooks';
-import { Layout, usePanel, API_BASE, IntroSlide } from '../components/index.js';
+import { useState, useRef, useEffect, useMemo } from 'preact/hooks';
+import { Layout, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
 import { Icons } from '../components/Icons.jsx';
 import { BridgeScreen, OrderWaitingScreen } from '../components/screens/index.js';
 import { VoieReport } from '../components/reports/VoieReport.jsx';
@@ -67,69 +67,31 @@ export function FollowUpDemo({ screen, param }) {
   const [taskOrders, setTaskOrders] = useState(null);
   const [initializing, setInitializing] = useState(false);
   const [taskStatus, setTaskStatus] = useState({});
-  const [reportData, setReportData] = useState(null);
-  const [reportLoading, setReportLoading] = useState(false);
-  const [reportError, setReportError] = useState(null);
   const activeTaskRef = useRef(null);
-  const { panel, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
-
-  useEffect(() => {
-    const stepMap = { '': 0, 'bridge': 1, 'waiting': 2, 'results': 3 };
-    setCurrentStep(stepMap[screen] ?? 0);
-  }, [screen]);
+  const { panel, setCurrentStep, startPolling, stopPolling, addBridgeEvent, reset } = usePanel();
 
   // Find the active task's order and products from the orderId in the URL
-  function getActiveTaskInfo() {
+  const activeTaskInfo = useMemo(() => {
     if (!taskOrders || !param) return null;
     for (const task of TASKS) {
       const order = taskOrders[task.id];
       if (order && order.order_id === param) return { task, order };
     }
     return null;
-  }
+  }, [taskOrders, param]);
 
-  // Fetch reports when navigating to results screen
+  const { reports, loading: reportLoading, error: reportError, reset: resetReports } = useReportFetch({
+    userId: activeTaskInfo?.order?.user_id,
+    products: activeTaskInfo?.task?.products || [],
+    webhooks: panel.webhooks,
+    stopPolling,
+    webhookEvent: 'order',
+  });
+
   useEffect(() => {
-    if (screen !== 'results' || reportData) return;
-    const info = getActiveTaskInfo();
-    if (!info || !info.order.user_id) return;
-    setReportLoading(true);
-    (async () => {
-      try {
-        const reports = {};
-        const products = info.task.products;
-        const fetches = [];
-        if (products.includes('income')) {
-          fetches.push(
-            fetch(`${API_BASE}/api/users/${encodeURIComponent(info.order.user_id)}/reports/income`)
-              .then(r => r.ok ? r.json() : null).then(d => { if (d) reports.income = d; })
-          );
-        }
-        if (products.includes('employment')) {
-          fetches.push(
-            fetch(`${API_BASE}/api/users/${encodeURIComponent(info.order.user_id)}/reports/employment`)
-              .then(r => r.ok ? r.json() : null).then(d => { if (d) reports.employment = d; })
-          );
-        }
-        if (products.includes('assets')) {
-          fetches.push(
-            fetch(`${API_BASE}/api/users/${encodeURIComponent(info.order.user_id)}/reports/assets`)
-              .then(r => r.ok ? r.json() : null).then(d => { if (d) reports.assets = d; })
-          );
-          fetches.push(
-            fetch(`${API_BASE}/api/users/${encodeURIComponent(info.order.user_id)}/reports/income_insights`)
-              .then(r => r.ok ? r.json() : null).then(d => { if (d) reports.income_insights = d; })
-          );
-        }
-        await Promise.all(fetches);
-        setReportData(reports);
-      } catch (e) {
-        console.error(e);
-        setReportError('Failed to load report');
-      }
-      setReportLoading(false);
-    })();
-  }, [screen, param, taskOrders]);
+    const stepMap = { '': 0, 'bridge': 1, 'waiting': 2, 'results': 3 };
+    setCurrentStep(stepMap[screen] ?? 0);
+  }, [screen]);
 
   async function handleInitialize() {
     if (!applicationId.trim()) return;
@@ -180,11 +142,11 @@ export function FollowUpDemo({ screen, param }) {
       )}
       {screen === 'results' && (
         <FollowUpReportResults
-          reportData={reportData}
+          reportData={reports}
           reportLoading={reportLoading}
           reportError={reportError}
-          taskInfo={getActiveTaskInfo()}
-          onBack={() => { reset(); setReportData(null); setReportError(null); navigate('mortgage/pos-tasks'); }}
+          taskInfo={activeTaskInfo}
+          onBack={() => { reset(); resetReports(); navigate('mortgage/pos-tasks'); }}
           backLabel="Back to Tasks"
         />
       )}
