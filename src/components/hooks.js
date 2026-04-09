@@ -33,6 +33,8 @@ export function usePanel() {
   }, []);
 
   // Start polling logs and webhooks by user_id every 3s
+  const pollRef = useRef(null);
+
   const startPolling = useCallback((userId) => {
     userIdRef.current = userId;
     if (pollingRef.current) clearInterval(pollingRef.current);
@@ -50,17 +52,28 @@ export function usePanel() {
         setWebhooks(whs || []);
       } catch {}
     };
+    pollRef.current = poll;
 
     poll();
     pollingRef.current = setInterval(poll, 3000);
   }, []);
 
   const stopPolling = useCallback(() => {
-    userIdRef.current = null;
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
     }
+    userIdRef.current = null;
+  }, []);
+
+  // Run one final poll to pick up any last API log entries, then stop
+  const pollOnceAndStop = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+    if (pollRef.current) pollRef.current().then(() => { userIdRef.current = null; });
+    else userIdRef.current = null;
   }, []);
 
   const addBridgeEvent = useCallback((type, data) => {
@@ -84,6 +97,7 @@ export function usePanel() {
     setCurrentStep,
     startPolling,
     stopPolling,
+    pollOnceAndStop,
     addBridgeEvent,
     reset,
   };

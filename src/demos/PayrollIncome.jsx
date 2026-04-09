@@ -39,13 +39,13 @@ export function PayrollIncomeDemo() {
   const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const { panel, sessionId, setCurrentStep, startPolling, stopPolling, addBridgeEvent, reset } = usePanel();
+  const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
   const { reports, loading: reportLoading, reset: resetReports } = useReportFetch({
     userId,
     products: ['income'],
     webhooks: panel.webhooks,
-    stopPolling,
+    pollOnceAndStop,
     webhookEvent: 'task',
     onComplete: () => { setCurrentStep(3); setScreen('review'); },
   });

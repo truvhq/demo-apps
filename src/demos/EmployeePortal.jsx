@@ -50,13 +50,13 @@ export function EmployeePortalDemo({ screen, param }) {
   const [testApplicant, setTestApplicant] = useState(null);
   const [order, setOrder] = useState(null);
   const [creating, setCreating] = useState(false);
-  const { panel, setCurrentStep, startPolling, stopPolling, reset: resetPanel } = usePanel();
+  const { panel, setCurrentStep, startPolling, pollOnceAndStop, reset: resetPanel } = usePanel();
 
   const { reports, reset: resetReports } = useReportFetch({
     userId: order?.user_id,
     products: testApplicant?.products || [],
     webhooks: panel.webhooks,
-    stopPolling,
+    pollOnceAndStop,
     webhookEvent: 'order',
     onComplete: () => { setOrder(prev => ({ ...prev, status: 'completed' })); setCurrentStep(2); },
   });

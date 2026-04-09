@@ -44,13 +44,13 @@ export function CustomerPortalDemo({ screen, param }) {
   const [productType, setProductType] = useState(null);
   const [userId, setUserId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const { panel, sessionId, setCurrentStep, startPolling, stopPolling, addBridgeEvent, reset } = usePanel();
+  const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
   const { reports, loading: reportLoading, error: reportError, reset: resetReports } = useReportFetch({
     userId,
     products: productType ? [productType] : [],
     webhooks: panel.webhooks,
-    stopPolling,
+    pollOnceAndStop,
     webhookEvent: 'order',
   });
 

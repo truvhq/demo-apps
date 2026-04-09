@@ -68,7 +68,7 @@ export function FollowUpDemo({ screen, param }) {
   const [initializing, setInitializing] = useState(false);
   const [taskStatus, setTaskStatus] = useState({});
   const activeTaskRef = useRef(null);
-  const { panel, setCurrentStep, startPolling, stopPolling, addBridgeEvent, reset } = usePanel();
+  const { panel, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
   // Find the active task's order and products from the orderId in the URL
   const activeTaskInfo = useMemo(() => {
@@ -84,7 +84,7 @@ export function FollowUpDemo({ screen, param }) {
     userId: activeTaskInfo?.order?.user_id,
     products: activeTaskInfo?.task?.products || [],
     webhooks: panel.webhooks,
-    stopPolling,
+    pollOnceAndStop,
     webhookEvent: 'order',
   });
 

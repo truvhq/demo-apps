@@ -22,7 +22,6 @@ export function ApplicationForm({ onSubmit, submitting, productType, showEmploye
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!agree) return;
-    if (showEmployer && !isAssets && !employer.name) return;
     const fd = new FormData(e.target);
     const isBank = isAssets || dataSource === 'financial_accounts';
     const formResult = {
@@ -54,7 +53,7 @@ export function ApplicationForm({ onSubmit, submitting, productType, showEmploye
       </div>
       {showEmployer && (
         <div class="mb-4">
-          <label class="text-sm font-medium mb-1.5 block">{label}{!isAssets && <span class="text-red-400"> *</span>}</label>
+          <label class="text-sm font-medium mb-1.5 block">{label}</label>
           <CompanySearch value={employer.name} onChange={setEmployer} productType={productType} dataSource={isAssets ? 'financial_accounts' : dataSource} placeholder={`Search for ${label.toLowerCase()}...`} sessionId={sessionId} />
         </div>
       )}
@@ -67,7 +66,7 @@ export function ApplicationForm({ onSubmit, submitting, productType, showEmploye
         <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} class="w-4.5 h-4.5 accent-primary" />
         I agree to the Terms of Service
       </label>
-      <button type="submit" disabled={!agree || (showEmployer && !isAssets && !employer.name) || submitting} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
+      <button type="submit" disabled={!agree || submitting} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
         {submitting ? <span class="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Continue'}
       </button>
     </form>

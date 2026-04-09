@@ -11,7 +11,7 @@
 //     userId: order?.user_id,
 //     products: ['income'],
 //     webhooks: panel.webhooks,
-//     stopPolling,
+//     pollOnceAndStop,
 //     webhookEvent: 'task',        // 'task' (default) or 'order'
 //     onComplete: () => { ... },   // demo-specific side effects
 //   });
@@ -47,7 +47,7 @@ export function useReportFetch({
   userId,
   products,
   webhooks,
-  stopPolling,
+  pollOnceAndStop,
   webhookEvent = 'task',
   onComplete,
 }) {
@@ -58,8 +58,8 @@ export function useReportFetch({
   const prevUserIdRef = useRef(userId);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
-  const stopPollingRef = useRef(stopPolling);
-  stopPollingRef.current = stopPolling;
+  const pollOnceAndStopRef = useRef(pollOnceAndStop);
+  pollOnceAndStopRef.current = pollOnceAndStop;
 
   // Stabilize products array to avoid spurious effect re-runs
   const productsKey = JSON.stringify(products);
@@ -108,7 +108,7 @@ export function useReportFetch({
         console.error(e);
         setError('Failed to load report');
       }
-      stopPollingRef.current();
+      pollOnceAndStopRef.current();
       setLoading(false);
     })();
   }, [webhooks, userId, productsKey, webhookEvent]);
