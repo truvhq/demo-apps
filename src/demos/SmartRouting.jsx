@@ -106,7 +106,7 @@ export function SmartRoutingDemo() {
 
     try {
       const employer = data.employer || '';
-      const resp = await fetch(`${API_BASE}/api/companies?q=${encodeURIComponent(employer)}&product_type=income`);
+      const resp = await fetch(`${API_BASE}/api/companies?q=${encodeURIComponent(employer)}&product_type=income&session_id=${encodeURIComponent(sessionId)}`);
       const companies = await resp.json();
       const top = Array.isArray(companies) && companies.length > 0 ? companies[0] : null;
 
