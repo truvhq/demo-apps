@@ -220,3 +220,8 @@ export function updateDocCollection(collectionId, fields) {
   vals.push(collectionId);
   getDb().prepare(`UPDATE document_collections SET ${sets} WHERE id = ?`).run(...vals);
 }
+
+// Test-only: inject a different Database instance (e.g., in-memory)
+export function _setTestDb(testDb) {
+  db = testDb;
+}
