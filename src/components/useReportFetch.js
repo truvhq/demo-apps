@@ -20,7 +20,7 @@ import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 import { API_BASE, parsePayload } from './index.js';
 
 // 'assets' product always also fetches 'income_insights'
-function getReportTypes(products) {
+export function getReportTypes(products) {
   const types = [];
   for (const p of products) {
     types.push(p);
@@ -31,7 +31,7 @@ function getReportTypes(products) {
   return types;
 }
 
-function checkWebhookDone(webhooks, webhookEvent) {
+export function checkWebhookDone(webhooks, webhookEvent) {
   if (!webhookEvent) return false;
   const [event, status] = webhookEvent === 'order'
     ? ['order-status-updated', 'completed']
