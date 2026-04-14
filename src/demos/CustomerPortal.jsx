@@ -41,14 +41,17 @@ const STEPS = [
 
 
 export function CustomerPortalDemo({ screen, param }) {
-  const [productType, setProductType] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const [userId, setUserId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
+  const products = selectedProduct ? (CP_PRODUCTS.find(p => p.id === selectedProduct)?.products || [selectedProduct]) : [];
+  const productType = products[0] || null;
+
   const { reports, loading: reportLoading, error: reportError, reset: resetReports } = useReportFetch({
     userId,
-    products: productType ? [productType] : [],
+    products,
     webhooks: panel.webhooks,
     pollOnceAndStop,
     webhookEvent: 'order',
@@ -65,7 +68,7 @@ export function CustomerPortalDemo({ screen, param }) {
       const resp = await fetch(`${API_BASE}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, demo_id: 'customer-portal' }),
+        body: JSON.stringify({ ...formData, products, demo_id: 'customer-portal' }),
       });
       const data = await resp.json();
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setSubmitting(false); return; }
@@ -77,7 +80,7 @@ export function CustomerPortalDemo({ screen, param }) {
   }
 
   const isBridge = screen === 'bridge';
-  const isIntro = !screen && !productType;
+  const isIntro = !screen && !selectedProduct;
   const [orderId, companyMappingId] = (param || '').split('/');
 
   return (
@@ -93,18 +96,18 @@ export function CustomerPortalDemo({ screen, param }) {
           reportData={reports}
           reportLoading={reportLoading}
           reportError={reportError}
-          productType={productType}
-          onBack={() => { reset(); resetReports(); setProductType(null); setUserId(null); navigate('public-sector/customer-portal'); }}
+          productType={selectedProduct}
+          onBack={() => { reset(); resetReports(); setSelectedProduct(null); setUserId(null); navigate('public-sector/customer-portal'); }}
           backLabel="Customer Portal"
         />
       )}
       {!screen && (
-        productType ? (
+        selectedProduct ? (
           <div class="max-w-lg mx-auto">
             <ApplicationForm sessionId={sessionId} onSubmit={handleSubmit} submitting={submitting} productType={productType} />
           </div>
         ) : (
-          <CPIntroScreen onStart={setProductType} />
+          <CPIntroScreen onStart={setSelectedProduct} />
         )
       )}
     </Layout>
@@ -133,24 +136,27 @@ function CPReportResults({ reportData, reportLoading, reportError, productType, 
 const CP_PRODUCTS = [
   {
     id: 'income',
-    name: 'Income Verification',
+    name: 'Employment income verification',
     desc: 'Verify current income for program eligibility and benefit calculations.',
     useCase: 'SNAP, TANF, Medicaid, housing assistance',
     report: 'VOIE Report',
+    products: ['income'],
   },
   {
-    id: 'employment',
-    name: 'Employment Verification',
-    desc: 'Confirm employment status, employer, and job tenure for eligibility.',
-    useCase: 'Benefits verification, compliance checks',
-    report: 'VOE Report',
+    id: 'income_assets',
+    name: 'Income + Expenses',
+    desc: 'Verify income and bank balances together for full financial picture.',
+    useCase: 'Housing assistance, comprehensive eligibility',
+    report: 'VOIE + VOA',
+    products: ['income', 'assets'],
   },
   {
     id: 'assets',
-    name: 'Assets Verification',
+    name: 'Self-employment income',
     desc: 'Verify bank balances and account ownership for means testing.',
     useCase: 'Housing assistance, program eligibility',
     report: 'VOA + Income Insights',
+    products: ['assets'],
   },
 ];
 
@@ -171,7 +177,7 @@ const CP_DIAGRAMS = {
   Truv->>BE: Webhook: order-status-updated (completed)
   BE->>Truv: POST /v1/users/{user_id}/reports/
   Truv-->>BE: VOIE Report`,
-  employment: `sequenceDiagram
+  income_assets: `sequenceDiagram
   participant FE as Your Frontend
   participant BE as Your Backend
   participant Truv as Truv API
@@ -179,14 +185,14 @@ const CP_DIAGRAMS = {
   BE->>Truv: GET /v1/company-mappings-search/
   Truv-->>BE: company_mapping_id
   BE->>Truv: POST /v1/orders/
-  Note right of Truv: PII + employer + products: ["employment"]
+  Note right of Truv: PII + employer + products: ["income", "assets"]
   Truv-->>BE: bridge_token, user_id
   BE-->>FE: bridge_token
   FE->>Truv: TruvBridge.init({ bridgeToken, isOrder: true })
   Note over FE: Applicant logs in with employer
   Truv->>BE: Webhook: order-status-updated (completed)
   BE->>Truv: POST /v1/users/{user_id}/reports/
-  Truv-->>BE: VOE Report`,
+  Truv-->>BE: VOIE Report + VOA Report`,
   assets: `sequenceDiagram
   participant FE as Your Frontend
   participant BE as Your Backend

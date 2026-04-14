@@ -91,13 +91,23 @@ export function useReportFetch({
     (async () => {
       try {
         const results = {};
-        await Promise.all(
-          reportTypes.map(rt =>
+        const fetchReports = (types) => Promise.all(
+          types.map(rt =>
             fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/reports/${rt}`)
               .then(r => r.ok ? r.json() : null)
               .then(d => { if (d) results[rt] = d; })
           )
         );
+        await fetchReports(reportTypes);
+
+        // Retry failed report types once after a delay (handles PLL where
+        // deposit_switch completes before income data is ready)
+        const failed = reportTypes.filter(rt => !results[rt]);
+        if (failed.length > 0 && failed.length < reportTypes.length) {
+          await new Promise(r => setTimeout(r, 5000));
+          await fetchReports(failed);
+        }
+
         if (Object.keys(results).length === 0) {
           setError('Failed to load report');
         } else {

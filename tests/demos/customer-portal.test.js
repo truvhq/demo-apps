@@ -16,17 +16,17 @@ import { getReportTypes } from '../../src/components/useReportFetch.js';
 // CustomerPortal.jsx behavioral contracts
 //
 // Order-flow demo (Public Sector Customer Portal) that supports income,
-// employment, and assets verification.
+// income+assets combo, and assets verification.
 // ---------------------------------------------------------------------------
 
 describe('CustomerPortal demo contracts', () => {
-  // ---- CP_DIAGRAMS object: 'income', 'employment', 'assets' entries -------
+  // ---- CP_DIAGRAMS object: 'income', 'income_assets', 'assets' entries ----
 
-  const CP_DIAGRAM_KEYS = ['income', 'employment', 'assets'];
+  const CP_DIAGRAM_KEYS = ['income', 'income_assets', 'assets'];
 
-  it('CP_DIAGRAMS has "income", "employment", and "assets" entries', () => {
+  it('CP_DIAGRAMS has "income", "income_assets", and "assets" entries', () => {
     expect(CP_DIAGRAM_KEYS).toContain('income');
-    expect(CP_DIAGRAM_KEYS).toContain('employment');
+    expect(CP_DIAGRAM_KEYS).toContain('income_assets');
     expect(CP_DIAGRAM_KEYS).toContain('assets');
     expect(CP_DIAGRAM_KEYS).toHaveLength(3);
   });
@@ -34,14 +34,14 @@ describe('CustomerPortal demo contracts', () => {
   // ---- CP_PRODUCTS array: 3 entries ---------------------------------------
 
   const CP_PRODUCTS = [
-    { id: 'income', report: 'VOIE Report' },
-    { id: 'employment', report: 'VOE Report' },
-    { id: 'assets', report: 'VOA + Income Insights' },
+    { id: 'income', report: 'VOIE Report', products: ['income'] },
+    { id: 'income_assets', report: 'VOIE + VOA', products: ['income', 'assets'] },
+    { id: 'assets', report: 'VOA + Income Insights', products: ['assets'] },
   ];
 
-  it('CP_PRODUCTS has 3 entries: income, employment, assets', () => {
+  it('CP_PRODUCTS has 3 entries: income, income_assets, assets', () => {
     expect(CP_PRODUCTS).toHaveLength(3);
-    expect(CP_PRODUCTS.map(p => p.id)).toEqual(['income', 'employment', 'assets']);
+    expect(CP_PRODUCTS.map(p => p.id)).toEqual(['income', 'income_assets', 'assets']);
   });
 
   // ---- Webhook event: all use "order" ------------------------------------
@@ -57,8 +57,8 @@ describe('CustomerPortal demo contracts', () => {
     expect(getReportTypes(['income'])).toEqual(['income']);
   });
 
-  it('employment: getReportTypes(["employment"]) returns ["employment"]', () => {
-    expect(getReportTypes(['employment'])).toEqual(['employment']);
+  it('income_assets: getReportTypes(["income", "assets"]) returns income, assets, income_insights', () => {
+    expect(getReportTypes(['income', 'assets'])).toEqual(['income', 'assets', 'income_insights']);
   });
 
   it('assets: getReportTypes(["assets"]) auto-adds income_insights', () => {
