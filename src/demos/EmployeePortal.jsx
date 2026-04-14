@@ -12,7 +12,7 @@
 //   1. POST /api/orders (with PII + email/phone, no company)
 //   2. Truv sends email/SMS with share_url to applicant
 //   3. Wait for order-status-updated webhook with status "completed"
-//   4. GET /api/users/:userId/reports/:type -> fetch report
+//   4. GET /api/users/:userId/reports/:type -> server POSTs to create, then GETs by report_id
 
 import { useState } from 'preact/hooks';
 import { Layout, WebhookFeed, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';

@@ -17,13 +17,18 @@
 
 import { Router } from 'express';
 
+// Truv generates reports asynchronously; the GET may return 404 briefly after POST.
+const REPORT_RETRIEVE_DELAYS_MS = [0, 2000, 4000];
+
 const REPORT_CONFIG = {
+  // VOIE report (Verification of Income and Employment) — is_voe: false
   income: {
     create: (truv, userId) => truv.createVoieReport(userId, false),
     retrieve: (truv, userId, reportId) => truv.getVoieReport(userId, reportId),
     createEndpoint: userId => `/v1/users/${userId}/reports/`,
     retrieveEndpoint: (userId, reportId) => `/v1/users/${userId}/reports/${reportId}/`,
   },
+  // VOE report (Verification of Employment only) — same endpoint, is_voe: true
   employment: {
     create: (truv, userId) => truv.createVoieReport(userId, true),
     retrieve: (truv, userId, reportId) => truv.getVoieReport(userId, reportId),
@@ -97,12 +102,10 @@ export default function userReportsRoutes({ truv, apiLogger }) {
       }
 
       // Step 2: GET to retrieve the report by report_id.
-      // Truv generates reports asynchronously, so the GET may return 404
-      // while processing. Retry up to 3 times with backoff.
+      // Retry up to 3 times with backoff while the report is being generated.
       let getResult;
-      const delays = [0, 2000, 4000];
-      for (let attempt = 0; attempt < delays.length; attempt++) {
-        if (delays[attempt]) await new Promise(r => setTimeout(r, delays[attempt]));
+      for (let attempt = 0; attempt < REPORT_RETRIEVE_DELAYS_MS.length; attempt++) {
+        if (REPORT_RETRIEVE_DELAYS_MS[attempt]) await new Promise(r => setTimeout(r, REPORT_RETRIEVE_DELAYS_MS[attempt]));
         getResult = await cfg.retrieve(truv, userId, reportId);
         apiLogger.logApiCall({
           userId,
@@ -113,7 +116,7 @@ export default function userReportsRoutes({ truv, apiLogger }) {
           durationMs: getResult.durationMs,
         });
         if (getResult.statusCode < 400) break;
-        if (attempt < delays.length - 1) console.log(`Report ${reportType} not ready (${getResult.statusCode}), retrying...`);
+        if (attempt < REPORT_RETRIEVE_DELAYS_MS.length - 1) console.log(`Report ${reportType} not ready (${getResult.statusCode}), retrying...`);
       }
 
       if (getResult.statusCode >= 400) {

@@ -6,6 +6,10 @@
 //      (backend does POST to create + GET to retrieve)
 //   3. Stop polling
 //
+// Bridge flow: app creates user + bridge token, end-user connects via TruvBridge widget.
+// Orders flow: app creates order with PII, Truv sends share_url to user.
+// FollowUp demo reuses the same userId across tasks with different products.
+//
 // Usage:
 //   const { reports, loading, error, reset } = useReportFetch({
 //     userId: order?.user_id,
@@ -13,8 +17,12 @@
 //     webhooks: panel.webhooks,
 //     pollOnceAndStop,
 //     webhookEvent: 'task',        // 'task' (default) or 'order'
-//     onComplete: () => { ... },   // demo-specific side effects
+//     onComplete: (reports) => { ... },   // receives the reports map; demo-specific side effects
 //   });
+
+// Retry delay for partial report failures. Some flows (e.g., Paycheck Linked Lending)
+// complete the deposit_switch before income data is indexed; 5s covers the typical gap.
+const REPORT_RETRY_DELAY_MS = 5000;
 
 import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 import { API_BASE } from './hooks.js';
@@ -25,7 +33,8 @@ import { parsePayload } from './WebhookFeed.jsx';
 //   'order' = Orders API flow        -> listens for order-status-updated:completed
 export const WEBHOOK_EVENTS = { TASK: 'task', ORDER: 'order' };
 
-// 'assets' product always also fetches 'income_insights'
+// 'assets' product always also fetches 'income_insights' because the Truv
+// Assets (VOA) report is paired with Income Insights from the same bank connection.
 export function getReportTypes(products) {
   const types = [];
   for (const p of products) {
@@ -120,7 +129,7 @@ export function useReportFetch({
         // completes before income data is ready)
         const failed = reportTypes.filter(rt => !results[rt]);
         if (failed.length > 0) {
-          await new Promise(r => setTimeout(r, 5000));
+          await new Promise(r => setTimeout(r, REPORT_RETRY_DELAY_MS));
           if (gen !== generationRef.current) return; // stale fetch, discard
           await fetchReports(failed);
           if (gen !== generationRef.current) return;

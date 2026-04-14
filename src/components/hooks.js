@@ -7,6 +7,7 @@
 //   panel          — { apiLogs, bridgeEvents, webhooks, tunnelUrl, currentStep }
 //   setCurrentStep — advance the Guide tab to step N
 //   startPolling   — begin polling API logs + webhooks for a user ID
+//   pollOnceAndStop — run one final poll then stop (see below)
 //   addBridgeEvent — push a Bridge SDK event to the panel
 //   reset          — clear all state and stop polling
 
@@ -66,7 +67,8 @@ export function usePanel() {
     userIdRef.current = null;
   }, []);
 
-  // Run one final poll to pick up any last API log entries, then stop
+  // Run one final poll to capture API log entries written after the last 3s tick, then stop.
+  // Called by useReportFetch after reports are fetched so the API panel shows the final calls.
   const pollOnceAndStop = useCallback(() => {
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
