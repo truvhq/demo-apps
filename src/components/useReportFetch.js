@@ -1,38 +1,36 @@
-// useReportFetch -- Unified hook for watching webhooks and fetching user reports.
-//
-// All non-document demos share the same flow:
-//   1. Wait for a webhook (order-status-updated:completed or task-status-updated:done)
-//   2. Fetch reports via GET /api/users/:userId/reports/:type
-//      (backend does POST to create + GET to retrieve)
-//   3. Stop polling
-//
-// Bridge flow: app creates user + bridge token, end-user connects via TruvBridge widget.
-// Orders flow: app creates order with PII, Truv sends share_url to user.
-// FollowUp demo reuses the same userId across tasks with different products.
-//
-// Usage:
-//   const { reports, loading, error, reset } = useReportFetch({
-//     userId: order?.user_id,
-//     products: ['income'],
-//     webhooks: panel.webhooks,
-//     pollOnceAndStop,
-//     webhookEvent: 'task',        // 'task' (default) or 'order'
-//     onComplete: (reports) => { ... },   // receives the reports map; demo-specific side effects
-//   });
+/**
+ * FILE SUMMARY: useReportFetch() hook. Watches webhook events for completion signals,
+ * then fetches the corresponding reports from the backend.
+ *
+ * DATA FLOW:
+ *   usePanel (webhooks state) --> this hook (detects completion) --> Express backend
+ *     GET /api/users/:userId/reports/:type  (one request per product type)
+ *   The backend proxies this to the Truv API: POST to create the report, then GET to retrieve it.
+ *
+ * INTEGRATION PATTERN: Supports both flows via the webhookEvent parameter.
+ *   Bridge flow (webhookEvent='task'):  listens for task-status-updated with status "done".
+ *   Orders flow (webhookEvent='order'): listens for order-status-updated with status "completed".
+ *   After fetching reports, calls pollOnceAndStop from usePanel to capture final API log entries.
+ *
+ * If some report types fail on the first attempt (common when deposit_switch completes before
+ * income data is indexed), the hook retries those types once after a 5-second delay.
+ */
 
 // Retry delay for partial report failures. Some flows (e.g., Paycheck Linked Lending)
 // complete the deposit_switch before income data is indexed; 5s covers the typical gap.
 const REPORT_RETRY_DELAY_MS = 5000;
 
+// Imports: Preact hooks, shared API_BASE from usePanel, webhook payload parser
 import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 import { API_BASE } from './hooks.js';
 import { parsePayload } from './WebhookFeed.jsx';
 
-// Webhook event types:
-//   'task'  = Bridge/user-token flow -> listens for task-status-updated:done
-//   'order' = Orders API flow        -> listens for order-status-updated:completed
+// Webhook event type constants used by demo components to specify their integration pattern.
+//   'task'  = Bridge/user-token flow: listens for task-status-updated with status "done"
+//   'order' = Orders API flow: listens for order-status-updated with status "completed"
 export const WEBHOOK_EVENTS = { TASK: 'task', ORDER: 'order' };
 
+// Helper: expand product list into report types to fetch.
 // 'assets' product always also fetches 'income_insights' because the Truv
 // Assets (VOA) report is paired with Income Insights from the same bank connection.
 export function getReportTypes(products) {
@@ -46,6 +44,8 @@ export function getReportTypes(products) {
   return types;
 }
 
+// Helper: check whether any webhook in the array signals completion for the given flow.
+// Parses each webhook payload and matches against the expected event_type and status.
 export function checkWebhookDone(webhooks, webhookEvent) {
   if (!webhookEvent) return false;
   const [event, status] = webhookEvent === 'order'
@@ -58,6 +58,8 @@ export function checkWebhookDone(webhooks, webhookEvent) {
   });
 }
 
+// Main hook: accepts userId, products, webhooks (from usePanel), pollOnceAndStop,
+// webhookEvent type, and an optional onComplete callback for demo-specific side effects.
 export function useReportFetch({
   userId,
   products,
@@ -66,9 +68,12 @@ export function useReportFetch({
   webhookEvent = 'task',
   onComplete,
 }) {
+  // State: fetched reports map, loading flag, and error message
   const [reports, setReports] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Refs: guard against duplicate fetches and hold stable references to callbacks
   const fetchedRef = useRef(false);
   const prevUserIdRef = useRef(userId);
   const onCompleteRef = useRef(onComplete);
@@ -79,8 +84,9 @@ export function useReportFetch({
   // Stabilize products array to avoid spurious effect re-runs
   const productsKey = JSON.stringify(products);
 
-  // Reset when userId or products change (handles FollowUp task-switching where
-  // all tasks share the same userId but have different products)
+  // Reset effect: clears state when userId or products change.
+  // Handles FollowUp demo task-switching where all tasks share the same userId
+  // but have different products.
   const prevProductsKeyRef = useRef(productsKey);
   useEffect(() => {
     if (userId !== prevUserIdRef.current || productsKey !== prevProductsKeyRef.current) {
@@ -93,12 +99,13 @@ export function useReportFetch({
     }
   }, [userId, productsKey]);
 
-  // Watch webhooks and fetch reports when done.
+  // Core effect: watch webhooks for a completion signal, then fetch all report types.
   // Uses a generation counter to cancel stale in-flight fetches when
   // userId or products change (e.g., FollowUp task switching).
   const generationRef = useRef(0);
 
   useEffect(() => {
+    // Guard: skip if missing inputs, already fetched, or no completion webhook yet
     if (!userId || !products?.length || fetchedRef.current) return;
     if (!checkWebhookDone(webhooks, webhookEvent)) return;
 
@@ -107,10 +114,13 @@ export function useReportFetch({
     setLoading(true);
     setError(null);
 
+    // Expand products into the full list of report types to fetch
     const reportTypes = getReportTypes(products);
     (async () => {
       try {
         const results = {};
+        // Fetch reports in parallel: GET /api/users/:userId/reports/:type for each type.
+        // The backend proxies to Truv API (POST create + GET retrieve).
         const fetchReports = (types) => Promise.all(
           types.map(rt =>
             fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/reports/${rt}`)
@@ -124,9 +134,9 @@ export function useReportFetch({
         await fetchReports(reportTypes);
         if (gen !== generationRef.current) return; // stale fetch, discard
 
-        // Retry failed report types once after a delay (handles timing gaps
-        // where some reports aren't ready yet, e.g., PLL deposit_switch
-        // completes before income data is ready)
+        // Retry: re-fetch any report types that failed on the first attempt.
+        // Waits 5 seconds to handle timing gaps (e.g., PLL deposit_switch
+        // completes before income data is ready).
         const failed = reportTypes.filter(rt => !results[rt]);
         if (failed.length > 0) {
           await new Promise(r => setTimeout(r, REPORT_RETRY_DELAY_MS));
@@ -135,6 +145,7 @@ export function useReportFetch({
           if (gen !== generationRef.current) return;
         }
 
+        // Deliver results or set error
         if (Object.keys(results).length === 0) {
           setError('Failed to load report');
         } else {
@@ -146,11 +157,13 @@ export function useReportFetch({
         console.error(e);
         setError('Failed to load report');
       }
+      // Final step: one last poll to capture the report-fetch API logs, then stop polling
       pollOnceAndStopRef.current();
       setLoading(false);
     })();
   }, [webhooks, userId, productsKey, webhookEvent]);
 
+  // reset: allows demo components to clear report state (e.g., when restarting a flow)
   const reset = useCallback(() => {
     fetchedRef.current = false;
     prevUserIdRef.current = undefined;
@@ -159,5 +172,6 @@ export function useReportFetch({
     setError(null);
   }, []);
 
+  // Return: reports map keyed by product type, loading/error state, and reset function
   return { reports, loading, error, reset };
 }

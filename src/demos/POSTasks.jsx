@@ -1,46 +1,56 @@
-// POSTasks.jsx -- Mortgage demo: POS Tasks
-//
-// Creates multiple orders sharing one external_user_id so Truv links
-// them to a single borrower. Each task goes through bridge -> waiting
-// -> results independently.
-//
-// Scaffolding (steps, intro screens, task list) is in ./scaffolding/pos-tasks.jsx
-// Sequence diagrams are in ../diagrams/pos-tasks.js
-//
-// SCREEN FLOW (URL-driven via `screen` prop):
-//   ''        -> Intro slide with task picker + application ID input
-//   'bridge'  -> Bridge widget for the active task's order
-//   'waiting' -> Webhook waiting spinner
-//   'results' -> Report for the completed task
-//
-// API FLOW (per task):
-//   1. POST /api/orders (all tasks created at once, same external_user_id)
-//   2. Bridge opened per task with that task's order_id
-//   3. Wait for order-status-updated webhook with status "completed"
-//   4. POST /api/users/:userId/reports/ -> GET /api/users/:userId/reports/:report_id
-//
-// WHAT TO COPY (for your own Truv integration):
-//   - handleInitialize() -> creates multiple orders via POST /api/orders with shared external_user_id
-//   - useReportFetch()   -> watches webhooks and fetches reports per task
-//   - <BridgeScreen />   -> opens Bridge with a per-task order_id
-//   - handleStartTask()  -> routes each task through its own bridge flow
+/**
+ * FILE SUMMARY: Mortgage: POS Tasks demo.
+ * INTEGRATION PATTERN: Orders flow (multiple orders sharing one external_user_id).
+ *
+ * DATA FLOW (per task):
+ *   1. POST /api/orders           : create one order per task (all share external_user_id)
+ *   2. BridgeScreen opens with the active task's order_id
+ *   3. Webhook polling for order-status-updated with status "completed"
+ *   4. POST /api/users/:userId/reports/ then GET /api/users/:userId/reports/:report_id
+ *
+ * Creates multiple verification orders at once (income, employment, assets) tied to a
+ * single borrower via external_user_id. Each task independently goes through bridge,
+ * waiting, and results screens. The task list tracks completion status per task.
+ *
+ * Scaffolding: ./scaffolding/pos-tasks.jsx
+ * Diagrams:    ../diagrams/pos-tasks.js
+ *
+ * WHAT TO COPY (for your own Truv integration):
+ *   - handleInitialize() : creates multiple orders via POST /api/orders with shared external_user_id
+ *   - useReportFetch()   : watches webhooks and fetches reports per task
+ *   - <BridgeScreen />   : opens Bridge with a per-task order_id
+ *   - handleStartTask()  : routes each task through its own bridge flow
+ */
 
+// --- Imports: Preact hooks ---
 import { useState, useRef, useEffect, useMemo } from 'preact/hooks';
+
+// --- Imports: shared layout, hooks, and API base URL ---
 import { Layout, usePanel, API_BASE, useReportFetch } from '../components/index.js';
+
+// --- Imports: reusable screen components for Bridge and waiting ---
 import { BridgeScreen, OrderWaitingScreen } from '../components/screens/index.js';
+
+// --- Imports: client-side navigation helper ---
 import { navigate } from '../App.jsx';
+
+// --- Imports: scaffolding (steps, task definitions, intro/results components) ---
 import { STEPS, TASKS, InitScreen, TaskList, FollowUpReportResults } from './scaffolding/pos-tasks.jsx';
 
 
+// --- Component: POSTasksDemo ---
 export function POSTasksDemo({ screen, param }) {
+  // Component state: application ID (shared external_user_id), task orders map, status tracking
   const [applicationId, setApplicationId] = useState(() => `qs-${Date.now()}`);
   const [taskOrders, setTaskOrders] = useState(null);
   const [initializing, setInitializing] = useState(false);
   const [taskStatus, setTaskStatus] = useState({});
   const activeTaskRef = useRef(null);
+
+  // Panel hook: sidebar state, webhook polling, bridge events
   const { panel, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
-  // Find the active task's order and products from the orderId in the URL
+  // Derived: find the active task's order and product list from the orderId in the URL
   const activeTaskInfo = useMemo(() => {
     if (!taskOrders || !param) return null;
     for (const task of TASKS) {
@@ -50,6 +60,7 @@ export function POSTasksDemo({ screen, param }) {
     return null;
   }, [taskOrders, param]);
 
+  // Report fetching: watches webhooks for the active task's order completion
   const { reports, loading: reportLoading, error: reportError, reset: resetReports } = useReportFetch({
     userId: activeTaskInfo?.order?.user_id,
     products: activeTaskInfo?.task?.products || [],
@@ -58,11 +69,13 @@ export function POSTasksDemo({ screen, param }) {
     webhookEvent: 'order',
   });
 
+  // Step sync: update sidebar step indicator when URL-driven screen changes
   useEffect(() => {
     const stepMap = { '': 0, 'bridge': 1, 'waiting': 2, 'results': 3 };
     setCurrentStep(stepMap[screen] ?? 0);
   }, [screen]);
 
+  // Handler: create all task orders at once via POST /api/orders (shared external_user_id)
   async function handleInitialize() {
     if (!applicationId.trim()) return;
     setInitializing(true);
@@ -84,6 +97,7 @@ export function POSTasksDemo({ screen, param }) {
     setInitializing(false);
   }
 
+  // Handler: navigate to the Bridge screen for a specific task's order
   function handleStartTask(task) {
     const order = taskOrders?.[task.id];
     if (!order) return;
@@ -91,11 +105,14 @@ export function POSTasksDemo({ screen, param }) {
     navigate(`mortgage/pos-tasks/bridge/${order.order_id}`);
   }
 
+  // Derived state: layout flags
   const isBridge = screen === 'bridge';
   const isIntro = !screen && !taskOrders;
 
+  // --- Render: screen routing ---
   return (
     <Layout badge="POS Tasks" steps={STEPS} panel={panel} flush={isBridge} hidePanel={isIntro}>
+      {/* Bridge screen: inline TruvBridge widget for the active task */}
       {screen === 'bridge' && (
         <BridgeScreen
           orderId={param}
@@ -107,9 +124,11 @@ export function POSTasksDemo({ screen, param }) {
           }}
         />
       )}
+      {/* Waiting screen: webhook polling spinner for the active task */}
       {screen === 'waiting' && (
         <OrderWaitingScreen orderId={param} demoPath="mortgage/pos-tasks" webhooks={panel.webhooks} startPolling={startPolling} maxWidth="max-w-2xl" />
       )}
+      {/* Results screen: report for the completed task */}
       {screen === 'results' && (
         <FollowUpReportResults
           reportData={reports}
@@ -120,6 +139,7 @@ export function POSTasksDemo({ screen, param }) {
           backLabel="Back to Tasks"
         />
       )}
+      {/* Default screen: init screen (enter application ID) or task list */}
       {!screen && (
         !taskOrders ? (
           <InitScreen

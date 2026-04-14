@@ -1,43 +1,56 @@
-// CaseWorkerPortal.jsx -- Public Sector demo: Case Worker Portal
-//
-// Same backend-initiated pattern as LOS.jsx but with government-specific
-// labels (case worker, applicant). No Bridge widget in this flow.
-//
-// Scaffolding (steps, intro screens, applicant form) is in ./scaffolding/case-worker-portal.jsx
-// Sequence diagrams are in ../diagrams/case-worker-portal.js
-//
-// SCREEN FLOW (state-driven):
-//   !introSeen              -> Intro slide with architecture diagram
-//   introSeen && !applicant -> Add applicant form (name, email, phone, products)
-//   introSeen && applicant  -> Order table with status tracking + report
-//
-// API FLOW:
-//   1. POST /api/orders (with PII + email/phone, no company)
-//   2. Truv sends email/SMS with share_url to applicant
-//   3. Wait for order-status-updated webhook with status "completed"
-//   4. GET /api/users/:userId/reports/:type -> server POSTs to create, then GETs by report_id
-//
-// WHAT TO COPY (for your own Truv integration):
-//   - handleRequest()    -> creates an order via POST /api/orders with PII + email/phone
-//   - useReportFetch()   -> watches webhooks and fetches reports when order completes
-//   - share_url display  -> shows the Truv verification link sent to the applicant
-//   - startPolling()     -> begins webhook polling for order status updates
+/**
+ * FILE SUMMARY: Public Sector: Case Worker Portal demo.
+ * INTEGRATION PATTERN: Orders flow (backend-initiated, no Bridge widget).
+ *
+ * DATA FLOW:
+ *   1. POST /api/orders           : create order with applicant PII + email/phone
+ *   2. Truv sends email/SMS with share_url to applicant
+ *   3. Webhook polling for order-status-updated with status "completed"
+ *   4. GET /api/users/:userId/reports/:type : fetch verification report
+ *
+ * Same backend-initiated pattern as LOS.jsx but with government-specific labels
+ * (case worker, applicant). A case worker enters applicant PII and Truv sends a
+ * verification link. The applicant completes Bridge on their own device.
+ *
+ * Scaffolding: ./scaffolding/case-worker-portal.jsx
+ * Diagrams:    ../diagrams/case-worker-portal.js
+ *
+ * WHAT TO COPY (for your own Truv integration):
+ *   - handleRequest()    : creates an order via POST /api/orders with PII + email/phone
+ *   - useReportFetch()   : watches webhooks and fetches reports when order completes
+ *   - share_url display  : shows the Truv verification link sent to the applicant
+ *   - startPolling()     : begins webhook polling for order status updates
+ */
 
+// --- Imports: Preact hooks ---
 import { useState } from 'preact/hooks';
+
+// --- Imports: shared layout, components, hooks, and API base URL ---
 import { Layout, WebhookFeed, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
+
+// --- Imports: report display components ---
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { AssetsReport } from '../components/reports/AssetsReport.jsx';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
+
+// --- Imports: Mermaid diagram for intro slide ---
 import { VERIFIER_DIAGRAM } from '../diagrams/case-worker-portal.js';
+
+// --- Imports: scaffolding (steps, sample data, intro features, form) ---
 import { STEPS, COMPLETED_APPLICANTS, INTRO_FEATURES, AddApplicantForm } from './scaffolding/case-worker-portal.jsx';
 
+// --- Component: CaseWorkerPortalDemo ---
 export function CaseWorkerPortalDemo({ screen, param }) {
+  // Component state: intro visibility, test applicant data, order response, creation flag
   const [introSeen, setIntroSeen] = useState(false);
   const [testApplicant, setTestApplicant] = useState(null);
   const [order, setOrder] = useState(null);
   const [creating, setCreating] = useState(false);
+
+  // Panel hook: sidebar state, webhook polling
   const { panel, setCurrentStep, startPolling, pollOnceAndStop, reset: resetPanel } = usePanel();
 
+  // Report fetching: watches webhooks for order completion, updates order status on complete
   const { reports, reset: resetReports } = useReportFetch({
     userId: order?.user_id,
     products: testApplicant?.products || [],
@@ -47,10 +60,12 @@ export function CaseWorkerPortalDemo({ screen, param }) {
     onComplete: () => { setOrder(prev => ({ ...prev, status: 'completed' })); setCurrentStep(2); },
   });
 
+  // Derived state: which screen to show based on intro and applicant state
   const showIntro = !introSeen;
   const showAddForm = introSeen && !testApplicant;
   const showTable = introSeen && testApplicant;
 
+  // Handler: create order via POST /api/orders with applicant PII, then start polling
   async function handleRequest() {
     if (!testApplicant) return;
     setCreating(true);
@@ -74,6 +89,7 @@ export function CaseWorkerPortalDemo({ screen, param }) {
     setCreating(false);
   }
 
+  // Handler: reset all state to start over
   function resetDemo() {
     resetPanel();
     resetReports();
@@ -83,10 +99,11 @@ export function CaseWorkerPortalDemo({ screen, param }) {
     setCurrentStep(0);
   }
 
+  // --- Render: state-driven screen routing ---
   return (
     <Layout badge="Public Sector · Case Worker Portal" steps={STEPS} panel={panel} hidePanel={showIntro || showAddForm}>
 
-      {/* Intro */}
+      {/* Intro slide: architecture diagram and feature overview */}
       {showIntro && (
         <IntroSlide
           label="Public Sector . Case Worker Portal"
@@ -106,10 +123,10 @@ export function CaseWorkerPortalDemo({ screen, param }) {
         </IntroSlide>
       )}
 
-      {/* Add test applicant form */}
+      {/* Add test applicant form: collects applicant PII for order creation */}
       {showAddForm && <AddApplicantForm onSubmit={setTestApplicant} />}
 
-      {/* Dashboard table */}
+      {/* Dashboard table: applicant list with order status, share URL, webhooks, and report */}
       {showTable && (
         <div class="max-w-4xl mx-auto px-8 py-10">
           <h2 class="text-xl font-semibold tracking-tight mb-1 text-[#171717]">Applicants</h2>

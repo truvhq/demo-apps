@@ -1,13 +1,28 @@
-// Presentation scaffolding for POSTasks demo.
-// Extracted so the demo file contains only Truv API workflow code.
+/**
+ * FILE SUMMARY: Scaffolding for Mortgage: POS Tasks demo.
+ * INTEGRATION PATTERN: Orders flow (multiple orders per borrower).
+ *
+ * Exports presentation-layer config consumed by POSTasks.jsx: step definitions,
+ * task definitions (income, employment, assets, combined), an InitScreen component
+ * for entering the application ID, a TaskList for tracking task status, and a
+ * FollowUpReportResults component. Contains no API calls or state management.
+ */
 
+// --- Imports: icon components ---
 import { Icons } from '../../components/Icons.jsx';
+
+// --- Imports: shared intro slide component ---
 import { IntroSlide } from '../../components/index.js';
+
+// --- Imports: report display components ---
 import { VoieReport } from '../../components/reports/VoieReport.jsx';
 import { AssetsReport } from '../../components/reports/AssetsReport.jsx';
 import { IncomeInsightsReport } from '../../components/reports/IncomeInsightsReport.jsx';
+
+// --- Imports: Mermaid diagram for intro slide ---
 import { FOLLOWUP_DIAGRAM } from '../../diagrams/pos-tasks.js';
 
+// --- Config: step definitions for the sidebar Guide tab ---
 export const STEPS = [
   {
     title: 'Loan Processor creates tasks',
@@ -37,6 +52,7 @@ export const STEPS = [
   },
 ];
 
+// --- Config: task definitions. Each task becomes a separate order via POST /api/orders. ---
 export const TASKS = [
   { id: 'income', name: 'Verify Income', desc: 'Home Depot', products: ['income'], employer: 'Home Depot', Icon: Icons.dollarSign, iconBg: 'bg-green-50' },
   { id: 'employment', name: 'Verify Employment', desc: 'Walmart', products: ['employment'], employer: 'Walmart', Icon: Icons.clipboard, iconBg: 'bg-blue-50' },
@@ -44,6 +60,7 @@ export const TASKS = [
   { id: 'assets-income', name: 'Assets + Income', desc: 'Combined order', products: ['income', 'assets'], employer: 'Home Depot', Icon: Icons.barChart, iconBg: 'bg-purple-50' },
 ];
 
+// --- Config: task info cards shown on the intro screen ---
 export const FOLLOWUP_TASKS_INFO = [
   { name: 'Income', desc: 'Verify earnings and pay history from payroll', report: 'VOIE' },
   { name: 'Employment', desc: 'Verify job title, status, and tenure', report: 'VOE' },
@@ -51,6 +68,7 @@ export const FOLLOWUP_TASKS_INFO = [
   { name: 'Combined', desc: 'Income + assets in a single order', report: 'VOIE + VOA' },
 ];
 
+// --- Component: InitScreen. Application ID input + intro diagram. Creates all task orders on submit. ---
 export function InitScreen({ applicationId, onApplicationIdChange, onInitialize, initializing }) {
   return (
     <IntroSlide
@@ -98,6 +116,7 @@ export function InitScreen({ applicationId, onApplicationIdChange, onInitialize,
   );
 }
 
+// --- Component: TaskList. Displays each task with status badge and start button. ---
 export function TaskList({ tasks, taskOrders, taskStatus, onStart }) {
   return (
     <div class="space-y-3">
@@ -125,6 +144,7 @@ export function TaskList({ tasks, taskOrders, taskStatus, onStart }) {
   );
 }
 
+// --- Component: FollowUpReportResults. Renders the report for a completed task. ---
 export function FollowUpReportResults({ reportData, reportLoading, reportError, taskInfo, onBack, backLabel = 'Back', maxWidth = 'max-w-2xl' }) {
   if (reportError) return <div class={`${maxWidth} mx-auto text-center py-16 text-red-600`}>{reportError}</div>;
   if (reportLoading || !reportData) return <div class={`${maxWidth} mx-auto text-center py-16`}><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;

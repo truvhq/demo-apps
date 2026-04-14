@@ -1,14 +1,27 @@
-// Presentation scaffolding for POS Application demo.
-// STEPS, PRODUCTS, IntroScreen, ReportResults are UI-only; the demo file
-// keeps state, API calls, hooks, and screen routing.
+/**
+ * FILE SUMMARY: Scaffolding for Mortgage: POS Application demo.
+ * INTEGRATION PATTERN: Orders flow.
+ *
+ * Exports presentation-layer config consumed by POSApplication.jsx: step definitions
+ * for the sidebar guide, product picker options, an IntroScreen component, and a
+ * ReportResults component. Contains no API calls or state management.
+ */
 
+// --- Imports: Preact hooks ---
 import { useState } from 'preact/hooks';
+
+// --- Imports: shared intro slide component ---
 import { IntroSlide } from '../../components/index.js';
+
+// --- Imports: report display components ---
 import { VoieReport } from '../../components/reports/VoieReport.jsx';
 import { AssetsReport } from '../../components/reports/AssetsReport.jsx';
 import { IncomeInsightsReport } from '../../components/reports/IncomeInsightsReport.jsx';
+
+// --- Imports: Mermaid diagrams (one per product type) ---
 import { DIAGRAMS } from '../../diagrams/pos-application.js';
 
+// --- Config: step definitions for the sidebar Guide tab ---
 export const STEPS = [
   {
     title: 'Borrower fills out application',
@@ -24,6 +37,7 @@ export const STEPS = [
   { title: 'Loan Processor reviews report', guide: '<p>Fetch reports:</p><pre>POST /v1/users/{user_id}/reports/</pre><p><a href="https://docs.truv.com/reference/users_reports" target="_blank">Reports API →</a></p>' },
 ];
 
+// --- Config: product options for the intro screen picker ---
 export const PRODUCTS = [
   {
     id: 'income',
@@ -41,6 +55,7 @@ export const PRODUCTS = [
   },
 ];
 
+// --- Component: IntroScreen. Product picker with diagram. Calls onStart(productId). ---
 export function IntroScreen({ onStart }) {
   const [selected, setSelected] = useState(null);
 
@@ -84,6 +99,7 @@ export function IntroScreen({ onStart }) {
   );
 }
 
+// --- Component: ReportResults. Renders the appropriate report component based on product type. ---
 export function ReportResults({ reportData, reportLoading, reportError, productType, onBack, backLabel = 'Back', maxWidth = 'max-w-lg' }) {
   if (reportError) return <div class={`${maxWidth} mx-auto text-center py-16 text-red-600`}>{reportError}</div>;
   if (reportLoading || !reportData) return <div class={`${maxWidth} mx-auto text-center py-16`}><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;

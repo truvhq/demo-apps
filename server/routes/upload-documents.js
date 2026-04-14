@@ -1,21 +1,27 @@
-// Routes: Upload Documents demo
-//
-// POST /api/collections              — Create a document collection
-// GET  /api/collections/:id          — Get collection status
-// POST /api/collections/:id/upload   — Upload documents to collection
-// POST /api/collections/:id/finalize — Finalize collection for processing
-// GET  /api/collections/:id/results  — Get finalization results
+/**
+ * FILE SUMMARY: Document collection lifecycle routes for the Upload Documents demo
+ * DATA FLOW: Frontend -> /api/collections/* -> TruvClient -> Truv API (/v1/documents/collections/) -> SQLite state tracking
+ * INTEGRATION PATTERN: Standalone document upload flow (not Orders or Bridge)
+ *
+ * Manages the full document collection lifecycle: create a collection with uploaded PDFs,
+ * optionally add more documents, finalize for processing, poll for results, and fetch
+ * the income report once processing completes. Uses local test documents for demo purposes.
+ */
 
+// Express router factory and Node.js file/path utilities
 import { Router } from 'express';
 import { readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+// Resolve __dirname for ES modules (needed to locate test-docs directory)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Utility: safely parse JSON strings from the DB without throwing
 function safeParse(str) { try { return JSON.parse(str); } catch { return {}; } }
 
-// Test documents stored locally (downloaded from Truv S3)
+// Test document configuration: local PDF files that simulate real paystub uploads.
+// These are pre-downloaded from Truv's S3 bucket and stored in server/test-docs/.
 const TEST_DOCS_DIR = path.resolve(__dirname, '..', 'test-docs');
 const TEST_DOC_FILES = [
   { filename: 'most-recent-paystub.pdf', file: 'most.recent.paystub.pdf' },
@@ -23,6 +29,7 @@ const TEST_DOC_FILES = [
   { filename: 'first-paystub.pdf', file: 'first.paystub.pdf' },
 ];
 
+// Load test documents from disk and base64-encode them for the Truv API
 function loadTestDocs() {
   return TEST_DOC_FILES.map(({ filename, file }) => ({
     filename,
@@ -31,9 +38,13 @@ function loadTestDocs() {
   }));
 }
 
+// Factory function: receives shared dependencies (TruvClient, DB, logger) and returns a configured router
 export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
   const router = Router();
 
+  // POST /api/collections: Create a new document collection at Truv.
+  // Flow: optionally load test docs -> create a Truv user -> attach user_id to each document ->
+  //       POST /v1/documents/collections/ -> store in SQLite -> return collection metadata.
   router.post('/api/collections', async (req, res) => {
     try {
       const { external_user_id, use_test_docs, extra_documents } = req.body;
@@ -48,7 +59,7 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
       }
       if (!documents?.length) return res.status(400).json({ error: 'documents array is required' });
 
-      // Create a user (with optional external_user_id)
+      // Create a Truv user (with optional external_user_id for tracking)
       let users;
       {
         const userResult = await truv.createUser(external_user_id ? { external_user_id } : {});
@@ -57,10 +68,11 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
         users = [{ id: userResult.data.id }];
       }
 
-      // Add user_id to each document as per Truv API spec
+      // Attach user_id to each document as required by the Truv documents API
       const userId = users[0].id;
       const docsWithUser = documents.map(d => ({ ...d, user_id: userId }));
 
+      // Create the document collection at Truv and persist in SQLite
       const collectionId = db.generateId();
       const result = await truv.createDocumentCollection(docsWithUser);
       const truvData = result.data;
@@ -75,6 +87,8 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 
+  // GET /api/collections/:id: Fetch collection status, refreshing from Truv API.
+  // Flow: read from DB -> GET /v1/documents/collections/:truv_id/ -> update DB status -> return to frontend.
   router.get('/api/collections/:id', async (req, res) => {
     try {
       const collection = db.getDocCollection(req.params.id);
@@ -92,6 +106,8 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 
+  // POST /api/collections/:id/upload: Upload additional documents to an existing collection.
+  // Proxies the documents array to Truv's upload endpoint for the collection.
   router.post('/api/collections/:id/upload', async (req, res) => {
     try {
       const collection = db.getDocCollection(req.params.id);
@@ -104,6 +120,9 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 
+  // POST /api/collections/:id/finalize: Signal to Truv that all documents have been uploaded.
+  // After finalization, Truv begins processing the documents asynchronously.
+  // The frontend should poll GET /api/collections/:id/results to check progress.
   router.post('/api/collections/:id/finalize', async (req, res) => {
     try {
       const collection = db.getDocCollection(req.params.id);
@@ -118,6 +137,8 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 
+  // GET /api/collections/:id/results: Poll for finalization results after document processing.
+  // Updates the collection status in the DB as processing progresses.
   router.get('/api/collections/:id/results', async (req, res) => {
     try {
       const collection = db.getDocCollection(req.params.id);
@@ -129,7 +150,9 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 
-  // Fetch income report via link_id (after finalize + webhook done)
+  // GET /api/collections/:id/report: Fetch the income report after finalization completes.
+  // Requires a link_id query param (provided by webhook or finalization results).
+  // Wraps the single link report in a { links: [...] } structure for OrderResults component compatibility.
   router.get('/api/collections/:id/report', async (req, res) => {
     try {
       const collection = db.getDocCollection(req.params.id);
@@ -141,6 +164,7 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
       const raw = collection.raw_response ? safeParse(collection.raw_response) : {};
       const uid = raw.uploaded_files?.[0]?.user_id || null;
 
+      // Fetch the income report for the specific link produced by document processing
       const result = await truv.getLinkIncomeReport(linkId);
       apiLogger.logApiCall({ userId: uid, method: 'GET', endpoint: `/v1/links/${linkId}/income/report/`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
 
@@ -151,5 +175,6 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 
+  // Export the configured router
   return router;
 }

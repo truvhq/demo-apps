@@ -1,14 +1,28 @@
-// Presentation scaffolding for Customer Portal demo.
-// STEPS, CP_PRODUCTS, CPIntroScreen, CPReportResults are UI-only; the demo
-// file keeps state, API calls, hooks, and screen routing.
+/**
+ * FILE SUMMARY: Scaffolding for Retail Banking: Customer Portal demo.
+ * INTEGRATION PATTERN: Orders flow.
+ *
+ * Exports presentation-layer config consumed by CustomerPortal.jsx: step definitions,
+ * product bundle options (income, income+assets, self-employment), a CPIntroScreen
+ * component with product picker, and a CPReportResults component. Contains no API
+ * calls or state management beyond local selection state.
+ */
 
+// --- Imports: Preact hooks ---
 import { useState } from 'preact/hooks';
+
+// --- Imports: shared intro slide component ---
 import { IntroSlide } from '../../components/index.js';
+
+// --- Imports: report display components ---
 import { VoieReport } from '../../components/reports/VoieReport.jsx';
 import { AssetsReport } from '../../components/reports/AssetsReport.jsx';
 import { IncomeInsightsReport } from '../../components/reports/IncomeInsightsReport.jsx';
+
+// --- Imports: Mermaid diagrams (one per product bundle) ---
 import { CP_DIAGRAMS } from '../../diagrams/customer-portal.js';
 
+// --- Config: step definitions for the sidebar Guide tab ---
 export const STEPS = [
   {
     title: 'Applicant submits information',
@@ -24,6 +38,7 @@ export const STEPS = [
   { title: 'Agency reviews report', guide: '<p>Fetch reports:</p><pre>POST /v1/users/{user_id}/reports/</pre><p><a href="https://docs.truv.com/reference/users_reports" target="_blank">Reports API →</a></p>' },
 ];
 
+// --- Config: product bundles for the customer portal. Each maps to one or more Truv products. ---
 export const CP_PRODUCTS = [
   {
     id: 'income',
@@ -51,6 +66,7 @@ export const CP_PRODUCTS = [
   },
 ];
 
+// --- Component: CPIntroScreen. Product bundle picker with diagram. Calls onStart(bundleId). ---
 export function CPIntroScreen({ onStart }) {
   const [selected, setSelected] = useState(null);
 
@@ -93,6 +109,7 @@ export function CPIntroScreen({ onStart }) {
   );
 }
 
+// --- Component: CPReportResults. Renders the appropriate report component based on product type. ---
 export function CPReportResults({ reportData, reportLoading, reportError, productType, onBack, backLabel = 'Back', maxWidth = 'max-w-lg' }) {
   if (reportError) return <div class={`${maxWidth} mx-auto text-center py-16 text-red-600`}>{reportError}</div>;
   if (reportLoading || !reportData) return <div class={`${maxWidth} mx-auto text-center py-16`}><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;

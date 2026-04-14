@@ -1,27 +1,38 @@
-// Presentation scaffolding for Case Worker Portal demo.
-// STEPS, COMPLETED_APPLICANTS, VP_PRODUCTS, INTRO_FEATURES, AddApplicantForm
-// are UI-only; the demo file keeps state, API calls, hooks, and screen routing.
+/**
+ * FILE SUMMARY: Scaffolding for Public Sector: Case Worker Portal demo.
+ * INTEGRATION PATTERN: Orders flow (backend-initiated, no Bridge widget).
+ *
+ * Exports presentation-layer config consumed by CaseWorkerPortal.jsx: step
+ * definitions, sample completed applicants, product mappings, intro feature
+ * cards, and an AddApplicantForm component. Same structure as los.jsx scaffolding
+ * but with government-specific labels.
+ */
 
+// --- Imports: Preact hooks ---
 import { useState } from 'preact/hooks';
 
+// --- Config: step definitions for the sidebar Guide tab ---
 export const STEPS = [
   { title: 'Case Worker creates request', guide: '<p>Create a verification order with applicant PII. Truv sends the share link via email/SMS.</p><pre>POST /v1/orders/\n{\n  "first_name": "...",\n  "email": "...",\n  "phone": "...",\n  "products": ["income"]\n}</pre>' },
   { title: 'Applicant receives link', guide: '<p>The user receives an email/SMS with a verification link. They complete Bridge on their own device.</p><p>Monitor webhooks for status updates.</p>' },
   { title: 'Case Worker reviews results', guide: '<p>Once the user completes verification, fetch reports:</p><pre>POST /v1/users/{user_id}/reports/</pre>' },
 ];
 
+// --- Config: sample completed applicants shown in the dashboard table ---
 export const COMPLETED_APPLICANTS = [
   { firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', phone: '+14155550101', products: ['income'], status: 'completed' },
   { firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com', phone: '+14155550102', products: ['income'], status: 'completed' },
   { firstName: 'Bob', lastName: 'Wilson', email: 'bob.wilson@example.com', phone: '+14155550103', products: ['assets'], status: 'completed' },
 ];
 
+// --- Config: product select mapping. Maps form option IDs to Truv product arrays. ---
 export const VP_PRODUCTS = {
   income: ['income'],
   income_assets: ['income', 'assets'],
   assets: ['assets'],
 };
 
+// --- Config: feature cards shown on the intro slide ---
 export const INTRO_FEATURES = [
   { name: 'Create orders from collected data', desc: 'Use PII from the application. No user interaction needed.' },
   { name: 'Truv sends verification links', desc: 'Email and SMS sent automatically to the applicant' },
@@ -29,13 +40,16 @@ export const INTRO_FEATURES = [
   { name: 'Fetch reports on completion', desc: 'Pull VOIE, VOE, or VOA reports once the user completes Bridge' },
 ];
 
+// --- Component: AddApplicantForm. Collects applicant PII for order creation. ---
 export function AddApplicantForm({ onSubmit }) {
+  // Form state: applicant name, contact info, and product selection
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [product, setProduct] = useState('income');
 
+  // Handler: validate and submit form data to parent
   function handleSubmit(e) {
     e.preventDefault();
     if (!firstName.trim() || !lastName.trim()) return;

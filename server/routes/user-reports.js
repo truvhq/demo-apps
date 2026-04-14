@@ -1,52 +1,52 @@
-// Routes: User Reports (unified report fetching for all demos)
-//
-// GET /api/users/:userId/reports/:reportType
-//
-// All demos fetch reports through this endpoint. Both Orders and Bridge flows
-// produce a user_id, so reports are always fetched via the Truv user reports API.
-//
-// The flow is: POST to create the report, then GET to retrieve it by report_id.
-//
-//   income          → POST /v1/users/{id}/reports/          → GET /v1/users/{id}/reports/{report_id}/
-//   employment      → POST /v1/users/{id}/reports/          → GET /v1/users/{id}/reports/{report_id}/
-//   assets          → POST /v1/users/{id}/assets/reports/   → GET /v1/users/{id}/assets/reports/{report_id}/
-//   income_insights → POST /v1/users/{id}/income_insights/reports/ → GET /v1/users/{id}/income_insights/reports/{report_id}/
-//   deposit_switch  → GET  /v1/users/{id}/deposit_switch/report/  (single GET, no create step)
-//
-// See: https://docs.truv.com/reference/users_reports
+/**
+ * FILE SUMMARY: Unified report fetching for all demos via the Truv user reports API
+ * DATA FLOW: Frontend -> GET /api/users/:userId/reports/:type -> TruvClient -> Truv API (/v1/users/{id}/reports/ or product-specific endpoint)
+ * INTEGRATION PATTERN: Both Orders and Bridge flows converge here. Both produce a user_id, which is all this route needs.
+ *
+ * Creates a report at Truv (POST), then polls with retry delays until the report
+ * is ready (GET). Deposit switch is an exception: it uses a single GET with no
+ * create step. This is the primary report-fetching path for the frontend.
+ */
 
+// Express router factory
 import { Router } from 'express';
 
-// Truv generates reports asynchronously; the GET may return 404 briefly after POST.
+// Retry delays for polling the report retrieval endpoint.
+// Truv generates reports asynchronously, so the GET may return 404 briefly after the POST.
 const REPORT_RETRIEVE_DELAYS_MS = [0, 2000, 4000];
 
+// Report configuration map: each report type defines its create/retrieve functions and endpoint paths.
+// This keeps the route handler generic while supporting different Truv API endpoints per product.
 const REPORT_CONFIG = {
-  // VOIE report (Verification of Income and Employment) — is_voe: false
+  // VOIE report (Verification of Income and Employment): is_voe: false
   income: {
     create: (truv, userId) => truv.createVoieReport(userId, false),
     retrieve: (truv, userId, reportId) => truv.getVoieReport(userId, reportId),
     createEndpoint: userId => `/v1/users/${userId}/reports/`,
     retrieveEndpoint: (userId, reportId) => `/v1/users/${userId}/reports/${reportId}/`,
   },
-  // VOE report (Verification of Employment only) — same endpoint, is_voe: true
+  // VOE report (Verification of Employment only): same endpoint, is_voe: true
   employment: {
     create: (truv, userId) => truv.createVoieReport(userId, true),
     retrieve: (truv, userId, reportId) => truv.getVoieReport(userId, reportId),
     createEndpoint: userId => `/v1/users/${userId}/reports/`,
     retrieveEndpoint: (userId, reportId) => `/v1/users/${userId}/reports/${reportId}/`,
   },
+  // VOA report (Verification of Assets)
   assets: {
     create: (truv, userId) => truv.createAssetsReport(userId),
     retrieve: (truv, userId, reportId) => truv.getAssetsReport(userId, reportId),
     createEndpoint: userId => `/v1/users/${userId}/assets/reports/`,
     retrieveEndpoint: (userId, reportId) => `/v1/users/${userId}/assets/reports/${reportId}/`,
   },
+  // Income Insights report
   income_insights: {
     create: (truv, userId) => truv.createIncomeInsightsReport(userId),
     retrieve: (truv, userId, reportId) => truv.getIncomeInsightsReport(userId, reportId),
     createEndpoint: userId => `/v1/users/${userId}/income_insights/reports/`,
     retrieveEndpoint: (userId, reportId) => `/v1/users/${userId}/income_insights/reports/${reportId}/`,
   },
+  // Deposit Switch: no create step, single GET to retrieve the report
   deposit_switch: {
     create: null,
     retrieve: (truv, userId) => truv.getDepositSwitchReport(userId),
@@ -54,9 +54,13 @@ const REPORT_CONFIG = {
   },
 };
 
+// Factory function: receives shared dependencies (TruvClient, logger) and returns a configured router
 export default function userReportsRoutes({ truv, apiLogger }) {
   const router = Router();
 
+  // GET /api/users/:userId/reports/:reportType: Create and retrieve a verification report.
+  // For most report types: POST to create, then GET with retry polling until ready.
+  // For deposit_switch: single GET (no create step).
   router.get('/api/users/:userId/reports/:reportType', async (req, res) => {
     try {
       const { userId, reportType } = req.params;
@@ -80,7 +84,7 @@ export default function userReportsRoutes({ truv, apiLogger }) {
         return res.json(result.data);
       }
 
-      // Step 1: POST to create the report
+      // Step 1: POST to create the report at Truv
       const createResult = await cfg.create(truv, userId);
       apiLogger.logApiCall({
         userId,
@@ -119,6 +123,7 @@ export default function userReportsRoutes({ truv, apiLogger }) {
         if (attempt < REPORT_RETRIEVE_DELAYS_MS.length - 1) console.log(`Report ${reportType} not ready (${getResult.statusCode}), retrying...`);
       }
 
+      // Return error if the report was still not ready after all retries
       if (getResult.statusCode >= 400) {
         return res.status(getResult.statusCode).json({ error: 'Failed to retrieve report', details: getResult.data });
       }
@@ -130,5 +135,6 @@ export default function userReportsRoutes({ truv, apiLogger }) {
     }
   });
 
+  // Export the configured router
   return router;
 }

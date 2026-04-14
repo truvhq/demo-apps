@@ -1,11 +1,20 @@
-// Clean SVG icons for the demo app — Lucide-inspired, 20x20 default
+/**
+ * FILE SUMMARY: SVG icon components
+ * DATA FLOW: Presentational: no direct backend communication
+ *
+ * Collection of Lucide-inspired SVG icon functions rendered at 20x20 by default.
+ * Each icon accepts optional size and className props. Also includes the Truv
+ * wordmark logo with a custom viewBox.
+ */
 
+// Helper: wraps SVG path data in a standard 24x24 stroked SVG element
 const I = (d, { size = 20, className = '' } = {}) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class={className}>
     {d}
   </svg>
 );
 
+// Icon definitions grouped by category
 export const Icons = {
   // Industries
   building: (p) => I(<><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" /><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" /><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" /><path d="M10 6h4" /><path d="M10 10h4" /><path d="M10 14h4" /><path d="M10 18h4" /></>, p),
@@ -34,7 +43,7 @@ export const Icons = {
   sparkles: (p) => I(<><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /><path d="M5 3v4" /><path d="M19 17v4" /><path d="M3 5h4" /><path d="M17 19h4" /></>, p),
   zap: (p) => I(<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />, p),
 
-  // Truv wordmark logo — filled paths, not stroked. Custom viewBox (69x25).
+  // Truv wordmark logo: filled paths, not stroked. Custom viewBox (69x25).
   truvLogo: ({ height = 18, className = '' } = {}) => {
     const w = Math.round(height * (69 / 25));
     return (

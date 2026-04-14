@@ -1,13 +1,14 @@
-// Server: Express entry point
-//
-// GET  /api/companies         -- Company/employer search (company-mappings-search)
-// GET  /api/providers         -- Financial institution search (providers)
-// POST /api/webhooks/truv     -- Webhook receiver with HMAC-SHA256 verification
-// GET  /api/users/:id/webhooks -- Poll webhook events for a user
-// GET  /api/users/:id/logs    -- Poll API logs for a user (with optional session_id)
-//
-// Registers sub-routes from server/routes/ for orders, reports, bridge, uploads, and user-reports.
+/**
+ * FILE SUMMARY: Express Server Entry Point
+ * DATA FLOW: Frontend (Browser on localhost) --> Express (port 3000) --> Truv API
+ * INTEGRATION PATTERN: Supports both Orders flow and Bridge flow via sub-routes.
+ *
+ * Initializes the Express app, registers middleware, and defines top-level routes
+ * for company/provider search, webhook ingestion, and polling endpoints. Delegates
+ * demo-specific logic to sub-route modules (orders, reports, bridge, uploads, user-reports).
+ */
 
+// Imports: environment config, Express framework, CORS, and all server modules
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -22,6 +23,7 @@ import bridgeRoutes from './routes/bridge.js';
 import uploadDocumentsRoutes from './routes/upload-documents.js';
 import userReportsRoutes from './routes/user-reports.js';
 
+// Configuration: read API credentials from .env and validate they exist
 const PORT = process.env.PORT || 3000;
 const { API_CLIENT_ID, API_SECRET } = process.env;
 
@@ -30,14 +32,20 @@ if (!API_CLIENT_ID || !API_SECRET) {
   process.exit(1);
 }
 
+// Initialization: create the shared TruvClient and initialize the SQLite database.
+// These are injected into all sub-route modules as dependencies.
 const truv = new TruvClient({ clientId: API_CLIENT_ID, secret: API_SECRET });
 db.initDb();
 
+// Express setup: JSON body parsing (with raw body capture for webhook HMAC verification)
+// and CORS restricted to localhost origins only.
 const app = express();
 app.use(express.json({ limit: '100mb', verify: (req, _res, buf) => { req.rawBody = buf.toString('utf-8'); } }));
 app.use(cors({ origin: /^http:\/\/localhost(:\d+)?$/ }));
 
 // --- Company search ---
+// Frontend --> GET /api/companies?q=... --> Truv company-mappings-search API.
+// Used by payroll-based demos to find employers. Logs the API call for the activity panel.
 app.get('/api/companies', async (req, res) => {
   try {
     const query = req.query.q;
@@ -49,6 +57,8 @@ app.get('/api/companies', async (req, res) => {
 });
 
 // --- Provider search (financial institutions) ---
+// Frontend --> GET /api/providers?q=... --> Truv providers API.
+// Used by bank/assets demos to find financial institutions.
 app.get('/api/providers', async (req, res) => {
   try {
     const query = req.query.q;
@@ -61,6 +71,9 @@ app.get('/api/providers', async (req, res) => {
 });
 
 // --- Webhook receiver ---
+// Truv API --> POST /api/webhooks/truv --> this handler.
+// Verifies HMAC-SHA256 signature, updates order status on completion,
+// and stores the event in the database for the frontend polling endpoint.
 let tunnelUrl = null;
 
 app.post('/api/webhooks/truv', (req, res) => {
@@ -71,22 +84,27 @@ app.post('/api/webhooks/truv', (req, res) => {
   const payload = req.body;
   const userId = payload.user_id || null;
 
+  // When an order completes, update its status in the local database
   if (userId && payload.event_type === 'order-status-updated' && payload.status === 'completed') {
     const order = db.findOrderByUserId(userId);
     if (order) db.updateOrder(order.id, { status: 'completed' });
   }
 
+  // Persist the webhook event so the frontend can poll for it
   apiLogger.pushWebhookEvent({ userId, webhookId: payload.webhook_id, eventType: payload.event_type, status: payload.status, payload });
   res.status(200).end();
 });
 
+// Returns the ngrok tunnel URL so the frontend can display it
 app.get('/api/tunnel-url', (_req, res) => res.json({ url: tunnelUrl }));
 
 // --- Polling endpoints ---
+// Frontend polls these to display real-time webhook events and API logs in the activity panel.
 app.get('/api/users/:userId/webhooks', (req, res) => res.json(db.getWebhookEventsByUserId(req.params.userId)));
 app.get('/api/users/:userId/logs', (req, res) => res.json(db.getApiLogsByUserId(req.params.userId, req.query.session_id)));
 
 // --- Demo routes ---
+// Mounts sub-route modules. Each receives the shared { truv, db, apiLogger } dependencies.
 const deps = { truv, db, apiLogger };
 app.use(ordersRoutes(deps));
 app.use(reportsRoutes(deps));
@@ -95,9 +113,11 @@ app.use(uploadDocumentsRoutes(deps));
 app.use(userReportsRoutes(deps));
 
 // --- Start ---
+// Launches the server and registers a webhook URL via ngrok (if NGROK_URL is set in .env).
 app.listen(PORT, async () => {
   console.log(`Truv Quickstart running on http://localhost:${PORT}`);
   try { tunnelUrl = await setupWebhook({ path: '/api/webhooks/truv', truvClient: truv }); } catch (err) { console.error('Webhook setup failed:', err.message); }
 });
 
+// Graceful shutdown: deletes the webhook registration from Truv before exiting
 process.on('SIGINT', async () => { await teardownWebhook(truv); process.exit(0); });

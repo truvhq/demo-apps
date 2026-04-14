@@ -1,43 +1,56 @@
-// LOS.jsx -- Mortgage demo: LOS Integration
-//
-// Backend-initiated flow: creates an order with borrower PII, and Truv
-// sends a verification link via email/SMS. No Bridge widget here.
-//
-// Scaffolding (steps, intro screens, applicant form) is in ./scaffolding/los.jsx
-// Sequence diagrams are in ../diagrams/los.js
-//
-// SCREEN FLOW (state-driven):
-//   !introSeen              -> Intro slide with architecture diagram
-//   introSeen && !applicant -> Add borrower form (name, email, phone, products)
-//   introSeen && applicant  -> Order table with status tracking + report
-//
-// API FLOW:
-//   1. POST /api/orders (with PII + email/phone, no company)
-//   2. Truv sends email/SMS with share_url to borrower
-//   3. Wait for order-status-updated webhook with status "completed"
-//   4. GET /api/users/:userId/reports/:type -> fetch report
-//
-// WHAT TO COPY (for your own Truv integration):
-//   - handleRequest()    -> creates an order via POST /api/orders with PII + email/phone
-//   - useReportFetch()   -> watches webhooks and fetches reports when order completes
-//   - share_url display  -> shows the Truv verification link sent to the borrower
-//   - startPolling()     -> begins webhook polling for order status updates
+/**
+ * FILE SUMMARY: Mortgage: Loan Origination System (LOS) demo.
+ * INTEGRATION PATTERN: Orders flow (backend-initiated, no Bridge widget).
+ *
+ * DATA FLOW:
+ *   1. POST /api/orders           : create order with borrower PII + email/phone
+ *   2. Truv sends email/SMS with share_url to borrower
+ *   3. Webhook polling for order-status-updated with status "completed"
+ *   4. GET /api/users/:userId/reports/:type : fetch verification report
+ *
+ * A Loan Processor enters borrower PII and Truv sends a verification link via
+ * email or SMS. The borrower completes Bridge on their own device. This demo
+ * has no Bridge widget embedded. It tracks order status from a dashboard table.
+ *
+ * Scaffolding: ./scaffolding/los.jsx
+ * Diagrams:    ../diagrams/los.js
+ *
+ * WHAT TO COPY (for your own Truv integration):
+ *   - handleRequest()    : creates an order via POST /api/orders with PII + email/phone
+ *   - useReportFetch()   : watches webhooks and fetches reports when order completes
+ *   - share_url display  : shows the Truv verification link sent to the borrower
+ *   - startPolling()     : begins webhook polling for order status updates
+ */
 
+// --- Imports: Preact hooks ---
 import { useState } from 'preact/hooks';
+
+// --- Imports: shared layout, components, hooks, and API base URL ---
 import { Layout, WebhookFeed, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
+
+// --- Imports: report display components ---
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { AssetsReport } from '../components/reports/AssetsReport.jsx';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
+
+// --- Imports: Mermaid diagram for intro slide ---
 import { VERIFIER_DIAGRAM } from '../diagrams/los.js';
+
+// --- Imports: scaffolding (steps, sample data, intro features, form) ---
 import { STEPS, COMPLETED_APPLICANTS, INTRO_FEATURES, AddApplicantForm } from './scaffolding/los.jsx';
 
+// --- Component: LOSDemo ---
 export function LOSDemo({ screen, param }) {
+  // Component state: intro visibility, test applicant data, order response, creation flag
   const [introSeen, setIntroSeen] = useState(false);
   const [testApplicant, setTestApplicant] = useState(null);
   const [order, setOrder] = useState(null);
   const [creating, setCreating] = useState(false);
+
+  // Panel hook: sidebar state, webhook polling
   const { panel, setCurrentStep, startPolling, pollOnceAndStop, reset: resetPanel } = usePanel();
 
+  // Report fetching: watches webhooks for order completion, updates order status on complete
   const { reports, reset: resetReports } = useReportFetch({
     userId: order?.user_id,
     products: testApplicant?.products || [],
@@ -47,10 +60,12 @@ export function LOSDemo({ screen, param }) {
     onComplete: () => { setOrder(prev => ({ ...prev, status: 'completed' })); setCurrentStep(2); },
   });
 
+  // Derived state: which screen to show based on intro and applicant state
   const showIntro = !introSeen;
   const showAddForm = introSeen && !testApplicant;
   const showTable = introSeen && testApplicant;
 
+  // Handler: create order via POST /api/orders with borrower PII, then start polling
   async function handleRequest() {
     if (!testApplicant) return;
     setCreating(true);
@@ -74,6 +89,7 @@ export function LOSDemo({ screen, param }) {
     setCreating(false);
   }
 
+  // Handler: reset all state to start over
   function resetDemo() {
     resetPanel();
     resetReports();
@@ -83,10 +99,11 @@ export function LOSDemo({ screen, param }) {
     setCurrentStep(0);
   }
 
+  // --- Render: state-driven screen routing ---
   return (
     <Layout badge="LOS" steps={STEPS} panel={panel} hidePanel={showIntro || showAddForm}>
 
-      {/* Intro */}
+      {/* Intro slide: architecture diagram and feature overview */}
       {showIntro && (
         <IntroSlide
           label="Mortgage . LOS Integration"
@@ -106,10 +123,10 @@ export function LOSDemo({ screen, param }) {
         </IntroSlide>
       )}
 
-      {/* Add test applicant form */}
+      {/* Add test applicant form: collects borrower PII for order creation */}
       {showAddForm && <AddApplicantForm onSubmit={setTestApplicant} />}
 
-      {/* Dashboard table */}
+      {/* Dashboard table: borrower list with order status, share URL, webhooks, and report */}
       {showTable && (
         <div class="max-w-4xl mx-auto px-8 py-10">
           <h2 class="text-xl font-semibold tracking-tight mb-1 text-[#171717]">Borrowers</h2>

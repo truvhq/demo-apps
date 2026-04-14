@@ -1,7 +1,19 @@
+/**
+ * FILE SUMMARY: Renders VOA (Verification of Assets) report data
+ * DATA FLOW: Receives report object via props from OrderResults
+ * INTEGRATION PATTERN: Used by Orders flow (Mortgage) for asset verification
+ *
+ * Displays borrower info, balance summaries, per-provider account cards with
+ * expandable transaction lists, and report-level metadata like the large
+ * deposit threshold and reporting period.
+ */
+
+// Imports
 import { useState } from 'preact/hooks';
 import { $, fmtDate } from '../../utils/formatters.js';
 import { Section, Row, ProviderHeader } from './shared.jsx';
 
+// Sub-component: single transaction table row with credit/debit coloring
 function TransactionRow({ txn }) {
   const isCredit = txn.type === 'CREDIT';
   return (
@@ -14,7 +26,9 @@ function TransactionRow({ txn }) {
   );
 }
 
+// Sub-component: account card showing balances, metadata, and expandable transactions
 function AccountCard({ acct }) {
+  // State: toggle for showing/hiding the transaction list
   const [showTxns, setShowTxns] = useState(false);
   const bal = acct.balances || {};
   const txns = acct.transactions || [];
@@ -22,10 +36,12 @@ function AccountCard({ acct }) {
 
   return (
     <div class="border border-border rounded-lg mb-4 overflow-hidden">
+      {/* Account header: type, mask, and current balance */}
       <div class="flex items-center justify-between px-4 py-3 bg-border-light">
         <div class="font-semibold text-sm">{acctType} {acct.mask}</div>
         {bal.balance != null && <div class="text-sm font-semibold">{$(bal.balance)}</div>}
       </div>
+      {/* Account details: available balance, routing, owner, averages */}
       <div class="px-4 py-3">
         {bal.available_balance != null && <Row label="Available" value={$(bal.available_balance)} />}
         {acct.routing_number && <Row label="Routing" value={acct.routing_number} />}
@@ -38,6 +54,7 @@ function AccountCard({ acct }) {
             {acct.summary.avg_60 && <Row label="60-Day Avg" value={$(acct.summary.avg_60)} />}
           </>
         )}
+        {/* Expandable transaction table (capped at 20 visible rows) */}
         {txns.length > 0 && (
           <div class="mt-3">
             <button class="text-xs text-primary font-medium" onClick={() => setShowTxns(!showTxns)}>
@@ -64,12 +81,17 @@ function AccountCard({ acct }) {
   );
 }
 
+// Component: AssetsReport
+// Props:
+//   report : VOA report object with borrower, summary, and links[] containing accounts[]
 export function AssetsReport({ report }) {
+  // Guard: bail if no linked data
   if (!report?.links?.length) return null;
   const summary = report.summary;
 
   return (
     <div>
+      {/* Borrower identification section */}
       {report.borrower && (
         <Section title="Borrower">
           <Row label="Name" value={`${report.borrower.first_name} ${report.borrower.last_name}`} />
@@ -77,6 +99,7 @@ export function AssetsReport({ report }) {
           {report.borrower.external_user_id && <Row label="External ID" value={report.borrower.external_user_id} />}
         </Section>
       )}
+      {/* Aggregate balance summary across all accounts */}
       {summary && (
         <Section title="Balance Summary">
           {summary.balance && <Row label="Total Balance" value={$(summary.balance)} />}
@@ -85,12 +108,14 @@ export function AssetsReport({ report }) {
           {summary.avg_90 && <Row label="90-Day Avg" value={$(summary.avg_90)} />}
         </Section>
       )}
+      {/* Per-provider account cards */}
       {report.links.map((link, li) => (
         <div key={li}>
           <ProviderHeader name={link.provider_name || link.provider || 'Bank'} />
           {link.accounts?.map((acct, ai) => <AccountCard key={ai} acct={acct} />)}
         </div>
       ))}
+      {/* Report-level metadata */}
       <Row label="Report Period" value={`${report.days_requested} days as of ${report.as_of_date}`} />
       <Row label="Large Deposit Threshold" value={$(report.large_deposit_threshold)} />
     </div>

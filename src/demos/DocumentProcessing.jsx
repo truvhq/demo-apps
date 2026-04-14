@@ -1,36 +1,43 @@
-// DocumentProcessing.jsx -- Mortgage demo: Document Processing
-//
-// Upload pay stubs, W-2s, or tax returns. Truv validates, classifies,
-// and extracts structured data. Uses the Document Collections API.
-//
-// Scaffolding (steps, intro screens, upload UI) is in ./scaffolding/document-processing.jsx
-// Sequence diagrams are in ../diagrams/document-processing.js
-//
-// SCREEN FLOW (state-driven):
-//   'intro'      -> Intro slide with architecture diagram
-//   'upload'     -> File picker + sample test documents
-//   'processing' -> Polling collection status, then finalize + webhook wait
-//   'review'     -> Extracted income data results
-//
-// API FLOW:
-//   1. POST /api/collections           -> create user + document collection
-//   2. GET  /api/collections/:id       -> poll until all files are "successful"
-//   3. POST /api/collections/:id/finalize -> trigger data extraction
-//   4. Wait for task-status-updated webhook with status "done"
-//   5. GET  /api/collections/:id/report   -> fetch extracted income data
-//
-// WHAT TO COPY (for your own Truv integration):
-//   - processDocuments()        -> creates a collection and polls until files are processed
-//   - finalize call             -> POST /api/collections/:id/finalize triggers extraction
-//   - webhook watcher useEffect -> listens for task-status-updated "done" to fetch the report
-//   - report fetch              -> GET /api/collections/:id/report?link_id=...
+/**
+ * FILE SUMMARY: Mortgage: Document Processing demo.
+ * INTEGRATION PATTERN: Document Collections API (upload, validate, extract).
+ *
+ * DATA FLOW:
+ *   1. POST /api/collections              : create user + document collection
+ *   2. GET  /api/collections/:id          : poll until all files are "successful"
+ *   3. POST /api/collections/:id/finalize : trigger structured data extraction
+ *   4. Webhook: task-status-updated with status "done"
+ *   5. GET  /api/collections/:id/report   : fetch extracted income data
+ *
+ * Upload pay stubs, W-2s, or tax returns. Truv validates, classifies, and extracts
+ * structured income data. This demo uses the Document Collections API instead of Bridge.
+ * Test documents are included server-side; users can optionally add their own files.
+ *
+ * Scaffolding: ./scaffolding/document-processing.jsx
+ * Diagrams:    ../diagrams/document-processing.js
+ *
+ * WHAT TO COPY (for your own Truv integration):
+ *   - processDocuments()        : creates a collection and polls until files are processed
+ *   - finalize call             : POST /api/collections/:id/finalize triggers extraction
+ *   - webhook watcher useEffect : listens for task-status-updated "done" to fetch the report
+ *   - report fetch              : GET /api/collections/:id/report?link_id=...
+ */
 
+// --- Imports: Preact hooks ---
 import { useState, useRef, useEffect } from 'preact/hooks';
+
+// --- Imports: shared layout, components, hooks, and API utilities ---
 import { Layout, OrderResults, WebhookFeed, usePanel, API_BASE, parsePayload, IntroSlide } from '../components/index.js';
+
+// --- Imports: Mermaid diagram for intro slide ---
 import { DOC_DIAGRAM } from '../diagrams/document-processing.js';
+
+// --- Imports: scaffolding (steps, intro config, feature cards, upload UI) ---
 import { STEPS, INTRO_SLIDE_CONFIG, FEATURE_CARDS, UploadScreen } from './scaffolding/document-processing.jsx';
 
+// --- Component: DocumentProcessingDemo ---
 export function DocumentProcessingDemo() {
+  // Component state: screen phase, user ID input, uploaded files, Truv IDs, report data
   const [screen, setScreen] = useState('intro');
   const [userId, setUserId] = useState('');
   const [files, setFiles] = useState([]);
@@ -39,10 +46,13 @@ export function DocumentProcessingDemo() {
   const [orderData, setOrderData] = useState(null);
   const [processing, setProcessing] = useState(false);
 
+  // Panel hook: sidebar state, webhook polling
   const { panel, setCurrentStep, startPolling, pollOnceAndStop, reset: resetPanel } = usePanel();
 
+  // Derived: hide panel on intro and upload screens
   const isIntro = screen === 'intro' || screen === 'upload';
 
+  // Handler: read uploaded files as base64 for the collection API
   function addFiles(newFiles) {
     Array.from(newFiles).forEach(file => {
       const reader = new FileReader();
@@ -54,13 +64,15 @@ export function DocumentProcessingDemo() {
     });
   }
 
+  // Refs: polling timer and link_id for report fetch (prevents duplicate fetches)
   const pollRef = useRef(null);
   const linkIdRef = useRef(null);
 
+  // Handler: create collection, poll file status, then finalize for extraction
   async function processDocuments() {
     setProcessing(true);
     try {
-      // Step 1: Create collection — always include test docs, plus any user uploads
+      // Step 1: Create collection. Always include test docs, plus any user uploads.
       const body = { external_user_id: userId.trim() || undefined, use_test_docs: true };
       if (files.length > 0) {
         body.extra_documents = files.map(f => ({ filename: f.name, mime_type: f.type || 'application/pdf', content: f.base64 }));
@@ -81,7 +93,7 @@ export function DocumentProcessingDemo() {
       setCurrentStep(1);
       setScreen('processing');
 
-      // Step 2: Poll until all files are successful
+      // Step 2: Poll GET /api/collections/:id until all files are "successful"
       const waitForFiles = async () => {
         try {
           const resp = await fetch(`${API_BASE}/api/collections/${cid}`);
@@ -90,7 +102,7 @@ export function DocumentProcessingDemo() {
           const allOk = files.length > 0 && files.every(f => f.status === 'successful');
           if (!allOk) { pollRef.current = setTimeout(waitForFiles, 3000); return; }
 
-          // Step 3: Finalize with product_type
+          // Step 3: Finalize collection to trigger data extraction
           setCurrentStep(2);
           await fetch(`${API_BASE}/api/collections/${cid}/finalize`, { method: 'POST' });
           // Step 4: Wait for webhook (handled by useEffect below)
@@ -101,7 +113,7 @@ export function DocumentProcessingDemo() {
     setProcessing(false);
   }
 
-  // Watch webhooks for task-status-updated with status "done" → get link_id → fetch report
+  // Effect: watch webhooks for task-status-updated "done", then fetch report via link_id
   useEffect(() => {
     if (screen !== 'processing' || !collectionId) return;
     const doneWebhook = panel.webhooks.find(w => {
@@ -116,7 +128,7 @@ export function DocumentProcessingDemo() {
       linkIdRef.current = linkId;
       setCurrentStep(3);
 
-      // Step 5: Fetch income report via link_id
+      // Step 5: Fetch income report via GET /api/collections/:id/report?link_id=...
       (async () => {
         try {
           const resp = await fetch(`${API_BASE}/api/collections/${collectionId}/report?link_id=${linkId}`);
@@ -128,6 +140,7 @@ export function DocumentProcessingDemo() {
     }
   }, [panel.webhooks, screen, collectionId]);
 
+  // Handler: reset all state and timers to start over
   function resetDemo() {
     if (pollRef.current) clearTimeout(pollRef.current);
     linkIdRef.current = null;
@@ -141,8 +154,10 @@ export function DocumentProcessingDemo() {
     setCurrentStep(0);
   }
 
+  // --- Render: state-driven screen routing ---
   return (
     <Layout badge="Document Processing" steps={STEPS} panel={panel} hidePanel={isIntro}>
+      {/* Intro slide: feature overview and architecture diagram */}
       {screen === 'intro' && (
         <IntroSlide
           label={INTRO_SLIDE_CONFIG.label}
@@ -161,6 +176,7 @@ export function DocumentProcessingDemo() {
           </div>
         </IntroSlide>
       )}
+      {/* Upload screen: file picker with drag-drop and test document list */}
       {screen === 'upload' && (
         <UploadScreen
           files={files}
@@ -173,7 +189,9 @@ export function DocumentProcessingDemo() {
           processing={processing}
         />
       )}
+      {/* Processing and review screens: hidden during intro/upload */}
       <div class={isIntro ? 'hidden' : 'max-w-xl mx-auto px-8 py-10'}>
+        {/* Processing screen: spinner with webhook feed while polling collection status */}
         {screen === 'processing' && (
           <div class="text-center py-16">
             <div class="w-12 h-12 border-[3px] border-[#d2d2d7] border-t-primary rounded-full animate-spin mx-auto mb-6" />
@@ -182,6 +200,7 @@ export function DocumentProcessingDemo() {
             <WebhookFeed webhooks={panel.webhooks} />
           </div>
         )}
+        {/* Review screen: extracted income data from the collection report */}
         {screen === 'review' && (
           <div>
             <h2 class="text-2xl font-semibold tracking-tight mb-1.5">Verification Results</h2>

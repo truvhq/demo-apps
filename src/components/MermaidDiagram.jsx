@@ -1,18 +1,31 @@
-// MermaidDiagram -- Renders Mermaid sequence diagrams as inline SVG.
-//
-// Accepts a Mermaid definition string and renders it with Truv brand
-// colors. Re-renders when the definition changes.
+/**
+ * FILE SUMMARY: Renders Mermaid diagrams for architecture visualization
+ * DATA FLOW: Presentational: no direct backend communication
+ *
+ * Accepts a Mermaid definition string and renders it as inline SVG with Truv
+ * brand colors. Re-renders automatically when the definition prop changes.
+ * Used by IntroSlide to show architecture sequence diagrams.
+ */
+
+// Imports
 import { useEffect, useRef } from 'preact/hooks';
 import mermaid from 'mermaid';
 
-// Reset on HMR so config changes take effect during development
+// Module-level state: reset on HMR so config changes take effect during development
 let initialized = false;
 if (import.meta.hot) import.meta.hot.accept(() => { initialized = false; });
 
+// Component: MermaidDiagram
+// Props:
+//   definition : Mermaid diagram definition string
+//   id         : optional unique ID for the rendered diagram element
 export function MermaidDiagram({ definition, id }) {
+  // Ref for the container DOM element that will hold the rendered SVG
   const ref = useRef();
 
+  // Effect: initialize Mermaid once, then render/re-render on definition changes
   useEffect(() => {
+    // One-time initialization with Truv brand theme
     if (!initialized) {
       mermaid.initialize({
         startOnLoad: false,
@@ -50,6 +63,7 @@ export function MermaidDiagram({ definition, id }) {
       initialized = true;
     }
 
+    // Render the diagram into the container ref
     if (ref.current && definition) {
       const diagId = id || `mermaid-${Math.random().toString(36).slice(2, 8)}`;
       // Mermaid.render returns trusted SVG from hardcoded diagram definitions (not user input)
@@ -70,5 +84,6 @@ export function MermaidDiagram({ definition, id }) {
     }
   }, [definition]);
 
+  // Rendering: empty container div that gets populated by Mermaid
   return <div ref={ref} class="flex justify-center" />;
 }

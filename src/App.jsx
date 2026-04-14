@@ -1,17 +1,27 @@
-// App.jsx — Root router and demo registry.
-//
-// Demos are organized by industry. Each industry lists its demos in the
-// INDUSTRIES array below. The hash-based router maps URLs to components:
-//
-//   #                                        → Home (industry picker)
-//   #consumer-credit                         → Industry page (list of demos)
-//   #consumer-credit/smart-routing           → Demo intro screen
-//   #consumer-credit/smart-routing/bridge/id → Demo active screen
-//
-// Each demo component receives { screen, param } props from the router.
-// See SmartRouting.jsx for the Consumer Credit pattern (Bridge flow)
-// and POSApplication.jsx for the Mortgage pattern (Orders flow).
+/**
+ * FILE SUMMARY:
+ * Root router and demo registry for the Truv demo-apps frontend.
+ * Defines all available demos grouped by industry, provides hash-based
+ * routing, and renders the correct component for each URL.
+ *
+ * DATA FLOW:
+ * Browser (hash change) -> App component (parseHash) -> route state ->
+ *   renders Home, IndustryPage, or a specific Demo component.
+ * Demo components call navigate() to transition between screens, which
+ *   updates window.location.hash and triggers a re-render cycle.
+ *
+ * Hash URL structure:
+ *   #                                        -> Home (industry picker)
+ *   #consumer-credit                         -> IndustryPage (list of demos)
+ *   #consumer-credit/smart-routing           -> Demo intro screen
+ *   #consumer-credit/smart-routing/bridge/id -> Demo active screen
+ *
+ * Each demo component receives { screen, param } props from the router.
+ * See SmartRouting.jsx for the Consumer Credit pattern (Bridge flow)
+ * and POSApplication.jsx for the Mortgage pattern (Orders flow).
+ */
 
+// Imports: Preact hooks, page-level components, and all demo components.
 import { useState, useEffect } from 'preact/hooks';
 import { Home } from './Home.jsx';
 import { IndustryPage } from './IndustryPage.jsx';
@@ -28,6 +38,9 @@ import { PayrollIncomeDemo } from './demos/PayrollIncome.jsx';
 import { PaycheckLinkedLoansDemo } from './demos/PaycheckLinkedLoans.jsx';
 import { DirectDepositSwitchDemo } from './demos/DirectDepositSwitch.jsx';
 
+// INDUSTRIES registry: each entry has an id, display name, description, and a
+// demos array. Each demo object maps { id, name, component, desc, tags } so
+// the router can resolve a hash URL to a component and the UI can render cards.
 export const INDUSTRIES = [
   {
     id: 'mortgage',
@@ -73,28 +86,35 @@ export const INDUSTRIES = [
 
 // Parse the URL hash into route segments.
 // e.g. "#consumer-credit/smart-routing/bridge/abc123"
-//   → { industry: "consumer-credit", demo: "smart-routing", screen: "bridge", param: "abc123" }
+//   -> { industry: "consumer-credit", demo: "smart-routing", screen: "bridge", param: "abc123" }
 function parseHash() {
   const hash = window.location.hash.slice(1);
   const [industry, demo, screen, ...rest] = hash.split('/');
   return { industry: industry || '', demo: demo || '', screen: screen || '', param: rest.join('/') || '' };
 }
 
-// Navigate to a new route. Demo components call this to transition between screens.
-// e.g. navigate('consumer-credit/smart-routing/waiting/abc123')
+// Navigation helper: demo components call this to transition between screens.
+// Updates the hash, which triggers a hashchange event and re-render.
+// Example: navigate('consumer-credit/smart-routing/waiting/abc123')
 export function navigate(path) {
   window.location.hash = path;
 }
 
+// App component: top-level router. Listens for hashchange events, parses
+// the hash into route segments, and renders the matching view.
 export function App() {
+  // Route state: re-parsed on every hashchange event.
   const [route, setRoute] = useState(parseHash);
 
+  // Effect: subscribe to hashchange so navigation triggers re-renders.
   useEffect(() => {
     const onHash = () => setRoute(parseHash());
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
+  // Routing logic: progressively resolve industry, then demo, then screen.
+  // At each level, fall back to the parent view if no match is found.
   if (!route.industry) return <Home />;
 
   const industry = INDUSTRIES.find(i => i.id === route.industry);
@@ -105,6 +125,7 @@ export function App() {
   const demoConfig = industry.demos.find(d => d.id === route.demo);
   if (!demoConfig) return <IndustryPage industry={industry} />;
 
+  // Render the matched demo component with screen and param props.
   const Component = demoConfig.component;
   return <Component key={`${route.industry}/${route.demo}`} screen={route.screen} param={route.param} />;
 }

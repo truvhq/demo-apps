@@ -1,31 +1,59 @@
-// PaycheckLinkedLoans.jsx -- Consumer Credit demo: Paycheck-Linked Loans
-// Follows the same Bridge (User+Token) flow as SmartRouting.jsx (the canonical example).
-// Uses product_type: 'pll'. Fetches BOTH income and deposit_switch reports in parallel.
-//
-// Scaffolding (steps, intro screens) is in ./scaffolding/paycheck-linked-loans.jsx
-// Sequence diagrams are in ../diagrams/paycheck-linked-loans.js
-//
-// WHAT TO COPY (for your own Truv integration):
-//   - handleFormSubmit()  -> creates a bridge token via POST /api/bridge-token (product_type: pll)
-//   - TruvBridge.init()   -> opens the Bridge widget for paycheck-linked loans
-//   - useReportFetch()    -> watches webhooks and fetches income + deposit_switch reports
+/**
+ * FILE SUMMARY: Consumer Credit: Paycheck-Linked Loans demo.
+ * INTEGRATION PATTERN: Bridge flow (User+Token, product_type: pll).
+ *
+ * DATA FLOW:
+ *   1. POST /api/bridge-token                          : create user + bridge token (pll)
+ *   2. TruvBridge.init().open()                        : Bridge popup for payroll + deduction
+ *   3. Webhook: task-status-updated with status "done"
+ *   4. GET /api/users/:userId/reports/income            : fetch VOIE report
+ *   5. GET /api/users/:userId/reports/deposit_switch    : fetch deposit switch confirmation
+ *
+ * Follows the same Bridge flow as SmartRouting.jsx but uses product_type "pll" which
+ * combines income verification with payroll deduction setup. Fetches both income and
+ * deposit_switch reports in parallel after completion.
+ *
+ * Scaffolding: ./scaffolding/paycheck-linked-loans.jsx
+ * Diagrams:    ../diagrams/paycheck-linked-loans.js
+ *
+ * WHAT TO COPY (for your own Truv integration):
+ *   - handleFormSubmit()  : creates a bridge token via POST /api/bridge-token (product_type: pll)
+ *   - TruvBridge.init()   : opens the Bridge widget for paycheck-linked loans
+ *   - useReportFetch()    : watches webhooks and fetches income + deposit_switch reports
+ */
+
+// --- Imports: Preact hooks ---
 import { useState } from 'preact/hooks';
+
+// --- Imports: shared layout, components, hooks, and API base URL ---
 import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
+
+// --- Imports: report display components ---
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { DDSReport } from '../components/reports/DDSReport.jsx';
+
+// --- Imports: reusable form component ---
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
+
+// --- Imports: Mermaid diagram for intro slide ---
 import { DIAGRAM } from '../diagrams/paycheck-linked-loans.js';
+
+// --- Imports: scaffolding (steps, intro config, report header) ---
 import { STEPS, INTRO_SLIDE_CONFIG, REPORT_HEADER } from './scaffolding/paycheck-linked-loans.jsx';
 
+// --- Component: PaycheckLinkedLoansDemo ---
 export function PaycheckLinkedLoansDemo() {
+  // Component state: screen phase, form visibility, form data, Truv user ID, loading flag
   const [screen, setScreen] = useState('select');
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(null);
   const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Panel hook: sidebar state, session tracking, webhook polling, bridge events
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
+  // Report fetching: watches webhooks, fetches both income and deposit_switch reports
   const { reports, loading: reportLoading, reset: resetReports } = useReportFetch({
     userId,
     products: ['income', 'deposit_switch'],
@@ -35,6 +63,8 @@ export function PaycheckLinkedLoansDemo() {
     onComplete: () => { setCurrentStep(3); setScreen('review'); },
   });
 
+  // Handler: create bridge token via POST /api/bridge-token (product_type: pll) and open TruvBridge.
+  // Uses company_mapping_id for employer deeplinking.
   async function handleFormSubmit(data) {
     setFormData(data);
     setLoading(true);
@@ -50,6 +80,7 @@ export function PaycheckLinkedLoansDemo() {
       setUserId(result.user_id);
       startPolling(result.user_id);
 
+      // Open TruvBridge popup with callbacks for load, success, event, and close
       if (window.TruvBridge) {
         const opts = {
           bridgeToken: result.bridge_token,
@@ -74,6 +105,7 @@ export function PaycheckLinkedLoansDemo() {
     setLoading(false);
   }
 
+  // Handler: reset all state to start over
   function resetDemo() {
     reset();
     resetReports();
@@ -83,11 +115,14 @@ export function PaycheckLinkedLoansDemo() {
     setUserId(null);
   }
 
+  // Derived state: layout flag
   const isIntro = screen === 'select' && !showForm;
 
+  // --- Render: state-driven screen routing ---
   return (
     <Layout badge="Paycheck-Linked Loans" steps={STEPS} panel={panel} hidePanel={isIntro}>
       <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
+        {/* Intro slide: architecture diagram */}
         {screen === 'select' && !showForm && (
           <IntroSlide
             label={INTRO_SLIDE_CONFIG.label}
@@ -98,12 +133,15 @@ export function PaycheckLinkedLoansDemo() {
           />
         )}
 
+        {/* Application form: collects applicant PII and employer */}
         {screen === 'select' && showForm && (
           <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="pll" />
         )}
 
+        {/* Waiting screen: webhook polling spinner until task completes */}
         {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}
 
+        {/* Review screen: deposit switch confirmation + VOIE income report */}
         {screen === 'review' && (
           <div>
             <h2 class="text-2xl font-bold tracking-tight mb-1.5">{REPORT_HEADER.title}</h2>

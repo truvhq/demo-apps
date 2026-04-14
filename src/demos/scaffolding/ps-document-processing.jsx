@@ -1,8 +1,17 @@
-// Presentation scaffolding for PSDocumentProcessing demo.
-// Extracted so the demo file contains only Truv API workflow code.
+/**
+ * FILE SUMMARY: Scaffolding for Public Sector: Document Processing demo.
+ * INTEGRATION PATTERN: Document Collections API.
+ *
+ * Exports presentation-layer config consumed by PSDocumentProcessing.jsx: step
+ * definitions, sample document metadata, intro slide config, feature cards,
+ * and an UploadScreen component with drag-drop file picker. Same structure as
+ * document-processing.jsx but with government-specific labels.
+ */
 
+// --- Imports: Preact hooks ---
 import { useState, useRef } from 'preact/hooks';
 
+// --- Config: step definitions for the sidebar Guide tab ---
 export const STEPS = [
   { title: 'Upload applicant documents', guide: '<p>Send collected documents to Truv for validation and classification:</p><pre>POST /v1/documents/collections/\n{\n  "documents": [{ "filename": "...", "content": "base64..." }],\n  "users": [{ "id": "..." }]\n}</pre><p>Optionally attach to an existing Truv user via the <code>users</code> field.</p>' },
   { title: 'Truv validates documents', guide: '<p>Truv validates each document:</p><ul><li><code>is_valid</code> — recognized document type</li><li><code>is_readable</code> — text is extractable</li><li><code>document_type</code> — paystub, w2, etc.</li></ul><p>Poll the collection status until all documents are processed.</p>' },
@@ -10,7 +19,7 @@ export const STEPS = [
   { title: 'Review structured results', guide: '<p>Fetch the extracted data:</p><pre>GET /v1/documents/collections/{id}/finalize/</pre><p>Returns parsed fields: employer name, pay period, gross/net pay, tax withholdings, etc.</p>' },
 ];
 
-// Test documents stored in server/test-docs/ (from Truv S3)
+// --- Config: test documents stored in server/test-docs/ (from Truv S3) ---
 // See: https://docs.truv.com/docs/testing#document-processing-testing
 export const SAMPLE_DOCS = [
   { name: 'most-recent-paystub.pdf', type: 'Pay Stub (Most Recent)', icon: '📄' },
@@ -18,12 +27,14 @@ export const SAMPLE_DOCS = [
   { name: 'first-paystub.pdf', type: 'Pay Stub (First)', icon: '📄' },
 ];
 
+// --- Config: intro slide labels and text ---
 export const INTRO_SLIDE_CONFIG = {
   label: 'Public Sector . Document Processing',
   title: 'Extract income data from applicant documents',
   subtitle: 'Process pay stubs, W-2s, and tax returns submitted by applicants. Truv validates the documents and extracts structured income data for eligibility decisions.',
 };
 
+// --- Config: feature cards shown on the intro slide ---
 export const FEATURE_CARDS = [
   { name: 'Pay Stubs', desc: 'Gross/net pay, deductions, employer info, pay period' },
   { name: 'W-2 Forms', desc: 'Annual wages, federal/state taxes, employer EIN' },
@@ -31,13 +42,16 @@ export const FEATURE_CARDS = [
   { name: 'Bank Statements', desc: 'Deposits, withdrawals, account balances' },
 ];
 
+// --- Helper: format byte count to human-readable size ---
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
   return (bytes / 1048576).toFixed(1) + ' MB';
 }
 
+// --- Component: UploadScreen. Drag-drop file picker with test document list. ---
 export function UploadScreen({ files, onAddFiles, onRemoveFile, userId, onUserIdChange, onBack, onContinue, processing }) {
+  // Local UI state: drag-over highlighting and hidden file input ref
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef(null);
 
