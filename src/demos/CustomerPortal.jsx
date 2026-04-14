@@ -136,7 +136,7 @@ function CPReportResults({ reportData, reportLoading, reportError, productType, 
 const CP_PRODUCTS = [
   {
     id: 'income',
-    name: 'Employment income verification',
+    name: 'Income and employment verification',
     desc: 'Verify current income for program eligibility and benefit calculations.',
     useCase: 'SNAP, TANF, Medicaid, housing assistance',
     report: 'VOIE Report',

@@ -238,7 +238,7 @@ function AddApplicantForm({ onSubmit }) {
       lastName: lastName.trim(),
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
-      products: [product],
+      products: product.split(','),
     });
   }
 
@@ -264,24 +264,24 @@ function AddApplicantForm({ onSubmit }) {
             </div>
           </div>
           <div class="mb-3">
-            <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Email</label>
-            <input type="email" value={email} onInput={e => setEmail(e.target.value)} placeholder="john@example.com" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
+            <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Email <span class="text-red-400">*</span></label>
+            <input type="email" value={email} onInput={e => setEmail(e.target.value)} placeholder="john@example.com" required class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
             <p class="text-[11px] text-[#8E8E93] mt-1">Truv sends the verification link to this email</p>
           </div>
           <div class="mb-3">
-            <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Phone</label>
-            <input type="tel" value={phone} onInput={e => setPhone(e.target.value)} placeholder="+14155551234" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
+            <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Phone <span class="text-red-400">*</span></label>
+            <input type="tel" value={phone} onInput={e => setPhone(e.target.value)} placeholder="+14155551234" required class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
             <p class="text-[11px] text-[#8E8E93] mt-1">Truv sends the verification link via SMS</p>
           </div>
           <div class="mb-5">
             <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Product</label>
             <select value={product} onChange={e => setProduct(e.target.value)} class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm bg-white focus:border-primary focus:outline-none">
-              <option value="income">Income verification</option>
-              <option value="employment">Employment verification</option>
-              <option value="assets">Assets verification</option>
+              <option value="income">Income and employment verification</option>
+              <option value="income,assets">Income + Expenses</option>
+              <option value="assets">Self-employment income</option>
             </select>
           </div>
-          <button type="submit" disabled={!firstName.trim() || !lastName.trim()} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
+          <button type="submit" disabled={!firstName.trim() || !lastName.trim() || !email.trim() || !phone.trim()} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
             Continue
           </button>
         </form>
