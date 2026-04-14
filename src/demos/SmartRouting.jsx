@@ -5,54 +5,26 @@
 // the same pattern with fewer screens.
 //
 // SCREEN STATE MACHINE:
-//   'select' (!showForm)   → Intro slide with method cards + architecture diagram (fullscreen, no panel)
-//   'select' (showForm)    → Application form (with panel)
-//   'choose'               → Method picker with "Recommended" tag (with panel)
-//   'waiting'              → Webhook waiting spinner (with panel)
-//   'review'               → Report results (with panel)
+//   'select' (!showForm)   -> Intro slide with method cards + architecture diagram (fullscreen, no panel)
+//   'select' (showForm)    -> Application form (with panel)
+//   'choose'               -> Method picker with "Recommended" tag (with panel)
+//   'waiting'              -> Webhook waiting spinner (with panel)
+//   'review'               -> Report results (with panel)
 //
 // API FLOW:
-//   1. GET /api/companies?q=... → check success_rate for routing recommendation
-//   2. POST /api/bridge-token   → create user + bridge token with data_sources
-//   3. TruvBridge.init().open() → Bridge popup (employer deeplinked via server-side company_mapping_id)
+//   1. GET /api/companies?q=... -> check success_rate for routing recommendation
+//   2. POST /api/bridge-token   -> create user + bridge token with data_sources
+//   3. TruvBridge.init().open() -> Bridge popup (employer deeplinked via server-side company_mapping_id)
 //   4. Wait for task-status-updated webhook with status "done"
-//   5. GET /api/users/:userId/reports/:reportType → fetch verification report
+//   5. GET /api/users/:userId/reports/:reportType -> fetch verification report
 
 import { useState, useEffect } from 'preact/hooks';
 import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
-import { Icons } from '../components/Icons.jsx';
 import { DIAGRAM } from '../diagrams/smart-routing.js';
-
-// STEPS: sidebar Guide tab content. Each step highlights when setCurrentStep(index) is called.
-const STEPS = [
-  { title: 'Applicant submits information', guide: '<p>The form collects applicant details and employer. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>For financial institutions (banks) use:</p><pre>GET /v1/providers/?data_source=financial_accounts</pre><p><b>Key distinction:</b> Payroll employers return <code>company_mapping_id</code>. Banks return <code>provider_id</code>. Pass the correct one when creating a bridge token to deeplink Bridge to that institution.</p><p>The employer is used to determine the recommended verification method.</p>' },
-  {
-    title: 'System recommends method',
-    guide: '<p>Company search checks payroll coverage:</p>'
-      + '<pre>GET /v1/company-mappings-search/?query=employer</pre>'
-      + '<p>Based on <code>success_rate</code>:</p>'
-      + '<ul><li><b>high</b> → Payroll recommended</li>'
-      + '<li><b>low / medium / other</b> → Bank recommended</li>'
-      + '<li><b>no results</b> → Documents (fallback)</li></ul>'
-      + '<p>The applicant can override and pick any method.</p>',
-  },
-  { title: 'Applicant connects via Bridge', guide: '<p>Bridge opens as a popup with the selected data source.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
-  { title: 'Truv processes verification', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
-  { title: 'Team Member reviews report', guide: '<p>The report is fetched via the user reports endpoint:</p><pre>POST /v1/users/{user_id}/reports/\nor\nPOST /v1/users/{user_id}/income_insights/reports/</pre>' },
-];
-
-// METHODS: verification method cards shown on the 'choose' screen.
-// The `dataSources` array is sent to POST /api/bridge-token to control what Bridge shows.
-// `productType` is the Truv product_type sent when creating the bridge token.
-// `reportType` determines which user report endpoint to call after verification.
-const METHODS = [
-  { id: 'payroll', name: 'Payroll Income', desc: 'Connect to payroll provider for verified income and employment data', Icon: Icons.briefcase, color: 'icon-box-blue', dataSources: ['payroll'], productType: 'income', reportType: 'income' },
-  { id: 'bank', name: 'Bank Transactions', desc: 'Connect bank account for transaction-based income insights', Icon: Icons.bankBuilding, color: 'icon-box-emerald', dataSources: ['financial_accounts'], productType: 'income', reportType: 'income_insights' },
-  { id: 'documents', name: 'Upload Documents', desc: 'Upload pay stubs, W-2s, or tax returns for document-based verification', Icon: Icons.upload, color: 'icon-box-amber', dataSources: ['docs'], productType: 'income', reportType: 'income' },
-];
+import { STEPS, METHODS, INTRO_SLIDE_CONFIG, MethodCards, MethodPicker } from './scaffolding/smart-routing.jsx';
 
 export function SmartRoutingDemo() {
   const [screen, setScreen] = useState('select');
@@ -174,9 +146,9 @@ export function SmartRoutingDemo() {
         {/* Intro — method cards + architecture diagram */}
         {screen === 'select' && !showForm && (
           <IntroSlide
-            label="Consumer Credit · Smart Routing"
+            label={INTRO_SLIDE_CONFIG.label}
             title={<>Find the fastest<br />verification path</>}
-            subtitle="The system checks the applicant's employer payroll coverage and recommends the fastest path: payroll, bank transactions, or document upload. The applicant can accept or override."
+            subtitle={INTRO_SLIDE_CONFIG.subtitle}
             diagram={DIAGRAM}
             actions={
               <button onClick={() => setShowForm(true)} class="w-full block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
@@ -184,17 +156,7 @@ export function SmartRoutingDemo() {
               </button>
             }
           >
-            <div class="grid gap-3 text-left">
-              {METHODS.map(m => (
-                <div key={m.id} class="rounded-xl border border-[#e8e8ed] px-5 py-4">
-                  <div class="flex items-center gap-3 mb-1">
-                    <div class={`icon-box ${m.color}`}><m.Icon size={18} /></div>
-                    <h3 class="text-[14px] font-semibold text-[#171717]">{m.name}</h3>
-                  </div>
-                  <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{m.desc}</p>
-                </div>
-              ))}
-            </div>
+            <MethodCards />
           </IntroSlide>
         )}
 
@@ -218,32 +180,7 @@ export function SmartRoutingDemo() {
               <>
                 <h2 class="text-2xl font-bold tracking-tight mb-1.5">Choose verification method</h2>
                 <p class="text-sm text-gray-500 leading-relaxed mb-7">Based on employer coverage, we recommend a method. You can pick any.</p>
-                <div class="grid gap-3">
-                  {METHODS.map(m => {
-                    const isRecommended = m.id === recommended;
-                    return (
-                      <button
-                        key={m.id}
-                        onClick={() => handleMethodSelect(m)}
-                        disabled={loading}
-                        class={`rounded-xl border px-5 py-4 text-left cursor-pointer transition-all duration-150 disabled:opacity-40 ${
-                          isRecommended
-                            ? 'border-primary bg-primary/[0.04]'
-                            : 'border-[#e8e8ed] hover:border-[#c0c0c5]'
-                        }`}
-                      >
-                        <div class="flex items-center gap-3 mb-1">
-                          <div class="w-9 h-9 rounded-lg bg-[#f5f5f7] border border-[#e8e8ed] flex items-center justify-center text-[#8E8E93]"><m.Icon size={18} /></div>
-                          <h3 class="text-[15px] font-semibold text-[#171717]">{m.name}</h3>
-                          {isRecommended && (
-                            <span class="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Recommended</span>
-                          )}
-                        </div>
-                        <p class="text-[14px] text-[#8E8E93] leading-[1.5]">{m.desc}</p>
-                      </button>
-                    );
-                  })}
-                </div>
+                <MethodPicker methods={METHODS} recommended={recommended} onSelect={handleMethodSelect} loading={loading} />
                 <button onClick={() => { setFormData(null); setRecommended(null); setScreen('select'); setShowForm(true); }} class="mt-6 text-sm text-[#8E8E93] hover:text-primary">
                   &larr; Back to application
                 </button>

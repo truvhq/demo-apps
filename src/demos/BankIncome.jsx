@@ -6,13 +6,7 @@ import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch }
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 import { DIAGRAM } from '../diagrams/bank-income.js';
-
-const STEPS = [
-  { title: 'Applicant submits information', guide: '<p>The form collects applicant details. Financial institutions (banks) are searched via:</p><pre>GET /v1/providers/?data_source=financial_accounts</pre><p>This returns a <code>provider_id</code> (not <code>company_mapping_id</code> — that\'s for payroll employers). Pass <code>provider_id</code> when creating the bridge token to deeplink Bridge to that bank.</p><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>The <code>data_sources: [financial_accounts]</code> parameter restricts Bridge to bank connections only.</p>' },
-  { title: 'Applicant connects bank account', guide: '<p>Bridge opens as a popup. The user selects their bank and logs in.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
-  { title: 'Truv processes transactions', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
-  { title: 'Team Member reviews income report', guide: '<p>The report is fetched via the user reports endpoint:</p><pre>POST /v1/users/{user_id}/income_insights/reports/</pre><p>Returns income insights derived from bank transactions.</p>' },
-];
+import { STEPS, INTRO_SLIDE_CONFIG, REPORT_HEADER } from './scaffolding/bank-income.jsx';
 
 export function BankIncomeDemo() {
   const [screen, setScreen] = useState('select');
@@ -87,9 +81,9 @@ export function BankIncomeDemo() {
       <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
         {screen === 'select' && !showForm && (
           <IntroSlide
-            label="Consumer Credit . Bank Income"
-            title="Verify income from bank transactions"
-            subtitle="When payroll data is not available, verify income by connecting to the applicant's bank account. Truv analyzes transaction history and generates an income insights report."
+            label={INTRO_SLIDE_CONFIG.label}
+            title={INTRO_SLIDE_CONFIG.title}
+            subtitle={INTRO_SLIDE_CONFIG.subtitle}
             diagram={DIAGRAM}
             actions={<button onClick={() => setShowForm(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
           />
@@ -103,8 +97,8 @@ export function BankIncomeDemo() {
 
         {screen === 'review' && (
           <div>
-            <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Report</h2>
-            <p class="text-sm text-gray-500 mb-7">Bank income verification</p>
+            <h2 class="text-2xl font-bold tracking-tight mb-1.5">{REPORT_HEADER.title}</h2>
+            <p class="text-sm text-gray-500 mb-7">{REPORT_HEADER.subtitle}</p>
             {reports?.income_insights && !reportLoading ? (
               <div>
                 <IncomeInsightsReport report={reports.income_insights} />

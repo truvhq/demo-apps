@@ -7,13 +7,7 @@ import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { DDSReport } from '../components/reports/DDSReport.jsx';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 import { DIAGRAM } from '../diagrams/paycheck-linked-loans.js';
-
-const STEPS = [
-  { title: 'Applicant submits information', guide: '<p>The form collects applicant details. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>Token uses <code>product_type: pll</code> with account details for payroll deductions.</p>' },
-  { title: 'Applicant connects payroll', guide: '<p>Bridge opens as a popup. The user selects their employer and confirms the payroll deduction.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
-  { title: 'Truv sets up deduction', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
-  { title: 'Team Member reviews confirmation', guide: '<p>Reports are fetched via user reports endpoints:</p><pre>POST /v1/users/{user_id}/reports/\nGET /v1/users/{user_id}/deposit_switch/report/</pre><p>Returns income verification and deposit switch confirmation.</p>' },
-];
+import { STEPS, INTRO_SLIDE_CONFIG, REPORT_HEADER } from './scaffolding/paycheck-linked-loans.jsx';
 
 export function PaycheckLinkedLoansDemo() {
   const [screen, setScreen] = useState('select');
@@ -88,9 +82,9 @@ export function PaycheckLinkedLoansDemo() {
       <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
         {screen === 'select' && !showForm && (
           <IntroSlide
-            label="Consumer Credit . Paycheck-Linked Loans"
-            title="Set up payroll loan repayment"
-            subtitle="The applicant connects their payroll provider and authorizes automatic deductions for loan repayment. Payments start on the next pay cycle."
+            label={INTRO_SLIDE_CONFIG.label}
+            title={INTRO_SLIDE_CONFIG.title}
+            subtitle={INTRO_SLIDE_CONFIG.subtitle}
             diagram={DIAGRAM}
             actions={<button onClick={() => setShowForm(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
           />
@@ -104,8 +98,8 @@ export function PaycheckLinkedLoansDemo() {
 
         {screen === 'review' && (
           <div>
-            <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Report</h2>
-            <p class="text-sm text-gray-500 mb-7">Paycheck-linked lending</p>
+            <h2 class="text-2xl font-bold tracking-tight mb-1.5">{REPORT_HEADER.title}</h2>
+            <p class="text-sm text-gray-500 mb-7">{REPORT_HEADER.subtitle}</p>
             {reports && !reportLoading ? (
               <div>
                 {reports.deposit_switch && <DDSReport report={reports.deposit_switch} />}

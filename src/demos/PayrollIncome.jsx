@@ -6,13 +6,7 @@ import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch }
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 import { DIAGRAM } from '../diagrams/payroll-income.js';
-
-const STEPS = [
-  { title: 'Applicant submits information', guide: '<p>The form collects applicant details. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>This returns a <code>company_mapping_id</code> (not <code>provider_id</code> — that\'s for banks). Pass <code>company_mapping_id</code> when creating the bridge token to deeplink Bridge to that employer.</p><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>The <code>data_sources: [payroll]</code> parameter restricts Bridge to payroll providers only.</p>' },
-  { title: 'Applicant connects payroll', guide: '<p>Bridge opens as a popup. The user selects their employer and logs in.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
-  { title: 'Truv processes verification', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
-  { title: 'Team Member reviews income report', guide: '<p>The report is fetched via the user reports endpoint:</p><pre>POST /v1/users/{user_id}/reports/</pre><p>Returns VOIE report with income and employment data.</p>' },
-];
+import { STEPS, INTRO_SLIDE_CONFIG, REPORT_HEADER } from './scaffolding/payroll-income.jsx';
 
 export function PayrollIncomeDemo() {
   const [screen, setScreen] = useState('select');
@@ -87,9 +81,9 @@ export function PayrollIncomeDemo() {
       <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
         {screen === 'select' && !showForm && (
           <IntroSlide
-            label="Consumer Credit . Payroll Income"
-            title="Verify income directly from payroll"
-            subtitle="Connect to the applicant's payroll provider to verify current income, employment, and pay history. The fastest and most accurate path for lending decisions."
+            label={INTRO_SLIDE_CONFIG.label}
+            title={INTRO_SLIDE_CONFIG.title}
+            subtitle={INTRO_SLIDE_CONFIG.subtitle}
             diagram={DIAGRAM}
             actions={<button onClick={() => setShowForm(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
           />
@@ -100,8 +94,8 @@ export function PayrollIncomeDemo() {
         {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}
         {screen === 'review' && (
           <div>
-            <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Report</h2>
-            <p class="text-sm text-gray-500 mb-7">Payroll income verification</p>
+            <h2 class="text-2xl font-bold tracking-tight mb-1.5">{REPORT_HEADER.title}</h2>
+            <p class="text-sm text-gray-500 mb-7">{REPORT_HEADER.subtitle}</p>
             {reports?.income && !reportLoading ? (
               <div>
                 <VoieReport report={reports.income} />

@@ -6,13 +6,7 @@ import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch }
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 import { DDSReport } from '../components/reports/DDSReport.jsx';
 import { DIAGRAM } from '../diagrams/direct-deposit-switch.js';
-
-const STEPS = [
-  { title: 'Customer provides information', guide: '<p>The form collects applicant details. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>Token uses <code>product_type: deposit_switch</code> with target account details.</p>' },
-  { title: 'Customer connects payroll', guide: '<p>Bridge opens as a popup. The user selects their employer and confirms the deposit switch.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
-  { title: 'Truv switches deposit', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
-  { title: 'Bank confirms enrollment', guide: '<p>The report is fetched via the user reports endpoint:</p><pre>GET /v1/users/{user_id}/deposit_switch/report/</pre><p>Confirms the direct deposit was switched.</p>' },
-];
+import { STEPS, INTRO_SLIDE_CONFIG, REPORT_HEADER } from './scaffolding/direct-deposit-switch.jsx';
 
 export function DirectDepositSwitchDemo() {
   const [screen, setScreen] = useState('select');
@@ -87,9 +81,9 @@ export function DirectDepositSwitchDemo() {
       <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
         {screen === 'select' && !showForm && (
           <IntroSlide
-            label="Retail Banking . Deposit Switch"
-            title="Switch direct deposit to your bank"
-            subtitle="A new customer connects their payroll provider and switches their direct deposit routing to your bank. The change takes effect on their next paycheck."
+            label={INTRO_SLIDE_CONFIG.label}
+            title={INTRO_SLIDE_CONFIG.title}
+            subtitle={INTRO_SLIDE_CONFIG.subtitle}
             diagram={DIAGRAM}
             actions={<button onClick={() => setShowForm(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
           />
@@ -103,8 +97,8 @@ export function DirectDepositSwitchDemo() {
 
         {screen === 'review' && (
           <div>
-            <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Report</h2>
-            <p class="text-sm text-gray-500 mb-7">Direct deposit switch</p>
+            <h2 class="text-2xl font-bold tracking-tight mb-1.5">{REPORT_HEADER.title}</h2>
+            <p class="text-sm text-gray-500 mb-7">{REPORT_HEADER.subtitle}</p>
             {reports?.deposit_switch && !reportLoading ? (
               <div>
                 <DDSReport report={reports.deposit_switch} />
