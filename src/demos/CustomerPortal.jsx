@@ -3,6 +3,9 @@
 // Same Orders API flow as POSApplication.jsx but with government-specific
 // labels (applicant, agency) and product types.
 //
+// Scaffolding (steps, intro screens, product pickers) is in ./scaffolding/customer-portal.jsx
+// Sequence diagrams are in ../diagrams/customer-portal.js
+//
 // SCREEN FLOW (URL-driven via `screen` prop):
 //   ''        -> Intro slide with product picker (income, employment, assets)
 //   'bridge'  -> Bridge widget (order-based, inline)
@@ -14,6 +17,12 @@
 //   2. Bridge opened with order_id (deeplinked via company_mapping_id)
 //   3. Wait for order-status-updated webhook with status "completed"
 //   4. POST /api/users/:userId/reports/ -> GET /api/users/:userId/reports/:report_id
+//
+// WHAT TO COPY (for your own Truv integration):
+//   - handleSubmit()     -> creates an order via POST /api/orders
+//   - useReportFetch()   -> watches webhooks and fetches reports by product type
+//   - <BridgeScreen />   -> opens Bridge with an order_id
+//   - screen routing     -> ties intro, bridge, waiting, results into a flow
 
 import { useState, useEffect } from 'preact/hooks';
 import { Layout, usePanel, API_BASE, useReportFetch } from '../components/index.js';

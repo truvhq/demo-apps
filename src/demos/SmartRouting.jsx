@@ -1,8 +1,11 @@
-// SmartRouting.jsx — Consumer Credit demo: Smart Routing
+// SmartRouting.jsx -- Consumer Credit demo: Smart Routing
 //
 // This is the CANONICAL example for Consumer Credit demos using the Bridge
 // (User+Token) flow. Other demos (BankIncome, PayrollIncome, etc.) follow
 // the same pattern with fewer screens.
+//
+// Scaffolding (steps, intro screens, method pickers) is in ./scaffolding/smart-routing.jsx
+// Sequence diagrams are in ../diagrams/smart-routing.js
 //
 // SCREEN STATE MACHINE:
 //   'select' (!showForm)   -> Intro slide with method cards + architecture diagram (fullscreen, no panel)
@@ -17,6 +20,12 @@
 //   3. TruvBridge.init().open() -> Bridge popup (employer deeplinked via server-side company_mapping_id)
 //   4. Wait for task-status-updated webhook with status "done"
 //   5. GET /api/users/:userId/reports/:reportType -> fetch verification report
+//
+// WHAT TO COPY (for your own Truv integration):
+//   - handleFormSubmit()    -> checks employer coverage via GET /api/companies for routing
+//   - handleMethodSelect()  -> creates a bridge token via POST /api/bridge-token
+//   - TruvBridge.init()     -> opens the Bridge widget with data_sources
+//   - useReportFetch()      -> watches webhooks and fetches reports
 
 import { useState, useEffect } from 'preact/hooks';
 import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';

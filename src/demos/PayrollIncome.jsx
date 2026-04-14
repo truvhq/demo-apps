@@ -1,6 +1,14 @@
-// PayrollIncome.jsx — Consumer Credit demo: Payroll Income Verification
+// PayrollIncome.jsx -- Consumer Credit demo: Payroll Income Verification
 // Follows the same Bridge (User+Token) flow as SmartRouting.jsx (the canonical example).
 // Uses data_sources: ['payroll'] and GET /v1/company-mappings-search/ for employer search.
+//
+// Scaffolding (steps, intro screens) is in ./scaffolding/payroll-income.jsx
+// Sequence diagrams are in ../diagrams/payroll-income.js
+//
+// WHAT TO COPY (for your own Truv integration):
+//   - handleFormSubmit()  -> creates a bridge token via POST /api/bridge-token
+//   - TruvBridge.init()   -> opens the Bridge widget (data_sources: payroll)
+//   - useReportFetch()    -> watches webhooks and fetches income reports
 import { useState } from 'preact/hooks';
 import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
 import { VoieReport } from '../components/reports/VoieReport.jsx';

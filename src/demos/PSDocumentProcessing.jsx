@@ -3,6 +3,9 @@
 // Same Document Collections API flow as DocumentProcessing.jsx but with
 // government-specific labels (applicant instead of borrower).
 //
+// Scaffolding (steps, intro screens, upload UI) is in ./scaffolding/ps-document-processing.jsx
+// Sequence diagrams are in ../diagrams/ps-document-processing.js
+//
 // SCREEN FLOW (state-driven):
 //   'intro'      -> Intro slide with architecture diagram
 //   'upload'     -> File picker + sample test documents
@@ -15,6 +18,12 @@
 //   3. POST /api/collections/:id/finalize -> trigger data extraction
 //   4. Wait for task-status-updated webhook with status "done"
 //   5. GET  /api/collections/:id/report   -> fetch extracted income data
+//
+// WHAT TO COPY (for your own Truv integration):
+//   - processDocuments()        -> creates a collection and polls until files are processed
+//   - finalize call             -> POST /api/collections/:id/finalize triggers extraction
+//   - webhook watcher useEffect -> listens for task-status-updated "done" to fetch the report
+//   - report fetch              -> GET /api/collections/:id/report?link_id=...
 
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { Layout, OrderResults, WebhookFeed, usePanel, API_BASE, parsePayload, IntroSlide } from '../components/index.js';

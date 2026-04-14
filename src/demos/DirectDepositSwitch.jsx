@@ -1,6 +1,14 @@
 // DirectDepositSwitch.jsx -- Retail Banking demo: Direct Deposit Switch
 // Follows the same Bridge (User+Token) flow as SmartRouting.jsx (the canonical example).
 // Uses product_type: 'deposit_switch'. Report rendered with DDSReport component.
+//
+// Scaffolding (steps, intro screens) is in ./scaffolding/direct-deposit-switch.jsx
+// Sequence diagrams are in ../diagrams/direct-deposit-switch.js
+//
+// WHAT TO COPY (for your own Truv integration):
+//   - handleFormSubmit()  -> creates a bridge token via POST /api/bridge-token (product_type: deposit_switch)
+//   - TruvBridge.init()   -> opens the Bridge widget for direct deposit switching
+//   - useReportFetch()    -> watches webhooks and fetches deposit_switch reports
 import { useState } from 'preact/hooks';
 import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';

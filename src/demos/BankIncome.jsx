@@ -1,6 +1,14 @@
-// BankIncome.jsx — Consumer Credit demo: Bank Income Verification
+// BankIncome.jsx -- Consumer Credit demo: Bank Income Verification
 // Follows the same Bridge (User+Token) flow as SmartRouting.jsx (the canonical example).
 // Uses data_sources: ['financial_accounts'] and GET /v1/providers/ for bank search.
+//
+// Scaffolding (steps, intro screens) is in ./scaffolding/bank-income.jsx
+// Sequence diagrams are in ../diagrams/bank-income.js
+//
+// WHAT TO COPY (for your own Truv integration):
+//   - handleFormSubmit()  -> creates a bridge token via POST /api/bridge-token
+//   - TruvBridge.init()   -> opens the Bridge widget (data_sources: financial_accounts)
+//   - useReportFetch()    -> watches webhooks and fetches income_insights reports
 import { useState } from 'preact/hooks';
 import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';

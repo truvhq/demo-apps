@@ -3,6 +3,9 @@
 // Backend-initiated flow: creates an order with borrower PII, and Truv
 // sends a verification link via email/SMS. No Bridge widget here.
 //
+// Scaffolding (steps, intro screens, applicant form) is in ./scaffolding/los.jsx
+// Sequence diagrams are in ../diagrams/los.js
+//
 // SCREEN FLOW (state-driven):
 //   !introSeen              -> Intro slide with architecture diagram
 //   introSeen && !applicant -> Add borrower form (name, email, phone, products)
@@ -13,6 +16,12 @@
 //   2. Truv sends email/SMS with share_url to borrower
 //   3. Wait for order-status-updated webhook with status "completed"
 //   4. GET /api/users/:userId/reports/:type -> fetch report
+//
+// WHAT TO COPY (for your own Truv integration):
+//   - handleRequest()    -> creates an order via POST /api/orders with PII + email/phone
+//   - useReportFetch()   -> watches webhooks and fetches reports when order completes
+//   - share_url display  -> shows the Truv verification link sent to the borrower
+//   - startPolling()     -> begins webhook polling for order status updates
 
 import { useState } from 'preact/hooks';
 import { Layout, WebhookFeed, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';

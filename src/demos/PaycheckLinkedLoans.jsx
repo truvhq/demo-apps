@@ -1,6 +1,14 @@
-// PaycheckLinkedLoans.jsx — Consumer Credit demo: Paycheck-Linked Loans
+// PaycheckLinkedLoans.jsx -- Consumer Credit demo: Paycheck-Linked Loans
 // Follows the same Bridge (User+Token) flow as SmartRouting.jsx (the canonical example).
 // Uses product_type: 'pll'. Fetches BOTH income and deposit_switch reports in parallel.
+//
+// Scaffolding (steps, intro screens) is in ./scaffolding/paycheck-linked-loans.jsx
+// Sequence diagrams are in ../diagrams/paycheck-linked-loans.js
+//
+// WHAT TO COPY (for your own Truv integration):
+//   - handleFormSubmit()  -> creates a bridge token via POST /api/bridge-token (product_type: pll)
+//   - TruvBridge.init()   -> opens the Bridge widget for paycheck-linked loans
+//   - useReportFetch()    -> watches webhooks and fetches income + deposit_switch reports
 import { useState } from 'preact/hooks';
 import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
 import { VoieReport } from '../components/reports/VoieReport.jsx';

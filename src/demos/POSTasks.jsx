@@ -4,6 +4,9 @@
 // them to a single borrower. Each task goes through bridge -> waiting
 // -> results independently.
 //
+// Scaffolding (steps, intro screens, task list) is in ./scaffolding/pos-tasks.jsx
+// Sequence diagrams are in ../diagrams/pos-tasks.js
+//
 // SCREEN FLOW (URL-driven via `screen` prop):
 //   ''        -> Intro slide with task picker + application ID input
 //   'bridge'  -> Bridge widget for the active task's order
@@ -15,6 +18,12 @@
 //   2. Bridge opened per task with that task's order_id
 //   3. Wait for order-status-updated webhook with status "completed"
 //   4. POST /api/users/:userId/reports/ -> GET /api/users/:userId/reports/:report_id
+//
+// WHAT TO COPY (for your own Truv integration):
+//   - handleInitialize() -> creates multiple orders via POST /api/orders with shared external_user_id
+//   - useReportFetch()   -> watches webhooks and fetches reports per task
+//   - <BridgeScreen />   -> opens Bridge with a per-task order_id
+//   - handleStartTask()  -> routes each task through its own bridge flow
 
 import { useState, useRef, useEffect, useMemo } from 'preact/hooks';
 import { Layout, usePanel, API_BASE, useReportFetch } from '../components/index.js';

@@ -3,6 +3,9 @@
 // Same backend-initiated pattern as LOS.jsx but with government-specific
 // labels (case worker, applicant). No Bridge widget in this flow.
 //
+// Scaffolding (steps, intro screens, applicant form) is in ./scaffolding/case-worker-portal.jsx
+// Sequence diagrams are in ../diagrams/case-worker-portal.js
+//
 // SCREEN FLOW (state-driven):
 //   !introSeen              -> Intro slide with architecture diagram
 //   introSeen && !applicant -> Add applicant form (name, email, phone, products)
@@ -13,6 +16,12 @@
 //   2. Truv sends email/SMS with share_url to applicant
 //   3. Wait for order-status-updated webhook with status "completed"
 //   4. GET /api/users/:userId/reports/:type -> server POSTs to create, then GETs by report_id
+//
+// WHAT TO COPY (for your own Truv integration):
+//   - handleRequest()    -> creates an order via POST /api/orders with PII + email/phone
+//   - useReportFetch()   -> watches webhooks and fetches reports when order completes
+//   - share_url display  -> shows the Truv verification link sent to the applicant
+//   - startPolling()     -> begins webhook polling for order status updates
 
 import { useState } from 'preact/hooks';
 import { Layout, WebhookFeed, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
