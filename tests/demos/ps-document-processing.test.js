@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest';
 
 // ---------------------------------------------------------------------------
-// UploadDocuments.jsx behavioral contracts
+// PSDocumentProcessing.jsx behavioral contracts
 //
-// Document-flow demo (Mortgage Document Processing). Same Document Collections
-// API flow as PSDocuments but with mortgage-specific labels.
+// Document-flow demo (Public Sector Document Processing). Uses the Document
+// Collections API instead of Bridge or Orders. Watches for
+// task-status-updated:done webhook after finalizing the collection.
 // ---------------------------------------------------------------------------
 
-describe('UploadDocuments demo contracts', () => {
+describe('PSDocumentProcessing demo contracts', () => {
   // ---- Screen states ------------------------------------------------------
 
   const SCREEN_STATES = ['intro', 'upload', 'processing', 'review'];
@@ -20,6 +21,8 @@ describe('UploadDocuments demo contracts', () => {
   // ---- Webhook: uses task-status-updated:done -----------------------------
 
   it('watches for task-status-updated:done webhook', () => {
+    // PSDocuments watches webhooks manually (not via useReportFetch).
+    // It looks for event_type === 'task-status-updated' && status === 'done'
     const expectedEvent = 'task-status-updated';
     const expectedStatus = 'done';
     expect(expectedEvent).toBe('task-status-updated');
@@ -62,27 +65,10 @@ describe('UploadDocuments demo contracts', () => {
   // ---- API flow: Document Collections API ---------------------------------
 
   it('uses the Document Collections API (not Bridge or Orders)', () => {
+    // PSDocuments creates collections via POST /api/collections
+    // then polls GET /api/collections/:id
+    // then finalizes via POST /api/collections/:id/finalize
     const apiEndpoint = '/api/collections';
     expect(apiEndpoint).toBe('/api/collections');
-  });
-
-  // ---- Structural parity with PSDocuments ---------------------------------
-
-  it('shares the same document processing architecture as PSDocuments', () => {
-    const psDocsArchitecture = {
-      screenStates: ['intro', 'upload', 'processing', 'review'],
-      webhookEvent: 'task-status-updated',
-      webhookStatus: 'done',
-      api: '/api/collections',
-      sampleDocCount: 3,
-    };
-    const uploadDocsArchitecture = {
-      screenStates: ['intro', 'upload', 'processing', 'review'],
-      webhookEvent: 'task-status-updated',
-      webhookStatus: 'done',
-      api: '/api/collections',
-      sampleDocCount: 3,
-    };
-    expect(uploadDocsArchitecture).toEqual(psDocsArchitecture);
   });
 });

@@ -1,4 +1,4 @@
-// Application.jsx -- Mortgage demo: POS Application
+// POSApplication.jsx -- Mortgage demo: POS Application
 //
 // SCREEN FLOW (URL-driven via `screen` prop):
 //   ''        -> Intro slide with product picker (income, employment, assets)
@@ -38,7 +38,7 @@ const STEPS = [
 ];
 
 
-export function ApplicationDemo({ screen, param }) {
+export function POSApplicationDemo({ screen, param }) {
   const [productType, setProductType] = useState(null);
   const [userId, setUserId] = useState(null);
   const [submitting, setSubmitting] = useState(false);

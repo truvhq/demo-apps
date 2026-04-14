@@ -1,7 +1,7 @@
-// PSDocuments.jsx -- Public Sector demo: Document Processing
+// DocumentProcessing.jsx -- Mortgage demo: Document Processing
 //
-// Same Document Collections API flow as UploadDocuments.jsx but with
-// government-specific labels (applicant instead of borrower).
+// Upload pay stubs, W-2s, or tax returns. Truv validates, classifies,
+// and extracts structured data. Uses the Document Collections API.
 //
 // SCREEN FLOW (state-driven):
 //   'intro'      -> Intro slide with architecture diagram
@@ -18,10 +18,10 @@
 
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { Layout, OrderResults, WebhookFeed, usePanel, API_BASE, parsePayload, IntroSlide } from '../components/index.js';
-import { DOC_DIAGRAM } from '../diagrams/ps-document-processing.js';
+import { DOC_DIAGRAM } from '../diagrams/document-processing.js';
 
 const STEPS = [
-  { title: 'Upload applicant documents', guide: '<p>Send collected documents to Truv for validation and classification:</p><pre>POST /v1/documents/collections/\n{\n  "documents": [{ "filename": "...", "content": "base64..." }],\n  "users": [{ "id": "..." }]\n}</pre><p>Optionally attach to an existing Truv user via the <code>users</code> field.</p>' },
+  { title: 'Upload borrower documents', guide: '<p>Send collected documents to Truv for validation and classification:</p><pre>POST /v1/documents/collections/\n{\n  "documents": [{ "filename": "...", "content": "base64..." }],\n  "users": [{ "id": "..." }]\n}</pre><p>Optionally attach to an existing Truv user via the <code>users</code> field.</p>' },
   { title: 'Truv validates documents', guide: '<p>Truv validates each document:</p><ul><li><code>is_valid</code> — recognized document type</li><li><code>is_readable</code> — text is extractable</li><li><code>document_type</code> — paystub, w2, etc.</li></ul><p>Poll the collection status until all documents are processed.</p>' },
   { title: 'Truv extracts income data', guide: '<p>Once validated, finalize the collection to extract structured data:</p><pre>POST /v1/documents/collections/{id}/finalize/</pre>' },
   { title: 'Review structured results', guide: '<p>Fetch the extracted data:</p><pre>GET /v1/documents/collections/{id}/finalize/</pre><p>Returns parsed fields: employer name, pay period, gross/net pay, tax withholdings, etc.</p>' },
@@ -41,7 +41,7 @@ function formatSize(bytes) {
   return (bytes / 1048576).toFixed(1) + ' MB';
 }
 
-export function PSDocumentsDemo() {
+export function DocumentProcessingDemo() {
   const [screen, setScreen] = useState('intro');
   const [userId, setUserId] = useState('');
   const [files, setFiles] = useState([]);
@@ -153,12 +153,12 @@ export function PSDocumentsDemo() {
   }
 
   return (
-    <Layout badge="Public Sector · Document Processing" steps={STEPS} panel={panel} hidePanel={isIntro}>
+    <Layout badge="Document Processing" steps={STEPS} panel={panel} hidePanel={isIntro}>
       {screen === 'intro' && (
         <IntroSlide
-          label="Public Sector . Document Processing"
-          title="Extract income data from applicant documents"
-          subtitle="Process pay stubs, W-2s, and tax returns submitted by applicants. Truv validates the documents and extracts structured income data for eligibility decisions."
+          label="Mortgage . Document Processing"
+          title="Extract income data from documents"
+          subtitle="Upload pay stubs, W-2s, and tax returns already collected. Truv validates the documents and extracts structured income data for underwriting."
           diagram={DOC_DIAGRAM}
           actions={<button onClick={() => setScreen('upload')} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
         >
@@ -273,14 +273,6 @@ function UploadScreen({ files, onAddFiles, onRemoveFile, userId, onUserIdChange,
               ))}
             </div>
           )}
-
-          {/* User ID */}
-          <input
-            value={userId}
-            onInput={e => onUserIdChange(e.target.value)}
-            placeholder="external_user_id (optional)"
-            class="w-full px-4 py-3 border border-[#d2d2d7] rounded-xl text-sm font-mono focus:border-primary focus:outline-none mb-4 text-center"
-          />
 
           <div class="flex gap-3">
             <button onClick={onBack} class="flex-1 py-3 border border-[#e8e8ed] font-semibold rounded-full hover:border-primary hover:text-primary">Back</button>

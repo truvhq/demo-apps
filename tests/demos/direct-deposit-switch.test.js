@@ -15,13 +15,13 @@ vi.mock('../../src/components/WebhookFeed.jsx', () => ({
 import { getReportTypes } from '../../src/components/useReportFetch.js';
 
 // ---------------------------------------------------------------------------
-// DepositSwitch.jsx behavioral contracts
+// DirectDepositSwitch.jsx behavioral contracts
 //
 // Bridge-flow demo for direct deposit switching.
 // Uses product_type: 'deposit_switch'. No data_sources field needed.
 // ---------------------------------------------------------------------------
 
-describe('DepositSwitch demo contracts', () => {
+describe('DirectDepositSwitch demo contracts', () => {
   // ---- Products and webhook event -----------------------------------------
 
   it('uses products: ["deposit_switch"]', () => {

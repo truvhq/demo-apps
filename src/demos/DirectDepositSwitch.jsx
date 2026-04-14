@@ -1,4 +1,4 @@
-// DepositSwitch.jsx — Retail Banking demo: Direct Deposit Switch
+// DirectDepositSwitch.jsx -- Retail Banking demo: Direct Deposit Switch
 // Follows the same Bridge (User+Token) flow as SmartRouting.jsx (the canonical example).
 // Uses product_type: 'deposit_switch'. Report rendered with DDSReport component.
 import { useState } from 'preact/hooks';
@@ -14,7 +14,7 @@ const STEPS = [
   { title: 'Bank confirms enrollment', guide: '<p>The report is fetched via the user reports endpoint:</p><pre>GET /v1/users/{user_id}/deposit_switch/report/</pre><p>Confirms the direct deposit was switched.</p>' },
 ];
 
-export function DepositSwitchDemo() {
+export function DirectDepositSwitchDemo() {
   const [screen, setScreen] = useState('select');
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(null);

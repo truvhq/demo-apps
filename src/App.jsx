@@ -10,23 +10,23 @@
 //
 // Each demo component receives { screen, param } props from the router.
 // See SmartRouting.jsx for the Consumer Credit pattern (Bridge flow)
-// and Application.jsx for the Mortgage pattern (Orders flow).
+// and POSApplication.jsx for the Mortgage pattern (Orders flow).
 
 import { useState, useEffect } from 'preact/hooks';
 import { Home } from './Home.jsx';
 import { IndustryPage } from './IndustryPage.jsx';
-import { ApplicationDemo } from './demos/Application.jsx';
-import { FollowUpDemo } from './demos/FollowUp.jsx';
-import { EmployeePortalDemo } from './demos/EmployeePortal.jsx';
-import { UploadDocumentsDemo } from './demos/UploadDocuments.jsx';
+import { POSApplicationDemo } from './demos/POSApplication.jsx';
+import { POSTasksDemo } from './demos/POSTasks.jsx';
+import { CaseWorkerPortalDemo } from './demos/CaseWorkerPortal.jsx';
+import { DocumentProcessingDemo } from './demos/DocumentProcessing.jsx';
 import { LOSDemo } from './demos/LOS.jsx';
 import { CustomerPortalDemo } from './demos/CustomerPortal.jsx';
-import { PSDocumentsDemo } from './demos/PSDocuments.jsx';
+import { PSDocumentProcessingDemo } from './demos/PSDocumentProcessing.jsx';
 import { SmartRoutingDemo } from './demos/SmartRouting.jsx';
 import { BankIncomeDemo } from './demos/BankIncome.jsx';
 import { PayrollIncomeDemo } from './demos/PayrollIncome.jsx';
 import { PaycheckLinkedLoansDemo } from './demos/PaycheckLinkedLoans.jsx';
-import { DepositSwitchDemo } from './demos/DepositSwitch.jsx';
+import { DirectDepositSwitchDemo } from './demos/DirectDepositSwitch.jsx';
 
 export const INDUSTRIES = [
   {
@@ -34,10 +34,10 @@ export const INDUSTRIES = [
     name: 'Mortgage',
     desc: 'Verify borrower income, employment, and assets in minutes with GSE-certified reports for Day 1 Certainty.',
     demos: [
-      { id: 'pos-application', name: 'POS Application', component: ApplicationDemo, desc: 'A borrower fills out a loan application and verifies their income or employment in real time, right inside the point-of-sale.', tags: ['Company Search', 'Orders', 'Bridge', 'Reports'] },
-      { id: 'pos-tasks', name: 'POS Tasks', component: FollowUpDemo, desc: 'After submitting a loan application, the borrower returns to complete remaining verifications: income, employment, and assets.', tags: ['Orders', 'Bridge', 'VOIE', 'VOE', 'Assets'] },
+      { id: 'pos-application', name: 'POS Application', component: POSApplicationDemo, desc: 'A borrower fills out a loan application and verifies their income or employment in real time, right inside the point-of-sale.', tags: ['Company Search', 'Orders', 'Bridge', 'Reports'] },
+      { id: 'pos-tasks', name: 'POS Tasks', component: POSTasksDemo, desc: 'After submitting a loan application, the borrower returns to complete remaining verifications: income, employment, and assets.', tags: ['Orders', 'Bridge', 'VOIE', 'VOE', 'Assets'] },
       { id: 'los', name: 'LOS', component: LOSDemo, desc: 'A Loan Processor creates verification orders from the LOS using borrower data on file. Borrowers receive a link to complete verification on their own.', tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'] },
-      { id: 'documents', name: 'Document Processing', component: UploadDocumentsDemo, desc: 'Process pay stubs, W-2s, and tax returns already collected. Truv validates the documents and extracts structured income data for underwriting.', tags: ['Document Collections', 'Finalize', 'Parsed Data'] },
+      { id: 'documents', name: 'Document Processing', component: DocumentProcessingDemo, desc: 'Process pay stubs, W-2s, and tax returns already collected. Truv validates the documents and extracts structured income data for underwriting.', tags: ['Document Collections', 'Finalize', 'Parsed Data'] },
     ],
   },
   {
@@ -46,8 +46,8 @@ export const INDUSTRIES = [
     desc: 'Instant income and employment verification for benefit eligibility, program enrollment, and recertification.',
     demos: [
       { id: 'customer-portal', name: 'Customer Portal', component: CustomerPortalDemo, desc: 'An applicant applies for benefits and verifies their income and employment through a self-service portal.', tags: ['Company Search', 'Orders', 'Bridge', 'Reports'] },
-      { id: 'documents', name: 'Document Processing', component: PSDocumentsDemo, desc: 'Process pay stubs, W-2s, and tax returns to verify income for benefit eligibility decisions.', tags: ['Document Collections', 'Finalize', 'Parsed Data'] },
-      { id: 'verifier-portal', name: 'Case Worker Portal', component: EmployeePortalDemo, desc: 'A Case Worker creates verification orders using applicant data on file and sends verification links via email or SMS.', tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'] },
+      { id: 'documents', name: 'Document Processing', component: PSDocumentProcessingDemo, desc: 'Process pay stubs, W-2s, and tax returns to verify income for benefit eligibility decisions.', tags: ['Document Collections', 'Finalize', 'Parsed Data'] },
+      { id: 'verifier-portal', name: 'Case Worker Portal', component: CaseWorkerPortalDemo, desc: 'A Case Worker creates verification orders using applicant data on file and sends verification links via email or SMS.', tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'] },
     ],
   },
   {
@@ -66,7 +66,7 @@ export const INDUSTRIES = [
     name: 'Retail Banking',
     desc: 'Acquire deposits and enable paycheck-linked lending with direct payroll connections.',
     demos: [
-      { id: 'deposit-switch', name: 'Direct Deposit Switch', component: DepositSwitchDemo, desc: 'Switch a customer\'s direct deposit to your bank through their payroll provider. Changes take effect on the next pay cycle.', tags: ['deposit_switch', 'Bridge', 'Payroll'] },
+      { id: 'deposit-switch', name: 'Direct Deposit Switch', component: DirectDepositSwitchDemo, desc: 'Switch a customer\'s direct deposit to your bank through their payroll provider. Changes take effect on the next pay cycle.', tags: ['deposit_switch', 'Bridge', 'Payroll'] },
     ],
   },
 ];

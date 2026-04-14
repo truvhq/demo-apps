@@ -15,13 +15,13 @@ vi.mock('../../src/components/WebhookFeed.jsx', () => ({
 import { getReportTypes } from '../../src/components/useReportFetch.js';
 
 // ---------------------------------------------------------------------------
-// FollowUp.jsx behavioral contracts
+// POSTasks.jsx behavioral contracts
 //
 // Order-flow demo (Mortgage POS Tasks) that creates multiple orders sharing
 // one external_user_id. Each task targets a different product set.
 // ---------------------------------------------------------------------------
 
-describe('FollowUp demo contracts', () => {
+describe('POSTasks demo contracts', () => {
   // ---- TASKS array: 4 entries with correct products and employers ---------
 
   const TASKS = [

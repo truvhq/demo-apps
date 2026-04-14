@@ -15,14 +15,14 @@ vi.mock('../../src/components/WebhookFeed.jsx', () => ({
 import { getReportTypes } from '../../src/components/useReportFetch.js';
 
 // ---------------------------------------------------------------------------
-// EmployeePortal.jsx behavioral contracts
+// CaseWorkerPortal.jsx behavioral contracts
 //
 // Order-flow demo (Public Sector Case Worker Portal). Same backend-initiated
 // pattern as LOS: creates orders with PII and Truv sends verification links.
 // No Bridge widget in the UI.
 // ---------------------------------------------------------------------------
 
-describe('EmployeePortal demo contracts', () => {
+describe('CaseWorkerPortal demo contracts', () => {
   // ---- Webhook event: order-flow uses "order" ----------------------------
 
   it('uses webhookEvent "order"', () => {

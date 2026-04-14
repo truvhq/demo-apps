@@ -1,4 +1,4 @@
-// FollowUp.jsx -- Mortgage demo: Follow-up Tasks
+// POSTasks.jsx -- Mortgage demo: POS Tasks
 //
 // Creates multiple orders sharing one external_user_id so Truv links
 // them to a single borrower. Each task goes through bridge -> waiting
@@ -63,7 +63,7 @@ const TASKS = [
 ];
 
 
-export function FollowUpDemo({ screen, param }) {
+export function POSTasksDemo({ screen, param }) {
   const [applicationId, setApplicationId] = useState(() => `qs-${Date.now()}`);
   const [taskOrders, setTaskOrders] = useState(null);
   const [initializing, setInitializing] = useState(false);

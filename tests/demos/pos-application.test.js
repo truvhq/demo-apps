@@ -15,14 +15,14 @@ vi.mock('../../src/components/WebhookFeed.jsx', () => ({
 import { getReportTypes } from '../../src/components/useReportFetch.js';
 
 // ---------------------------------------------------------------------------
-// Application.jsx behavioral contracts
+// POSApplication.jsx behavioral contracts
 //
 // Order-flow demo (Mortgage POS Application) that supports income and assets
 // verification. Uses the Orders API (POST /api/orders) instead of bridge
 // tokens directly.
 // ---------------------------------------------------------------------------
 
-describe('Application demo contracts', () => {
+describe('POSApplication demo contracts', () => {
   // ---- DIAGRAMS object: 'income' and 'assets' entries ---------------------
 
   const DIAGRAM_KEYS = ['income', 'assets'];

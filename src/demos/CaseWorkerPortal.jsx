@@ -1,4 +1,4 @@
-// EmployeePortal.jsx -- Public Sector demo: Case Worker Portal
+// CaseWorkerPortal.jsx -- Public Sector demo: Case Worker Portal
 //
 // Same backend-initiated pattern as LOS.jsx but with government-specific
 // labels (case worker, applicant). No Bridge widget in this flow.
@@ -33,7 +33,7 @@ const COMPLETED_APPLICANTS = [
   { firstName: 'Bob', lastName: 'Wilson', email: 'bob.wilson@example.com', phone: '+14155550103', products: ['assets'], status: 'completed' },
 ];
 
-export function EmployeePortalDemo({ screen, param }) {
+export function CaseWorkerPortalDemo({ screen, param }) {
   const [introSeen, setIntroSeen] = useState(false);
   const [testApplicant, setTestApplicant] = useState(null);
   const [order, setOrder] = useState(null);
