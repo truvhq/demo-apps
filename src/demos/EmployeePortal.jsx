@@ -223,6 +223,12 @@ export function EmployeePortalDemo({ screen, param }) {
   );
 }
 
+const VP_PRODUCTS = {
+  income: ['income'],
+  income_assets: ['income', 'assets'],
+  assets: ['assets'],
+};
+
 function AddApplicantForm({ onSubmit }) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -238,7 +244,7 @@ function AddApplicantForm({ onSubmit }) {
       lastName: lastName.trim(),
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
-      products: product.split(','),
+      products: VP_PRODUCTS[product] || [product],
     });
   }
 
@@ -277,7 +283,7 @@ function AddApplicantForm({ onSubmit }) {
             <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Product</label>
             <select value={product} onChange={e => setProduct(e.target.value)} class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm bg-white focus:border-primary focus:outline-none">
               <option value="income">Income and employment verification</option>
-              <option value="income,assets">Income + Expenses</option>
+              <option value="income_assets">Income + Expenses</option>
               <option value="assets">Self-employment income</option>
             </select>
           </div>

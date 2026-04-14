@@ -96,16 +96,25 @@ export default function userReportsRoutes({ truv, apiLogger }) {
         return res.status(500).json({ error: 'No report_id in create response' });
       }
 
-      // Step 2: GET to retrieve the report by report_id
-      const getResult = await cfg.retrieve(truv, userId, reportId);
-      apiLogger.logApiCall({
-        userId,
-        method: 'GET',
-        endpoint: cfg.retrieveEndpoint(userId, reportId),
-        responseBody: getResult.data,
-        statusCode: getResult.statusCode,
-        durationMs: getResult.durationMs,
-      });
+      // Step 2: GET to retrieve the report by report_id.
+      // Truv generates reports asynchronously, so the GET may return 404
+      // while processing. Retry up to 3 times with backoff.
+      let getResult;
+      const delays = [0, 2000, 4000];
+      for (let attempt = 0; attempt < delays.length; attempt++) {
+        if (delays[attempt]) await new Promise(r => setTimeout(r, delays[attempt]));
+        getResult = await cfg.retrieve(truv, userId, reportId);
+        apiLogger.logApiCall({
+          userId,
+          method: 'GET',
+          endpoint: cfg.retrieveEndpoint(userId, reportId),
+          responseBody: getResult.data,
+          statusCode: getResult.statusCode,
+          durationMs: getResult.durationMs,
+        });
+        if (getResult.statusCode < 400) break;
+        if (attempt < delays.length - 1) console.log(`Report ${reportType} not ready (${getResult.statusCode}), retrying...`);
+      }
 
       if (getResult.statusCode >= 400) {
         return res.status(getResult.statusCode).json({ error: 'Failed to retrieve report', details: getResult.data });

@@ -322,7 +322,7 @@ describe('GET /api/users/:userId/reports/:reportType', () => {
   // Error: GET retrieve returns 400 -> logs both POST and GET, returns error
   // -------------------------------------------------------------------
   describe('retrieve step fails (status >= 400)', () => {
-    it('returns error status, logs both POST and GET', async () => {
+    it('returns error status after retries, logs POST and all GET attempts', async () => {
       truv.createVoieReport.mockResolvedValue({
         statusCode: 201,
         data: { report_id: 'rpt-fail-get' },
@@ -345,11 +345,13 @@ describe('GET /api/users/:userId/reports/:reportType', () => {
         details: { message: 'report not found' },
       });
 
-      // Both calls were logged
-      expect(apiLogger.logApiCall).toHaveBeenCalledTimes(2);
+      // POST + 3 GET retry attempts were logged
+      expect(apiLogger.logApiCall).toHaveBeenCalledTimes(4);
       expect(apiLogger.logApiCall.mock.calls[0][0].method).toBe('POST');
       expect(apiLogger.logApiCall.mock.calls[1][0].method).toBe('GET');
-    });
+      expect(apiLogger.logApiCall.mock.calls[2][0].method).toBe('GET');
+      expect(apiLogger.logApiCall.mock.calls[3][0].method).toBe('GET');
+    }, 15000);
   });
 
   // -------------------------------------------------------------------

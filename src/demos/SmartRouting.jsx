@@ -86,6 +86,9 @@ export function SmartRoutingDemo() {
 
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
+  // SmartRouting uses reportType (not productType) as the products key because
+  // the bank method needs income_insights reports, not standard income reports.
+  // The useReportFetch hook treats the products array as report type keys.
   const { reports, loading: reportLoading, reset: resetReports } = useReportFetch({
     userId,
     products: selectedMethod ? [selectedMethod.reportType || 'income'] : [],

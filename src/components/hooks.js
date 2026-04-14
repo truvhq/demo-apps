@@ -72,7 +72,7 @@ export function usePanel() {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
     }
-    if (pollRef.current) pollRef.current().then(() => { userIdRef.current = null; });
+    if (pollRef.current) pollRef.current().then(() => { userIdRef.current = null; }).catch(() => { userIdRef.current = null; });
     else userIdRef.current = null;
   }, []);
 

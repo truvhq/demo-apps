@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock the barrel index to avoid pulling in browser globals (window.location)
-vi.mock('../../src/components/index.js', () => ({
+vi.mock('../../src/components/hooks.js', () => ({
   API_BASE: 'http://localhost:3000',
+}));
+vi.mock('../../src/components/WebhookFeed.jsx', () => ({
   parsePayload(raw) {
     if (!raw) return {};
     if (typeof raw !== 'string') return raw;

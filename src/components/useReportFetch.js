@@ -17,7 +17,13 @@
 //   });
 
 import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
-import { API_BASE, parsePayload } from './index.js';
+import { API_BASE } from './hooks.js';
+import { parsePayload } from './WebhookFeed.jsx';
+
+// Webhook event types:
+//   'task'  = Bridge/user-token flow -> listens for task-status-updated:done
+//   'order' = Orders API flow        -> listens for order-status-updated:completed
+export const WEBHOOK_EVENTS = { TASK: 'task', ORDER: 'order' };
 
 // 'assets' product always also fetches 'income_insights'
 export function getReportTypes(products) {
@@ -78,11 +84,16 @@ export function useReportFetch({
     }
   }, [userId, productsKey]);
 
-  // Watch webhooks and fetch reports when done
+  // Watch webhooks and fetch reports when done.
+  // Uses a generation counter to cancel stale in-flight fetches when
+  // userId or products change (e.g., FollowUp task switching).
+  const generationRef = useRef(0);
+
   useEffect(() => {
     if (!userId || !products?.length || fetchedRef.current) return;
     if (!checkWebhookDone(webhooks, webhookEvent)) return;
 
+    const gen = ++generationRef.current;
     fetchedRef.current = true;
     setLoading(true);
     setError(null);
@@ -94,18 +105,25 @@ export function useReportFetch({
         const fetchReports = (types) => Promise.all(
           types.map(rt =>
             fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/reports/${rt}`)
-              .then(r => r.ok ? r.json() : null)
+              .then(r => {
+                if (!r.ok) { console.warn(`Report fetch failed: ${rt} (${r.status})`); return null; }
+                return r.json();
+              })
               .then(d => { if (d) results[rt] = d; })
           )
         );
         await fetchReports(reportTypes);
+        if (gen !== generationRef.current) return; // stale fetch, discard
 
-        // Retry failed report types once after a delay (handles PLL where
-        // deposit_switch completes before income data is ready)
+        // Retry failed report types once after a delay (handles timing gaps
+        // where some reports aren't ready yet, e.g., PLL deposit_switch
+        // completes before income data is ready)
         const failed = reportTypes.filter(rt => !results[rt]);
-        if (failed.length > 0 && failed.length < reportTypes.length) {
+        if (failed.length > 0) {
           await new Promise(r => setTimeout(r, 5000));
+          if (gen !== generationRef.current) return; // stale fetch, discard
           await fetchReports(failed);
+          if (gen !== generationRef.current) return;
         }
 
         if (Object.keys(results).length === 0) {
@@ -115,6 +133,7 @@ export function useReportFetch({
           if (onCompleteRef.current) onCompleteRef.current(results);
         }
       } catch (e) {
+        if (gen !== generationRef.current) return;
         console.error(e);
         setError('Failed to load report');
       }

@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 
-// Mock the barrel index to avoid pulling in browser globals (window.location)
-// Only parsePayload is used by the functions under test.
-vi.mock('../../src/components/index.js', () => ({
+// Mock direct imports used by useReportFetch (no longer via barrel)
+vi.mock('../../src/components/hooks.js', () => ({
   API_BASE: 'http://localhost:3000',
+}));
+vi.mock('../../src/components/WebhookFeed.jsx', () => ({
   parsePayload(raw) {
     if (!raw) return {};
     if (typeof raw !== 'string') return raw;
@@ -11,12 +12,26 @@ vi.mock('../../src/components/index.js', () => ({
   },
 }));
 
-import { getReportTypes, checkWebhookDone } from '../../src/components/useReportFetch.js';
+import { getReportTypes, checkWebhookDone, WEBHOOK_EVENTS } from '../../src/components/useReportFetch.js';
+
+// ---------------------------------------------------------------------------
+// WEBHOOK_EVENTS constants
+// ---------------------------------------------------------------------------
+describe('WEBHOOK_EVENTS', () => {
+  it('exports TASK and ORDER constants', () => {
+    expect(WEBHOOK_EVENTS.TASK).toBe('task');
+    expect(WEBHOOK_EVENTS.ORDER).toBe('order');
+  });
+});
 
 // ---------------------------------------------------------------------------
 // getReportTypes
 // ---------------------------------------------------------------------------
 describe('getReportTypes', () => {
+  it('returns [] for empty input', () => {
+    expect(getReportTypes([])).toEqual([]);
+  });
+
   it('returns ["income"] for income product', () => {
     expect(getReportTypes(['income'])).toEqual(['income']);
   });
