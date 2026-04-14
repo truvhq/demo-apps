@@ -1,15 +1,20 @@
-// Truv API client
-//
-// Wraps all Truv REST endpoints used by this quickstart:
-//   Users + Bridge tokens, company/provider search, orders,
-//   token exchange, reports (VOIE, VOE, assets, income insights,
-//   deposit switch), and document collections.
-// See: https://docs.truv.com/reference
+/**
+ * FILE SUMMARY: Truv API Client
+ * DATA FLOW: Backend (Express routes) --> TruvClient --> Truv REST API (api.truv.com)
+ * INTEGRATION PATTERN: Used by both Orders flow and Bridge flow.
+ *
+ * Wraps all Truv REST API endpoints behind a single class. Express route handlers
+ * call TruvClient methods instead of making raw HTTP requests. The client injects
+ * API credentials (client ID + secret) into every outbound request as headers.
+ */
 
+// Dependencies: node-fetch for HTTP requests, uuid for generating unique identifiers
 import fetch from 'node-fetch';
 import { v4 as uuidv4 } from 'uuid';
 
 export class TruvClient {
+  // Constructor: stores API credentials and builds default headers for all requests.
+  // Every outbound call to Truv includes X-Access-Client-Id and X-Access-Secret.
   constructor({ clientId, secret, apiUrl = 'https://prod.truv.com/v1/' }) {
     this.clientId = clientId;
     this.secret = secret;
@@ -22,6 +27,9 @@ export class TruvClient {
     };
   }
 
+  // Core HTTP helper: sends a request to the Truv API and returns a normalized
+  // response object with statusCode, parsed data, timing, and the original request body.
+  // All public methods delegate to this.
   async _request(method, endpoint, { json } = {}) {
     const url = this.apiUrl + endpoint;
     const start = performance.now();
@@ -45,6 +53,7 @@ export class TruvClient {
   }
 
   // --- Users API ---
+  // Creates a Truv user. In production, replace the placeholder PII with real applicant data.
 
   async createUser(overrides = {}) {
     const payload = {
@@ -57,6 +66,9 @@ export class TruvClient {
     return this._request('POST', 'users/', { json: payload });
   }
 
+  // Creates a Bridge token for a Truv user. The token is used by the frontend
+  // to launch the Truv Bridge widget. Optionally deeplinks to a specific employer
+  // or financial institution so the user skips the search screen.
   async createUserBridgeToken(userId, productType, { data_sources, company_mapping_id, provider_id } = {}) {
     const payload = {
       product_type: productType,
@@ -94,6 +106,8 @@ export class TruvClient {
   }
 
   // --- Company Search ---
+  // Searches for financial institution providers. Used by the frontend search bar
+  // when the product requires bank/financial account connections.
 
   async searchProviders(query, productType, dataSource) {
     const params = new URLSearchParams();
@@ -103,6 +117,8 @@ export class TruvClient {
     return this._request('GET', `providers/?${params}`);
   }
 
+  // Searches for employer/company mappings. Used by the frontend search bar
+  // when the product requires payroll connections.
   async searchCompanies(query, productType) {
     const params = new URLSearchParams({ query });
     if (productType) params.set('product_type', productType);
@@ -110,6 +126,9 @@ export class TruvClient {
   }
 
   // --- Orders API ---
+  // Creates a Truv order. Orders are the primary integration pattern for Mortgage
+  // and Public Sector demos. The payload varies based on product type: payroll
+  // products use employers[], while bank/assets products use financial_institutions[].
 
   async createOrder(params = {}) {
     const productType = params.product_type || 'income';
@@ -168,15 +187,19 @@ export class TruvClient {
     return this._request('POST', 'orders/', { json: payload });
   }
 
+  // Retrieves the current state of an order by its Truv-assigned ID.
   async getOrder(truvOrderId) {
     return this._request('GET', `orders/${truvOrderId}/`);
   }
 
+  // Triggers a refresh of an existing order. Used when re-pulling data for an order.
   async refreshOrder(truvOrderId) {
     return this._request('POST', `orders/${truvOrderId}/refresh/`);
   }
 
   // --- Webhooks API ---
+  // CRUD operations for managing webhook registrations on the Truv platform.
+  // Used by webhook-setup.js to auto-register an ngrok URL on startup.
 
   async listWebhooks() {
     return this._request('GET', 'webhooks/');
@@ -191,18 +214,24 @@ export class TruvClient {
   }
 
   // --- Token Exchange & Reports ---
+  // Exchanges a public_token (from Bridge widget) for a persistent access token.
+  // This is the Bridge flow handoff: Frontend receives public_token from Bridge,
+  // sends it to our backend, which exchanges it for a link access token.
 
   async getAccessToken(publicToken) {
     return this._request('POST', 'link-access-tokens/', { json: { public_token: publicToken } });
   }
 
+  // Fetches a report for a specific link. Used in the Bridge flow after token exchange.
   async getLinkReport(linkId, reportType) {
     return this._request('GET', `links/${linkId}/${reportType}/report/`);
   }
 
   // --- Reports ---
+  // Report generation and retrieval endpoints. Reports are async: create returns
+  // a report ID, then poll with the get method until status is complete.
 
-  // VOIE/VOE report: is_voe=false → income+employment, is_voe=true → employment only
+  // VOIE/VOE report: is_voe=false -> income+employment, is_voe=true -> employment only
   async createVoieReport(userId, isVoe = false) {
     return this._request('POST', `users/${userId}/reports/`, { json: { is_voe: isVoe } });
   }
@@ -211,7 +240,7 @@ export class TruvClient {
     return this._request('GET', `users/${userId}/reports/${reportId}/`);
   }
 
-  // Assets report
+  // Assets report: creates an aggregated assets report for a user.
   async createAssetsReport(userId) {
     return this._request('POST', `users/${userId}/assets/reports/`);
   }
@@ -220,7 +249,8 @@ export class TruvClient {
     return this._request('GET', `users/${userId}/assets/reports/${reportId}/`);
   }
 
-  // Income insights report
+  // Income insights report: creates a report with configurable lookback period
+  // and a permissible purpose declaration for compliance.
   async createIncomeInsightsReport(userId) {
     return this._request('POST', `users/${userId}/income_insights/reports/`, {
       json: { days_requested: 60, consumer_report_permissible_purpose: 'EXTENSION_OF_CREDIT' },
@@ -231,40 +261,49 @@ export class TruvClient {
     return this._request('GET', `users/${userId}/income_insights/reports/${reportId}/`);
   }
 
-  // Deposit switch report
+  // Deposit switch report: retrieves the report for a user's deposit switch request.
   // See: https://docs.truv.com/reference/dds-report-retrieve
   async getDepositSwitchReport(userId) {
     return this._request('GET', `users/${userId}/deposit_switch/report/`);
   }
 
   // --- Document Collections API ---
+  // Manages document upload flows for paystub/W2 verification.
+  // Workflow: create collection -> upload documents -> finalize -> poll results.
 
+  // Creates a new document collection with initial document metadata.
   async createDocumentCollection(documents) {
     return this._request('POST', 'documents/collections/', {
       json: { documents },
     });
   }
 
+  // Retrieves the current state of a document collection.
   async getDocumentCollection(collectionId) {
     return this._request('GET', `documents/collections/${collectionId}/`);
   }
 
+  // Uploads additional documents to an existing collection.
   async uploadToCollection(collectionId, documents) {
     return this._request('POST', `documents/collections/${collectionId}/upload/`, {
       json: { documents },
     });
   }
 
+  // Finalizes a collection for processing. After finalization, Truv extracts
+  // data and generates a report based on the specified product type.
   async finalizeCollection(collectionId, productType = 'income') {
     return this._request('POST', `documents/collections/${collectionId}/finalize/`, {
       json: { product_type: productType },
     });
   }
 
+  // Retrieves the income report for a specific link (used after document finalization).
   async getLinkIncomeReport(linkId) {
     return this._request('GET', `links/${linkId}/income/report/`);
   }
 
+  // Retrieves finalization results for a document collection.
   async getFinalizationResults(collectionId) {
     return this._request('GET', `documents/collections/${collectionId}/finalize/`);
   }

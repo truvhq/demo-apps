@@ -1,21 +1,38 @@
+/**
+ * FILE SUMMARY: Renders VOIE (Verification of Income and Employment) report data
+ * DATA FLOW: Receives report object via props from OrderResults
+ * INTEGRATION PATTERN: Used by both Orders flow (Mortgage/Public Sector) and Bridge flow
+ *
+ * Iterates over report links and their employments to render profile info,
+ * employment details, annual income summaries, pay statements, W-2 forms,
+ * and bank accounts. Also handles VOE reports (same shape, reused component).
+ */
+
+// Imports
 import { useState } from 'preact/hooks';
 import { $, freq } from '../../utils/formatters.js';
 import { Section, Row, ProviderHeader } from './shared.jsx';
 
+// Sub-component: collapsible pay statement card
+// Shows pay date, gross/net on the header; expands to show period, earnings, deductions
 function PayStatement({ st }) {
+  // State: toggle for expanded/collapsed view
   const [open, setOpen] = useState(false);
   return (
     <div class="border border-border rounded-lg mb-3 overflow-hidden">
+      {/* Collapsed header row */}
       <div class="flex items-center justify-between px-4 py-3 bg-border-light cursor-pointer" onClick={() => setOpen(!open)}>
         <div class="font-semibold text-sm">Pay Date: {st.pay_date}</div>
         <div class="text-sm">Gross: {$(st.gross_pay)}  Net: {$(st.net_pay)}</div>
       </div>
+      {/* Expanded detail section */}
       {open && (
         <div class="px-4 py-3">
           <Row label="Period" value={`${st.period_start || ''} to ${st.period_end || ''}`} />
           <Row label="Hours" value={st.hours || '-'} />
           <Row label="Regular" value={st.regular ? $(st.regular) : '-'} />
           <Row label="Overtime" value={st.overtime ? $(st.overtime) : '-'} />
+          {/* Earnings breakdown table */}
           {st.earnings?.length > 0 && (
             <>
               <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide my-2">Earnings</div>
@@ -24,6 +41,7 @@ function PayStatement({ st }) {
               </tbody></table>
             </>
           )}
+          {/* Deductions breakdown table */}
           {st.deductions?.length > 0 && (
             <>
               <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide my-2">Deductions</div>
@@ -32,6 +50,7 @@ function PayStatement({ st }) {
               </tbody></table>
             </>
           )}
+          {/* PDF download link */}
           {st.file && <a href={st.file} target="_blank" rel="noopener noreferrer" class="inline-block mt-2.5 text-xs text-primary font-medium">Download PDF</a>}
         </div>
       )}
@@ -39,13 +58,20 @@ function PayStatement({ st }) {
   );
 }
 
+// Component: VoieReport
+// Props:
+//   report : VOIE or VOE report object containing links[] with employments[]
 export function VoieReport({ report }) {
+  // Guard: bail if no linked data
   if (!report?.links?.length) return null;
 
+  // Rendering: iterate links, then employments within each link
   return report.links.map((link, li) => {
+    // Provider metadata line (name and data source)
     const meta = [link.provider_name || link.provider?.name, link.data_source].filter(Boolean).join(' • ');
     const suspicious = link.is_suspicious;
     return (link.employments || []).map((emp, ei) => {
+      // Extract nested data objects
       const profile = emp.profile || {};
       const company = emp.company || {};
       const stmts = emp.statements || [];
@@ -55,8 +81,10 @@ export function VoieReport({ report }) {
 
       return (
         <div key={`${li}-${ei}`}>
+          {/* Provider/employer header with logo and status badge */}
           <ProviderHeader name={company.name || link.provider_name || link.provider?.name || 'Employer'} logoUrl={link.provider?.logo_url} meta={meta} status="completed" />
 
+          {/* Suspicious activity indicator */}
           {suspicious !== undefined && (
             <div class={`flex items-center gap-2 px-4 py-3 rounded-lg mb-5 ${suspicious ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
               <span class={`text-sm font-semibold ${suspicious ? 'text-error' : 'text-success'}`}>{suspicious ? 'Suspicious Activity Detected' : 'No Suspicious Activity'}</span>
@@ -64,6 +92,7 @@ export function VoieReport({ report }) {
             </div>
           )}
 
+          {/* Profile section: name, email, DOB, SSN, address */}
           {profile.first_name && (
             <Section title="Profile">
               <Row label="Full Name" value={profile.full_name || `${profile.first_name} ${profile.last_name}`} />
@@ -74,6 +103,7 @@ export function VoieReport({ report }) {
             </Section>
           )}
 
+          {/* Employment details: title, type, status, dates, income */}
           {emp.job_title && (
             <Section title="Employment">
               <Row label="Job Title" value={emp.job_title} />
@@ -90,6 +120,7 @@ export function VoieReport({ report }) {
             </Section>
           )}
 
+          {/* Annual income summary table */}
           {annualSummary.length > 0 && (
             <Section title="Annual Income Summary">
               <table class="w-full text-sm border-collapse">
@@ -112,6 +143,7 @@ export function VoieReport({ report }) {
             </Section>
           )}
 
+          {/* Pay statements: collapsible cards, limited to 3 visible */}
           {stmts.length > 0 && (
             <Section title={`Pay Statements (${stmts.length})`}>
               {stmts.slice(0, 3).map((st, i) => <PayStatement key={i} st={st} />)}
@@ -119,6 +151,7 @@ export function VoieReport({ report }) {
             </Section>
           )}
 
+          {/* W-2 forms table with PDF download links */}
           {w2s.length > 0 && (
             <Section title="W-2 Forms">
               <table class="w-full text-sm border-collapse">
@@ -141,6 +174,7 @@ export function VoieReport({ report }) {
             </Section>
           )}
 
+          {/* Direct deposit bank accounts */}
           {bankAccounts.length > 0 && (
             <Section title="Bank Accounts">
               {bankAccounts.map((ba, i) => (

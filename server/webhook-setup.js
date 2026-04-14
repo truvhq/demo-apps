@@ -1,11 +1,25 @@
+/**
+ * FILE SUMMARY: Automatic Webhook Registration via ngrok
+ * DATA FLOW: Server startup --> setupWebhook() --> Truv Webhooks API (register URL)
+ * INTEGRATION PATTERN: Used by both Orders and Bridge flows to receive async events.
+ *
+ * On server startup, registers an ngrok tunnel URL as a webhook endpoint with Truv.
+ * This allows the local development server to receive webhook callbacks for order
+ * status updates, task completions, and other async events. Cleans up on shutdown.
+ */
+
 // Module-level state for the current webhook registration.
 // Note: this is per-process, so each demo server manages its own webhook.
 let webhookId = null;
 
+// Environment type determines which Truv environment sends webhooks (sandbox/production)
 const envType = process.env.TRUV_ENV_TYPE || 'sandbox';
 
+// Registers a webhook URL with Truv. First deletes any existing quickstart webhooks
+// for this environment to avoid duplicates, then creates a new registration
+// subscribing to all relevant event types.
 async function registerWebhook(truvClient, webhookUrl) {
-  // Clean up old quickstart webhooks
+  // Clean up old quickstart webhooks to avoid duplicate registrations
   const listResult = await truvClient.listWebhooks();
   if (listResult.statusCode === 200 && listResult.data.results) {
     for (const wh of listResult.data.results) {
@@ -16,6 +30,7 @@ async function registerWebhook(truvClient, webhookUrl) {
     }
   }
 
+  // Create a new webhook registration with all event types used by the demos
   const createResult = await truvClient.createWebhook({
     name: 'quickstart',
     webhook_url: webhookUrl,
@@ -49,6 +64,8 @@ async function registerWebhook(truvClient, webhookUrl) {
   }
 }
 
+// Entry point called at server startup. Reads NGROK_URL from .env and registers
+// the webhook. Returns the tunnel URL for display, or null if ngrok is not configured.
 export async function setupWebhook({ path, truvClient }) {
   const ngrokUrl = process.env.NGROK_URL;
   if (!ngrokUrl) {
@@ -61,6 +78,8 @@ export async function setupWebhook({ path, truvClient }) {
   return ngrokUrl;
 }
 
+// Cleanup function called on SIGINT. Deletes the webhook registration from Truv
+// so stale webhooks don't accumulate across server restarts.
 export async function teardownWebhook(truvClient) {
   if (webhookId) {
     try {

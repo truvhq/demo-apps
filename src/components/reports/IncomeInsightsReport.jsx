@@ -1,12 +1,27 @@
+/**
+ * FILE SUMMARY: Renders Income Insights report data
+ * DATA FLOW: Receives report object via props from OrderResults
+ * INTEGRATION PATTERN: Used by Orders flow for bank-based income analysis
+ *
+ * Displays a bank income summary (totals, averages, forecasts) and per-provider
+ * income source cards showing category, frequency, and transaction counts.
+ */
+
+// Imports
 import { $, freq } from '../../utils/formatters.js';
 import { Section, Row } from './shared.jsx';
 
+// Component: IncomeInsightsReport
+// Props:
+//   report : income insights report object with bank_income_summary and links[]
 export function IncomeInsightsReport({ report }) {
+  // Guard: bail if no report data
   if (!report) return null;
   const summary = report.bank_income_summary;
 
   return (
     <div>
+      {/* Aggregate income summary: period, sources, totals, averages, forecasts */}
       {summary && (
         <Section title="Income Summary">
           {summary.start_date && <Row label="Period" value={`${summary.start_date} to ${summary.end_date}`} />}
@@ -20,6 +35,7 @@ export function IncomeInsightsReport({ report }) {
         </Section>
       )}
 
+      {/* Per-provider income source cards */}
       {report.links?.map((link, li) => (
         <div key={li}>
           <Section title={link.provider_name || 'Source'}>

@@ -1,19 +1,28 @@
-// Database: SQLite setup and queries
-//
-// Tables: orders, api_logs (with session_id for pre-order log grouping),
-// webhook_events, reports, and document_collections.
-// All writes go through helper functions that handle JSON serialization.
+/**
+ * FILE SUMMARY: SQLite Database Schema and CRUD Operations
+ * DATA FLOW: Express route handlers --> db.* functions --> SQLite (quickstart.db)
+ * INTEGRATION PATTERN: Shared by both Orders flow and Bridge flow.
+ *
+ * Defines the database schema (orders, api_logs, webhook_events, reports,
+ * document_collections) and exposes helper functions for all reads and writes.
+ * JSON serialization is handled automatically so callers pass plain objects.
+ */
 
+// Imports: better-sqlite3 for synchronous SQLite, crypto for ID generation
 import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+// Database file path: stored at project root as quickstart.db
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = path.resolve(__dirname, '..', 'quickstart.db');
 
+// Singleton database connection with lazy initialization
 let db;
 
+// Returns the singleton connection, creating it on first call.
+// Enables WAL mode for concurrent reads and foreign key enforcement.
 function getDb() {
   if (!db) {
     db = new Database(DB_PATH);
@@ -23,7 +32,9 @@ function getDb() {
   return db;
 }
 
-// SQLite DDL exec — not child_process.exec
+// Schema initialization: creates all tables and indexes if they don't exist.
+// Also runs safe migrations to add columns that may be missing from older schemas.
+// SQLite DDL exec -- not child_process.exec
 export function initDb() {
   const conn = getDb();
   conn.exec(`
@@ -95,12 +106,15 @@ export function initDb() {
   try { conn.exec('ALTER TABLE orders ADD COLUMN product_type TEXT'); } catch {}
 }
 
+// Generates a short random ID for local records (not sent to Truv)
 export function generateId() {
   return randomUUID().replace(/-/g, '').slice(0, 12);
 }
 
 // --- Orders ---
+// Orders track the lifecycle of a Truv verification request (created -> completed).
 
+// Inserts a new order row and returns the created record.
 export function createOrder({ orderId, truvOrderId, userId, demoId, bridgeToken, shareUrl, status = 'created', rawResponse }) {
   const conn = getDb();
   conn.prepare(
@@ -109,12 +123,15 @@ export function createOrder({ orderId, truvOrderId, userId, demoId, bridgeToken,
   return conn.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
 }
 
+// Retrieves a single order by its local ID.
 export function getOrder(orderId) {
   return getDb().prepare('SELECT * FROM orders WHERE id = ?').get(orderId) || null;
 }
 
+// Whitelist of columns allowed in order updates (prevents SQL injection via key names)
 const ORDER_ALLOWED_COLS = new Set(['status', 'raw_response', 'bridge_token', 'share_url', 'product_type']);
 
+// Updates allowed fields on an existing order. Objects are JSON-serialized automatically.
 export function updateOrder(orderId, fields) {
   const keys = Object.keys(fields).filter(k => ORDER_ALLOWED_COLS.has(k));
   if (keys.length === 0) return;
@@ -127,20 +144,26 @@ export function updateOrder(orderId, fields) {
   getDb().prepare(`UPDATE orders SET ${sets} WHERE id = ?`).run(...vals);
 }
 
+// Finds the most recent order for a given Truv user ID. Used by the webhook
+// handler to look up which local order corresponds to an incoming event.
 export function findOrderByUserId(userId) {
   return getDb().prepare('SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 1').get(userId) || null;
 }
 
+// Returns all orders for a demo ID, sorted newest first.
 export function getOrdersByDemoId(demoId) {
   return getDb().prepare('SELECT * FROM orders WHERE demo_id = ? ORDER BY created_at DESC').all(demoId);
 }
 
+// Returns all orders across all demos.
 export function getAllOrders() {
   return getDb().prepare('SELECT * FROM orders ORDER BY created_at DESC').all();
 }
 
 // --- API Logs ---
+// Stores redacted API call logs for display in the frontend activity panel.
 
+// Inserts a new API log entry and returns the created record.
 export function insertApiLog({ userId, sessionId, method, endpoint, requestBody, responseBody, statusCode, durationMs }) {
   const conn = getDb();
   const info = conn.prepare(
@@ -149,6 +172,8 @@ export function insertApiLog({ userId, sessionId, method, endpoint, requestBody,
   return conn.prepare('SELECT * FROM api_logs WHERE id = ?').get(info.lastInsertRowid);
 }
 
+// Retrieves API logs for a user. When session_id is provided, also includes
+// session-scoped logs with no user_id (e.g., pre-order company search calls).
 export function getApiLogsByUserId(userId, sessionId) {
   if (sessionId) {
     // Return user-scoped logs + session-scoped logs that have no user_id (pre-order search calls)
@@ -158,7 +183,9 @@ export function getApiLogsByUserId(userId, sessionId) {
 }
 
 // --- Webhook Events ---
+// Stores inbound webhook events so the frontend can poll for them.
 
+// Inserts a webhook event and returns the created record.
 export function insertWebhookEvent({ userId, webhookId, eventType, status, payload }) {
   const conn = getDb();
   const info = conn.prepare(
@@ -167,6 +194,7 @@ export function insertWebhookEvent({ userId, webhookId, eventType, status, paylo
   return conn.prepare('SELECT * FROM webhook_events WHERE id = ?').get(info.lastInsertRowid);
 }
 
+// Returns all webhook events for a user, ordered chronologically.
 export function getWebhookEventsByUserId(userId) {
   return getDb().prepare('SELECT * FROM webhook_events WHERE user_id = ? ORDER BY id ASC').all(userId);
 }
@@ -174,7 +202,10 @@ export function getWebhookEventsByUserId(userId) {
 
 
 // --- Reports ---
+// Tracks async report generation. Uses UPSERT to handle create-then-update in a single call.
 
+// Creates or updates a report record keyed by (order_id, report_type).
+// On conflict, merges non-null fields from the new values.
 export function upsertReport({ orderId, reportType, truvReportId, status, response }) {
   const conn = getDb();
   const responseStr = response ? (typeof response === 'object' ? JSON.stringify(response) : response) : null;
@@ -189,12 +220,15 @@ export function upsertReport({ orderId, reportType, truvReportId, status, respon
   return conn.prepare('SELECT * FROM reports WHERE order_id = ? AND report_type = ?').get(orderId, reportType);
 }
 
+// Retrieves a single report by order ID and report type.
 export function getReport(orderId, reportType) {
   return getDb().prepare('SELECT * FROM reports WHERE order_id = ? AND report_type = ?').get(orderId, reportType) || null;
 }
 
 // --- Document Collections ---
+// Tracks document upload collections for paystub/W2 verification flows.
 
+// Inserts a new document collection record and returns it.
 export function createDocCollection({ collectionId, truvCollectionId, demoId, status = 'created', rawResponse }) {
   const conn = getDb();
   conn.prepare(
@@ -203,12 +237,15 @@ export function createDocCollection({ collectionId, truvCollectionId, demoId, st
   return conn.prepare('SELECT * FROM document_collections WHERE id = ?').get(collectionId);
 }
 
+// Retrieves a document collection by its local ID.
 export function getDocCollection(collectionId) {
   return getDb().prepare('SELECT * FROM document_collections WHERE id = ?').get(collectionId) || null;
 }
 
+// Whitelist of columns allowed in document collection updates
 const DOC_COLLECTION_ALLOWED_COLS = new Set(['status', 'raw_response']);
 
+// Updates allowed fields on an existing document collection.
 export function updateDocCollection(collectionId, fields) {
   const keys = Object.keys(fields).filter(k => DOC_COLLECTION_ALLOWED_COLS.has(k));
   if (keys.length === 0) return;
@@ -219,4 +256,9 @@ export function updateDocCollection(collectionId, fields) {
   });
   vals.push(collectionId);
   getDb().prepare(`UPDATE document_collections SET ${sets} WHERE id = ?`).run(...vals);
+}
+
+// Test-only: inject a different Database instance (e.g., in-memory)
+export function _setTestDb(testDb) {
+  db = testDb;
 }

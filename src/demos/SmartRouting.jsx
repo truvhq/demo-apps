@@ -1,95 +1,74 @@
-// SmartRouting.jsx — Consumer Credit demo: Smart Routing
-//
-// This is the CANONICAL example for Consumer Credit demos using the Bridge
-// (User+Token) flow. Other demos (BankIncome, PayrollIncome, etc.) follow
-// the same pattern with fewer screens.
-//
-// SCREEN STATE MACHINE:
-//   'select' (!showForm)   → Intro slide with method cards + architecture diagram (fullscreen, no panel)
-//   'select' (showForm)    → Application form (with panel)
-//   'choose'               → Method picker with "Recommended" tag (with panel)
-//   'waiting'              → Webhook waiting spinner (with panel)
-//   'review'               → Report results (with panel)
-//
-// API FLOW:
-//   1. GET /api/companies?q=... → check success_rate for routing recommendation
-//   2. POST /api/bridge-token   → create user + bridge token with data_sources
-//   3. TruvBridge.init().open() → Bridge popup (employer deeplinked via server-side company_mapping_id)
-//   4. Wait for task-status-updated webhook with status "done"
-//   5. GET /api/users/:userId/reports/:reportType → fetch verification report
+/**
+ * FILE SUMMARY: Consumer Credit: Smart Routing demo.
+ * INTEGRATION PATTERN: Bridge flow (User+Token) with routing recommendation.
+ *
+ * DATA FLOW:
+ *   1. GET /api/companies?q=...              : check employer success_rate for routing
+ *   2. POST /api/bridge-token                : create user + bridge token with data_sources
+ *   3. TruvBridge.init().open()              : Bridge popup (deeplinked for payroll)
+ *   4. Webhook: task-status-updated with status "done"
+ *   5. GET /api/users/:userId/reports/:type  : fetch verification report
+ *
+ * This is the canonical example for Consumer Credit demos using the Bridge flow.
+ * The system checks employer payroll coverage and recommends the fastest path:
+ * payroll, bank transactions, or document upload. The applicant can override.
+ *
+ * Scaffolding: ./scaffolding/smart-routing.jsx
+ * Diagrams:    ../diagrams/smart-routing.js
+ *
+ * WHAT TO COPY (for your own Truv integration):
+ *   - handleFormSubmit()    : checks employer coverage via GET /api/companies for routing
+ *   - handleMethodSelect()  : creates a bridge token via POST /api/bridge-token
+ *   - TruvBridge.init()     : opens the Bridge widget with data_sources
+ *   - useReportFetch()      : watches webhooks and fetches reports
+ */
 
-import { useState, useEffect, useRef } from 'preact/hooks';
-import { Layout, WaitingScreen, parsePayload, usePanel, API_BASE, IntroSlide } from '../components/index.js';
+// --- Imports: Preact hooks ---
+import { useState, useEffect } from 'preact/hooks';
+
+// --- Imports: shared layout, components, hooks, and API base URL ---
+import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
+
+// --- Imports: reusable form component ---
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
+
+// --- Imports: report display components ---
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
-import { Icons } from '../components/Icons.jsx';
 
-// STEPS: sidebar Guide tab content. Each step highlights when setCurrentStep(index) is called.
-const STEPS = [
-  { title: 'Applicant submits information', guide: '<p>The form collects applicant details and employer. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>For financial institutions (banks) use:</p><pre>GET /v1/providers/?data_source=financial_accounts</pre><p><b>Key distinction:</b> Payroll employers return <code>company_mapping_id</code>. Banks return <code>provider_id</code>. Pass the correct one when creating a bridge token to deeplink Bridge to that institution.</p><p>The employer is used to determine the recommended verification method.</p>' },
-  {
-    title: 'System recommends method',
-    guide: '<p>Company search checks payroll coverage:</p>'
-      + '<pre>GET /v1/company-mappings-search/?query=employer</pre>'
-      + '<p>Based on <code>success_rate</code>:</p>'
-      + '<ul><li><b>high</b> → Payroll recommended</li>'
-      + '<li><b>low / medium / other</b> → Bank recommended</li>'
-      + '<li><b>no results</b> → Documents (fallback)</li></ul>'
-      + '<p>The applicant can override and pick any method.</p>',
-  },
-  { title: 'Applicant connects via Bridge', guide: '<p>Bridge opens as a popup with the selected data source.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
-  { title: 'Truv processes verification', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
-  { title: 'Team Member reviews report', guide: '<p>The report is fetched via the user reports endpoint:</p><pre>POST /v1/users/{user_id}/reports/\nor\nPOST /v1/users/{user_id}/income_insights/reports/</pre>' },
-];
+// --- Imports: Mermaid diagram for intro slide ---
+import { DIAGRAM } from '../diagrams/smart-routing.js';
 
-const DIAGRAM = `sequenceDiagram
-  participant FE as Your Frontend
-  participant BE as Your Backend
-  participant Truv as Truv API
-  FE->>BE: Applicant submits information
-  BE->>Truv: GET /v1/company-mappings-search/?query=employer
-  Truv-->>BE: results with success_rate
-  BE-->>FE: Recommend method based on success_rate
-  FE->>FE: Applicant confirms or overrides
-  FE->>BE: Selected method + data_sources
-  BE->>Truv: POST /v1/users/
-  Truv-->>BE: user_id
-  BE->>Truv: POST /v1/users/{user_id}/tokens/
-  Note right of Truv: { product_type, data_sources }
-  Truv-->>BE: bridge_token
-  BE-->>FE: bridge_token
-  FE->>Truv: TruvBridge.init({ bridgeToken })
-  Note over FE: Applicant connects provider
-  Truv->>BE: Webhook: task-status-updated (done)
-  BE->>Truv: POST /v1/users/{user_id}/reports/
-  Truv-->>BE: Verification report`;
+// --- Imports: scaffolding (steps, method definitions, intro config, picker components) ---
+import { STEPS, METHODS, INTRO_SLIDE_CONFIG, MethodCards, MethodPicker } from './scaffolding/smart-routing.jsx';
 
-// METHODS: verification method cards shown on the 'choose' screen.
-// The `dataSources` array is sent to POST /api/bridge-token to control what Bridge shows.
-// `productType` is the Truv product_type sent when creating the bridge token.
-// `reportType` determines which user report endpoint to call after verification.
-const METHODS = [
-  { id: 'payroll', name: 'Payroll Income', desc: 'Connect to payroll provider for verified income and employment data', Icon: Icons.briefcase, color: 'icon-box-blue', dataSources: ['payroll'], productType: 'income', reportType: 'income' },
-  { id: 'bank', name: 'Bank Transactions', desc: 'Connect bank account for transaction-based income insights', Icon: Icons.bankBuilding, color: 'icon-box-emerald', dataSources: ['financial_accounts'], productType: 'income', reportType: 'income_insights' },
-  { id: 'documents', name: 'Upload Documents', desc: 'Upload pay stubs, W-2s, or tax returns for document-based verification', Icon: Icons.upload, color: 'icon-box-amber', dataSources: ['docs'], productType: 'income', reportType: 'income' },
-];
-
+// --- Component: SmartRoutingDemo ---
 export function SmartRoutingDemo() {
+  // Component state: screen phase, form visibility, form data, routing recommendation
   const [screen, setScreen] = useState('select');
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(null);
   const [recommended, setRecommended] = useState(null);
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const fetchedRef = useRef(false);
 
-  const { panel, sessionId, setCurrentStep, startPolling, addBridgeEvent, reset } = usePanel();
+  // Panel hook: sidebar state, session tracking, webhook polling, bridge events
+  const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
-  // After the application form is submitted, check the employer's payroll coverage
-  // using the company search API. The success_rate field determines the recommendation.
+  // Report fetching: uses reportType (not productType) because bank method needs
+  // income_insights reports. The useReportFetch hook treats products as report type keys.
+  const { reports, loading: reportLoading, reset: resetReports } = useReportFetch({
+    userId,
+    products: selectedMethod ? [selectedMethod.reportType || 'income'] : [],
+    webhooks: panel.webhooks,
+    pollOnceAndStop,
+    webhookEvent: 'task',
+    onComplete: () => { setCurrentStep(4); setScreen('review'); },
+  });
+
+  // Handler: check employer payroll coverage via GET /api/companies to determine recommendation.
+  // success_rate "high" recommends payroll, otherwise bank, no results falls back to documents.
   // See: https://docs.truv.com/reference/company_autocomplete_search
   async function handleFormSubmit(data) {
     setFormData(data);
@@ -99,7 +78,7 @@ export function SmartRoutingDemo() {
 
     try {
       const employer = data.employer || '';
-      const resp = await fetch(`${API_BASE}/api/companies?q=${encodeURIComponent(employer)}&product_type=income`);
+      const resp = await fetch(`${API_BASE}/api/companies?q=${encodeURIComponent(employer)}&product_type=income&session_id=${encodeURIComponent(sessionId)}`);
       const companies = await resp.json();
       const top = Array.isArray(companies) && companies.length > 0 ? companies[0] : null;
 
@@ -117,8 +96,8 @@ export function SmartRoutingDemo() {
     setLoading(false);
   }
 
-  // When the user picks a method, create a bridge token and open Bridge immediately.
-  // The data_sources param restricts which providers Bridge shows (payroll, financial_accounts, or docs).
+  // Handler: create bridge token via POST /api/bridge-token and open TruvBridge popup.
+  // data_sources restricts which providers Bridge shows (payroll, financial_accounts, or docs).
   // See: https://docs.truv.com/reference/users_tokens
   async function handleMethodSelect(method) {
     setSelectedMethod(method);
@@ -127,7 +106,7 @@ export function SmartRoutingDemo() {
       const resp = await fetch(`${API_BASE}/api/bridge-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Only pass company_mapping_id for payroll methods — it deeplinks Bridge to that employer.
+        // Only pass company_mapping_id for payroll methods. It deeplinks Bridge to that employer.
         // Bank and document methods don't use it (Bridge shows its own provider search).
         body: JSON.stringify({
           product_type: method.productType,
@@ -142,6 +121,7 @@ export function SmartRoutingDemo() {
       startPolling(data.user_id);
       setCurrentStep(2);
 
+      // Open TruvBridge popup with callbacks for load, success, event, and close
       if (window.TruvBridge) {
         const opts = {
           bridgeToken: data.bridge_token,
@@ -166,52 +146,31 @@ export function SmartRoutingDemo() {
     setLoading(false);
   }
 
-  // Watch for the task-status-updated webhook with status "done".
-  // Once it arrives, fetch the report via the user reports endpoint.
-  // fetchedRef prevents double-fetching when webhooks array updates multiple times.
-  useEffect(() => {
-    if (screen !== 'waiting' || !userId || fetchedRef.current) return;
-    const done = panel.webhooks.some(w => {
-      const p = parsePayload(w.payload);
-      return (p.event_type === 'task-status-updated' && p.status === 'done')
-        || (w.event_type === 'task-status-updated' && w.status === 'done');
-    });
-    if (done) {
-      setCurrentStep(4);
-      setScreen('review');
-      (async () => {
-        try {
-          const rt = selectedMethod?.reportType || 'income';
-          const resp = await fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/reports/${rt}`);
-          if (resp.ok) { fetchedRef.current = true; setReportData(await resp.json()); }
-        } catch (e) { console.error(e); }
-      })();
-    }
-  }, [panel.webhooks, screen, userId]);
-
+  // Handler: reset all state to start over
   function resetDemo() {
     reset();
-    fetchedRef.current = false;
+    resetReports();
     setScreen('select');
     setShowForm(false);
     setFormData(null);
     setRecommended(null);
     setSelectedMethod(null);
     setUserId(null);
-    setReportData(null);
   }
 
+  // Derived state: layout flag
   const isIntro = screen === 'select' && !showForm;
 
+  // --- Render: state-driven screen routing ---
   return (
     <Layout badge="Smart Routing" steps={STEPS} panel={panel} hidePanel={isIntro}>
       <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
-        {/* Intro — method cards + architecture diagram */}
+        {/* Intro slide: method cards overview + architecture diagram */}
         {screen === 'select' && !showForm && (
           <IntroSlide
-            label="Consumer Credit · Smart Routing"
+            label={INTRO_SLIDE_CONFIG.label}
             title={<>Find the fastest<br />verification path</>}
-            subtitle="The system checks the applicant's employer payroll coverage and recommends the fastest path: payroll, bank transactions, or document upload. The applicant can accept or override."
+            subtitle={INTRO_SLIDE_CONFIG.subtitle}
             diagram={DIAGRAM}
             actions={
               <button onClick={() => setShowForm(true)} class="w-full block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
@@ -219,28 +178,18 @@ export function SmartRoutingDemo() {
               </button>
             }
           >
-            <div class="grid gap-3 text-left">
-              {METHODS.map(m => (
-                <div key={m.id} class="rounded-xl border border-[#e8e8ed] px-5 py-4">
-                  <div class="flex items-center gap-3 mb-1">
-                    <div class={`icon-box ${m.color}`}><m.Icon size={18} /></div>
-                    <h3 class="text-[14px] font-semibold text-[#171717]">{m.name}</h3>
-                  </div>
-                  <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{m.desc}</p>
-                </div>
-              ))}
-            </div>
+            <MethodCards />
           </IntroSlide>
         )}
 
-        {/* Application form */}
+        {/* Application form: collects applicant PII and employer for coverage check */}
         {screen === 'select' && showForm && (
           <div class="max-w-lg mx-auto px-8 py-10">
             <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="income" />
           </div>
         )}
 
-        {/* Method choice with recommendation */}
+        {/* Method picker: shows recommended method based on employer coverage */}
         {screen === 'choose' && (
           <div>
             {loading && !recommended ? (
@@ -253,32 +202,7 @@ export function SmartRoutingDemo() {
               <>
                 <h2 class="text-2xl font-bold tracking-tight mb-1.5">Choose verification method</h2>
                 <p class="text-sm text-gray-500 leading-relaxed mb-7">Based on employer coverage, we recommend a method. You can pick any.</p>
-                <div class="grid gap-3">
-                  {METHODS.map(m => {
-                    const isRecommended = m.id === recommended;
-                    return (
-                      <button
-                        key={m.id}
-                        onClick={() => handleMethodSelect(m)}
-                        disabled={loading}
-                        class={`rounded-xl border px-5 py-4 text-left cursor-pointer transition-all duration-150 disabled:opacity-40 ${
-                          isRecommended
-                            ? 'border-primary bg-primary/[0.04]'
-                            : 'border-[#e8e8ed] hover:border-[#c0c0c5]'
-                        }`}
-                      >
-                        <div class="flex items-center gap-3 mb-1">
-                          <div class="w-9 h-9 rounded-lg bg-[#f5f5f7] border border-[#e8e8ed] flex items-center justify-center text-[#8E8E93]"><m.Icon size={18} /></div>
-                          <h3 class="text-[15px] font-semibold text-[#171717]">{m.name}</h3>
-                          {isRecommended && (
-                            <span class="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Recommended</span>
-                          )}
-                        </div>
-                        <p class="text-[14px] text-[#8E8E93] leading-[1.5]">{m.desc}</p>
-                      </button>
-                    );
-                  })}
-                </div>
+                <MethodPicker methods={METHODS} recommended={recommended} onSelect={handleMethodSelect} loading={loading} />
                 <button onClick={() => { setFormData(null); setRecommended(null); setScreen('select'); setShowForm(true); }} class="mt-6 text-sm text-[#8E8E93] hover:text-primary">
                   &larr; Back to application
                 </button>
@@ -287,19 +211,18 @@ export function SmartRoutingDemo() {
           </div>
         )}
 
-        {/* Waiting for webhook */}
+        {/* Waiting screen: webhook polling spinner until task completes */}
         {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}
 
-        {/* Review results */}
+        {/* Review screen: displays income or income_insights report based on method */}
         {screen === 'review' && (
           <div>
             <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Report</h2>
             <p class="text-sm text-gray-500 mb-7">{selectedMethod?.name} verification</p>
-            {reportData ? (
+            {reports && !reportLoading ? (
               <div>
-                {selectedMethod?.id === 'bank'
-                  ? <IncomeInsightsReport report={reportData} />
-                  : <VoieReport report={reportData} />}
+                {reports.income_insights && <IncomeInsightsReport report={reports.income_insights} />}
+                {reports.income && <VoieReport report={reports.income} />}
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
                   <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
                 </div>
