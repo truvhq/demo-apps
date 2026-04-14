@@ -18,6 +18,7 @@
 
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { Layout, OrderResults, WebhookFeed, usePanel, API_BASE, parsePayload, IntroSlide } from '../components/index.js';
+import { DOC_DIAGRAM } from '../diagrams/ps-document-processing.js';
 
 const STEPS = [
   { title: 'Upload applicant documents', guide: '<p>Send collected documents to Truv for validation and classification:</p><pre>POST /v1/documents/collections/\n{\n  "documents": [{ "filename": "...", "content": "base64..." }],\n  "users": [{ "id": "..." }]\n}</pre><p>Optionally attach to an existing Truv user via the <code>users</code> field.</p>' },
@@ -33,25 +34,6 @@ const SAMPLE_DOCS = [
   { name: 'next-recent-paystub.pdf', type: 'Pay Stub (Next Recent)', icon: '📄' },
   { name: 'first-paystub.pdf', type: 'Pay Stub (First)', icon: '📄' },
 ];
-
-const DOC_DIAGRAM = `sequenceDiagram
-  participant FE as Your Frontend
-  participant BE as Your Backend
-  participant Truv as Truv API
-  FE->>BE: Upload documents (base64)
-  BE->>Truv: POST /v1/users/
-  Truv-->>BE: user_id
-  BE->>Truv: POST /v1/documents/collections/
-  Note right of Truv: documents with base64 + user_id
-  Truv-->>BE: collection_id
-  loop Poll until files processed
-    BE->>Truv: GET /v1/documents/collections/{id}/
-    Truv-->>BE: status per file
-  end
-  BE->>Truv: POST /v1/documents/collections/{id}/finalize/
-  Truv-->>BE: Finalized
-  BE->>Truv: GET /v1/documents/collections/{id}/finalize/
-  Truv-->>BE: Extracted income data`;
 
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';

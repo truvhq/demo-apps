@@ -5,6 +5,7 @@ import { useState } from 'preact/hooks';
 import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
 import { DDSReport } from '../components/reports/DDSReport.jsx';
+import { DIAGRAM } from '../diagrams/direct-deposit-switch.js';
 
 const STEPS = [
   { title: 'Customer provides information', guide: '<p>The form collects applicant details. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>Token uses <code>product_type: deposit_switch</code> with target account details.</p>' },
@@ -12,25 +13,6 @@ const STEPS = [
   { title: 'Truv switches deposit', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
   { title: 'Bank confirms enrollment', guide: '<p>The report is fetched via the user reports endpoint:</p><pre>GET /v1/users/{user_id}/deposit_switch/report/</pre><p>Confirms the direct deposit was switched.</p>' },
 ];
-
-const DIAGRAM = `sequenceDiagram
-  participant FE as Your Frontend
-  participant BE as Your Backend
-  participant Truv as Truv API
-  FE->>BE: Customer submits information
-  BE->>Truv: POST /v1/users/
-  Truv-->>BE: user_id
-  BE->>Truv: POST /v1/users/{user_id}/tokens/
-  Note right of Truv: { product_type: deposit_switch, account details }
-  Truv-->>BE: bridge_token
-  BE-->>FE: bridge_token
-  FE->>Truv: TruvBridge.init({ bridgeToken })
-  Note over FE: Customer connects payroll
-  BE->>Truv: POST /v1/link-access-tokens/
-  Truv-->>BE: access_token
-  Truv->>BE: Webhook: task-status-updated (done)
-  BE->>Truv: GET /v1/users/{user_id}/deposit_switch/report/
-  Truv-->>BE: Deposit switch confirmed`;
 
 export function DepositSwitchDemo() {
   const [screen, setScreen] = useState('select');

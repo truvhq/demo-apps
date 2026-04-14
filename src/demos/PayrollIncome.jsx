@@ -5,6 +5,7 @@ import { useState } from 'preact/hooks';
 import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
+import { DIAGRAM } from '../diagrams/payroll-income.js';
 
 const STEPS = [
   { title: 'Applicant submits information', guide: '<p>The form collects applicant details. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>This returns a <code>company_mapping_id</code> (not <code>provider_id</code> — that\'s for banks). Pass <code>company_mapping_id</code> when creating the bridge token to deeplink Bridge to that employer.</p><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>The <code>data_sources: [payroll]</code> parameter restricts Bridge to payroll providers only.</p>' },
@@ -12,25 +13,6 @@ const STEPS = [
   { title: 'Truv processes verification', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
   { title: 'Team Member reviews income report', guide: '<p>The report is fetched via the user reports endpoint:</p><pre>POST /v1/users/{user_id}/reports/</pre><p>Returns VOIE report with income and employment data.</p>' },
 ];
-
-const DIAGRAM = `sequenceDiagram
-  participant FE as Your Frontend
-  participant BE as Your Backend
-  participant Truv as Truv API
-  FE->>BE: Applicant submits information
-  BE->>Truv: POST /v1/users/
-  Truv-->>BE: user_id
-  BE->>Truv: POST /v1/users/{user_id}/tokens/
-  Note right of Truv: { product_type: income, data_sources: [payroll] }
-  Truv-->>BE: bridge_token
-  BE-->>FE: bridge_token
-  FE->>Truv: TruvBridge.init({ bridgeToken })
-  Note over FE: Applicant connects payroll
-  BE->>Truv: POST /v1/link-access-tokens/
-  Truv-->>BE: access_token
-  Truv->>BE: Webhook: task-status-updated (done)
-  BE->>Truv: POST /v1/users/{user_id}/reports/
-  Truv-->>BE: VOIE Report`;
 
 export function PayrollIncomeDemo() {
   const [screen, setScreen] = useState('select');

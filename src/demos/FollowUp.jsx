@@ -24,6 +24,7 @@ import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { AssetsReport } from '../components/reports/AssetsReport.jsx';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
 import { navigate } from '../App.jsx';
+import { FOLLOWUP_DIAGRAM } from '../diagrams/pos-tasks.js';
 
 const STEPS = [
   {
@@ -196,26 +197,6 @@ const FOLLOWUP_TASKS_INFO = [
   { name: 'Assets', desc: 'Verify bank balances, transactions, deposits', report: 'VOA' },
   { name: 'Combined', desc: 'Income + assets in a single order', report: 'VOIE + VOA' },
 ];
-
-const FOLLOWUP_DIAGRAM = `sequenceDiagram
-  participant FE as Your Frontend
-  participant BE as Your Backend
-  participant Truv as Truv API
-  FE->>BE: Loan Processor creates tasks
-  BE->>Truv: POST /v1/orders/ (income)
-  BE->>Truv: POST /v1/orders/ (employment)
-  BE->>Truv: POST /v1/orders/ (assets)
-  BE->>Truv: POST /v1/orders/ (income+assets)
-  Note right of Truv: All share same external_user_id
-  Truv-->>BE: bridge_tokens, shared user_id
-  BE-->>FE: bridge_tokens
-  loop For each task
-    FE->>Truv: TruvBridge.init({ bridgeToken, isOrder: true })
-    Note over FE: Borrower completes verification
-  end
-  Truv->>BE: Webhook: order-status-updated
-  BE->>Truv: POST /v1/users/{user_id}/reports/
-  Truv-->>BE: Report data`;
 
 function InitScreen({ applicationId, onApplicationIdChange, onInitialize, initializing }) {
   return (

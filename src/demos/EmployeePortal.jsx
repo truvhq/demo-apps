@@ -19,6 +19,7 @@ import { Layout, WebhookFeed, usePanel, API_BASE, IntroSlide, useReportFetch } f
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { AssetsReport } from '../components/reports/AssetsReport.jsx';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
+import { VERIFIER_DIAGRAM } from '../diagrams/case-worker-portal.js';
 
 const STEPS = [
   { title: 'Case Worker creates request', guide: '<p>Create a verification order with applicant PII. Truv sends the share link via email/SMS.</p><pre>POST /v1/orders/\n{\n  "first_name": "...",\n  "email": "...",\n  "phone": "...",\n  "products": ["income"]\n}</pre>' },
@@ -31,19 +32,6 @@ const COMPLETED_APPLICANTS = [
   { firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com', phone: '+14155550102', products: ['income'], status: 'completed' },
   { firstName: 'Bob', lastName: 'Wilson', email: 'bob.wilson@example.com', phone: '+14155550103', products: ['assets'], status: 'completed' },
 ];
-
-const VERIFIER_DIAGRAM = `sequenceDiagram
-  participant BE as Your Backend
-  participant Truv as Truv API
-  participant User as Applicant
-  BE->>Truv: POST /v1/orders/
-  Note right of Truv: PII + email + phone + products
-  Truv-->>BE: order_id, share_url
-  Truv->>User: Email/SMS with share_url
-  User->>Truv: Opens share_url, completes Bridge
-  Truv->>BE: Webhook: order-status-updated
-  BE->>Truv: POST /v1/users/{user_id}/reports/
-  Truv-->>BE: Verification report`;
 
 export function EmployeePortalDemo({ screen, param }) {
   const [introSeen, setIntroSeen] = useState(false);

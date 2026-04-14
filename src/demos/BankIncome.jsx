@@ -5,6 +5,7 @@ import { useState } from 'preact/hooks';
 import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
+import { DIAGRAM } from '../diagrams/bank-income.js';
 
 const STEPS = [
   { title: 'Applicant submits information', guide: '<p>The form collects applicant details. Financial institutions (banks) are searched via:</p><pre>GET /v1/providers/?data_source=financial_accounts</pre><p>This returns a <code>provider_id</code> (not <code>company_mapping_id</code> — that\'s for payroll employers). Pass <code>provider_id</code> when creating the bridge token to deeplink Bridge to that bank.</p><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>The <code>data_sources: [financial_accounts]</code> parameter restricts Bridge to bank connections only.</p>' },
@@ -12,25 +13,6 @@ const STEPS = [
   { title: 'Truv processes transactions', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
   { title: 'Team Member reviews income report', guide: '<p>The report is fetched via the user reports endpoint:</p><pre>POST /v1/users/{user_id}/income_insights/reports/</pre><p>Returns income insights derived from bank transactions.</p>' },
 ];
-
-const DIAGRAM = `sequenceDiagram
-  participant FE as Your Frontend
-  participant BE as Your Backend
-  participant Truv as Truv API
-  FE->>BE: Applicant submits information
-  BE->>Truv: POST /v1/users/
-  Truv-->>BE: user_id
-  BE->>Truv: POST /v1/users/{user_id}/tokens/
-  Note right of Truv: { product_type: income, data_sources: [financial_accounts] }
-  Truv-->>BE: bridge_token
-  BE-->>FE: bridge_token
-  FE->>Truv: TruvBridge.init({ bridgeToken })
-  Note over FE: Applicant connects bank account
-  BE->>Truv: POST /v1/link-access-tokens/
-  Truv-->>BE: access_token
-  Truv->>BE: Webhook: task-status-updated (done)
-  BE->>Truv: POST /v1/users/{user_id}/income_insights/reports/
-  Truv-->>BE: Income Insights Report`;
 
 export function BankIncomeDemo() {
   const [screen, setScreen] = useState('select');

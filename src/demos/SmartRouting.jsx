@@ -24,6 +24,7 @@ import { ApplicationForm } from '../components/ApplicationForm.jsx';
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
 import { Icons } from '../components/Icons.jsx';
+import { DIAGRAM } from '../diagrams/smart-routing.js';
 
 // STEPS: sidebar Guide tab content. Each step highlights when setCurrentStep(index) is called.
 const STEPS = [
@@ -42,28 +43,6 @@ const STEPS = [
   { title: 'Truv processes verification', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
   { title: 'Team Member reviews report', guide: '<p>The report is fetched via the user reports endpoint:</p><pre>POST /v1/users/{user_id}/reports/\nor\nPOST /v1/users/{user_id}/income_insights/reports/</pre>' },
 ];
-
-const DIAGRAM = `sequenceDiagram
-  participant FE as Your Frontend
-  participant BE as Your Backend
-  participant Truv as Truv API
-  FE->>BE: Applicant submits information
-  BE->>Truv: GET /v1/company-mappings-search/?query=employer
-  Truv-->>BE: results with success_rate
-  BE-->>FE: Recommend method based on success_rate
-  FE->>FE: Applicant confirms or overrides
-  FE->>BE: Selected method + data_sources
-  BE->>Truv: POST /v1/users/
-  Truv-->>BE: user_id
-  BE->>Truv: POST /v1/users/{user_id}/tokens/
-  Note right of Truv: { product_type, data_sources }
-  Truv-->>BE: bridge_token
-  BE-->>FE: bridge_token
-  FE->>Truv: TruvBridge.init({ bridgeToken })
-  Note over FE: Applicant connects provider
-  Truv->>BE: Webhook: task-status-updated (done)
-  BE->>Truv: POST /v1/users/{user_id}/reports/
-  Truv-->>BE: Verification report`;
 
 // METHODS: verification method cards shown on the 'choose' screen.
 // The `dataSources` array is sent to POST /api/bridge-token to control what Bridge shows.
