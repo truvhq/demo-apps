@@ -12,6 +12,7 @@
 import 'dotenv/config';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { existsSync } from 'fs';
 import express from 'express';
 import cors from 'cors';
 import { TruvClient } from './truv.js';
@@ -118,18 +119,22 @@ app.use(userReportsRoutes(deps));
 // In production (after `npm run build`), serve the Vite-built frontend from dist/.
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distPath = join(__dirname, '..', 'dist');
-app.use(express.static(distPath));
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api')) return next();
-  res.sendFile(join(distPath, 'index.html'));
-});
+if (existsSync(join(distPath, 'index.html'))) {
+  app.use(express.static(distPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(join(distPath, 'index.html'), (err) => { if (err) next(err); });
+  });
+}
 
 // --- Start ---
 // Launches the server and registers a webhook URL via ngrok (if NGROK_URL is set in .env).
 app.listen(PORT, async () => {
-  console.log(`Truv Quickstart running on http://localhost:${PORT}`);
+  console.log(`Demo apps running on http://localhost:${PORT}`);
   try { tunnelUrl = await setupWebhook({ path: '/api/webhooks/truv', truvClient: truv }); } catch (err) { console.error('Webhook setup failed:', err.message); }
 });
 
 // Graceful shutdown: deletes the webhook registration from Truv before exiting
-process.on('SIGINT', async () => { await teardownWebhook(truv); process.exit(0); });
+async function gracefulShutdown() { await teardownWebhook(truv); process.exit(0); }
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
