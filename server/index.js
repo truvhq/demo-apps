@@ -10,6 +10,8 @@
 
 // Imports: environment config, Express framework, CORS, and all server modules
 import 'dotenv/config';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import express from 'express';
 import cors from 'cors';
 import { TruvClient } from './truv.js';
@@ -111,6 +113,16 @@ app.use(reportsRoutes(deps));
 app.use(bridgeRoutes(deps));
 app.use(uploadDocumentsRoutes(deps));
 app.use(userReportsRoutes(deps));
+
+// --- Static files (production) ---
+// In production (after `npm run build`), serve the Vite-built frontend from dist/.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const distPath = join(__dirname, '..', 'dist');
+app.use(express.static(distPath));
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  res.sendFile(join(distPath, 'index.html'));
+});
 
 // --- Start ---
 // Launches the server and registers a webhook URL via ngrok (if NGROK_URL is set in .env).
