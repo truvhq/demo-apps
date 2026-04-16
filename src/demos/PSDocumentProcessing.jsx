@@ -73,7 +73,7 @@ export function PSDocumentProcessingDemo() {
     setProcessing(true);
     try {
       // Step 1: Create collection. Always include test docs, plus any user uploads.
-      const body = { external_user_id: userId.trim() || undefined, use_test_docs: true };
+      const body = { external_user_id: userId.trim() || undefined, use_test_docs: true, demo_id: 'ps-documents' };
       if (files.length > 0) {
         body.extra_documents = files.map(f => ({ filename: f.name, mime_type: f.type || 'application/pdf', content: f.base64 }));
       }

@@ -89,6 +89,7 @@ export function initDb() {
     CREATE TABLE IF NOT EXISTS document_collections (
       id TEXT PRIMARY KEY,
       truv_collection_id TEXT,
+      user_id TEXT,
       demo_id TEXT,
       status TEXT DEFAULT 'created',
       raw_response TEXT,
@@ -104,6 +105,7 @@ export function initDb() {
   try { conn.exec('ALTER TABLE webhook_events ADD COLUMN user_id TEXT'); } catch {}
   try { conn.exec('ALTER TABLE api_logs ADD COLUMN user_id TEXT'); } catch {}
   try { conn.exec('ALTER TABLE orders ADD COLUMN product_type TEXT'); } catch {}
+  try { conn.exec('ALTER TABLE document_collections ADD COLUMN user_id TEXT'); } catch {}
 }
 
 // Generates a short random ID for local records (not sent to Truv)
@@ -229,12 +231,20 @@ export function getReport(orderId, reportType) {
 // Tracks document upload collections for paystub/W2 verification flows.
 
 // Inserts a new document collection record and returns it.
-export function createDocCollection({ collectionId, truvCollectionId, demoId, status = 'created', rawResponse }) {
+export function createDocCollection({ collectionId, truvCollectionId, userId, demoId, status = 'created', rawResponse }) {
   const conn = getDb();
   conn.prepare(
-    'INSERT INTO document_collections (id, truv_collection_id, demo_id, status, raw_response) VALUES (?, ?, ?, ?, ?)'
-  ).run(collectionId, truvCollectionId || null, demoId || null, status, rawResponse ? JSON.stringify(rawResponse) : null);
+    'INSERT INTO document_collections (id, truv_collection_id, user_id, demo_id, status, raw_response) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(collectionId, truvCollectionId || null, userId || null, demoId || null, status, rawResponse ? JSON.stringify(rawResponse) : null);
   return conn.prepare('SELECT * FROM document_collections WHERE id = ?').get(collectionId);
+}
+
+// Finds the user_id for a pending document collection webhook.
+// Used when a task-status-updated webhook arrives without user_id in the payload.
+export function findDocCollectionUserForWebhook() {
+  return getDb().prepare(
+    "SELECT user_id FROM document_collections WHERE user_id IS NOT NULL AND status IN ('created', 'finalizing') ORDER BY created_at DESC LIMIT 1"
+  ).get()?.user_id || null;
 }
 
 // Retrieves a document collection by its local ID.

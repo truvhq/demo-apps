@@ -6,12 +6,13 @@
  *   1. POST /api/bridge-token                          : create user + bridge token (pll)
  *   2. TruvBridge.init().open()                        : Bridge popup for payroll + deduction
  *   3. Webhook: task-status-updated with status "done"
- *   4. GET /api/users/:userId/reports/income            : fetch VOIE report
- *   5. GET /api/users/:userId/reports/deposit_switch    : fetch deposit switch confirmation
+ *   4. GET /api/links/:linkId/pll                      : fetch PLL report (deposit details)
+ *   5. GET /api/users/:userId/reports/income            : fetch VOIE report
  *
  * Follows the same Bridge flow as SmartRouting.jsx but uses product_type "pll" which
- * combines income verification with payroll deduction setup. Fetches both income and
- * deposit_switch reports in parallel after completion.
+ * combines income verification with payroll deduction setup. Fetches the PLL report
+ * via the link-level endpoint using link_id from the webhook, and the income report
+ * via the standard user-level endpoint.
  *
  * Scaffolding: ./scaffolding/paycheck-linked-loans.jsx
  * Diagrams:    ../diagrams/paycheck-linked-loans.js
@@ -19,18 +20,19 @@
  * WHAT TO COPY (for your own Truv integration):
  *   - handleFormSubmit()  : creates a bridge token via POST /api/bridge-token (product_type: pll)
  *   - TruvBridge.init()   : opens the Bridge widget for paycheck-linked loans
- *   - useReportFetch()    : watches webhooks and fetches income + deposit_switch reports
+ *   - useReportFetch()    : watches webhooks and fetches VOIE income report
+ *   - PLL report fetch    : extracts link_id from webhook, fetches GET /api/links/:linkId/pll
  */
 
 // --- Imports: Preact hooks ---
-import { useState } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 
-// --- Imports: shared layout, components, hooks, and API base URL ---
-import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
+// --- Imports: shared layout, components, hooks, and API utilities ---
+import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch, parsePayload } from '../components/index.js';
 
 // --- Imports: report display components ---
 import { VoieReport } from '../components/reports/VoieReport.jsx';
-import { DDSReport } from '../components/reports/DDSReport.jsx';
+import { PLLReport } from '../components/reports/PLLReport.jsx';
 
 // --- Imports: reusable form component ---
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
@@ -50,18 +52,41 @@ export function PaycheckLinkedLoansDemo() {
   const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // PLL report state: fetched separately via link_id from the webhook
+  const [pllReport, setPllReport] = useState(null);
+  const pllFetchedRef = useRef(false);
+
   // Panel hook: sidebar state, session tracking, webhook polling, bridge events
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
-  // Report fetching: watches webhooks, fetches both income and deposit_switch reports
+  // Report fetching: watches webhooks, fetches VOIE income report
   const { reports, loading: reportLoading, reset: resetReports } = useReportFetch({
     userId,
-    products: ['income', 'deposit_switch'],
+    products: ['income'],
     webhooks: panel.webhooks,
     pollOnceAndStop,
     webhookEvent: 'task',
     onComplete: () => { setCurrentStep(3); setScreen('review'); },
   });
+
+  // Effect: when task-status-updated webhook arrives with link_id, fetch the PLL report
+  useEffect(() => {
+    if (!userId || pllFetchedRef.current) return;
+    const doneWh = panel.webhooks.find(w => {
+      const p = parsePayload(w.payload);
+      return (p.event_type === 'task-status-updated' && p.status === 'done')
+        || (w.event_type === 'task-status-updated' && w.status === 'done');
+    });
+    if (!doneWh) return;
+    const p = parsePayload(doneWh.payload);
+    const linkId = p.link_id || doneWh.link_id;
+    if (!linkId) return;
+    pllFetchedRef.current = true;
+    fetch(`${API_BASE}/api/links/${encodeURIComponent(linkId)}/pll?user_id=${encodeURIComponent(userId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setPllReport(data); })
+      .catch(e => console.error('PLL report fetch failed:', e));
+  }, [panel.webhooks, userId]);
 
   // Handler: create bridge token via POST /api/bridge-token (product_type: pll) and open TruvBridge.
   // Uses company_mapping_id for employer deeplinking.
@@ -73,7 +98,7 @@ export function PaycheckLinkedLoansDemo() {
       const resp = await fetch(`${API_BASE}/api/bridge-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_type: 'pll', company_mapping_id: data.company_mapping_id }),
+        body: JSON.stringify({ product_type: 'pll', company_mapping_id: data.company_mapping_id, first_name: data.first_name, last_name: data.last_name }),
       });
       const result = await resp.json();
       if (!resp.ok) { alert('Error: ' + (result.error || 'Unknown')); setLoading(false); return; }
@@ -109,6 +134,8 @@ export function PaycheckLinkedLoansDemo() {
   function resetDemo() {
     reset();
     resetReports();
+    pllFetchedRef.current = false;
+    setPllReport(null);
     setScreen('select');
     setShowForm(false);
     setFormData(null);
@@ -148,7 +175,7 @@ export function PaycheckLinkedLoansDemo() {
             <p class="text-sm text-gray-500 mb-7">{REPORT_HEADER.subtitle}</p>
             {reports && !reportLoading ? (
               <div>
-                {reports.deposit_switch && <DDSReport report={reports.deposit_switch} />}
+                {pllReport && <PLLReport report={pllReport} />}
                 {reports.income && <VoieReport report={reports.income} />}
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
                   <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
