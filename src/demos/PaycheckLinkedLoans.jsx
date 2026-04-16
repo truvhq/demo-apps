@@ -54,7 +54,9 @@ export function PaycheckLinkedLoansDemo() {
 
   // PLL report state: fetched separately via link_id from the webhook
   const [pllReport, setPllReport] = useState(null);
+  const [pllError, setPllError] = useState(false);
   const pllFetchedRef = useRef(false);
+  const pllRetryRef = useRef(0);
 
   // Panel hook: sidebar state, session tracking, webhook polling, bridge events
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
@@ -86,9 +88,14 @@ export function PaycheckLinkedLoansDemo() {
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data) setPllReport(data);
-        else pllFetchedRef.current = false;
+        else if (++pllRetryRef.current < 3) pllFetchedRef.current = false;
+        else setPllError(true);
       })
-      .catch(e => { console.error('PLL report fetch failed:', e); pllFetchedRef.current = false; });
+      .catch(e => {
+        console.error('PLL report fetch failed:', e);
+        if (++pllRetryRef.current < 3) pllFetchedRef.current = false;
+        else setPllError(true);
+      });
   }, [panel.webhooks, userId]);
 
   // Handler: create bridge token via POST /api/bridge-token (product_type: pll) and open TruvBridge.
@@ -138,7 +145,9 @@ export function PaycheckLinkedLoansDemo() {
     reset();
     resetReports();
     pllFetchedRef.current = false;
+    pllRetryRef.current = 0;
     setPllReport(null);
+    setPllError(false);
     setScreen('select');
     setShowForm(false);
     setFormData(null);
@@ -171,7 +180,7 @@ export function PaycheckLinkedLoansDemo() {
         {/* Waiting screen: webhook polling spinner until task completes */}
         {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}
 
-        {/* Review screen: deposit switch confirmation + VOIE income report */}
+        {/* Review screen: PLL deposit allocation + VOIE income report */}
         {screen === 'review' && (
           <div>
             <h2 class="text-2xl font-bold tracking-tight mb-1.5">{REPORT_HEADER.title}</h2>
@@ -179,6 +188,7 @@ export function PaycheckLinkedLoansDemo() {
             {reports && !reportLoading ? (
               <div>
                 {pllReport && <PLLReport report={pllReport} />}
+                {pllError && <p class="text-sm text-red-500 mb-4">PLL report unavailable. Try starting over.</p>}
                 {reports.income && <VoieReport report={reports.income} />}
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
                   <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>

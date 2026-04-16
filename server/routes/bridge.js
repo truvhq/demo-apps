@@ -29,10 +29,10 @@ export default function bridgeRoutes({ truv, apiLogger }) {
       const pid = data.provider_id;
 
       // Step 1: Create a Truv user (forward name fields from the form if provided)
-      const userOverrides = {};
-      if (data.first_name) userOverrides.first_name = data.first_name;
-      if (data.last_name) userOverrides.last_name = data.last_name;
-      const userResult = await truv.createUser(userOverrides);
+      const userResult = await truv.createUser({
+        ...(data.first_name && { first_name: data.first_name }),
+        ...(data.last_name && { last_name: data.last_name }),
+      });
       const userId = userResult.data?.id || null;
       apiLogger.logApiCall({ userId, method: 'POST', endpoint: '/v1/users/', requestBody: { product_type: pt }, responseBody: userResult.data, statusCode: userResult.statusCode, durationMs: userResult.durationMs });
       if (userResult.statusCode >= 400 || !userId) return res.status(userResult.statusCode || 500).json({ error: 'Failed to create user', details: userResult.data });
