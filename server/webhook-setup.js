@@ -15,24 +15,24 @@ let webhookId = null;
 // Environment type determines which Truv environment sends webhooks (sandbox/production)
 const envType = process.env.TRUV_ENV_TYPE || 'sandbox';
 
-// Registers a webhook URL with Truv. First deletes any existing quickstart webhooks
+// Registers a webhook URL with Truv. First deletes any existing demo-apps webhooks
 // for this environment to avoid duplicates, then creates a new registration
 // subscribing to all relevant event types.
 async function registerWebhook(truvClient, webhookUrl) {
-  // Clean up old quickstart webhooks to avoid duplicate registrations
+  // Clean up old demo-apps webhooks to avoid duplicate registrations
   const listResult = await truvClient.listWebhooks();
   if (listResult.statusCode === 200 && listResult.data.results) {
     for (const wh of listResult.data.results) {
-      if (wh.name === 'quickstart' && wh.env_type === envType) {
+      if (wh.name === 'demo-apps' && wh.env_type === envType) {
         await truvClient.deleteWebhook(wh.id);
-        console.log(`Deleted old quickstart webhook ${wh.id}`);
+        console.log(`Deleted old demo-apps webhook ${wh.id}`);
       }
     }
   }
 
   // Create a new webhook registration with all event types used by the demos
   const createResult = await truvClient.createWebhook({
-    name: 'quickstart',
+    name: 'demo-apps',
     webhook_url: webhookUrl,
     env_type: envType,
     events: [

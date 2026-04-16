@@ -1,6 +1,6 @@
 /**
  * FILE SUMMARY: SQLite Database Schema and CRUD Operations
- * DATA FLOW: Express route handlers --> db.* functions --> SQLite (quickstart.db)
+ * DATA FLOW: Express route handlers --> db.* functions --> SQLite (demo-apps.db)
  * INTEGRATION PATTERN: Shared by both Orders flow and Bridge flow.
  *
  * Defines the database schema (orders, api_logs, webhook_events, reports,
@@ -14,9 +14,9 @@ import { randomUUID } from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Database file path: stored at project root as quickstart.db
+// Database file path: stored at project root as demo-apps.db
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.resolve(__dirname, '..', 'quickstart.db');
+const DB_PATH = path.resolve(__dirname, '..', 'demo-apps.db');
 
 // Singleton database connection with lazy initialization
 let db;

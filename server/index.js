@@ -121,7 +121,7 @@ app.use(userReportsRoutes(deps));
 // --- Start ---
 // Launches the server and registers a webhook URL via ngrok (if NGROK_URL is set in .env).
 app.listen(PORT, async () => {
-  console.log(`Truv Quickstart running on http://localhost:${PORT}`);
+  console.log(`Truv Demo Apps running on http://localhost:${PORT}`);
   try { tunnelUrl = await setupWebhook({ path: '/api/webhooks/truv', truvClient: truv }); } catch (err) { console.error('Webhook setup failed:', err.message); }
 });
 
