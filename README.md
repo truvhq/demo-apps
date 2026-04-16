@@ -146,6 +146,17 @@ npm run dev    # Frontend (Vite, port 5173)
 
 Open **http://localhost:5173** and pick an industry.
 
+### Run with Docker
+
+Build and run everything in a single container:
+
+```sh
+docker build -t truv-demo-app .
+docker run -p 3000:3000 --env-file .env truv-demo-app
+```
+
+Open **http://localhost:3000** and pick an industry.
+
 ### Sandbox credentials
 
 | Field | Value |

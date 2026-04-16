@@ -10,6 +10,9 @@
 
 // Imports: environment config, Express framework, CORS, and all server modules
 import 'dotenv/config';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { existsSync } from 'fs';
 import express from 'express';
 import cors from 'cors';
 import { TruvClient } from './truv.js';
@@ -112,12 +115,44 @@ app.use(bridgeRoutes(deps));
 app.use(uploadDocumentsRoutes(deps));
 app.use(userReportsRoutes(deps));
 
+// --- Health check ---
+app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
+// --- Static files (production) ---
+// In production (after `npm run build`), serve the Vite-built frontend from dist/.
+// IMPORTANT: The catch-all '*' route must remain the last registered route.
+// Any non-/api route added after this block will be shadowed by the SPA fallback.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const distPath = join(__dirname, '..', 'dist');
+if (existsSync(join(distPath, 'index.html'))) {
+  app.use(express.static(distPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(join(distPath, 'index.html'), (err) => { if (err) next(err); });
+  });
+}
+
 // --- Start ---
 // Launches the server and registers a webhook URL via ngrok (if NGROK_URL is set in .env).
-app.listen(PORT, async () => {
-  console.log(`Truv Quickstart running on http://localhost:${PORT}`);
+const server = app.listen(PORT, async () => {
+  console.log(`Demo apps running on http://localhost:${PORT}`);
   try { tunnelUrl = await setupWebhook({ path: '/api/webhooks/truv', truvClient: truv }); } catch (err) { console.error('Webhook setup failed:', err.message); }
 });
 
-// Graceful shutdown: deletes the webhook registration from Truv before exiting
-process.on('SIGINT', async () => { await teardownWebhook(truv); process.exit(0); });
+// Graceful shutdown: tears down webhook, drains connections, then exits.
+async function gracefulShutdown() {
+  try {
+    await Promise.race([teardownWebhook(truv), new Promise(r => setTimeout(r, 5000))]);
+  } catch (err) {
+    console.error('Webhook teardown failed:', err.message);
+  }
+  await new Promise((resolve) => {
+    server.close((err) => {
+      if (err) console.error('Server close failed:', err.message);
+      resolve();
+    });
+  });
+  process.exit(0);
+}
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
