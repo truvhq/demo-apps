@@ -56,8 +56,8 @@ export function ApplicationForm({ onSubmit, submitting, productType, showEmploye
       <h2 class="text-2xl font-bold tracking-tight mb-7">Tell us about yourself</h2>
       {/* Name fields: first and last name in a 2-column grid */}
       <div class="grid grid-cols-2 gap-4 mb-4">
-        <div><label class="text-sm font-medium mb-1.5 block">First name <span class="text-red-400">*</span></label><input name="first_name" placeholder="Joe" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
-        <div><label class="text-sm font-medium mb-1.5 block">Last name <span class="text-red-400">*</span></label><input name="last_name" placeholder="Doe" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
+        <div><label class="text-sm font-medium mb-1.5 block">First name <span class="text-red-400">*</span></label><input name="first_name" value="Joe" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
+        <div><label class="text-sm font-medium mb-1.5 block">Last name <span class="text-red-400">*</span></label><input name="last_name" value="Doe" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
       </div>
       {/* Employer/institution search: rendered conditionally via showEmployer prop */}
       {showEmployer && (

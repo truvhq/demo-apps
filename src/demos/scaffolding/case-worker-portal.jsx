@@ -43,8 +43,8 @@ export const INTRO_FEATURES = [
 // --- Component: AddApplicantForm. Collects applicant PII for order creation. ---
 export function AddApplicantForm({ onSubmit }) {
   // Form state: applicant name, contact info, and product selection
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [firstName, setFirstName] = useState('John');
+  const [lastName, setLastName] = useState('Doe');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [product, setProduct] = useState('income');
@@ -76,11 +76,11 @@ export function AddApplicantForm({ onSubmit }) {
           <div class="grid grid-cols-2 gap-3 mb-3">
             <div>
               <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">First name</label>
-              <input value={firstName} onInput={e => setFirstName(e.target.value)} placeholder="John" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
+              <input value={firstName} onInput={e => setFirstName(e.target.value)} class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
             </div>
             <div>
               <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Last name</label>
-              <input value={lastName} onInput={e => setLastName(e.target.value)} placeholder="Doe" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
+              <input value={lastName} onInput={e => setLastName(e.target.value)} class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
             </div>
           </div>
           <div class="mb-3">
