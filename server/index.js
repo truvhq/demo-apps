@@ -146,7 +146,12 @@ async function gracefulShutdown() {
   } catch (err) {
     console.error('Webhook teardown failed:', err.message);
   }
-  server.close();
+  await new Promise((resolve) => {
+    server.close((err) => {
+      if (err) console.error('Server close failed:', err.message);
+      resolve();
+    });
+  });
   process.exit(0);
 }
 process.on('SIGINT', gracefulShutdown);
