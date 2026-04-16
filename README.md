@@ -1,4 +1,4 @@
-# Truv Quickstart
+# Truv Demo Apps
 
 Interactive demo apps for the [Truv API](https://docs.truv.com). Each demo walks through a real integration pattern end-to-end: creating users, launching Bridge, receiving webhooks, and fetching reports.
 

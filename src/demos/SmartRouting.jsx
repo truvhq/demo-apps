@@ -112,6 +112,8 @@ export function SmartRoutingDemo() {
           product_type: method.productType,
           data_sources: method.dataSources,
           ...(method.id === 'payroll' && formData?.company_mapping_id ? { company_mapping_id: formData.company_mapping_id } : {}),
+          first_name: formData?.first_name,
+          last_name: formData?.last_name,
         }),
       });
       const data = await resp.json();

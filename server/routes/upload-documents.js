@@ -47,7 +47,7 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
   //       POST /v1/documents/collections/ -> store in SQLite -> return collection metadata.
   router.post('/api/collections', async (req, res) => {
     try {
-      const { external_user_id, use_test_docs, extra_documents } = req.body;
+      const { external_user_id, use_test_docs, extra_documents, demo_id } = req.body;
       let { documents } = req.body;
 
       // Load test docs if flagged, then append any extra user-uploaded documents
@@ -81,7 +81,7 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
         return res.status(result.statusCode).json({ error: 'Truv API error', details: truvData });
       }
 
-      db.createDocCollection({ collectionId, truvCollectionId: truvData.collection_id || truvData.id, demoId: 'upload-documents', status: truvData.status || 'created', rawResponse: truvData });
+      db.createDocCollection({ collectionId, truvCollectionId: truvData.collection_id || truvData.id, userId, demoId: demo_id || 'upload-documents', status: truvData.status || 'created', rawResponse: truvData });
       apiLogger.logApiCall({ userId, method: 'POST', endpoint: '/v1/documents/collections/', requestBody: { documents: docsWithUser.map(d => ({ filename: d.filename, mime_type: d.mime_type, user_id: d.user_id })) }, responseBody: truvData, statusCode: result.statusCode, durationMs: result.durationMs });
       res.json({ collection_id: collectionId, truv_collection_id: truvData.collection_id || truvData.id, user_id: userId, status: truvData.status });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }

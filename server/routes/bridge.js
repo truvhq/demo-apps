@@ -28,8 +28,11 @@ export default function bridgeRoutes({ truv, apiLogger }) {
       const cmid = data.company_mapping_id;
       const pid = data.provider_id;
 
-      // Step 1: Create a Truv user
-      const userResult = await truv.createUser();
+      // Step 1: Create a Truv user (forward name fields from the form if provided)
+      const userResult = await truv.createUser({
+        ...(data.first_name && { first_name: data.first_name }),
+        ...(data.last_name && { last_name: data.last_name }),
+      });
       const userId = userResult.data?.id || null;
       apiLogger.logApiCall({ userId, method: 'POST', endpoint: '/v1/users/', requestBody: { product_type: pt }, responseBody: userResult.data, statusCode: userResult.statusCode, durationMs: userResult.durationMs });
       if (userResult.statusCode >= 400 || !userId) return res.status(userResult.statusCode || 500).json({ error: 'Failed to create user', details: userResult.data });
@@ -64,6 +67,20 @@ export default function bridgeRoutes({ truv, apiLogger }) {
       if (reportResult.statusCode >= 400) return res.status(reportResult.statusCode).json({ error: 'Failed to fetch report', details: reportResult.data });
 
       res.json(reportResult.data);
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+  });
+
+  // GET /api/links/:linkId/pll: Fetch the PLL report for a specific link.
+  // Uses the dedicated PLL endpoint (GET /v1/links/{link_id}/pll/report/) which returns
+  // deposit details, employer, provider, and suspicious-activity flags.
+  router.get('/api/links/:linkId/pll', async (req, res) => {
+    try {
+      const { linkId } = req.params;
+      const userId = req.query.user_id || null;
+      const result = await truv.getLinkReport(linkId, 'pll');
+      apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/links/${linkId}/pll/report/`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
+      if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Failed to fetch PLL report', details: result.data });
+      res.json(result.data);
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 

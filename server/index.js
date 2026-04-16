@@ -82,12 +82,18 @@ app.post('/api/webhooks/truv', (req, res) => {
   console.log(`Webhook: ${req.body.event_type} (${req.body.status || '-'}) user=${req.body.user_id || '-'}`);
 
   const payload = req.body;
-  const userId = payload.user_id || null;
+  let userId = payload.user_id || null;
 
   // When an order completes, update its status in the local database
   if (userId && payload.event_type === 'order-status-updated' && payload.status === 'completed') {
     const order = db.findOrderByUserId(userId);
     if (order) db.updateOrder(order.id, { status: 'completed' });
+  }
+
+  // Document collection webhooks (task-status-updated) may not include user_id.
+  // Resolve from the document_collections table so the frontend can poll for them.
+  if (!userId && payload.event_type === 'task-status-updated') {
+    userId = db.findDocCollectionUserForWebhook();
   }
 
   // Persist the webhook event so the frontend can poll for it
@@ -115,7 +121,7 @@ app.use(userReportsRoutes(deps));
 // --- Start ---
 // Launches the server and registers a webhook URL via ngrok (if NGROK_URL is set in .env).
 app.listen(PORT, async () => {
-  console.log(`Truv Quickstart running on http://localhost:${PORT}`);
+  console.log(`Truv Demo Apps running on http://localhost:${PORT}`);
   try { tunnelUrl = await setupWebhook({ path: '/api/webhooks/truv', truvClient: truv }); } catch (err) { console.error('Webhook setup failed:', err.message); }
 });
 
