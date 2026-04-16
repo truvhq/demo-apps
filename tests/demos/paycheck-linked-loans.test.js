@@ -17,16 +17,17 @@ import { getReportTypes } from '../../src/components/useReportFetch.js';
 // ---------------------------------------------------------------------------
 // PaycheckLinkedLoans.jsx behavioral contracts
 //
-// Bridge-flow demo that combines income verification with deposit switching.
-// Uses product_type: 'pll' and fetches BOTH income and deposit_switch reports.
+// Bridge-flow demo that combines income verification with payroll deductions.
+// Uses product_type: 'pll'. Fetches income report via useReportFetch and PLL
+// report via dedicated link-level endpoint (GET /api/links/:linkId/pll).
 // ---------------------------------------------------------------------------
 
 describe('PaycheckLinkedLoans demo contracts', () => {
   // ---- Products and webhook event -----------------------------------------
 
-  it('uses products: ["income", "deposit_switch"]', () => {
-    const products = ['income', 'deposit_switch'];
-    expect(products).toEqual(['income', 'deposit_switch']);
+  it('uses products: ["income"]', () => {
+    const products = ['income'];
+    expect(products).toEqual(['income']);
   });
 
   it('uses webhookEvent "task" (bridge-flow)', () => {
@@ -51,11 +52,8 @@ describe('PaycheckLinkedLoans demo contracts', () => {
 
   // ---- Report type mapping ------------------------------------------------
 
-  it('getReportTypes(["income", "deposit_switch"]) returns both report types', () => {
-    expect(getReportTypes(['income', 'deposit_switch'])).toEqual([
-      'income',
-      'deposit_switch',
-    ]);
+  it('getReportTypes(["income"]) returns income only (PLL report fetched separately via link_id)', () => {
+    expect(getReportTypes(['income'])).toEqual(['income']);
   });
 
   // ---- DIAGRAM is defined -------------------------------------------------

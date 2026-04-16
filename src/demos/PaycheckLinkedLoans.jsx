@@ -84,8 +84,11 @@ export function PaycheckLinkedLoansDemo() {
     pllFetchedRef.current = true;
     fetch(`${API_BASE}/api/links/${encodeURIComponent(linkId)}/pll?user_id=${encodeURIComponent(userId)}`)
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data) setPllReport(data); })
-      .catch(e => console.error('PLL report fetch failed:', e));
+      .then(data => {
+        if (data) setPllReport(data);
+        else pllFetchedRef.current = false;
+      })
+      .catch(e => { console.error('PLL report fetch failed:', e); pllFetchedRef.current = false; });
   }, [panel.webhooks, userId]);
 
   // Handler: create bridge token via POST /api/bridge-token (product_type: pll) and open TruvBridge.
