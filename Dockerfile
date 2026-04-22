@@ -8,7 +8,10 @@ RUN npx vite build
 
 FROM node:20-slim AS deps
 
-RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3 make g++ && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
@@ -16,16 +19,17 @@ RUN npm ci --omit=dev
 FROM node:20-slim AS truv-demo-app
 
 WORKDIR /app
-COPY --from=deps /app/node_modules node_modules/
 COPY package.json ./
 COPY server/ server/
-COPY --from=build /app/dist dist/
+COPY --from=deps  /app/node_modules node_modules/
+COPY --from=build /app/dist         dist/
 
-RUN groupadd --system appuser && useradd --system --gid appuser appuser \
-    && chown -R appuser:appuser /app
+RUN groupadd --system appuser && \
+    useradd --system --gid appuser appuser && \
+    chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-  CMD node -e "const http = require('http'); http.get('http://localhost:3000/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
-CMD ["node", "server/index.js"]
+
+ENTRYPOINT ["node"]
+CMD ["server/index.js"]
