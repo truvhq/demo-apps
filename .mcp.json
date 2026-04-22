@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "truv": {
+      "type": "http",
+      "url": "https://docs.truv.com/mcp"
+    }
+  }
+}
