@@ -422,7 +422,7 @@ describe('GET /api/links/:linkId/pll', () => {
     it('forwards the 404 status and Truv error body to the client', async () => {
       expect(res.status).toBe(404);
       const body = await res.json();
-      expect(body.error).toBe('Failed to fetch PLL report');
+      expect(body.error).toBe('Failed to fetch link report');
       expect(body.details.error.code).toBe('not_found');
     });
   });
