@@ -1,4 +1,4 @@
-# Truv Quickstart
+# Truv Demo Apps
 
 Interactive demo apps for the [Truv API](https://docs.truv.com). Each demo walks through a real integration pattern end-to-end: creating users, launching Bridge, receiving webhooks, and fetching reports.
 
@@ -265,6 +265,13 @@ The server verifies webhook signatures via HMAC-SHA256.
 - [Providers API](https://docs.truv.com/reference/list_providers)
 - [Bridge Tokens API](https://docs.truv.com/reference/users_tokens)
 - [User Reports API](https://docs.truv.com/reference/users_reports)
+
+## AI tools
+
+This project ships with Truv's documentation wired up for AI coding assistants so you can ask questions about the API and this integration directly in your editor.
+
+- **MCP server** — `https://docs.truv.com/mcp`. Already configured for this repo in [`.mcp.json`](.mcp.json). Reload your editor (Cursor, Windsurf, Claude Code, Claude Desktop) after cloning to pick it up. Full setup docs: [truv.com/docs/mcp](https://truv.com/docs/mcp).
+- **llms.txt** — [truv.com/docs/llms.txt](https://truv.com/docs/llms.txt) is a plain-text index of the Truv docs optimized for LLMs. Paste it into an assistant that doesn't support MCP to give it full context on Truv APIs.
 
 ## License
 

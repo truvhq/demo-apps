@@ -211,6 +211,70 @@ describe('POST /api/bridge-token', () => {
     });
   });
 
+  // ─── first_name / last_name forwarding ──────────────────────────────────
+  //
+  // Regression coverage for the bug where /api/bridge-token was ignoring the
+  // form's name fields and every Truv user was created as "John Johnson".
+
+  describe('first_name / last_name forwarding', () => {
+    let ctx;
+
+    beforeAll(async () => {
+      ctx = await startTestServer({
+        createUser: { statusCode: 200, data: { id: userId }, durationMs: 5 },
+        createUserBridgeToken: {
+          statusCode: 200,
+          data: { bridge_token: bridgeToken },
+          durationMs: 5,
+        },
+      });
+    });
+
+    afterAll(async () => {
+      await closeServer(ctx.server);
+    });
+
+    it('forwards both first_name and last_name to createUser', async () => {
+      await fetch(`${ctx.baseUrl}/api/bridge-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_type: 'income',
+          first_name: 'Ada',
+          last_name: 'Lovelace',
+        }),
+      });
+
+      expect(ctx.truv.createUser).toHaveBeenCalledOnce();
+      expect(ctx.truv.createUser).toHaveBeenCalledWith({
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+      });
+    });
+
+    it('omits name keys entirely when the request body leaves them out', async () => {
+      ctx.truv.createUser.mockClear();
+      await fetch(`${ctx.baseUrl}/api/bridge-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_type: 'income' }),
+      });
+
+      expect(ctx.truv.createUser).toHaveBeenCalledWith({});
+    });
+
+    it('drops a blank first_name and forwards only last_name', async () => {
+      ctx.truv.createUser.mockClear();
+      await fetch(`${ctx.baseUrl}/api/bridge-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_type: 'income', first_name: '', last_name: 'Solo' }),
+      });
+
+      expect(ctx.truv.createUser).toHaveBeenCalledWith({ last_name: 'Solo' });
+    });
+  });
+
   describe('when createUserBridgeToken returns 400', () => {
     let ctx;
     let res;
@@ -256,6 +320,131 @@ describe('POST /api/bridge-token', () => {
         ([arg]) => arg.endpoint === `/v1/users/${userId}/tokens/` && arg.method === 'POST',
       );
       expect(tokenCall).toBeDefined();
+    });
+  });
+});
+
+// ─── GET /api/links/:linkId/pll ─────────────────────────────────────────────
+//
+// Dedicated PLL report endpoint added for the Paycheck-Linked Loans demo.
+// The frontend fetches this after the task-status-updated webhook with status
+// "done" arrives, using the link_id from that webhook's payload.
+
+describe('GET /api/links/:linkId/pll', () => {
+  const linkId = 'link_pll_42';
+  const pllReport = {
+    deposit_details: { bank_name: 'Truv Bank', account_type: 'checking' },
+    employer: { name: 'Home Depot' },
+    status: 'done',
+  };
+
+  describe('happy path', () => {
+    let ctx;
+    let res;
+
+    beforeAll(async () => {
+      ctx = await startTestServer({
+        getLinkReport: { statusCode: 200, data: pllReport, durationMs: 20 },
+      });
+
+      res = await fetch(
+        `${ctx.baseUrl}/api/links/${linkId}/pll?user_id=user_pll`,
+      );
+    });
+
+    afterAll(async () => {
+      await closeServer(ctx.server);
+    });
+
+    it('returns the PLL report body as-is', async () => {
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual(pllReport);
+    });
+
+    it("calls Truv's getLinkReport with the 'pll' report type", () => {
+      expect(ctx.truv.getLinkReport).toHaveBeenCalledWith(linkId, 'pll');
+    });
+
+    it('logs the canonical /v1/links/{linkId}/pll/report/ endpoint string', () => {
+      const call = ctx.apiLogger.logApiCall.mock.calls.find(
+        ([arg]) => arg.method === 'GET' && arg.endpoint.includes('/pll/report/'),
+      );
+      expect(call).toBeDefined();
+      expect(call[0].endpoint).toBe(`/v1/links/${linkId}/pll/report/`);
+      expect(call[0].userId).toBe('user_pll');
+    });
+  });
+
+  describe('when user_id query param is omitted', () => {
+    let ctx;
+
+    beforeAll(async () => {
+      ctx = await startTestServer({
+        getLinkReport: { statusCode: 200, data: pllReport, durationMs: 10 },
+      });
+    });
+
+    afterAll(async () => {
+      await closeServer(ctx.server);
+    });
+
+    it('still returns 200 and logs with a null userId', async () => {
+      const res = await fetch(`${ctx.baseUrl}/api/links/${linkId}/pll`);
+      expect(res.status).toBe(200);
+
+      const call = ctx.apiLogger.logApiCall.mock.calls.find(
+        ([arg]) => arg.endpoint === `/v1/links/${linkId}/pll/report/`,
+      );
+      expect(call[0].userId).toBeNull();
+    });
+  });
+
+  describe('when Truv returns 404', () => {
+    let ctx;
+    let res;
+
+    beforeAll(async () => {
+      ctx = await startTestServer({
+        getLinkReport: {
+          statusCode: 404,
+          data: { error: { code: 'not_found', message: 'Requested object not found' } },
+          durationMs: 12,
+        },
+      });
+
+      res = await fetch(`${ctx.baseUrl}/api/links/bogus/pll`);
+    });
+
+    afterAll(async () => {
+      await closeServer(ctx.server);
+    });
+
+    it('forwards the 404 status and Truv error body to the client', async () => {
+      expect(res.status).toBe(404);
+      const body = await res.json();
+      expect(body.error).toBe('Failed to fetch link report');
+      expect(body.details.error.code).toBe('not_found');
+    });
+  });
+
+  describe('when Truv returns 500', () => {
+    let ctx;
+    let res;
+
+    beforeAll(async () => {
+      ctx = await startTestServer({
+        getLinkReport: { statusCode: 500, data: { error: 'upstream' }, durationMs: 8 },
+      });
+
+      res = await fetch(`${ctx.baseUrl}/api/links/${linkId}/pll`);
+    });
+
+    afterAll(async () => {
+      await closeServer(ctx.server);
+    });
+
+    it('forwards the 500 to the client so the UI can trigger its retry logic', async () => {
+      expect(res.status).toBe(500);
     });
   });
 });

@@ -15,53 +15,69 @@ let webhookId = null;
 // Environment type determines which Truv environment sends webhooks (sandbox/production)
 const envType = process.env.TRUV_ENV_TYPE || 'sandbox';
 
-// Registers a webhook URL with Truv. First deletes any existing quickstart webhooks
-// for this environment to avoid duplicates, then creates a new registration
-// subscribing to all relevant event types.
-async function registerWebhook(truvClient, webhookUrl) {
-  // Clean up old quickstart webhooks to avoid duplicate registrations
+// The webhook name used for registration. Also the lookup key during cleanup so old
+// registrations from previous runs are removed before creating a new one.
+const WEBHOOK_NAME = 'demo-apps';
+
+// Event types the demos subscribe to.
+const WEBHOOK_EVENTS = [
+  'task-status-updated',
+  'order-status-updated',
+  'order-created',
+  'order-refresh-failed',
+  'link-connected',
+  'link-disconnected',
+  'link-deleted',
+  'employment-created',
+  'employment-updated',
+  'profile-created',
+  'profile-updated',
+  'statements-created',
+  'statements-updated',
+  'shifts-created',
+  'shifts-updated',
+  'bank-accounts-created',
+  'bank-accounts-updated',
+];
+
+// Registers a webhook URL with Truv. First deletes any existing demo-apps webhooks
+// for this environment to avoid duplicates, then creates a new registration subscribing
+// to all relevant event types.
+//
+// Returns { webhookId, error }:
+//   - On success: { webhookId: <id>, error: null }
+//   - On failure: { webhookId: null, error: <Truv error body as-is> }
+// The Truv error is not swallowed or retried. Callers log it and continue startup so
+// the server stays usable even when webhook registration fails (e.g., duplicate URL
+// from a previous run that was registered under a different name).
+export async function registerWebhook(truvClient, webhookUrl, { env = envType } = {}) {
+  // Clean up old demo-apps webhooks to avoid duplicate registrations
   const listResult = await truvClient.listWebhooks();
   if (listResult.statusCode === 200 && listResult.data.results) {
     for (const wh of listResult.data.results) {
-      if (wh.name === 'quickstart' && wh.env_type === envType) {
+      if (wh.name === WEBHOOK_NAME && wh.env_type === env) {
         await truvClient.deleteWebhook(wh.id);
-        console.log(`Deleted old quickstart webhook ${wh.id}`);
+        console.log(`Deleted old ${WEBHOOK_NAME} webhook ${wh.id}`);
       }
     }
   }
 
-  // Create a new webhook registration with all event types used by the demos
   const createResult = await truvClient.createWebhook({
-    name: 'quickstart',
+    name: WEBHOOK_NAME,
     webhook_url: webhookUrl,
-    env_type: envType,
-    events: [
-      'task-status-updated',
-      'order-status-updated',
-      'order-created',
-      'order-refresh-failed',
-      'link-connected',
-      'link-disconnected',
-      'link-deleted',
-      'employment-created',
-      'employment-updated',
-      'profile-created',
-      'profile-updated',
-      'statements-created',
-      'statements-updated',
-      'shifts-created',
-      'shifts-updated',
-      'bank-accounts-created',
-      'bank-accounts-updated',
-    ],
+    env_type: env,
+    events: WEBHOOK_EVENTS,
   });
 
   if (createResult.statusCode === 201) {
-    webhookId = createResult.data.id;
-    console.log(`Webhook registered: ${webhookUrl} (id: ${webhookId})`);
-  } else {
-    console.error('Failed to register webhook:', createResult.data);
+    console.log(`Webhook registered: ${webhookUrl} (id: ${createResult.data.id})`);
+    return { webhookId: createResult.data.id, error: null };
   }
+
+  // Surface the Truv error as-is so the cause (e.g., "Webhook url for sandbox already
+  // registered") is visible in logs instead of being truncated to [Array].
+  console.error('Failed to register webhook:', JSON.stringify(createResult.data, null, 2));
+  return { webhookId: null, error: createResult.data };
 }
 
 // Entry point called at server startup. Reads NGROK_URL from .env and registers
@@ -74,7 +90,8 @@ export async function setupWebhook({ path, truvClient }) {
   }
 
   const webhookUrl = ngrokUrl + path;
-  await registerWebhook(truvClient, webhookUrl);
+  const { webhookId: registeredId } = await registerWebhook(truvClient, webhookUrl);
+  webhookId = registeredId;
   return ngrokUrl;
 }
 

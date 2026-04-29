@@ -5,7 +5,7 @@ export const STEPS = [
   { title: 'Applicant submits information', guide: '<p>The form collects applicant details. Employers are searched via:</p><pre>GET /v1/company-mappings-search/?query=...</pre><p>Then a user and bridge token are created:</p><pre>POST /v1/users/\nPOST /v1/users/{id}/tokens/</pre><p>Token uses <code>product_type: pll</code> with account details for payroll deductions.</p>' },
   { title: 'Applicant connects payroll', guide: '<p>Bridge opens as a popup. The user selects their employer and confirms the payroll deduction.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
   { title: 'Truv sets up deduction', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
-  { title: 'Team Member reviews confirmation', guide: '<p>Reports are fetched via user reports endpoints:</p><pre>POST /v1/users/{user_id}/reports/\nGET /v1/users/{user_id}/deposit_switch/report/</pre><p>Returns income verification and deposit switch confirmation.</p>' },
+  { title: 'Team Member reviews confirmation', guide: '<p>The PLL report is fetched via the link-level endpoint:</p><pre>GET /v1/links/{link_id}/pll/report/</pre><p>Returns deposit allocation details, employer, provider, and suspicious-activity flag.</p>' },
 ];
 
 export const INTRO_SLIDE_CONFIG = {

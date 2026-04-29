@@ -1,7 +1,8 @@
 /**
- * FILE SUMMARY: Bridge token creation and public token exchange routes
+ * FILE SUMMARY: Bridge token creation and link-scoped report routes
  * DATA FLOW: Frontend -> POST /api/bridge-token -> TruvClient -> Truv API (/v1/users/, /v1/users/{id}/tokens/)
  *            Frontend -> GET /api/link-report -> TruvClient -> Truv API (/v1/link-access-tokens/, /v1/links/{id}/{type}/report/)
+ *            Frontend -> GET /api/links/:linkId/:reportType -> TruvClient -> Truv API (/v1/links/{id}/{type}/report/)
  * INTEGRATION PATTERN: Bridge flow (used by Consumer Credit and Retail Banking demos)
  *
  * This is the alternative to the Orders flow. The frontend requests a bridge token,
@@ -28,8 +29,11 @@ export default function bridgeRoutes({ truv, apiLogger }) {
       const cmid = data.company_mapping_id;
       const pid = data.provider_id;
 
-      // Step 1: Create a Truv user
-      const userResult = await truv.createUser();
+      // Step 1: Create a Truv user (forward name fields from the form if provided)
+      const userResult = await truv.createUser({
+        ...(data.first_name && { first_name: data.first_name }),
+        ...(data.last_name && { last_name: data.last_name }),
+      });
       const userId = userResult.data?.id || null;
       apiLogger.logApiCall({ userId, method: 'POST', endpoint: '/v1/users/', requestBody: { product_type: pt }, responseBody: userResult.data, statusCode: userResult.statusCode, durationMs: userResult.durationMs });
       if (userResult.statusCode >= 400 || !userId) return res.status(userResult.statusCode || 500).json({ error: 'Failed to create user', details: userResult.data });
@@ -64,6 +68,26 @@ export default function bridgeRoutes({ truv, apiLogger }) {
       if (reportResult.statusCode >= 400) return res.status(reportResult.statusCode).json({ error: 'Failed to fetch report', details: reportResult.data });
 
       res.json(reportResult.data);
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+  });
+
+  // GET /api/links/:linkId/:reportType: Fetch a link-scoped report.
+  // The link_id is provided by the task-status-updated webhook after Bridge completes.
+  // Used by demos that fetch reports per-link instead of per-user (PLL, docupload).
+  // Whitelist is intentionally narrow — extend it only when a demo needs another type
+  // and the corresponding /v1/links/{link_id}/{type}/report/ endpoint is verified.
+  const ALLOWED_LINK_REPORT_TYPES = new Set(['income', 'pll']);
+  router.get('/api/links/:linkId/:reportType', async (req, res) => {
+    try {
+      const { linkId, reportType } = req.params;
+      if (!ALLOWED_LINK_REPORT_TYPES.has(reportType)) {
+        return res.status(400).json({ error: `Unsupported link report type: ${reportType}` });
+      }
+      const userId = req.query.user_id || null;
+      const result = await truv.getLinkReport(linkId, reportType);
+      apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/links/${linkId}/${reportType}/report/`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
+      if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Failed to fetch link report', details: result.data });
+      res.json(result.data);
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 

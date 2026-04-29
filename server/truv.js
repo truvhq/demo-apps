@@ -72,7 +72,7 @@ export class TruvClient {
   async createUserBridgeToken(userId, productType, { data_sources, company_mapping_id, provider_id } = {}) {
     const payload = {
       product_type: productType,
-      client_name: 'Truv Quickstart',
+      client_name: 'Truv Demo Apps',
       tracking_info: '1338-0111-A', // Replace with your internal reference (e.g. loan number)
     };
 

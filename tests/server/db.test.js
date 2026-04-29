@@ -19,6 +19,7 @@ import {
   createDocCollection,
   getDocCollection,
   updateDocCollection,
+  findDocCollectionUserForWebhook,
 } from '../../server/db.js';
 
 let memDb;
@@ -434,5 +435,70 @@ describe('document collections', () => {
     createDocCollection({ collectionId: 'dc_noop' });
     const result = updateDocCollection('dc_noop', { id: 'nope' });
     expect(result).toBeUndefined();
+  });
+
+  it('createDocCollection persists userId and round-trips it via getDocCollection', () => {
+    // Covers the new user_id column added so task-status-updated webhooks without
+    // user_id in the payload can be attributed to the correct user.
+    const created = createDocCollection({
+      collectionId: 'dc_user',
+      userId: 'user_attributed',
+      demoId: 'documents',
+    });
+    expect(created.user_id).toBe('user_attributed');
+    expect(getDocCollection('dc_user').user_id).toBe('user_attributed');
+  });
+
+  it('createDocCollection persists null user_id when userId is omitted', () => {
+    const created = createDocCollection({ collectionId: 'dc_nouser' });
+    expect(created.user_id).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findDocCollectionUserForWebhook
+//
+// Webhook fallback helper: when task-status-updated arrives without user_id in
+// the payload, the server resolves user_id from the most recent active
+// document collection. Covers the bug where document-processing demos couldn't
+// poll their webhooks because the Truv payload omits user_id.
+// ---------------------------------------------------------------------------
+describe('findDocCollectionUserForWebhook', () => {
+  it('returns null when no document collections exist', () => {
+    expect(findDocCollectionUserForWebhook()).toBeNull();
+  });
+
+  it("returns the user_id of a collection in status='created'", () => {
+    createDocCollection({ collectionId: 'dc_1', userId: 'user_active', status: 'created' });
+    expect(findDocCollectionUserForWebhook()).toBe('user_active');
+  });
+
+  it("returns the user_id of a collection in status='finalizing'", () => {
+    createDocCollection({ collectionId: 'dc_2', userId: 'user_finalizing', status: 'finalizing' });
+    expect(findDocCollectionUserForWebhook()).toBe('user_finalizing');
+  });
+
+  it('ignores rows with NULL user_id even if their status matches', () => {
+    // A collection without user_id can't resolve the webhook to a user
+    createDocCollection({ collectionId: 'dc_nulluser', status: 'created' });
+    expect(findDocCollectionUserForWebhook()).toBeNull();
+  });
+
+  it('ignores collections in terminal statuses', () => {
+    createDocCollection({ collectionId: 'dc_done', userId: 'user_done', status: 'completed' });
+    expect(findDocCollectionUserForWebhook()).toBeNull();
+  });
+
+  it('returns the most recently created active collection when multiple exist', () => {
+    // Known demo limitation: concurrent sessions will misattribute to the latest.
+    // This test pins the current behavior so any future fix is a deliberate change.
+    createDocCollection({ collectionId: 'dc_old', userId: 'user_old', status: 'created' });
+    // sqlite created_at has second resolution; force ordering with an explicit later timestamp
+    memDb.prepare(
+      "UPDATE document_collections SET created_at = datetime('now', '-10 seconds') WHERE id = 'dc_old'",
+    ).run();
+    createDocCollection({ collectionId: 'dc_new', userId: 'user_new', status: 'finalizing' });
+
+    expect(findDocCollectionUserForWebhook()).toBe('user_new');
   });
 });

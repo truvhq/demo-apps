@@ -1,44 +1,27 @@
-import { describe, it, expect, vi } from 'vitest';
-
-// Mock the barrel index to avoid pulling in browser globals (window.location)
-vi.mock('../../src/components/hooks.js', () => ({
-  API_BASE: 'http://localhost:3000',
-}));
-vi.mock('../../src/components/WebhookFeed.jsx', () => ({
-  parsePayload(raw) {
-    if (!raw) return {};
-    if (typeof raw !== 'string') return raw;
-    try { return JSON.parse(raw); } catch { return {}; }
-  },
-}));
-
-import { getReportTypes } from '../../src/components/useReportFetch.js';
+import { describe, it, expect } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // PaycheckLinkedLoans.jsx behavioral contracts
 //
-// Bridge-flow demo that combines income verification with deposit switching.
-// Uses product_type: 'pll' and fetches BOTH income and deposit_switch reports.
+// Bridge-flow demo for the PLL product. Fetches only the PLL link-level report
+// (GET /api/links/:linkId/pll). No income report is fetched — PLL tasks do not
+// produce payroll-backed income data.
 // ---------------------------------------------------------------------------
 
 describe('PaycheckLinkedLoans demo contracts', () => {
-  // ---- Products and webhook event -----------------------------------------
-
-  it('uses products: ["income", "deposit_switch"]', () => {
-    const products = ['income', 'deposit_switch'];
-    expect(products).toEqual(['income', 'deposit_switch']);
-  });
-
-  it('uses webhookEvent "task" (bridge-flow)', () => {
-    const webhookEvent = 'task';
-    expect(webhookEvent).toBe('task');
-  });
-
   // ---- Bridge token config ------------------------------------------------
 
   it('bridge token uses product_type "pll"', () => {
     const bridgeConfig = { product_type: 'pll' };
     expect(bridgeConfig.product_type).toBe('pll');
+  });
+
+  // ---- Webhook trigger ----------------------------------------------------
+
+  it('fetches PLL report on task-status-updated with status "done"', () => {
+    const trigger = { event_type: 'task-status-updated', status: 'done' };
+    expect(trigger.event_type).toBe('task-status-updated');
+    expect(trigger.status).toBe('done');
   });
 
   // ---- STEPS array --------------------------------------------------------
@@ -47,15 +30,6 @@ describe('PaycheckLinkedLoans demo contracts', () => {
     // STEPS: submit info, connect payroll, set up deduction, review
     const STEPS_COUNT = 4;
     expect(STEPS_COUNT).toBe(4);
-  });
-
-  // ---- Report type mapping ------------------------------------------------
-
-  it('getReportTypes(["income", "deposit_switch"]) returns both report types', () => {
-    expect(getReportTypes(['income', 'deposit_switch'])).toEqual([
-      'income',
-      'deposit_switch',
-    ]);
   });
 
   // ---- DIAGRAM is defined -------------------------------------------------

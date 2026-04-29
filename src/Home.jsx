@@ -40,11 +40,11 @@ function IndustryCard({ industry, index }) {
 export function Home() {
   return (
     <div class="min-h-screen flex flex-col bg-white">
-      <Header badge="Quickstart" sticky />
+      <Header badge="Demo Apps" sticky />
       <main class="flex-1 flex items-start justify-center pt-16 pb-20 px-6">
         <div class="max-w-[640px] w-full">
           <div class="animate-slideUp mb-12">
-            <h1 class="text-[40px] font-semibold tracking-[-0.03em] text-[#171717] leading-[1.1] mb-3">Truv Quickstart</h1>
+            <h1 class="text-[40px] font-semibold tracking-[-0.03em] text-[#171717] leading-[1.1] mb-3">Truv Demo Apps</h1>
             <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[480px]">
               See how Truv helps verify income, employment, and assets across mortgage, consumer lending, government, and banking.
             </p>

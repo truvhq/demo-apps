@@ -1,8 +1,8 @@
 {
-  "name": "truv-quickstart",
+  "name": "truv-demo-apps",
   "version": "1.0.0",
   "type": "module",
-  "description": "Truv API Quickstart — 5 demo apps",
+  "description": "Truv API Demo Apps — interactive demos for every integration pattern",
   "scripts": {
     "start": "node server/index.js",
     "dev": "npx vite",

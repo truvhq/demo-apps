@@ -3,15 +3,13 @@
  * INTEGRATION PATTERN: Bridge flow (User+Token, product_type: pll).
  *
  * DATA FLOW:
- *   1. POST /api/bridge-token                          : create user + bridge token (pll)
- *   2. TruvBridge.init().open()                        : Bridge popup for payroll + deduction
- *   3. Webhook: task-status-updated with status "done"
- *   4. GET /api/users/:userId/reports/income            : fetch VOIE report
- *   5. GET /api/users/:userId/reports/deposit_switch    : fetch deposit switch confirmation
+ *   1. POST /api/bridge-token              : create user + bridge token (pll)
+ *   2. TruvBridge.init().open()            : Bridge popup for payroll + deduction
+ *   3. Webhook: task-status-updated (done) : carries link_id for the completed task
+ *   4. GET /api/links/:linkId/pll          : fetch PLL report (deposit allocation + provider)
  *
- * Follows the same Bridge flow as SmartRouting.jsx but uses product_type "pll" which
- * combines income verification with payroll deduction setup. Fetches both income and
- * deposit_switch reports in parallel after completion.
+ * Only the PLL link-level report is fetched. The VOIE income report is not applicable
+ * to the PLL product, since PLL tasks do not produce payroll-backed income data.
  *
  * Scaffolding: ./scaffolding/paycheck-linked-loans.jsx
  * Diagrams:    ../diagrams/paycheck-linked-loans.js
@@ -19,18 +17,18 @@
  * WHAT TO COPY (for your own Truv integration):
  *   - handleFormSubmit()  : creates a bridge token via POST /api/bridge-token (product_type: pll)
  *   - TruvBridge.init()   : opens the Bridge widget for paycheck-linked loans
- *   - useReportFetch()    : watches webhooks and fetches income + deposit_switch reports
+ *   - PLL report fetch    : extracts link_id from the task-status-updated webhook, fetches
+ *                           GET /api/links/:linkId/pll
  */
 
 // --- Imports: Preact hooks ---
-import { useState } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 
-// --- Imports: shared layout, components, hooks, and API base URL ---
-import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
+// --- Imports: shared layout, components, hooks, and API utilities ---
+import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, parsePayload } from '../components/index.js';
 
-// --- Imports: report display components ---
-import { VoieReport } from '../components/reports/VoieReport.jsx';
-import { DDSReport } from '../components/reports/DDSReport.jsx';
+// --- Imports: report display component ---
+import { PLLReport } from '../components/reports/PLLReport.jsx';
 
 // --- Imports: reusable form component ---
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
@@ -50,18 +48,64 @@ export function PaycheckLinkedLoansDemo() {
   const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // PLL report state: fetched via link_id from the task-status-updated webhook
+  const [pllReport, setPllReport] = useState(null);
+  const [pllError, setPllError] = useState(false);
+  const [pllLoading, setPllLoading] = useState(false);
+  const pllFetchedRef = useRef(false);
+  const pllRetryRef = useRef(0);
+
   // Panel hook: sidebar state, session tracking, webhook polling, bridge events
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
-  // Report fetching: watches webhooks, fetches both income and deposit_switch reports
-  const { reports, loading: reportLoading, reset: resetReports } = useReportFetch({
-    userId,
-    products: ['income', 'deposit_switch'],
-    webhooks: panel.webhooks,
-    pollOnceAndStop,
-    webhookEvent: 'task',
-    onComplete: () => { setCurrentStep(3); setScreen('review'); },
-  });
+  // Effect: when task-status-updated:done webhook arrives, extract link_id and fetch
+  // the PLL report. The PLL report is the only report needed for this product.
+  // Retries up to 3 times on failure before surfacing an error to the user.
+  useEffect(() => {
+    if (!userId || pllFetchedRef.current) return;
+    const doneWh = panel.webhooks.find(w => {
+      const p = parsePayload(w.payload);
+      return (p.event_type === 'task-status-updated' && p.status === 'done')
+        || (w.event_type === 'task-status-updated' && w.status === 'done');
+    });
+    if (!doneWh) return;
+    const p = parsePayload(doneWh.payload);
+    const linkId = p.link_id || doneWh.link_id;
+    if (!linkId) return;
+    pllFetchedRef.current = true;
+    setPllLoading(true);
+    fetch(`${API_BASE}/api/links/${encodeURIComponent(linkId)}/pll?user_id=${encodeURIComponent(userId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) {
+          setPllReport(data);
+          setPllLoading(false);
+          setCurrentStep(3);
+          setScreen('review');
+          pollOnceAndStop();
+        } else if (++pllRetryRef.current < 3) {
+          pllFetchedRef.current = false;
+        } else {
+          setPllError(true);
+          setPllLoading(false);
+          setCurrentStep(3);
+          setScreen('review');
+          pollOnceAndStop();
+        }
+      })
+      .catch(e => {
+        console.error('PLL report fetch failed:', e);
+        if (++pllRetryRef.current < 3) {
+          pllFetchedRef.current = false;
+        } else {
+          setPllError(true);
+          setPllLoading(false);
+          setCurrentStep(3);
+          setScreen('review');
+          pollOnceAndStop();
+        }
+      });
+  }, [panel.webhooks, userId]);
 
   // Handler: create bridge token via POST /api/bridge-token (product_type: pll) and open TruvBridge.
   // Uses company_mapping_id for employer deeplinking.
@@ -73,7 +117,7 @@ export function PaycheckLinkedLoansDemo() {
       const resp = await fetch(`${API_BASE}/api/bridge-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_type: 'pll', company_mapping_id: data.company_mapping_id }),
+        body: JSON.stringify({ product_type: 'pll', company_mapping_id: data.company_mapping_id, first_name: data.first_name, last_name: data.last_name }),
       });
       const result = await resp.json();
       if (!resp.ok) { alert('Error: ' + (result.error || 'Unknown')); setLoading(false); return; }
@@ -91,7 +135,9 @@ export function PaycheckLinkedLoansDemo() {
               { label: 'meta', value: meta },
             ]);
             setCurrentStep(2);
-            setScreen('waiting');
+            // Guard: Bridge's onSuccess can fire after the "done" webhook, so the PLL fetch
+            // may have already transitioned the screen to 'review'. Don't clobber it.
+            setScreen(curr => curr === 'review' ? curr : 'waiting');
           },
           onEvent: (type, payload) => {
             const payloadStr = payload ? 'payload' : 'undefined';
@@ -108,7 +154,11 @@ export function PaycheckLinkedLoansDemo() {
   // Handler: reset all state to start over
   function resetDemo() {
     reset();
-    resetReports();
+    pllFetchedRef.current = false;
+    pllRetryRef.current = 0;
+    setPllReport(null);
+    setPllError(false);
+    setPllLoading(false);
     setScreen('select');
     setShowForm(false);
     setFormData(null);
@@ -141,21 +191,21 @@ export function PaycheckLinkedLoansDemo() {
         {/* Waiting screen: webhook polling spinner until task completes */}
         {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}
 
-        {/* Review screen: deposit switch confirmation + VOIE income report */}
+        {/* Review screen: PLL deposit allocation report */}
         {screen === 'review' && (
           <div>
             <h2 class="text-2xl font-bold tracking-tight mb-1.5">{REPORT_HEADER.title}</h2>
             <p class="text-sm text-gray-500 mb-7">{REPORT_HEADER.subtitle}</p>
-            {reports && !reportLoading ? (
+            {pllLoading ? (
+              <div class="text-center py-10"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>
+            ) : (
               <div>
-                {reports.deposit_switch && <DDSReport report={reports.deposit_switch} />}
-                {reports.income && <VoieReport report={reports.income} />}
+                {pllReport && <PLLReport report={pllReport} />}
+                {pllError && <p class="text-sm text-red-500 mb-4">PLL report unavailable. Try starting over.</p>}
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
                   <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
                 </div>
               </div>
-            ) : (
-              <div class="text-center py-10"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>
             )}
           </div>
         )}

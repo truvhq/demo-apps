@@ -18,7 +18,11 @@ export const STEPS = [
   },
   { title: 'Applicant connects via Bridge', guide: '<p>Bridge opens as a popup with the selected data source.</p><p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>' },
   { title: 'Truv processes verification', guide: '<p>Truv sends webhooks as the verification progresses. Wait for <code>task-status-updated</code> with status <code>done</code>.</p>' },
-  { title: 'Team Member reviews report', guide: '<p>The report is fetched via the user reports endpoint:</p><pre>POST /v1/users/{user_id}/reports/\nor\nPOST /v1/users/{user_id}/income_insights/reports/</pre>' },
+  { title: 'Team Member reviews report', guide: '<p>The report endpoint depends on the verification method:</p>'
+    + '<ul><li><b>Payroll</b> → <code>POST /v1/users/{user_id}/reports/</code> (VOIE)</li>'
+    + '<li><b>Bank</b> → <code>POST /v1/users/{user_id}/income_insights/reports/</code></li>'
+    + '<li><b>Documents</b> → <code>GET /v1/links/{link_id}/income/report/</code> (link-scoped; link_id comes from the <code>task-status-updated</code> webhook)</li></ul>'
+    + '<p>Document uploads produce a docs-only link with no user-level VOIE task, so the report has to be retrieved per-link rather than per-user.</p>' },
 ];
 
 // METHODS: verification method cards shown on the 'choose' screen.
