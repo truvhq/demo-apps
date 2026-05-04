@@ -7,9 +7,8 @@ import { generateWebhookSign } from '../../server/webhooks.js';
 import {
   _setTestDb,
   initDb,
-  createDocCollection,
-  findDocCollectionUserForWebhook,
-  createOrder,
+  insertWebhookEvent,
+  findUserByLinkInEvents,
   findOrderByUserId,
   updateOrder,
 } from '../../server/db.js';
@@ -17,8 +16,9 @@ import {
 const TEST_SECRET = 'test-api-secret';
 
 // Minimal replica of the real webhook handler in server/index.js. Mirrors the
-// task-status-updated fallback that resolves user_id from document_collections
-// when the Truv payload omits it.
+// link_id-based resolver: task-status-updated events arrive without user_id
+// but include link_id, and prior events for the same link (link-connected,
+// statements-created, etc.) seed the resolution via webhook_events.
 function buildApp({ db, apiLogger }) {
   const app = express();
   app.use(express.json({
@@ -37,17 +37,14 @@ function buildApp({ db, apiLogger }) {
 
     const payload = req.body;
     let userId = payload.user_id || null;
+    const linkId = payload.link_id || null;
 
     if (userId && payload.event_type === 'order-status-updated' && payload.status === 'completed') {
       const order = db.findOrderByUserId(userId);
       if (order) db.updateOrder(order.id, { status: 'completed' });
     }
 
-    // Fallback for document-collection webhooks: Truv's task-status-updated
-    // payload omits user_id, so resolve it from the active collection instead.
-    if (!userId && payload.event_type === 'task-status-updated') {
-      userId = db.findDocCollectionUserForWebhook();
-    }
+    if (!userId && linkId) userId = db.findUserByLinkInEvents(linkId);
 
     apiLogger.pushWebhookEvent({
       userId,
@@ -95,7 +92,7 @@ let memDb;
 const dbModule = {
   findOrderByUserId,
   updateOrder,
-  findDocCollectionUserForWebhook,
+  findUserByLinkInEvents,
 };
 
 beforeAll(() => {
@@ -115,27 +112,31 @@ beforeEach(() => {
   memDb.prepare('DELETE FROM document_collections').run();
 });
 
-// ─── task-status-updated user_id fallback ───────────────────────────────────
+// ─── task-status-updated user_id resolution by link_id ──────────────────────
 //
 // Bug: Truv's task-status-updated webhooks for document collections arrive with
 // no user_id in the payload, so the frontend polling (GET /api/users/:id/webhooks)
-// could never see them. The server now resolves user_id from the active
-// document_collections row.
+// could never see them. The server resolves user_id from prior webhook_events
+// for the same link_id (link-connected, statements-created, etc. arrive earlier
+// with both fields).
 
-describe('POST /api/webhooks/truv — task-status-updated fallback', () => {
-  it('resolves user_id from document_collections when the payload omits it', async () => {
-    createDocCollection({
-      collectionId: 'dc_resolve',
+describe('POST /api/webhooks/truv — task-status-updated link_id resolution', () => {
+  it('resolves user_id from a prior webhook event with the same link_id', async () => {
+    // Seed: an earlier webhook for the link that did carry user_id.
+    insertWebhookEvent({
       userId: 'user_resolved',
-      status: 'created',
+      webhookId: 'wh_seed',
+      eventType: 'link-connected',
+      payload: { link_id: 'lnk_a', user_id: 'user_resolved' },
     });
 
     const ctx = await startTestServer(dbModule);
     try {
       const res = await postWebhook(ctx.baseUrl, {
-        webhook_id: 'wh_1',
+        webhook_id: 'wh_task',
         event_type: 'task-status-updated',
         status: 'done',
+        link_id: 'lnk_a',
         // user_id intentionally omitted
       });
       expect(res.status).toBe(200);
@@ -150,22 +151,24 @@ describe('POST /api/webhooks/truv — task-status-updated fallback', () => {
     }
   });
 
-  it('keeps the payload user_id when present and does not fall back to the DB', async () => {
-    // If both are present, the payload wins. This guards against a regression
-    // where the fallback clobbers an explicit user_id.
-    createDocCollection({
-      collectionId: 'dc_bg',
-      userId: 'user_from_db',
-      status: 'created',
+  it('keeps the payload user_id when present and does not look it up', async () => {
+    // If both are present, the payload wins — guards against the resolver
+    // clobbering an explicit user_id with a stale event.
+    insertWebhookEvent({
+      userId: 'user_from_seed',
+      webhookId: 'wh_seed',
+      eventType: 'link-connected',
+      payload: { link_id: 'lnk_a', user_id: 'user_from_seed' },
     });
 
     const ctx = await startTestServer(dbModule);
     try {
       await postWebhook(ctx.baseUrl, {
-        webhook_id: 'wh_2',
+        webhook_id: 'wh_task',
         event_type: 'task-status-updated',
         status: 'done',
         user_id: 'user_from_payload',
+        link_id: 'lnk_a',
       });
 
       const [event] = ctx.apiLogger.pushWebhookEvent.mock.calls.map(args => args[0]);
@@ -175,15 +178,16 @@ describe('POST /api/webhooks/truv — task-status-updated fallback', () => {
     }
   });
 
-  it('stores the webhook with null userId when no active collection exists', async () => {
-    // Previously this caused the event to be effectively invisible. It should
-    // still be persisted so it appears in operator logs, just with null userId.
+  it('stores the webhook with null userId when no prior event exists for the link', async () => {
+    // Cold start: a task-status-updated arrives before any seeding event.
+    // The event is still persisted but with null userId — operator logs only.
     const ctx = await startTestServer(dbModule);
     try {
       const res = await postWebhook(ctx.baseUrl, {
-        webhook_id: 'wh_3',
+        webhook_id: 'wh_cold',
         event_type: 'task-status-updated',
         status: 'done',
+        link_id: 'lnk_unknown',
       });
       expect(res.status).toBe(200);
 
@@ -194,20 +198,21 @@ describe('POST /api/webhooks/truv — task-status-updated fallback', () => {
     }
   });
 
-  it('does not use the fallback for non task-status-updated events', async () => {
-    // link-connected and other event types must not fall through to the DB lookup.
-    createDocCollection({
-      collectionId: 'dc_noleak',
-      userId: 'user_doc',
-      status: 'created',
+  it('stores the webhook with null userId when link_id is missing entirely', async () => {
+    // Without link_id there is nothing to resolve against.
+    insertWebhookEvent({
+      userId: 'user_a',
+      webhookId: 'wh_seed',
+      eventType: 'link-connected',
+      payload: { link_id: 'lnk_a', user_id: 'user_a' },
     });
 
     const ctx = await startTestServer(dbModule);
     try {
       await postWebhook(ctx.baseUrl, {
-        webhook_id: 'wh_4',
-        event_type: 'link-connected',
-        status: null,
+        webhook_id: 'wh_nolink',
+        event_type: 'task-status-updated',
+        status: 'done',
       });
 
       const [event] = ctx.apiLogger.pushWebhookEvent.mock.calls.map(args => args[0]);
@@ -217,35 +222,54 @@ describe('POST /api/webhooks/truv — task-status-updated fallback', () => {
     }
   });
 
-  it('picks the most recent active collection when two overlap', async () => {
-    // Known single-session limitation. Pin the behavior so any future fix
-    // (correlating by collection_id in the payload) is a deliberate change.
-    createDocCollection({ collectionId: 'dc_first', userId: 'user_first', status: 'created' });
-    memDb.prepare(
-      "UPDATE document_collections SET created_at = datetime('now', '-10 seconds') WHERE id = 'dc_first'",
-    ).run();
-    createDocCollection({ collectionId: 'dc_second', userId: 'user_second', status: 'finalizing' });
+  it('keeps overlapping sessions separated by their own link_ids', async () => {
+    // Two concurrent doc-collection sessions each seed their own link_id,
+    // and later task-status-updated events resolve to the right user.
+    // The previous "latest collection" heuristic would have collapsed them.
+    insertWebhookEvent({
+      userId: 'user_a',
+      webhookId: 'wh_seed_a',
+      eventType: 'link-connected',
+      payload: { link_id: 'lnk_a', user_id: 'user_a' },
+    });
+    insertWebhookEvent({
+      userId: 'user_b',
+      webhookId: 'wh_seed_b',
+      eventType: 'link-connected',
+      payload: { link_id: 'lnk_b', user_id: 'user_b' },
+    });
 
     const ctx = await startTestServer(dbModule);
     try {
       await postWebhook(ctx.baseUrl, {
-        webhook_id: 'wh_5',
+        webhook_id: 'wh_task_a',
         event_type: 'task-status-updated',
         status: 'done',
+        link_id: 'lnk_a',
+      });
+      await postWebhook(ctx.baseUrl, {
+        webhook_id: 'wh_task_b',
+        event_type: 'task-status-updated',
+        status: 'done',
+        link_id: 'lnk_b',
       });
 
-      const [event] = ctx.apiLogger.pushWebhookEvent.mock.calls.map(args => args[0]);
-      expect(event.userId).toBe('user_second');
+      const events = ctx.apiLogger.pushWebhookEvent.mock.calls.map(args => args[0]);
+      const taskA = events.find(e => e.webhookId === 'wh_task_a');
+      const taskB = events.find(e => e.webhookId === 'wh_task_b');
+      expect(taskA.userId).toBe('user_a');
+      expect(taskB.userId).toBe('user_b');
     } finally {
       await closeServer(ctx.server);
     }
   });
 
-  it('rejects unsigned webhooks before any DB lookup happens', async () => {
-    createDocCollection({
-      collectionId: 'dc_sig',
-      userId: 'user_sig',
-      status: 'created',
+  it('rejects unsigned webhooks before any resolution happens', async () => {
+    insertWebhookEvent({
+      userId: 'user_a',
+      webhookId: 'wh_seed',
+      eventType: 'link-connected',
+      payload: { link_id: 'lnk_a', user_id: 'user_a' },
     });
 
     const ctx = await startTestServer(dbModule);
@@ -253,7 +277,7 @@ describe('POST /api/webhooks/truv — task-status-updated fallback', () => {
       const res = await fetch(`${ctx.baseUrl}/api/webhooks/truv`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_type: 'task-status-updated', status: 'done' }),
+        body: JSON.stringify({ event_type: 'task-status-updated', status: 'done', link_id: 'lnk_a' }),
       });
       expect(res.status).toBe(401);
       expect(ctx.apiLogger.pushWebhookEvent).not.toHaveBeenCalled();

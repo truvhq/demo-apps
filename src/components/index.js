@@ -26,3 +26,7 @@ export { MermaidDiagram } from './MermaidDiagram.jsx';
 
 // Form components
 export { ApplicationForm } from './ApplicationForm.jsx';
+
+// Document Collections constants and components
+export { TERMINAL_FILE_STATUSES } from './collectionStatus.js';
+export { FileProcessingErrors } from './FileProcessingErrors.jsx';

@@ -4,7 +4,7 @@
  *
  * DATA FLOW:
  *   1. POST /api/collections              : create user + document collection
- *   2. GET  /api/collections/:id          : poll until all files are "successful"
+ *   2. GET  /api/collections/:id          : poll until every file reaches a terminal status
  *   3. POST /api/collections/:id/finalize : trigger structured data extraction
  *   4. Webhook: task-status-updated with status "done"
  *   5. GET  /api/collections/:id/report   : fetch extracted income data
@@ -27,7 +27,7 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
 
 // --- Imports: shared layout, components, hooks, and API utilities ---
-import { Layout, OrderResults, WebhookFeed, usePanel, API_BASE, parsePayload, IntroSlide } from '../components/index.js';
+import { Layout, OrderResults, WebhookFeed, usePanel, API_BASE, parsePayload, IntroSlide, TERMINAL_FILE_STATUSES, FileProcessingErrors } from '../components/index.js';
 
 // --- Imports: Mermaid diagram for intro slide ---
 import { DOC_DIAGRAM } from '../diagrams/ps-document-processing.js';
@@ -44,6 +44,7 @@ export function PSDocumentProcessingDemo() {
   const [truvUserId, setTruvUserId] = useState(null);
   const [collectionId, setCollectionId] = useState(null);
   const [orderData, setOrderData] = useState(null);
+  const [failedFiles, setFailedFiles] = useState([]);
   const [processing, setProcessing] = useState(false);
 
   // Panel hook: sidebar state, webhook polling
@@ -93,14 +94,25 @@ export function PSDocumentProcessingDemo() {
       setCurrentStep(1);
       setScreen('processing');
 
-      // Step 2: Poll GET /api/collections/:id until all files are "successful"
+      // Step 2: Poll GET /api/collections/:id until all files reach a terminal status
       const waitForFiles = async () => {
         try {
           const resp = await fetch(`${API_BASE}/api/collections/${cid}`);
           const data = await resp.json();
           const files = data.raw_response?.uploaded_files || [];
-          const allOk = files.length > 0 && files.every(f => f.status === 'successful');
-          if (!allOk) { pollRef.current = setTimeout(waitForFiles, 3000); return; }
+          const allFinished = files.length > 0 && files.every(f => TERMINAL_FILE_STATUSES.includes(f.status));
+          if (!allFinished) { pollRef.current = setTimeout(waitForFiles, 3000); return; }
+
+          // Capture files that ended in a non-successful terminal status to display on the review screen
+          const failed = files.filter(f => f.status !== 'successful');
+          setFailedFiles(failed);
+
+          // If no file processed successfully, skip finalize (no data to extract) and go straight to review
+          if (failed.length === files.length) {
+            pollOnceAndStop();
+            setScreen('review');
+            return;
+          }
 
           // Step 3: Finalize collection to trigger data extraction
           setCurrentStep(2);
@@ -151,6 +163,7 @@ export function PSDocumentProcessingDemo() {
     setTruvUserId(null);
     setCollectionId(null);
     setOrderData(null);
+    setFailedFiles([]);
     setCurrentStep(0);
   }
 
@@ -205,7 +218,10 @@ export function PSDocumentProcessingDemo() {
           <div>
             <h2 class="text-2xl font-semibold tracking-tight mb-1.5">Verification Results</h2>
             <p class="text-[15px] text-[#8E8E93] mb-7">Documents processed via Document Collections API</p>
-            {orderData ? <OrderResults data={orderData} /> : <p class="text-[#8E8E93]">No report data available yet.</p>}
+            <FileProcessingErrors files={failedFiles} />
+            {orderData
+              ? <OrderResults data={orderData} />
+              : failedFiles.length === 0 && <p class="text-[#8E8E93]">No report data available yet.</p>}
             <div class="flex gap-3 mt-6 pt-5 border-t border-[#d2d2d7]">
               <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Process More</button>
             </div>

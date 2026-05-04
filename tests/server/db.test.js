@@ -19,7 +19,7 @@ import {
   createDocCollection,
   getDocCollection,
   updateDocCollection,
-  findDocCollectionUserForWebhook,
+  findUserByLinkInEvents,
 } from '../../server/db.js';
 
 let memDb;
@@ -456,49 +456,62 @@ describe('document collections', () => {
 });
 
 // ---------------------------------------------------------------------------
-// findDocCollectionUserForWebhook
+// findUserByLinkInEvents
 //
-// Webhook fallback helper: when task-status-updated arrives without user_id in
-// the payload, the server resolves user_id from the most recent active
-// document collection. Covers the bug where document-processing demos couldn't
-// poll their webhooks because the Truv payload omits user_id.
+// Webhook resolver: Truv's task-status-updated payloads omit user_id but include
+// link_id. Earlier event types (link-connected, statements-created, etc.) carry
+// both, so the lookup uses prior webhook_events for the same link_id as a
+// natural side-effect of normal ingestion — no separate mapping table needed.
 // ---------------------------------------------------------------------------
-describe('findDocCollectionUserForWebhook', () => {
-  it('returns null when no document collections exist', () => {
-    expect(findDocCollectionUserForWebhook()).toBeNull();
+describe('findUserByLinkInEvents', () => {
+  it('returns null when no webhook events exist', () => {
+    expect(findUserByLinkInEvents('lnk_a')).toBeNull();
   });
 
-  it("returns the user_id of a collection in status='created'", () => {
-    createDocCollection({ collectionId: 'dc_1', userId: 'user_active', status: 'created' });
-    expect(findDocCollectionUserForWebhook()).toBe('user_active');
+  it('returns null for falsy linkId without throwing', () => {
+    expect(findUserByLinkInEvents(null)).toBeNull();
+    expect(findUserByLinkInEvents('')).toBeNull();
+    expect(findUserByLinkInEvents(undefined)).toBeNull();
   });
 
-  it("returns the user_id of a collection in status='finalizing'", () => {
-    createDocCollection({ collectionId: 'dc_2', userId: 'user_finalizing', status: 'finalizing' });
-    expect(findDocCollectionUserForWebhook()).toBe('user_finalizing');
+  it('finds user_id from a prior event whose payload carries the same link_id', () => {
+    insertWebhookEvent({
+      userId: 'user_a',
+      webhookId: 'wh_seed',
+      eventType: 'link-connected',
+      payload: { link_id: 'lnk_a', user_id: 'user_a' },
+    });
+    expect(findUserByLinkInEvents('lnk_a')).toBe('user_a');
   });
 
-  it('ignores rows with NULL user_id even if their status matches', () => {
-    // A collection without user_id can't resolve the webhook to a user
-    createDocCollection({ collectionId: 'dc_nulluser', status: 'created' });
-    expect(findDocCollectionUserForWebhook()).toBeNull();
+  it('keeps unrelated links separated', () => {
+    insertWebhookEvent({ userId: 'user_a', webhookId: 'wh_a', eventType: 'link-connected', payload: { link_id: 'lnk_a' } });
+    insertWebhookEvent({ userId: 'user_b', webhookId: 'wh_b', eventType: 'link-connected', payload: { link_id: 'lnk_b' } });
+    expect(findUserByLinkInEvents('lnk_a')).toBe('user_a');
+    expect(findUserByLinkInEvents('lnk_b')).toBe('user_b');
   });
 
-  it('ignores collections in terminal statuses', () => {
-    createDocCollection({ collectionId: 'dc_done', userId: 'user_done', status: 'completed' });
-    expect(findDocCollectionUserForWebhook()).toBeNull();
+  it('ignores events with NULL user_id even if link_id matches', () => {
+    // A previously-stored task-status-updated that itself failed to resolve
+    // must not seed the lookup back into itself.
+    insertWebhookEvent({ userId: null, webhookId: 'wh_orphan', eventType: 'task-status-updated', payload: { link_id: 'lnk_orphan' } });
+    expect(findUserByLinkInEvents('lnk_orphan')).toBeNull();
   });
 
-  it('returns the most recently created active collection when multiple exist', () => {
-    // Known demo limitation: concurrent sessions will misattribute to the latest.
-    // This test pins the current behavior so any future fix is a deliberate change.
-    createDocCollection({ collectionId: 'dc_old', userId: 'user_old', status: 'created' });
-    // sqlite created_at has second resolution; force ordering with an explicit later timestamp
+  it('returns the most recent matching event when several exist', () => {
+    // The same link could have been associated with different users across re-runs;
+    // pick the most recent so resolution tracks the active session.
+    insertWebhookEvent({ userId: 'user_old', webhookId: 'wh_old', eventType: 'link-connected', payload: { link_id: 'lnk_x' } });
     memDb.prepare(
-      "UPDATE document_collections SET created_at = datetime('now', '-10 seconds') WHERE id = 'dc_old'",
+      "UPDATE webhook_events SET received_at = datetime('now', '-10 seconds') WHERE webhook_id = 'wh_old'",
     ).run();
-    createDocCollection({ collectionId: 'dc_new', userId: 'user_new', status: 'finalizing' });
+    insertWebhookEvent({ userId: 'user_new', webhookId: 'wh_new', eventType: 'link-connected', payload: { link_id: 'lnk_x' } });
 
-    expect(findDocCollectionUserForWebhook()).toBe('user_new');
+    expect(findUserByLinkInEvents('lnk_x')).toBe('user_new');
+  });
+
+  it('does not match events whose payload has a different link_id', () => {
+    insertWebhookEvent({ userId: 'user_a', webhookId: 'wh_a', eventType: 'link-connected', payload: { link_id: 'lnk_a' } });
+    expect(findUserByLinkInEvents('lnk_other')).toBeNull();
   });
 });

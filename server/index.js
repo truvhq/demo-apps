@@ -86,6 +86,7 @@ app.post('/api/webhooks/truv', (req, res) => {
 
   const payload = req.body;
   let userId = payload.user_id || null;
+  const linkId = payload.link_id || null;
 
   // When an order completes, update its status in the local database
   if (userId && payload.event_type === 'order-status-updated' && payload.status === 'completed') {
@@ -93,11 +94,10 @@ app.post('/api/webhooks/truv', (req, res) => {
     if (order) db.updateOrder(order.id, { status: 'completed' });
   }
 
-  // Document collection webhooks (task-status-updated) may not include user_id.
-  // Resolve from the document_collections table so the frontend can poll for them.
-  if (!userId && payload.event_type === 'task-status-updated') {
-    userId = db.findDocCollectionUserForWebhook();
-  }
+  // task-status-updated payloads omit user_id but include link_id. Resolve via
+  // prior webhooks for the same link, which carry user_id (link-connected,
+  // statements-created, etc.) and seed the lookup as a side-effect of ingestion.
+  if (!userId && linkId) userId = db.findUserByLinkInEvents(linkId);
 
   // Persist the webhook event so the frontend can poll for it
   apiLogger.pushWebhookEvent({ userId, webhookId: payload.webhook_id, eventType: payload.event_type, status: payload.status, payload });

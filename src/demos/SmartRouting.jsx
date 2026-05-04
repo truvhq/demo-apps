@@ -45,6 +45,11 @@ import { DIAGRAM } from '../diagrams/smart-routing.js';
 // --- Imports: scaffolding (steps, method definitions, intro config, picker components) ---
 import { STEPS, METHODS, INTRO_SLIDE_CONFIG, MethodCards, MethodPicker } from './scaffolding/smart-routing.jsx';
 
+// Screens form a forward-only flow: never roll back from a later phase to an earlier one.
+const SCREEN_FLOW = ['select', 'choose', 'waiting', 'review'];
+const atLeastScreen = (current, target) =>
+  SCREEN_FLOW.indexOf(current) >= SCREEN_FLOW.indexOf(target) ? current : target;
+
 // --- Component: SmartRoutingDemo ---
 export function SmartRoutingDemo() {
   // Component state: screen phase, form visibility, form data, routing recommendation
@@ -80,8 +85,16 @@ export function SmartRoutingDemo() {
     webhooks: panel.webhooks,
     pollOnceAndStop,
     webhookEvent: 'task',
-    onComplete: () => { setCurrentStep(4); setScreen('review'); },
+    onComplete: () => setScreen('review'),
   });
+
+  // Derive sidebar Guide step from screen + userId so step never desyncs from the actual
+  // phase. 'choose' covers two steps because Bridge opens as a popup over that screen:
+  // userId presence is the signal that the popup is up.
+  useEffect(() => {
+    const stepByScreen = { select: 0, choose: userId ? 2 : 1, waiting: 3, review: 4 };
+    setCurrentStep(stepByScreen[screen] ?? 0);
+  }, [screen, userId]);
 
   // Effect: documents method only. When task-status-updated:done arrives, extract
   // link_id and fetch GET /api/links/{linkId}/income. Retries up to 3 times on
@@ -108,7 +121,6 @@ export function SmartRoutingDemo() {
           // response used by payroll/bank methods.
           setDocsReport({ links: [data] });
           setDocsLoading(false);
-          setCurrentStep(4);
           setScreen('review');
           pollOnceAndStop();
         } else if (++docsRetryRef.current < 3) {
@@ -116,7 +128,6 @@ export function SmartRoutingDemo() {
         } else {
           setDocsError(true);
           setDocsLoading(false);
-          setCurrentStep(4);
           setScreen('review');
           pollOnceAndStop();
         }
@@ -128,7 +139,6 @@ export function SmartRoutingDemo() {
         } else {
           setDocsError(true);
           setDocsLoading(false);
-          setCurrentStep(4);
           setScreen('review');
           pollOnceAndStop();
         }
@@ -141,7 +151,6 @@ export function SmartRoutingDemo() {
   async function handleFormSubmit(data) {
     setFormData(data);
     setLoading(true);
-    setCurrentStep(1);
     setScreen('choose');
 
     try {
@@ -189,7 +198,6 @@ export function SmartRoutingDemo() {
 
       setUserId(data.user_id);
       startPolling(data.user_id);
-      setCurrentStep(2);
 
       // Open TruvBridge popup with callbacks for load, success, event, and close
       if (window.TruvBridge) {
@@ -201,8 +209,9 @@ export function SmartRoutingDemo() {
               { label: 'publicToken', value: publicToken },
               { label: 'meta', value: meta },
             ]);
-            setCurrentStep(3);
-            setScreen('waiting');
+            // Bridge's onSuccess can race with the docs webhook handler that already advanced
+            // the flow to 'review' — keep the latest phase instead of rolling back.
+            setScreen(prev => atLeastScreen(prev, 'waiting'));
           },
           onEvent: (type, payload) => {
             const payloadStr = payload ? 'payload' : 'undefined';

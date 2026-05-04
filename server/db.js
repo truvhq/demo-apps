@@ -201,6 +201,22 @@ export function getWebhookEventsByUserId(userId) {
   return getDb().prepare('SELECT * FROM webhook_events WHERE user_id = ? ORDER BY id ASC').all(userId);
 }
 
+// Resolves user_id for an inbound webhook that lacks one in its payload, by
+// consulting prior webhook events for the same link_id. Truv's task-status-updated
+// payloads omit user_id but include link_id, while earlier event types
+// (link-connected, statements-created, etc.) carry both — so the mapping is
+// available as a side-effect of normal webhook ingestion, with no extra schema
+// or API calls.
+export function findUserByLinkInEvents(linkId) {
+  if (!linkId) return null;
+  return getDb().prepare(`
+    SELECT user_id FROM webhook_events
+    WHERE user_id IS NOT NULL
+      AND json_extract(payload, '$.link_id') = ?
+    ORDER BY received_at DESC LIMIT 1
+  `).get(linkId)?.user_id || null;
+}
+
 
 
 // --- Reports ---
@@ -237,14 +253,6 @@ export function createDocCollection({ collectionId, truvCollectionId, userId, de
     'INSERT INTO document_collections (id, truv_collection_id, user_id, demo_id, status, raw_response) VALUES (?, ?, ?, ?, ?, ?)'
   ).run(collectionId, truvCollectionId || null, userId || null, demoId || null, status, rawResponse ? JSON.stringify(rawResponse) : null);
   return conn.prepare('SELECT * FROM document_collections WHERE id = ?').get(collectionId);
-}
-
-// Finds the user_id for a pending document collection webhook.
-// Used when a task-status-updated webhook arrives without user_id in the payload.
-export function findDocCollectionUserForWebhook() {
-  return getDb().prepare(
-    "SELECT user_id FROM document_collections WHERE user_id IS NOT NULL AND status IN ('created', 'finalizing') ORDER BY created_at DESC LIMIT 1"
-  ).get()?.user_id || null;
 }
 
 // Retrieves a document collection by its local ID.
