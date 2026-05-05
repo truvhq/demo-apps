@@ -121,7 +121,6 @@ const banks = [
   { name: 'M&T Bank', domain: 'mtb.com', customers: 6_000_000 },
   { name: 'KeyBank', domain: 'key.com', customers: 6_000_000 },
   { name: 'LPL Financial', domain: 'lpl.com', customers: 6_000_000 },
-  { name: 'Greenlight', domain: 'greenlight.com', customers: 6_000_000 },
   { name: 'BMO Harris', domain: 'bmoharris.com', customers: 5_000_000 },
   // Tier 5 — 1-5M
   { name: 'American Express', domain: 'americanexpress.com', customers: 4_000_000 },
