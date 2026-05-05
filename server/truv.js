@@ -125,6 +125,14 @@ export class TruvClient {
     return this._request('GET', `company-mappings-search/?${params}`);
   }
 
+  // Returns coverage and provider features for a single company_mapping_id.
+  // Used by the Income+PLL chained flow to pre-check PLL coverage and
+  // features.deposit_switch.max_number before creating any orders.
+  async getCompanyInfo(companyMappingId, productType) {
+    const params = productType ? `?product_type=${encodeURIComponent(productType)}` : '';
+    return this._request('GET', `companies/${companyMappingId}${params}`);
+  }
+
   // --- Orders API ---
   // Creates a Truv order. Orders are the primary integration pattern for Mortgage
   // and Public Sector demos. The payload varies based on product type: payroll
@@ -195,6 +203,62 @@ export class TruvClient {
   // Triggers a refresh of an existing order. Used when re-pulling data for an order.
   async refreshOrder(truvOrderId) {
     return this._request('POST', `orders/${truvOrderId}/refresh/`);
+  }
+
+  // --- Income + PLL chained order flow ---
+  // The VOIE and PLL orders must share order_number + company_mapping_id so the
+  // borrower's payroll auth from the VOIE step carries forward to PLL — they
+  // confirm the deposit allocation without re-authenticating.
+
+  // Creates the VOIE (income) order that drives the borrower's payroll login.
+  async createVoiePllVoieOrder({ orderNumber, externalUserId, firstName, lastName, companyMappingId }) {
+    return this._request('POST', 'orders/', {
+      json: {
+        products: ['income'],
+        order_number: orderNumber,
+        external_user_id: externalUserId,
+        first_name: firstName,
+        last_name: lastName,
+        employers: [{ company_mapping_id: companyMappingId }],
+      },
+    });
+  }
+
+  // Creates the PLL order linked to a prior VOIE order via shared order_number +
+  // company_mapping_id. The account block specifies the destination + allocation.
+  async createVoiePllPllOrder({ orderNumber, externalUserId, firstName, lastName, companyMappingId, account }) {
+    return this._request('POST', 'orders/', {
+      json: {
+        products: ['pll'],
+        order_number: orderNumber,
+        external_user_id: externalUserId,
+        first_name: firstName,
+        last_name: lastName,
+        employers: [
+          { company_mapping_id: companyMappingId },
+          { account },
+        ],
+      },
+    });
+  }
+
+  // Returns link-level metadata including is_dds_supported — Truv's verdict on
+  // whether the borrower's specific provider+config combination can complete a
+  // deposit switch. Used as the final pre-check before creating the PLL order.
+  async getLinkInfo(linkId) {
+    return this._request('GET', `links/${linkId}/`);
+  }
+
+  // Final PLL report with the confirmed deposit allocation as recorded by the
+  // payroll provider. Fetched after the borrower confirms the PLL order in Bridge.
+  async getPllReport(linkId) {
+    return this._request('GET', `links/${linkId}/pll/report/`);
+  }
+
+  // Lists all tasks (connection attempts) for a user, including provider
+  // error_message strings — invaluable for diagnosing PLL failures.
+  async getUserTasks(userId) {
+    return this._request('GET', `tasks/?user_id=${encodeURIComponent(userId)}`);
   }
 
   // --- Webhooks API ---

@@ -25,6 +25,7 @@ import reportsRoutes from './routes/reports.js';
 import bridgeRoutes from './routes/bridge.js';
 import uploadDocumentsRoutes from './routes/upload-documents.js';
 import userReportsRoutes from './routes/user-reports.js';
+import voiePllRoutes from './routes/voie-pll.js';
 
 // Configuration: read API credentials from .env and validate they exist
 const PORT = process.env.PORT || 3000;
@@ -120,6 +121,7 @@ app.use(reportsRoutes(deps));
 app.use(bridgeRoutes(deps));
 app.use(uploadDocumentsRoutes(deps));
 app.use(userReportsRoutes(deps));
+app.use(voiePllRoutes(deps));
 
 // --- Health check ---
 app.get('/api/health', (_req, res) => res.json({ ok: true }));

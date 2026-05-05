@@ -36,6 +36,7 @@ import { SmartRoutingDemo } from './demos/SmartRouting.jsx';
 import { BankIncomeDemo } from './demos/BankIncome.jsx';
 import { PayrollIncomeDemo } from './demos/PayrollIncome.jsx';
 import { PaycheckLinkedLoansDemo } from './demos/PaycheckLinkedLoans.jsx';
+import { IncomePLLChainedDemo } from './demos/IncomePLLChained.jsx';
 import { DirectDepositSwitchDemo } from './demos/DirectDepositSwitch.jsx';
 
 // INDUSTRIES registry: each entry has an id, display name, description, and a
@@ -72,6 +73,7 @@ export const INDUSTRIES = [
       { id: 'bank-income', name: 'Bank Income', component: BankIncomeDemo, desc: 'Verify applicant income from bank transactions when payroll data isn\'t available.', tags: ['financial_accounts', 'Bridge', 'Income Insights'] },
       { id: 'payroll-income', name: 'Payroll Income', component: PayrollIncomeDemo, desc: 'Verify income and employment directly from payroll data for fast lending decisions.', tags: ['payroll', 'Bridge', 'VOIE Report'] },
       { id: 'pll', name: 'Paycheck-Linked Loans', component: PaycheckLinkedLoansDemo, desc: 'Set up automatic loan repayment through payroll deductions. Verify income and configure the deduction in one flow.', tags: ['pll', 'Bridge', 'Payroll Deductions'] },
+      { id: 'income-pll', name: 'Income + PLL', component: IncomePLLChainedDemo, desc: 'OMF-style chained flow: pre-check coverage, run a VOIE order so the borrower authenticates with payroll, then create a linked PLL order with the same order_number — they confirm without re-authenticating.', tags: ['Orders', 'Coverage', 'is_dds_supported', 'PLL Report'] },
     ],
   },
   {

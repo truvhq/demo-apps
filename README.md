@@ -33,6 +33,7 @@ Demos are organized by industry. Each starts with a split intro screen (business
 | **Bank Income** | Verify applicant income from bank transactions when payroll data isn't available |
 | **Payroll Income** | Verify income and employment directly from payroll data |
 | **Paycheck-Linked Loans** | Set up automatic loan repayment through payroll deductions |
+| **Income + PLL** | Chained Orders flow with coverage and DDS pre-checks: VOIE first, then a linked PLL order that reuses the borrower's payroll session |
 
 ### Retail Banking
 
