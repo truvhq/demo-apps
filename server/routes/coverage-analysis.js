@@ -19,7 +19,8 @@ const CONCURRENCY = 5;
 const MAX_ATTEMPTS = 4;                                   // attempt budget for 5xx errors
 const BACKOFF_MS = [1000, 2000, 4000, 8000];              // 5xx backoff
 const NO_HINT_BACKOFF_MS = [5_000, 15_000, 30_000, 60_000]; // 429 with no Retry-After hint
-const MAX_RETRY_AFTER_MS = 5 * 60_000;                    // sanity cap on a single hint
+const RETRY_AFTER_BUFFER_MS = 10_000;                     // pad the API's hint to clear the window
+const MAX_RETRY_AFTER_MS = 5 * 60_000;                    // sanity cap on a single hint (post-buffer)
 const MAX_ROWS = 10_000;
 
 // Per docs: product_type ∈ income | employment | deposit_switch | pll | insurance | transactions | assets | admin.
@@ -178,11 +179,16 @@ async function lookupWithRetry({ job, row, truv, apiLogger, throttle }) {
 
     if (result.statusCode < 400) return result;
 
-    if (result.statusCode === 429) {
+    // Treat any response whose body says "Request was throttled" as a 429, even if a
+    // proxy or CDN rewrote the status — the message itself is the source of truth.
+    const throttled = result.statusCode === 429 || /request was throttled/i.test(result.data?.detail || '');
+    if (throttled) {
       const hintMs = parseRetryAfterMs(result);
       if (hintMs != null) {
+        // Pad the server hint so we don't slam the API the instant the window opens.
+        const waitMs = Math.min(hintMs + RETRY_AFTER_BUFFER_MS, MAX_RETRY_AFTER_MS);
         if (!throttle.gate) {
-          throttle.gate = sleep(hintMs).then(() => { throttle.gate = null; });
+          throttle.gate = sleep(waitMs).then(() => { throttle.gate = null; });
         }
         await throttle.gate;
         noHintAttempt = 0;
