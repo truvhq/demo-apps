@@ -206,12 +206,14 @@ async function lookupWithRetry({ job, row, truv, apiLogger, throttle }) {
         // Pad the server hint so we don't slam the API the instant the window opens.
         const waitMs = Math.min(hintMs + RETRY_AFTER_BUFFER_MS, MAX_RETRY_AFTER_MS);
         if (!throttle.gate) {
+          console.log(`COVERAGE: throttled, opening gate for ${waitMs}ms (hint=${hintMs}ms +10s buffer)`);
           throttle.gate = sleep(waitMs).then(() => { throttle.gate = null; });
         }
         await throttle.gate;
         noHintAttempt = 0;
       } else {
         const idx = Math.min(noHintAttempt, NO_HINT_BACKOFF_MS.length - 1);
+        console.log(`COVERAGE: throttled (no hint), waiting ${NO_HINT_BACKOFF_MS[idx]}ms`);
         await sleep(NO_HINT_BACKOFF_MS[idx]);
         noHintAttempt++;
       }
