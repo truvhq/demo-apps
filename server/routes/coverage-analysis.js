@@ -140,9 +140,28 @@ async function runJob({ job, truv, apiLogger }) {
   const workers = Array.from({ length: Math.min(CONCURRENCY, job.results.length) }, () => worker());
   await Promise.all(workers);
 
+  // Outer safety net: throttling must never be a final outcome. If any row ended up
+  // with a throttle-like error message (whether from a stale code path, a proxy quirk,
+  // or a future regression), re-run those rows sequentially after the cooldown clears.
+  // Loops until either no throttled rows remain or the safety counter trips.
+  for (let pass = 0; pass < 50; pass++) {
+    const stuck = job.results.filter(r => r.status === 'error' && THROTTLE_TEXT.test(r.error || ''));
+    if (stuck.length === 0) break;
+    if (throttle.gate) await throttle.gate;
+    for (const row of stuck) {
+      job.processed--;
+      row.error = null;
+      row.status = 'pending';
+      await processRow(row);
+      job.processed++;
+    }
+  }
+
   job.status = 'completed';
   job.completed_at = Date.now();
 }
+
+const THROTTLE_TEXT = /throttled|rate[-_ ]?limit|too many requests/i;
 
 // Calls the right Truv search method. Returns when the row gets a non-429 response;
 // 429s loop forever (with the API's own Retry-After hint, or escalating backoff if absent),
@@ -219,7 +238,7 @@ function isThrottled(result) {
   const data = result.data;
   if (!data || typeof data !== 'object') return false;
   const candidates = [data.detail, data.message, data.error?.message, data.error?.detail];
-  return candidates.some(s => typeof s === 'string' && /throttled|rate[-_ ]?limit|too many requests/i.test(s));
+  return candidates.some(s => typeof s === 'string' && THROTTLE_TEXT.test(s));
 }
 
 // Reads the API's retry hint from either the Retry-After header or any body field
