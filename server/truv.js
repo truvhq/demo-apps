@@ -49,7 +49,13 @@ export class TruvClient {
     }
 
     console.log(`TRUV: ${method.toUpperCase()} ${url} — ${response.status} (${durationMs}ms)`);
-    return { statusCode: response.status, data, durationMs, requestBody: json || null };
+    return {
+      statusCode: response.status,
+      data,
+      durationMs,
+      requestBody: json || null,
+      retryAfter: response.headers.get('retry-after'),
+    };
   }
 
   // --- Users API ---

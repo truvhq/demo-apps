@@ -16,8 +16,7 @@ import { serializeCsv } from '../lib/csv.js';
 const CONCURRENCY = 5;
 const MAX_ATTEMPTS = 4;
 const BACKOFF_MS = [1000, 2000, 4000, 8000];
-const COOLDOWN_MS = 5000;
-const COOLDOWN_TRIGGER = 3; // consecutive 429s
+const MAX_RETRY_AFTER_MS = 30_000; // cap server-suggested waits so a misbehaving API can't hang us
 const MAX_ROWS = 10_000;
 
 // Per docs: product_type ∈ income | employment | deposit_switch | pll | insurance | transactions | assets | admin.
@@ -106,8 +105,9 @@ export default function coverageAnalysisRoutes({ truv, apiLogger }) {
 async function runJob({ job, truv, apiLogger }) {
   let cursor = 0;
   // Shared throttle state. `gate` is a Promise that, when set, every worker awaits before its
-  // next attempt — so a cooldown pauses the whole pool, not just the worker that tripped it.
-  const throttle = { consecutive: 0, gate: null };
+  // next attempt — so a 429 with a Retry-After hint pauses the whole pool, not just the
+  // worker that tripped it.
+  const throttle = { gate: null };
 
   async function processRow(row) {
     if (!row.input_name) {
@@ -184,31 +184,25 @@ async function lookupWithRetry({ job, row, truv, apiLogger, throttle }) {
       durationMs: result.durationMs,
     });
 
-    if (result.statusCode < 400) {
-      throttle.consecutive = 0;
-      return result;
-    }
+    if (result.statusCode < 400) return result;
 
     if ((result.statusCode === 429 || result.statusCode >= 500) && attempt < MAX_ATTEMPTS - 1) {
       if (result.statusCode === 429) {
-        throttle.consecutive++;
-        if (throttle.consecutive >= COOLDOWN_TRIGGER && !throttle.gate) {
-          // Trip the cooldown for the entire worker pool.
-          throttle.gate = sleep(COOLDOWN_MS).then(() => {
-            throttle.gate = null;
-            throttle.consecutive = 0;
-          });
+        // Honor the API's own retry hint. If present, every worker waits for it via the
+        // shared gate; otherwise this worker just does its per-attempt backoff.
+        const hintMs = parseRetryAfterMs(result);
+        if (hintMs != null && !throttle.gate) {
+          throttle.gate = sleep(hintMs).then(() => { throttle.gate = null; });
         }
       }
-      // Wait for the global cooldown if it's open; otherwise per-attempt backoff.
       if (throttle.gate) await throttle.gate;
       else await sleep(BACKOFF_MS[attempt]);
       continue;
     }
 
-    // 4xx other than 429, or retryable error on the final attempt — not retryable.
+    // 4xx other than 429, or retryable error on the final attempt — not retryable here.
     if (result.statusCode === 429) {
-      const err = new Error('rate limited (retries exhausted)');
+      const err = new Error(result.data?.detail || 'rate limited (retries exhausted)');
       err.throttled = true;
       throw err;
     }
@@ -218,6 +212,25 @@ async function lookupWithRetry({ job, row, truv, apiLogger, throttle }) {
   const err = new Error('max retries exceeded');
   err.throttled = true;
   throw err;
+}
+
+// Reads the API's retry hint from either the Retry-After header or DRF's
+// "Request was throttled. Expected available in N seconds." detail string.
+// Returns milliseconds, capped, or null if no hint is present.
+function parseRetryAfterMs(result) {
+  const header = result.retryAfter;
+  if (header) {
+    const seconds = Number(header);
+    if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1000, MAX_RETRY_AFTER_MS);
+    const dateMs = Date.parse(header);
+    if (Number.isFinite(dateMs)) return Math.min(Math.max(0, dateMs - Date.now()), MAX_RETRY_AFTER_MS);
+  }
+  const detail = result.data?.detail;
+  if (typeof detail === 'string') {
+    const match = detail.match(/(\d+)\s*seconds?/i);
+    if (match) return Math.min(Number(match[1]) * 1000, MAX_RETRY_AFTER_MS);
+  }
+  return null;
 }
 
 // Map a Truv response onto the row's status/match_* fields.
