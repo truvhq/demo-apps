@@ -104,7 +104,6 @@ export default function coverageAnalysisRoutes({ truv, apiLogger }) {
 // Each worker performs one Truv lookup per row, with retries + cooldown after consecutive 429s.
 async function runJob({ job, truv, apiLogger }) {
   let cursor = 0;
-  let consecutive429 = 0;
   const consecutiveLock = { value: 0 };
 
   async function worker() {
@@ -167,22 +166,21 @@ async function lookupWithRetry({ job, row, truv, apiLogger, consecutiveLock }) {
       return result;
     }
 
-    if (result.statusCode === 429) {
-      consecutiveLock.value++;
-      if (consecutiveLock.value >= COOLDOWN_TRIGGER) {
-        await sleep(COOLDOWN_MS);
-        consecutiveLock.value = 0;
+    if ((result.statusCode === 429 || result.statusCode >= 500) && attempt < MAX_ATTEMPTS - 1) {
+      // After many 429s in a row, swap the per-attempt backoff for a longer cooldown.
+      let waitMs = BACKOFF_MS[attempt];
+      if (result.statusCode === 429) {
+        consecutiveLock.value++;
+        if (consecutiveLock.value >= COOLDOWN_TRIGGER) {
+          waitMs = COOLDOWN_MS;
+          consecutiveLock.value = 0;
+        }
       }
+      await sleep(waitMs);
+      continue;
     }
 
-    if (result.statusCode === 429 || result.statusCode >= 500) {
-      if (attempt < MAX_ATTEMPTS - 1) {
-        await sleep(BACKOFF_MS[attempt]);
-        continue;
-      }
-    }
-
-    // 4xx other than 429 — not retryable.
+    // 4xx other than 429, or retryable error on the final attempt — not retryable.
     const msg = result.data?.error?.message || result.data?.detail || `HTTP ${result.statusCode}`;
     throw new Error(msg);
   }
