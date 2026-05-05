@@ -179,10 +179,9 @@ async function lookupWithRetry({ job, row, truv, apiLogger, throttle }) {
 
     if (result.statusCode < 400) return result;
 
-    // Treat any response whose body says "Request was throttled" as a 429, even if a
-    // proxy or CDN rewrote the status — the message itself is the source of truth.
-    const throttled = result.statusCode === 429 || /request was throttled/i.test(result.data?.detail || '');
-    if (throttled) {
+    // Treat any response that mentions throttling/rate-limiting as a 429, even if a
+    // proxy or CDN rewrote the status code or the message lives in a non-standard field.
+    if (isThrottled(result)) {
       const hintMs = parseRetryAfterMs(result);
       if (hintMs != null) {
         // Pad the server hint so we don't slam the API the instant the window opens.
@@ -212,8 +211,19 @@ async function lookupWithRetry({ job, row, truv, apiLogger, throttle }) {
   }
 }
 
-// Reads the API's retry hint from either the Retry-After header or DRF's
-// "Request was throttled. Expected available in N seconds." detail string.
+// True if the response is rate-limit-like: a 429 status, or a body whose detail/error/
+// message field mentions throttling. Belt-and-suspenders against proxies that rewrite
+// the status and against API quirks that put the throttle message in non-standard fields.
+function isThrottled(result) {
+  if (result.statusCode === 429) return true;
+  const data = result.data;
+  if (!data || typeof data !== 'object') return false;
+  const candidates = [data.detail, data.message, data.error?.message, data.error?.detail];
+  return candidates.some(s => typeof s === 'string' && /throttled|rate[-_ ]?limit|too many requests/i.test(s));
+}
+
+// Reads the API's retry hint from either the Retry-After header or any body field
+// matching DRF's "Request was throttled. Expected available in N seconds." string.
 // Returns milliseconds, capped, or null if no hint is present.
 function parseRetryAfterMs(result) {
   const header = result.retryAfter;
@@ -223,9 +233,10 @@ function parseRetryAfterMs(result) {
     const dateMs = Date.parse(header);
     if (Number.isFinite(dateMs)) return Math.min(Math.max(0, dateMs - Date.now()), MAX_RETRY_AFTER_MS);
   }
-  const detail = result.data?.detail;
-  if (typeof detail === 'string') {
-    const match = detail.match(/(\d+)\s*seconds?/i);
+  const candidates = [result.data?.detail, result.data?.message, result.data?.error?.message, result.data?.error?.detail];
+  for (const text of candidates) {
+    if (typeof text !== 'string') continue;
+    const match = text.match(/(\d+)\s*seconds?/i);
     if (match) return Math.min(Number(match[1]) * 1000, MAX_RETRY_AFTER_MS);
   }
   return null;
