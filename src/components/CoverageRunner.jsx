@@ -1,5 +1,5 @@
 /**
- * FILE SUMMARY: CoverageRunner — shared bulk-CSV runner for Payroll & Bank Coverage demos.
+ * FILE SUMMARY: CoverageRunner — shared bulk-CSV runner for Payroll & Financial Accounts Coverage demos.
  * DATA FLOW: Browser file picker --> POST /api/coverage/:kind/jobs --> poll GET .../jobs/:id
  *            --> render live progress + results table --> GET .../jobs/:id/csv on export.
  */
@@ -144,7 +144,7 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
   return (
     <div class="px-8 py-10 max-w-[1100px] w-full mx-auto">
       <div class="mb-8">
-        <h2 class="text-2xl font-bold text-[#171717]">{kind === 'payroll' ? 'Payroll Coverage Analysis' : 'Bank Coverage Analysis'}</h2>
+        <h2 class="text-2xl font-bold text-[#171717]">{kind === 'payroll' ? 'Payroll Coverage Analysis' : 'Financial Accounts Coverage Analysis'}</h2>
         <p class="text-sm text-[#6b7280] mt-1">Upload up to 10,000 {kind === 'payroll' ? 'employers' : 'financial institutions'} and we will look up each one against the Truv {kind === 'payroll' ? 'company-mappings-search' : 'providers'} endpoint.</p>
       </div>
 

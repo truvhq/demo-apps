@@ -45,7 +45,7 @@ Demos are organized by industry. Each starts with a split intro screen (business
 | Demo | What it shows |
 |------|---------------|
 | **Payroll Coverage** | Upload up to 10,000 employers and bulk-check Truv coverage via `company-mappings-search`. Rate-limited and retried |
-| **Bank Coverage** | Upload up to 10,000 financial institutions and bulk-check Truv coverage via `providers` (data_source=financial_accounts) |
+| **Financial Accounts Coverage** | Upload up to 10,000 financial institutions and bulk-check Truv coverage via `providers` (data_source=financial_accounts) |
 
 The two Coverage Analysis demos ship with sample CSVs (`public/samples/employer_sample.csv`, `public/samples/bank_sample.csv`). Jobs run in-memory on the backend with concurrency 5 and exponential-backoff retries on 429s — there is no DB persistence, so a server restart cancels in-flight jobs.
 

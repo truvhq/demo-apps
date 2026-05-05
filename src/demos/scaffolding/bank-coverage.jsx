@@ -1,4 +1,4 @@
-// Presentation scaffolding for the Bank Coverage Analysis demo.
+// Presentation scaffolding for the Financial Accounts Coverage Analysis demo.
 
 export const PRODUCT_OPTIONS = [
   { value: 'transactions', label: 'Bank transactions (transactions)' },

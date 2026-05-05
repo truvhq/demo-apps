@@ -1,5 +1,5 @@
 /**
- * FILE SUMMARY: Coverage Analysis: Bank Coverage demo.
+ * FILE SUMMARY: Coverage Analysis: Financial Accounts Coverage demo.
  * INTEGRATION PATTERN: Bulk lookup; no Bridge or webhooks.
  * DATA FLOW:
  *   1. POST /api/coverage/bank/jobs        : enqueue rows, returns { job_id }
@@ -26,7 +26,7 @@ export function BankCoverageDemo() {
   const isIntro = screen === 'select';
 
   return (
-    <Layout badge="Bank Coverage" steps={STEPS} panel={panel} hidePanel={isIntro}>
+    <Layout badge="Financial Accounts Coverage" steps={STEPS} panel={panel} hidePanel={isIntro}>
       <div class={isIntro ? 'flex-1 flex flex-col' : 'flex-1 overflow-y-auto'}>
         {isIntro ? (
           <IntroSlide
