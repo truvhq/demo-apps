@@ -102,42 +102,65 @@ export default function coverageAnalysisRoutes({ truv, apiLogger }) {
 
 // Runs a job to completion: spawns CONCURRENCY workers that pull from a shared cursor.
 // Each worker performs one Truv lookup per row, with retries + cooldown after consecutive 429s.
+// Rows that exhaust retries due to rate limiting get a second pass after the cooldown clears.
 async function runJob({ job, truv, apiLogger }) {
   let cursor = 0;
-  const consecutiveLock = { value: 0 };
+  // Shared throttle state. `gate` is a Promise that, when set, every worker awaits before its
+  // next attempt — so a cooldown pauses the whole pool, not just the worker that tripped it.
+  const throttle = { consecutive: 0, gate: null };
+
+  async function processRow(row) {
+    if (!row.input_name) {
+      row.status = 'error';
+      row.error = 'missing name';
+      row.confidence = 'n/a';
+      return;
+    }
+    try {
+      const lookup = await lookupWithRetry({ job, row, truv, apiLogger, throttle });
+      applyResult(job, row, lookup);
+    } catch (err) {
+      row.status = 'error';
+      row.error = err.message || String(err);
+      row._throttled = err.throttled === true;
+    }
+  }
 
   async function worker() {
     while (cursor < job.results.length) {
       const i = cursor++;
-      const row = job.results[i];
-      if (!row.input_name) {
-        row.status = 'error';
-        row.error = 'missing name';
-        row.confidence = 'n/a';
-        job.processed++;
-        continue;
-      }
-
-      try {
-        const lookup = await lookupWithRetry({ job, row, truv, apiLogger, consecutiveLock });
-        applyResult(job, row, lookup);
-      } catch (err) {
-        row.status = 'error';
-        row.error = err.message || String(err);
-      }
+      await processRow(job.results[i]);
       job.processed++;
     }
   }
 
   const workers = Array.from({ length: Math.min(CONCURRENCY, job.results.length) }, () => worker());
   await Promise.all(workers);
+
+  // Second pass: rows whose retries were exhausted by 429s get one more chance,
+  // sequentially so we don't immediately re-trip the rate limit.
+  const throttled = job.results.filter(r => r._throttled);
+  for (const row of throttled) {
+    if (throttle.gate) await throttle.gate;
+    job.processed--;
+    row._throttled = false;
+    row.error = null;
+    row.status = 'pending';
+    await processRow(row);
+    job.processed++;
+  }
+  for (const row of job.results) delete row._throttled;
+
   job.status = 'completed';
   job.completed_at = Date.now();
 }
 
 // Calls the right Truv search method with retry/backoff.
-async function lookupWithRetry({ job, row, truv, apiLogger, consecutiveLock }) {
+async function lookupWithRetry({ job, row, truv, apiLogger, throttle }) {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    // Respect a global cooldown opened by any worker.
+    if (throttle.gate) await throttle.gate;
+
     const result = job.kind === 'payroll'
       ? await truv.lookupCompany({
           name: row.input_name,
@@ -162,29 +185,39 @@ async function lookupWithRetry({ job, row, truv, apiLogger, consecutiveLock }) {
     });
 
     if (result.statusCode < 400) {
-      consecutiveLock.value = 0;
+      throttle.consecutive = 0;
       return result;
     }
 
     if ((result.statusCode === 429 || result.statusCode >= 500) && attempt < MAX_ATTEMPTS - 1) {
-      // After many 429s in a row, swap the per-attempt backoff for a longer cooldown.
-      let waitMs = BACKOFF_MS[attempt];
       if (result.statusCode === 429) {
-        consecutiveLock.value++;
-        if (consecutiveLock.value >= COOLDOWN_TRIGGER) {
-          waitMs = COOLDOWN_MS;
-          consecutiveLock.value = 0;
+        throttle.consecutive++;
+        if (throttle.consecutive >= COOLDOWN_TRIGGER && !throttle.gate) {
+          // Trip the cooldown for the entire worker pool.
+          throttle.gate = sleep(COOLDOWN_MS).then(() => {
+            throttle.gate = null;
+            throttle.consecutive = 0;
+          });
         }
       }
-      await sleep(waitMs);
+      // Wait for the global cooldown if it's open; otherwise per-attempt backoff.
+      if (throttle.gate) await throttle.gate;
+      else await sleep(BACKOFF_MS[attempt]);
       continue;
     }
 
     // 4xx other than 429, or retryable error on the final attempt — not retryable.
+    if (result.statusCode === 429) {
+      const err = new Error('rate limited (retries exhausted)');
+      err.throttled = true;
+      throw err;
+    }
     const msg = result.data?.error?.message || result.data?.detail || `HTTP ${result.statusCode}`;
     throw new Error(msg);
   }
-  throw new Error('max retries exceeded');
+  const err = new Error('max retries exceeded');
+  err.throttled = true;
+  throw err;
 }
 
 // Map a Truv response onto the row's status/match_* fields.
