@@ -65,7 +65,7 @@ function buildApp({ truv, apiLogger, db }) {
       apiLogger.logApiCall({
         sessionId: req.query.session_id,
         method: 'GET',
-        endpoint: `/v1/providers/?search=${query}`,
+        endpoint: `/v1/providers/?query=${query}`,
         responseBody: result.data,
         statusCode: result.statusCode,
         durationMs: result.durationMs,
