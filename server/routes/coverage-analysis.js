@@ -22,6 +22,12 @@ const NO_HINT_BACKOFF_MS = [5_000, 15_000, 30_000, 60_000]; // 429 with no Retry
 const RETRY_AFTER_BUFFER_MS = 10_000;                     // pad the API's hint to clear the window
 const MAX_RETRY_AFTER_MS = 5 * 60_000;                    // sanity cap on a single hint (post-buffer)
 const MAX_ROWS = 10_000;
+const JOB_TTL_MS = 30 * 60_000;                           // evict completed/failed jobs after 30 min
+const JOB_SWEEP_INTERVAL_MS = 5 * 60_000;
+const OUTER_SWEEP_MAX_PASSES = 50;
+
+// Used by both the inner detector and the outer post-pass sweep.
+const THROTTLE_TEXT = /throttled|rate[-_ ]?limit|too many requests/i;
 
 // Per docs: product_type ∈ income | employment | deposit_switch | pll | insurance | transactions | assets | admin.
 // Bank coverage is keyed off data_source=financial_accounts, so the relevant products are transactions + assets.
@@ -37,6 +43,19 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 export default function coverageAnalysisRoutes({ truv, apiLogger }) {
   const router = Router();
   const jobs = new Map();
+
+  // Evict finished jobs so the in-memory store doesn't grow without bound across uploads.
+  // Runs in the background; running jobs are never evicted.
+  const sweepInterval = setInterval(() => {
+    const cutoff = Date.now() - JOB_TTL_MS;
+    for (const [id, job] of jobs) {
+      if (job.status === 'completed' || job.status === 'failed') {
+        const finishedAt = job.completed_at || job.created_at;
+        if (finishedAt < cutoff) jobs.delete(id);
+      }
+    }
+  }, JOB_SWEEP_INTERVAL_MS);
+  sweepInterval.unref?.();
 
   // POST /api/coverage/:kind/jobs — accept rows + product type, kick off async processing.
   router.post('/api/coverage/:kind/jobs', (req, res) => {
@@ -115,7 +134,6 @@ async function runJob({ job, truv, apiLogger }) {
     if (!row.input_name) {
       row.status = 'error';
       row.error = 'missing name';
-      row.confidence = 'n/a';
       return;
     }
     try {
@@ -144,7 +162,8 @@ async function runJob({ job, truv, apiLogger }) {
   // with a throttle-like error message (whether from a stale code path, a proxy quirk,
   // or a future regression), re-run those rows sequentially after the cooldown clears.
   // Loops until either no throttled rows remain or the safety counter trips.
-  for (let pass = 0; pass < 50; pass++) {
+  let pass = 0;
+  for (; pass < OUTER_SWEEP_MAX_PASSES; pass++) {
     const stuck = job.results.filter(r => r.status === 'error' && THROTTLE_TEXT.test(r.error || ''));
     if (stuck.length === 0) break;
     if (throttle.gate) await throttle.gate;
@@ -156,12 +175,14 @@ async function runJob({ job, truv, apiLogger }) {
       job.processed++;
     }
   }
+  if (pass === OUTER_SWEEP_MAX_PASSES) {
+    const remaining = job.results.filter(r => r.status === 'error' && THROTTLE_TEXT.test(r.error || '')).length;
+    if (remaining > 0) console.warn(`Coverage job ${job.id}: ${remaining} rows still throttle-errored after ${OUTER_SWEEP_MAX_PASSES} sweep passes; giving up`);
+  }
 
   job.status = 'completed';
   job.completed_at = Date.now();
 }
-
-const THROTTLE_TEXT = /throttled|rate[-_ ]?limit|too many requests/i;
 
 // Calls the right Truv search method. Returns when the row gets a non-429 response;
 // 429s loop forever (with the API's own Retry-After hint, or escalating backoff if absent),
@@ -260,6 +281,9 @@ function parseRetryAfterMs(result) {
   }
   return null;
 }
+
+// Exported for tests. Production code uses these via the route handler closure.
+export { runJob, lookupWithRetry, isThrottled, parseRetryAfterMs, MAX_RETRY_AFTER_MS, NO_HINT_BACKOFF_MS, RETRY_AFTER_BUFFER_MS };
 
 // Map a Truv response onto the row's status/match_* fields.
 // Uses the API's own confidence_level + success_rate verbatim, no derivation.
