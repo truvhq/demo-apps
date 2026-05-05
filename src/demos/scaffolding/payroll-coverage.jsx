@@ -8,14 +8,14 @@ export const PRODUCT_OPTIONS = [
 ];
 
 export const STEPS = [
-  { title: 'Pick product & download sample', guide: '<p>Choose the Truv product you want to check coverage for. Each row in your CSV is sent to:</p><pre>GET /v1/company-mappings-search/?query={name}&product_type={product}</pre><p>Use the bundled sample CSV to see the expected format. Columns:</p><ul><li><code>name</code> — required</li><li><code>state</code> — optional, used in the report only</li><li><code>domain</code> — optional, used to score match confidence</li></ul>' },
+  { title: 'Pick product & download sample', guide: '<p>Choose the Truv product you want to check coverage for. Each row in your CSV is sent to:</p><pre>POST /v1/companies/\n{ "name": "...", "domain": "...", "state": "...", "product_type": "..." }</pre><p>Use the bundled sample CSV to see the expected format. Columns:</p><ul><li><code>name</code> — required</li><li><code>state</code> — optional, used in the report only</li><li><code>domain</code> — optional, used to score match confidence</li></ul>' },
   { title: 'Upload CSV', guide: '<p>Up to 10,000 rows. The file is parsed in the browser, then forwarded to:</p><pre>POST /api/coverage/payroll/jobs</pre><p>The server queues the rows and returns a <code>job_id</code> immediately.</p>' },
-  { title: 'Batched lookups with retries', guide: '<p>The server processes 5 rows in parallel. Each call respects rate limits with exponential backoff (1s → 2s → 4s → 8s) on 429 / 5xx responses. After 3 consecutive 429s the job pauses for 5s before resuming.</p>' },
+  { title: 'Batched lookups with retries', guide: '<p>The server processes 5 rows in parallel. On 429 responses every worker honors the API\'s <code>Retry-After</code> hint via a shared cooldown gate (plus a 10s buffer), so the whole pool waits through the throttle window together. 5xx responses fall back to exponential backoff (1s → 2s → 4s → 8s).</p>' },
   { title: 'Review & export', guide: '<p>Once the job completes, filter rows by status and download the results CSV:</p><pre>GET /api/coverage/payroll/jobs/{id}/csv</pre><p>Each row carries match metadata and a confidence score (high / medium / low) based on whether the input domain matches the matched company\'s domain.</p>' },
 ];
 
 export const INTRO_SLIDE_CONFIG = {
   label: 'Coverage Analysis . Payroll',
   title: 'Bulk-check employer coverage',
-  subtitle: 'Upload up to 10,000 employers and see which ones Truv can verify income, employment, deposit-switch, or paycheck-linked-loans for. Hit company-mappings-search at scale with built-in rate limiting and retries.',
+  subtitle: 'Upload up to 10,000 employers and see which ones Truv can verify income, employment, deposit-switch, or paycheck-linked-loans for. Hit /v1/companies/ at scale with built-in rate limiting and retries.',
 };

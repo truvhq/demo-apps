@@ -89,8 +89,8 @@ export const INDUSTRIES = [
     name: 'Coverage Analysis',
     desc: 'Bulk-check Truv coverage for thousands of employers or financial institutions in one upload. Rate-limited and retried so you can run an entire book of business in minutes.',
     demos: [
-      { id: 'payroll-coverage', name: 'Payroll Coverage', component: PayrollCoverageDemo, desc: 'Upload a CSV of up to 10,000 employers and see which ones Truv supports for income, employment, deposit-switch, or paycheck-linked-loans.', tags: ['Bulk', 'company-mappings-search', 'CSV', 'Rate-limited'] },
-      { id: 'bank-coverage', name: 'Financial Accounts Coverage', component: BankCoverageDemo, desc: 'Upload a CSV of up to 10,000 financial accounts and see which ones Truv can connect to via Bridge for income insights, PLL, or deposit-switch.', tags: ['Bulk', 'providers', 'financial_accounts', 'CSV'] },
+      { id: 'payroll-coverage', name: 'Payroll Coverage', component: PayrollCoverageDemo, desc: 'Upload a CSV of up to 10,000 employers and see which ones Truv supports for income, employment, deposit-switch, or paycheck-linked-loans.', tags: ['Bulk', 'companies', 'CSV', 'Rate-limited'] },
+      { id: 'bank-coverage', name: 'Financial Accounts Coverage', component: BankCoverageDemo, desc: 'Upload a CSV of up to 10,000 financial accounts and see which ones Truv can connect to for transactions or assets data.', tags: ['Bulk', 'providers', 'financial_accounts', 'CSV'] },
     ],
   },
 ];
