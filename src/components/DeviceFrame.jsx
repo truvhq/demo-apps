@@ -6,27 +6,101 @@
  * The mode (mobile/desktop) is owned by the shared useDeviceMode() hook so the
  * top-bar toggle and the rendered frame stay in sync.
  *
+ * IMPORTANT — reconciliation stability:
+ * The JSX tree from <DeviceFrame> down to {children} is intentionally identical
+ * across modes (5 nested <div>s with the same indices); only class strings and
+ * the contents of sibling slots differ. This keeps Preact from unmounting the
+ * subtree on toggle, so a child that mounts an iframe imperatively (e.g. the
+ * Bridge widget container) survives mode switches without being torn down.
+ * Helper components like MobileFrame/DesktopFrame would have different types
+ * at the same VDOM position and force a remount, so the chrome is inlined.
+ *
  * Hand-rolled in Preact + Tailwind. The popular React mockup libs
  * (react-device-mockup, react-browser-frame) are React-only and would require
  * adding preact/compat aliasing just for visual chrome — not worth the weight.
  */
 
 import { useDeviceMode } from '../hooks/useDeviceMode.js';
+import { useRegisterDeviceFrame } from '../hooks/deviceFramePresence.jsx';
 
 export function DeviceFrame({ children, url = 'demo.example.com' }) {
   const [mode] = useDeviceMode();
-  // Mobile: center the fixed-size phone frame. Desktop: fill the parent column
-  // both horizontally and vertically (no centering, frame grows to the edges).
-  if (mode === 'mobile') {
-    return (
-      <div class="flex flex-col items-center w-full pt-2 pb-6">
-        <MobileFrame>{children}</MobileFrame>
-      </div>
-    );
-  }
+  const isMobile = mode === 'mobile';
+  // Tell the layout that a frame is present so the mobile/desktop toggle in
+  // the top bar appears only when it actually controls something on screen.
+  useRegisterDeviceFrame();
+
+  // Class strings per layer. Layer order is fixed; only classes (and chrome-bar
+  // contents) vary across modes — this is what keeps the tree reconcilable.
+  // Mobile outer is itself a flex child that takes all available main height
+  // (flex-1 min-h-0) so the phone bezel can scale down to fit short viewports
+  // instead of pushing the page into a scroll.
+  const outerClass = isMobile
+    ? 'flex flex-col items-center w-full pt-2 pb-6 flex-1 min-h-0'
+    : 'flex w-full h-full';
+  // Mobile: gray phone bezel with phone-shaped aspect ratio; height tries to
+  // hit the original 804px but caps at 100% of outer (max-h-full) so it shrinks
+  // on short viewports. Width follows from aspect-ratio. Desktop: invisible
+  // flex passthrough so the inner "screen" fills the column.
+  const frameClass = isMobile
+    ? 'relative bg-gray-900 rounded-[2.75rem] p-3 shadow-2xl h-[804px] max-h-full max-w-full aspect-[414/804]'
+    : 'flex flex-1 w-full';
+  const overlayTopClass = isMobile
+    ? 'absolute top-5 left-1/2 -translate-x-1/2 w-32 h-7 bg-black rounded-full z-10'
+    : 'hidden';
+  // Mobile: white phone screen filling the bezel (size driven by frame above).
+  // Desktop: browser window chrome.
+  const screenClass = isMobile
+    ? 'bg-white rounded-[2.25rem] overflow-hidden h-full w-full flex flex-col relative'
+    : 'bg-gray-100 rounded-xl shadow-2xl overflow-hidden w-full border border-gray-200 flex flex-col flex-1 min-h-[640px]';
+  // Mobile: empty status-bar reserve. Desktop: traffic lights + URL bar (rendered below).
+  const chromeBarClass = isMobile
+    ? 'h-12 flex-shrink-0'
+    : 'bg-gray-200 px-4 py-2.5 flex items-center gap-3 border-b border-gray-300 flex-shrink-0';
+  // `content` is a flex column so the inner wrap (a flex item with flex-1)
+  // gets a definite height — necessary for h-full on iframe children to resolve.
+  // Without flex-col, flex-item heights are treated as indefinite for percentage
+  // resolution and h-full collapses to 0 (display:contents and bare h-full both
+  // hit this).
+  // No padding here on purpose: the iframe child fills edge-to-edge so Bridge
+  // gets the full viewport. Forms inside the iframe add their own padding.
+  const contentClass = isMobile
+    ? 'flex flex-col flex-1 overflow-y-auto'
+    : 'bg-white flex flex-col flex-1 overflow-y-auto';
+  // Both modes: fill the full content area horizontally and vertically. The
+  // iframe inside owns its own internal max-width for forms.
+  const innerWrapClass = 'flex-1 w-full';
+  const overlayBottomClass = isMobile
+    ? 'absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-black rounded-full'
+    : 'hidden';
+
   return (
-    <div class="flex w-full h-full">
-      <DesktopFrame url={url}>{children}</DesktopFrame>
+    <div class={outerClass}>
+      <div class={frameClass}>
+        <div class={overlayTopClass} aria-hidden="true" />
+        <div class={screenClass}>
+          <div class={chromeBarClass} aria-hidden={isMobile ? 'true' : undefined}>
+            {!isMobile && (
+              <>
+                <div class="flex gap-1.5">
+                  <span class="w-3 h-3 rounded-full bg-red-400" />
+                  <span class="w-3 h-3 rounded-full bg-yellow-400" />
+                  <span class="w-3 h-3 rounded-full bg-green-400" />
+                </div>
+                <div class="flex-1 mx-2 bg-white rounded-md px-3 py-1 text-xs text-gray-500 truncate font-mono">
+                  {url}
+                </div>
+              </>
+            )}
+          </div>
+          <div class={contentClass}>
+            <div class={innerWrapClass}>
+              {children}
+            </div>
+          </div>
+          <div class={overlayBottomClass} aria-hidden="true" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -55,46 +129,6 @@ export function DeviceToggle() {
       >
         <DesktopIcon /> Desktop
       </button>
-    </div>
-  );
-}
-
-function MobileFrame({ children }) {
-  return (
-    <div class="relative bg-gray-900 rounded-[2.75rem] p-3 shadow-2xl">
-      <div class="absolute top-5 left-1/2 -translate-x-1/2 w-32 h-7 bg-black rounded-full z-10" />
-      <div class="bg-white rounded-[2.25rem] overflow-hidden w-[390px] h-[780px] flex flex-col relative">
-        <div class="h-12 flex-shrink-0" aria-hidden="true" />
-        <div class="flex-1 overflow-y-auto px-6 pt-2 pb-10">
-          {children}
-        </div>
-        <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-black rounded-full" />
-      </div>
-    </div>
-  );
-}
-
-// Desktop browser chrome — fills the full width and height of the main column.
-// The inner page applies its own max-width so the form doesn't stretch awkwardly
-// across a wide viewport, but the chrome itself reads as a real browser window.
-function DesktopFrame({ children, url }) {
-  return (
-    <div class="bg-gray-100 rounded-xl shadow-2xl overflow-hidden w-full border border-gray-200 flex flex-col flex-1 min-h-[640px]">
-      <div class="bg-gray-200 px-4 py-2.5 flex items-center gap-3 border-b border-gray-300 flex-shrink-0">
-        <div class="flex gap-1.5">
-          <span class="w-3 h-3 rounded-full bg-red-400" />
-          <span class="w-3 h-3 rounded-full bg-yellow-400" />
-          <span class="w-3 h-3 rounded-full bg-green-400" />
-        </div>
-        <div class="flex-1 mx-2 bg-white rounded-md px-3 py-1 text-xs text-gray-500 truncate font-mono">
-          {url}
-        </div>
-      </div>
-      <div class="bg-white px-12 py-10 flex-1 overflow-y-auto">
-        <div class="max-w-lg mx-auto">
-          {children}
-        </div>
-      </div>
     </div>
   );
 }

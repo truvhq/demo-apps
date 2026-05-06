@@ -15,6 +15,7 @@ import { useState } from 'preact/hooks';
 import { Panel, TabButton } from './Panel.jsx';
 import { Icons } from './Icons.jsx';
 import { DeviceToggle } from './DeviceFrame.jsx';
+import { useHasDeviceFrame } from '../hooks/deviceFramePresence.jsx';
 
 // Props:
 //   badge       : label shown next to the logo (e.g. "Smart Routing")
@@ -25,6 +26,7 @@ import { DeviceToggle } from './DeviceFrame.jsx';
 //   children    : main content area
 export function Layout({ badge, steps, panel, flush, hidePanel, children }) {
   const [activeTab, setActiveTab] = useState('guide');
+  const hasDeviceFrame = useHasDeviceFrame();
   const apiLogs = panel?.apiLogs || [];
   const bridgeEvents = panel?.bridgeEvents || [];
   const webhooks = panel?.webhooks || [];
@@ -47,10 +49,13 @@ export function Layout({ badge, steps, panel, flush, hidePanel, children }) {
         </div>
         {!hidePanel && (
           <>
-            {/* Device toggle in the main column, near the right edge before the panel split */}
-            <div class="px-4">
-              <DeviceToggle />
-            </div>
+            {/* Device toggle: only shown when a DeviceFrame is currently mounted
+                somewhere in the tree (auto-detected via deviceFramePresence). */}
+            {hasDeviceFrame && (
+              <div class="px-4">
+                <DeviceToggle />
+              </div>
+            )}
             {/* Panel tab nav — width matches Panel's `w-1/3` so it sits over the sidebar column */}
             <div class="w-1/3 min-w-0 border-l border-border/40 flex items-center gap-0.5 px-5 h-full">
               {tabs.map(t => (

@@ -10,11 +10,10 @@
  *   5a. payroll/bank: GET /api/users/:userId/reports/:type
  *   5b. documents:    GET /api/links/:linkId/income (link-based, link_id from webhook)
  *
- * This is the canonical example for Consumer Credit demos using the Bridge flow.
- * The system checks employer payroll coverage and recommends the fastest path:
- * payroll, bank transactions, or document upload. The applicant can override.
- * Document upload uses the link-scoped report endpoint because docs-only links
- * have no user-level VOIE task to drive POST /v1/users/{id}/reports/.
+ * The DeviceFrame contents (form, method picker, Bridge widget) are rendered
+ * inside an isolated iframe (`/preview.html`) and driven over postMessage. This
+ * lets Bridge run in its native modal mode without `position: 'inline'` and
+ * keeps the demo viewport visually independent from the host shell.
  *
  * Scaffolding: ./scaffolding/smart-routing.jsx
  * Diagrams:    ../diagrams/smart-routing.js
@@ -22,7 +21,7 @@
  * WHAT TO COPY (for your own Truv integration):
  *   - handleFormSubmit()    : checks employer coverage via GET /api/companies for routing
  *   - handleMethodSelect()  : creates a bridge token via POST /api/bridge-token
- *   - TruvBridge.init()     : opens the Bridge widget with data_sources
+ *   - TruvBridge.init()     : opens the Bridge widget with data_sources (see preview/components/BridgePreview.jsx)
  *   - useReportFetch()      : watches webhooks and fetches reports
  */
 
@@ -32,9 +31,9 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 // --- Imports: shared layout, components, hooks, and API base URL ---
 import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch, parsePayload } from '../components/index.js';
 
-// --- Imports: reusable form component + device-frame preview wrapper ---
-import { ApplicationForm } from '../components/ApplicationForm.jsx';
+// --- Imports: device-frame preview wrapper + iframe channel hook ---
 import { DeviceFrame } from '../components/DeviceFrame.jsx';
+import { usePreviewIframe } from '../hooks/usePreviewIframe.js';
 
 // --- Imports: report display components ---
 import { VoieReport } from '../components/reports/VoieReport.jsx';
@@ -44,7 +43,7 @@ import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport
 import { DIAGRAM } from '../diagrams/smart-routing.js';
 
 // --- Imports: scaffolding (steps, method definitions, intro config, picker components) ---
-import { STEPS, METHODS, INTRO_SLIDE_CONFIG, MethodCards, MethodPicker } from './scaffolding/smart-routing.jsx';
+import { STEPS, METHODS, INTRO_SLIDE_CONFIG, MethodCards } from './scaffolding/smart-routing.jsx';
 
 // Screens form a forward-only flow: never roll back from a later phase to an earlier one.
 const SCREEN_FLOW = ['select', 'choose', 'waiting', 'review'];
@@ -68,12 +67,10 @@ export function SmartRoutingDemo() {
   // the report has to be retrieved per-link instead.
   const [docsReport, setDocsReport] = useState(null);
   const [docsError, setDocsError] = useState(false);
-  // Bridge SDK is mounted inline inside the DeviceFrame; bridgeOpts holds the
-  // init options once a bridge_token is fetched, then a useEffect attaches the
-  // widget to bridgeContainerRef. Without this, TruvBridge defaults to modal
-  // mode and overlays the entire page outside the device frame.
-  const [bridgeOpts, setBridgeOpts] = useState(null);
-  const bridgeContainerRef = useRef(null);
+  // Bridge widget lives inside the preview iframe; the host only tracks the token.
+  // The iframe initializes TruvBridge with this token and forwards SDK events back.
+  const [bridgeToken, setBridgeToken] = useState(null);
+  const iframeRef = useRef(null);
   const [docsLoading, setDocsLoading] = useState(false);
   const docsFetchedRef = useRef(false);
   const docsRetryRef = useRef(0);
@@ -96,8 +93,8 @@ export function SmartRoutingDemo() {
   });
 
   // Derive sidebar Guide step from screen + userId so step never desyncs from the actual
-  // phase. 'choose' covers two steps because Bridge opens as a popup over that screen:
-  // userId presence is the signal that the popup is up.
+  // phase. 'choose' covers two steps because Bridge opens over that screen:
+  // userId presence is the signal that the widget is up.
   useEffect(() => {
     const stepByScreen = { select: 0, choose: userId ? 2 : 1, waiting: 3, review: 4 };
     setCurrentStep(stepByScreen[screen] ?? 0);
@@ -152,19 +149,6 @@ export function SmartRoutingDemo() {
       });
   }, [panel.webhooks, userId, isDocumentsMethod]);
 
-  // Effect: mount the TruvBridge widget inline inside the DeviceFrame whenever
-  // bridgeOpts is set. Cleanup on unmount or when opts change so reopening with
-  // a different method doesn't leave the previous widget around.
-  useEffect(() => {
-    if (!bridgeOpts || !bridgeContainerRef.current || !window.TruvBridge) return;
-    const b = window.TruvBridge.init({
-      ...bridgeOpts,
-      position: { type: 'inline', container: bridgeContainerRef.current },
-    });
-    b.open();
-    return () => { try { b.close(); } catch {} };
-  }, [bridgeOpts]);
-
   // Handler: check employer payroll coverage via GET /api/companies to determine recommendation.
   // success_rate "high" recommends payroll, otherwise bank, no results falls back to documents.
   // See: https://docs.truv.com/reference/company_autocomplete_search
@@ -193,8 +177,9 @@ export function SmartRoutingDemo() {
     setLoading(false);
   }
 
-  // Handler: create bridge token via POST /api/bridge-token and open TruvBridge popup.
-  // data_sources restricts which providers Bridge shows (payroll, financial_accounts, or docs).
+  // Handler: create bridge token via POST /api/bridge-token and hand it to the
+  // preview iframe to open the Bridge widget. data_sources restricts which
+  // providers Bridge shows (payroll, financial_accounts, or docs).
   // See: https://docs.truv.com/reference/users_tokens
   async function handleMethodSelect(method) {
     setSelectedMethod(method);
@@ -218,36 +203,64 @@ export function SmartRoutingDemo() {
 
       setUserId(data.user_id);
       startPolling(data.user_id);
-
-      // Stash the Bridge init options. The actual TruvBridge.init() call happens
-      // in a useEffect below that runs once bridgeContainerRef is mounted, so the
-      // widget renders inline inside the DeviceFrame instead of as a body-level modal.
-      if (window.TruvBridge) {
-        setBridgeOpts({
-          bridgeToken: data.bridge_token,
-          onLoad: () => addBridgeEvent('onLoad()', null),
-          onSuccess: (publicToken, meta) => {
-            addBridgeEvent('onSuccess(publicToken, meta)', [
-              { label: 'publicToken', value: publicToken },
-              { label: 'meta', value: meta },
-            ]);
-            // Bridge's onSuccess can race with the docs webhook handler that already advanced
-            // the flow to 'review' — keep the latest phase instead of rolling back.
-            setScreen(prev => atLeastScreen(prev, 'waiting'));
-          },
-          onEvent: (type, payload) => {
-            const payloadStr = payload ? 'payload' : 'undefined';
-            addBridgeEvent(`onEvent("${type}", ${payloadStr})`, payload ? [{ label: 'payload', value: payload }] : null);
-          },
-          onClose: () => {
-            addBridgeEvent('onClose()', null);
-            setBridgeOpts(null);
-          },
-        });
-      }
+      setBridgeToken(data.bridge_token);
     } catch (e) { console.error(e); }
     setLoading(false);
   }
+
+  // Preview iframe channel: maps user/SDK events from inside the iframe back to
+  // host state changes. The iframe never closes over host functions — events
+  // travel as plain { name, args } messages and the host re-binds them here.
+  const sendPreview = usePreviewIframe(iframeRef, {
+    'form:submit': (data) => handleFormSubmit(data),
+    'method:select': (id) => {
+      const method = METHODS.find(m => m.id === id);
+      if (method) handleMethodSelect(method);
+    },
+    'nav:back': () => {
+      setFormData(null);
+      setRecommended(null);
+      setScreen('select');
+      setShowForm(true);
+    },
+    'bridge:onLoad': () => addBridgeEvent('onLoad()', null),
+    'bridge:onEvent': (type, payload) => {
+      const payloadStr = payload ? 'payload' : 'undefined';
+      addBridgeEvent(`onEvent("${type}", ${payloadStr})`, payload ? [{ label: 'payload', value: payload }] : null);
+    },
+    'bridge:onSuccess': (publicToken, meta) => {
+      addBridgeEvent('onSuccess(publicToken, meta)', [
+        { label: 'publicToken', value: publicToken },
+        { label: 'meta', value: meta },
+      ]);
+      // Bridge's onSuccess can race with the docs webhook handler that already advanced
+      // the flow to 'review' — keep the latest phase instead of rolling back.
+      setScreen(prev => atLeastScreen(prev, 'waiting'));
+    },
+    'bridge:onClose': () => {
+      addBridgeEvent('onClose()', null);
+      setBridgeToken(null);
+    },
+  });
+
+  // Drive the preview iframe from host state. A single source of truth: whenever
+  // any of these inputs change, the host issues a render command and the iframe
+  // swaps in the matching component.
+  useEffect(() => {
+    if (screen === 'select' && showForm) {
+      sendPreview('application-form', { sessionId, productType: 'income', submitting: loading });
+      return;
+    }
+    if (screen === 'choose') {
+      if (bridgeToken) {
+        sendPreview('bridge', { bridgeToken });
+      } else if (loading && !recommended) {
+        sendPreview('loading', { label: 'Checking coverage...', subtitle: 'Evaluating payroll coverage for the employer' });
+      } else {
+        sendPreview('method-picker', { recommended, loading });
+      }
+    }
+  }, [screen, showForm, bridgeToken, loading, recommended, sessionId, sendPreview]);
 
   // Handler: reset all state to start over
   function resetDemo() {
@@ -262,13 +275,14 @@ export function SmartRoutingDemo() {
     setShowForm(false);
     setFormData(null);
     setRecommended(null);
-    setBridgeOpts(null);
+    setBridgeToken(null);
     setSelectedMethod(null);
     setUserId(null);
   }
 
   // Derived state: layout flag
   const isIntro = screen === 'select' && !showForm;
+  const showDeviceFrame = (screen === 'select' && showForm) || screen === 'choose';
 
   // --- Render: state-driven screen routing ---
   return (
@@ -292,36 +306,17 @@ export function SmartRoutingDemo() {
         </div>
       )}
 
-      {/* Application form: collects applicant PII and employer for coverage check */}
-      {screen === 'select' && showForm && (
+      {/* Application form + method picker + Bridge widget all live inside the preview
+          iframe. The host swaps the iframe's content via postMessage as state evolves;
+          a single iframe element persists across the select → choose transition. */}
+      {showDeviceFrame && (
         <DeviceFrame url="smart-routing.example.com">
-          <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="income" />
-        </DeviceFrame>
-      )}
-
-      {/* Method picker: shows recommended method based on employer coverage. When a method
-          is picked, bridgeOpts is set and the picker is replaced by an inline TruvBridge
-          mount point so the widget renders inside the DeviceFrame instead of as a modal. */}
-      {screen === 'choose' && (
-        <DeviceFrame url="smart-routing.example.com">
-          {bridgeOpts ? (
-            <div ref={bridgeContainerRef} class="w-full h-full min-h-[600px] [&_iframe]:w-full [&_iframe]:!h-full [&_iframe]:border-none" />
-          ) : loading && !recommended ? (
-            <div class="text-center py-16">
-              <div class="w-12 h-12 border-[3px] border-[#d2d2d7] border-t-primary rounded-full animate-spin mx-auto mb-6" />
-              <h2 class="text-2xl font-semibold tracking-tight mb-2">Checking coverage...</h2>
-              <p class="text-[15px] text-[#8E8E93]">Evaluating payroll coverage for the employer</p>
-            </div>
-          ) : (
-            <>
-              <h2 class="text-2xl font-bold tracking-tight mb-1.5">Choose verification method</h2>
-              <p class="text-sm text-gray-500 leading-relaxed mb-7">Based on employer coverage, we recommend a method. You can pick any.</p>
-              <MethodPicker methods={METHODS} recommended={recommended} onSelect={handleMethodSelect} loading={loading} />
-              <button onClick={() => { setFormData(null); setRecommended(null); setScreen('select'); setShowForm(true); }} class="mt-6 text-sm text-[#8E8E93] hover:text-primary">
-                &larr; Back to application
-              </button>
-            </>
-          )}
+          <iframe
+            ref={iframeRef}
+            src="/preview.html"
+            title="Demo preview"
+            class="w-full h-full block border-0 bg-white"
+          />
         </DeviceFrame>
       )}
 
