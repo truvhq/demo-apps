@@ -12,9 +12,10 @@
 // Preact state hook
 import { useState } from 'preact/hooks';
 
-// TabButton: individual tab selector in the panel header.
-// Shows label text and optional count badge for items in that tab.
-function TabButton({ active, label, count, onClick }) {
+// TabButton: individual tab selector. Shared between Panel (the sidebar content
+// area) and Layout (the unified top bar). Exported so Layout can render the same
+// pill in its top bar.
+export function TabButton({ active, label, count, onClick }) {
   return (
     <button
       onClick={onClick}
@@ -201,33 +202,14 @@ function tryFormat(s) {
   try { return JSON.stringify(JSON.parse(str), null, 2); } catch { return str; }
 }
 
-// Panel: main exported sidebar component. Consumes all polled data from usePanel()
-// and renders it across four tabs. The panel prop contains currentStep, apiLogs,
-// bridgeEvents, webhooks, and tunnelUrl.
-export function Panel({ steps, panel }) {
-  // Active tab state: defaults to Guide tab
-  const [activeTab, setActiveTab] = useState('guide');
+// Panel: sidebar content area. The tab navigation now lives in Layout's top bar,
+// so Panel just receives the active tab as a prop and renders the matching content.
+export function Panel({ steps, panel, activeTab }) {
   // Destructure polled data from usePanel() with safe defaults
   const { currentStep = 0, apiLogs = [], bridgeEvents = [], webhooks = [], tunnelUrl = null } = panel || {};
 
-  // Tab definitions with counts for API, Bridge, and Webhooks tabs
-  const tabs = [
-    { id: 'guide', label: 'Guide' },
-    { id: 'api', label: 'API', count: apiLogs.length },
-    { id: 'bridge', label: 'Bridge', count: bridgeEvents.length },
-    { id: 'webhooks', label: 'Webhooks', count: webhooks.length },
-  ];
-
-  // Render: sidebar with tab header and scrollable content area
   return (
     <aside class="w-1/3 min-w-0 border-l border-border bg-white flex flex-col overflow-hidden">
-      {/* Tab navigation bar */}
-      <div class="flex gap-0.5 px-5 py-4 border-b border-border">
-        {tabs.map(t => (
-          <TabButton key={t.id} active={activeTab === t.id} label={t.label} count={t.count} onClick={() => setActiveTab(t.id)} />
-        ))}
-      </div>
-      {/* Tab content area: renders the active tab's component */}
       <div class="flex-1 overflow-y-auto px-5 py-4">
         {activeTab === 'guide' && <GuideTab steps={steps || []} currentStep={currentStep} />}
         {activeTab === 'api' && <ApiTab logs={apiLogs} />}

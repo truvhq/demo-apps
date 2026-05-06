@@ -32,8 +32,9 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 // --- Imports: shared layout, components, hooks, and API base URL ---
 import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch, parsePayload } from '../components/index.js';
 
-// --- Imports: reusable form component ---
+// --- Imports: reusable form component + device-frame preview wrapper ---
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
+import { DeviceFrame } from '../components/DeviceFrame.jsx';
 
 // --- Imports: report display components ---
 import { VoieReport } from '../components/reports/VoieReport.jsx';
@@ -67,6 +68,12 @@ export function SmartRoutingDemo() {
   // the report has to be retrieved per-link instead.
   const [docsReport, setDocsReport] = useState(null);
   const [docsError, setDocsError] = useState(false);
+  // Bridge SDK is mounted inline inside the DeviceFrame; bridgeOpts holds the
+  // init options once a bridge_token is fetched, then a useEffect attaches the
+  // widget to bridgeContainerRef. Without this, TruvBridge defaults to modal
+  // mode and overlays the entire page outside the device frame.
+  const [bridgeOpts, setBridgeOpts] = useState(null);
+  const bridgeContainerRef = useRef(null);
   const [docsLoading, setDocsLoading] = useState(false);
   const docsFetchedRef = useRef(false);
   const docsRetryRef = useRef(0);
@@ -145,6 +152,19 @@ export function SmartRoutingDemo() {
       });
   }, [panel.webhooks, userId, isDocumentsMethod]);
 
+  // Effect: mount the TruvBridge widget inline inside the DeviceFrame whenever
+  // bridgeOpts is set. Cleanup on unmount or when opts change so reopening with
+  // a different method doesn't leave the previous widget around.
+  useEffect(() => {
+    if (!bridgeOpts || !bridgeContainerRef.current || !window.TruvBridge) return;
+    const b = window.TruvBridge.init({
+      ...bridgeOpts,
+      position: { type: 'inline', container: bridgeContainerRef.current },
+    });
+    b.open();
+    return () => { try { b.close(); } catch {} };
+  }, [bridgeOpts]);
+
   // Handler: check employer payroll coverage via GET /api/companies to determine recommendation.
   // success_rate "high" recommends payroll, otherwise bank, no results falls back to documents.
   // See: https://docs.truv.com/reference/company_autocomplete_search
@@ -199,9 +219,11 @@ export function SmartRoutingDemo() {
       setUserId(data.user_id);
       startPolling(data.user_id);
 
-      // Open TruvBridge popup with callbacks for load, success, event, and close
+      // Stash the Bridge init options. The actual TruvBridge.init() call happens
+      // in a useEffect below that runs once bridgeContainerRef is mounted, so the
+      // widget renders inline inside the DeviceFrame instead of as a body-level modal.
       if (window.TruvBridge) {
-        const opts = {
+        setBridgeOpts({
           bridgeToken: data.bridge_token,
           onLoad: () => addBridgeEvent('onLoad()', null),
           onSuccess: (publicToken, meta) => {
@@ -217,9 +239,11 @@ export function SmartRoutingDemo() {
             const payloadStr = payload ? 'payload' : 'undefined';
             addBridgeEvent(`onEvent("${type}", ${payloadStr})`, payload ? [{ label: 'payload', value: payload }] : null);
           },
-          onClose: () => addBridgeEvent('onClose()', null),
-        };
-        window.TruvBridge.init(opts).open();
+          onClose: () => {
+            addBridgeEvent('onClose()', null);
+            setBridgeOpts(null);
+          },
+        });
       }
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -238,6 +262,7 @@ export function SmartRoutingDemo() {
     setShowForm(false);
     setFormData(null);
     setRecommended(null);
+    setBridgeOpts(null);
     setSelectedMethod(null);
     setUserId(null);
   }
@@ -248,9 +273,9 @@ export function SmartRoutingDemo() {
   // --- Render: state-driven screen routing ---
   return (
     <Layout badge="Smart Routing" steps={STEPS} panel={panel} hidePanel={isIntro}>
-      <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
-        {/* Intro slide: method cards overview + architecture diagram */}
-        {screen === 'select' && !showForm && (
+      {/* Intro slide: method cards overview + architecture diagram */}
+      {screen === 'select' && !showForm && (
+        <div class="flex-1 flex flex-col">
           <IntroSlide
             label={INTRO_SLIDE_CONFIG.label}
             title={<>Find the fastest<br />verification path</>}
@@ -264,72 +289,80 @@ export function SmartRoutingDemo() {
           >
             <MethodCards />
           </IntroSlide>
-        )}
+        </div>
+      )}
 
-        {/* Application form: collects applicant PII and employer for coverage check */}
-        {screen === 'select' && showForm && (
-          <div class="max-w-lg mx-auto px-8 py-10">
-            <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="income" />
-          </div>
-        )}
+      {/* Application form: collects applicant PII and employer for coverage check */}
+      {screen === 'select' && showForm && (
+        <DeviceFrame url="smart-routing.example.com">
+          <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="income" />
+        </DeviceFrame>
+      )}
 
-        {/* Method picker: shows recommended method based on employer coverage */}
-        {screen === 'choose' && (
-          <div>
-            {loading && !recommended ? (
-              <div class="text-center py-16">
-                <div class="w-12 h-12 border-[3px] border-[#d2d2d7] border-t-primary rounded-full animate-spin mx-auto mb-6" />
-                <h2 class="text-2xl font-semibold tracking-tight mb-2">Checking coverage...</h2>
-                <p class="text-[15px] text-[#8E8E93]">Evaluating payroll coverage for the employer</p>
-              </div>
+      {/* Method picker: shows recommended method based on employer coverage. When a method
+          is picked, bridgeOpts is set and the picker is replaced by an inline TruvBridge
+          mount point so the widget renders inside the DeviceFrame instead of as a modal. */}
+      {screen === 'choose' && (
+        <DeviceFrame url="smart-routing.example.com">
+          {bridgeOpts ? (
+            <div ref={bridgeContainerRef} class="w-full h-full min-h-[600px] [&_iframe]:w-full [&_iframe]:!h-full [&_iframe]:border-none" />
+          ) : loading && !recommended ? (
+            <div class="text-center py-16">
+              <div class="w-12 h-12 border-[3px] border-[#d2d2d7] border-t-primary rounded-full animate-spin mx-auto mb-6" />
+              <h2 class="text-2xl font-semibold tracking-tight mb-2">Checking coverage...</h2>
+              <p class="text-[15px] text-[#8E8E93]">Evaluating payroll coverage for the employer</p>
+            </div>
+          ) : (
+            <>
+              <h2 class="text-2xl font-bold tracking-tight mb-1.5">Choose verification method</h2>
+              <p class="text-sm text-gray-500 leading-relaxed mb-7">Based on employer coverage, we recommend a method. You can pick any.</p>
+              <MethodPicker methods={METHODS} recommended={recommended} onSelect={handleMethodSelect} loading={loading} />
+              <button onClick={() => { setFormData(null); setRecommended(null); setScreen('select'); setShowForm(true); }} class="mt-6 text-sm text-[#8E8E93] hover:text-primary">
+                &larr; Back to application
+              </button>
+            </>
+          )}
+        </DeviceFrame>
+      )}
+
+      {/* Waiting screen: webhook polling spinner until task completes */}
+      {screen === 'waiting' && (
+        <div class="max-w-lg mx-auto w-full">
+          <WaitingScreen webhooks={panel.webhooks} />
+        </div>
+      )}
+
+      {/* Review screen: displays income or income_insights report based on method.
+          Documents method renders the link-based VoieReport from docsReport state. */}
+      {screen === 'review' && (
+        <div class="max-w-lg mx-auto w-full">
+          <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Report</h2>
+          <p class="text-sm text-gray-500 mb-7">{selectedMethod?.name} verification</p>
+          {isDocumentsMethod ? (
+            docsLoading ? (
+              <div class="text-center py-10"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>
             ) : (
-              <>
-                <h2 class="text-2xl font-bold tracking-tight mb-1.5">Choose verification method</h2>
-                <p class="text-sm text-gray-500 leading-relaxed mb-7">Based on employer coverage, we recommend a method. You can pick any.</p>
-                <MethodPicker methods={METHODS} recommended={recommended} onSelect={handleMethodSelect} loading={loading} />
-                <button onClick={() => { setFormData(null); setRecommended(null); setScreen('select'); setShowForm(true); }} class="mt-6 text-sm text-[#8E8E93] hover:text-primary">
-                  &larr; Back to application
-                </button>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Waiting screen: webhook polling spinner until task completes */}
-        {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}
-
-        {/* Review screen: displays income or income_insights report based on method.
-            Documents method renders the link-based VoieReport from docsReport state. */}
-        {screen === 'review' && (
-          <div>
-            <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Report</h2>
-            <p class="text-sm text-gray-500 mb-7">{selectedMethod?.name} verification</p>
-            {isDocumentsMethod ? (
-              docsLoading ? (
-                <div class="text-center py-10"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>
-              ) : (
-                <div>
-                  {docsReport && <VoieReport report={docsReport} />}
-                  {docsError && <p class="text-sm text-red-500 mb-4">Income report unavailable. Try starting over.</p>}
-                  <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-                    <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
-                  </div>
-                </div>
-              )
-            ) : reports && !reportLoading ? (
               <div>
-                {reports.income_insights && <IncomeInsightsReport report={reports.income_insights} />}
-                {reports.income && <VoieReport report={reports.income} />}
+                {docsReport && <VoieReport report={docsReport} />}
+                {docsError && <p class="text-sm text-red-500 mb-4">Income report unavailable. Try starting over.</p>}
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
                   <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
                 </div>
               </div>
-            ) : (
-              <div class="text-center py-10"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>
-            )}
-          </div>
-        )}
-      </div>
+            )
+          ) : reports && !reportLoading ? (
+            <div>
+              {reports.income_insights && <IncomeInsightsReport report={reports.income_insights} />}
+              {reports.income && <VoieReport report={reports.income} />}
+              <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
+                <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
+              </div>
+            </div>
+          ) : (
+            <div class="text-center py-10"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>
+          )}
+        </div>
+      )}
     </Layout>
   );
 }

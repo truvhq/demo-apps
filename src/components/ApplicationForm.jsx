@@ -50,7 +50,7 @@ export function ApplicationForm({ onSubmit, submitting, productType, showEmploye
   };
 
   // Render: PII collection form with name fields, employer/institution search, contact info,
-  // terms checkbox, and submit button
+  // terms checkbox, and submit button.
   return (
     <form onSubmit={handleSubmit}>
       <h2 class="text-2xl font-bold tracking-tight mb-7">Tell us about yourself</h2>
