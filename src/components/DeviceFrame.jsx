@@ -49,10 +49,11 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
     ? 'absolute top-5 left-1/2 -translate-x-1/2 w-32 h-7 bg-black rounded-full z-10'
     : 'hidden';
   // Mobile: white phone screen filling the bezel (size driven by frame above).
-  // Desktop: browser window chrome.
+  // Desktop: browser window chrome — fills outer's height exactly so any scroll
+  // happens inside the iframe rather than on the host page.
   const screenClass = isMobile
     ? 'bg-white rounded-[2.25rem] overflow-hidden h-full w-full flex flex-col relative'
-    : 'bg-gray-100 rounded-xl shadow-2xl overflow-hidden w-full border border-gray-200 flex flex-col flex-1 min-h-[640px]';
+    : 'bg-gray-100 rounded-xl shadow-2xl overflow-hidden w-full border border-gray-200 flex flex-col flex-1 min-h-0';
   // Mobile: empty status-bar reserve. Desktop: traffic lights + URL bar (rendered below).
   const chromeBarClass = isMobile
     ? 'h-12 flex-shrink-0'
@@ -64,9 +65,12 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
   // hit this).
   // No padding here on purpose: the iframe child fills edge-to-edge so Bridge
   // gets the full viewport. Forms inside the iframe add their own padding.
+  // No overflow-y-auto here either: the iframe is sized exactly via h-full and
+  // the iframe document handles its own scrolling, so a host-side scroll would
+  // just be redundant (and at extreme sizes can cause a double scrollbar).
   const contentClass = isMobile
-    ? 'flex flex-col flex-1 overflow-y-auto'
-    : 'bg-white flex flex-col flex-1 overflow-y-auto';
+    ? 'flex flex-col flex-1'
+    : 'bg-white flex flex-col flex-1';
   // Both modes: fill the full content area horizontally and vertically. The
   // iframe inside owns its own internal max-width for forms.
   const innerWrapClass = 'flex-1 w-full';
