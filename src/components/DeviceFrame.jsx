@@ -21,7 +21,14 @@
  */
 
 import { useDeviceMode } from '../hooks/useDeviceMode.js';
+import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
 import { useRegisterDeviceFrame } from '../hooks/deviceFramePresence.jsx';
+
+// Shared classes for the segmented top-bar toggles (DeviceToggle, PanelToggle).
+const segBase = 'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium transition cursor-pointer';
+const segActive = 'bg-white shadow-sm text-gray-900';
+const segInactive = 'text-gray-500 hover:text-gray-700';
+const segGroup = 'flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-md';
 
 export function DeviceFrame({ children, url = 'demo.example.com' }) {
   const [mode] = useDeviceMode();
@@ -112,15 +119,12 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
 // Used by Layout's top bar so the toggle sits next to the panel tabs.
 export function DeviceToggle() {
   const [mode, setMode] = useDeviceMode();
-  const baseClass = 'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium transition cursor-pointer';
-  const activeClass = 'bg-white shadow-sm text-gray-900';
-  const inactiveClass = 'text-gray-500 hover:text-gray-700';
   return (
-    <div class="flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-md">
+    <div class={segGroup}>
       <button
         type="button"
         onClick={() => setMode('mobile')}
-        class={`${baseClass} ${mode === 'mobile' ? activeClass : inactiveClass}`}
+        class={`${segBase} ${mode === 'mobile' ? segActive : segInactive}`}
         aria-pressed={mode === 'mobile'}
       >
         <MobileIcon /> Mobile
@@ -128,12 +132,58 @@ export function DeviceToggle() {
       <button
         type="button"
         onClick={() => setMode('desktop')}
-        class={`${baseClass} ${mode === 'desktop' ? activeClass : inactiveClass}`}
+        class={`${segBase} ${mode === 'desktop' ? segActive : segInactive}`}
         aria-pressed={mode === 'desktop'}
       >
         <DesktopIcon /> Desktop
       </button>
     </div>
+  );
+}
+
+// Show / Hide split into two labeled buttons that are placed in different
+// regions of the layout but visually anchored to the same physical spot:
+//   - ShowPanelButton lives in the main top-bar toolbar; visible only when the
+//     panel is hidden, so it occupies the right-edge slot.
+//   - HidePanelButton lives at the right end of the panel's tab strip (header
+//     strip on lg+, overlay strip below lg); visible only when the panel is
+//     shown, so it occupies the same right-edge slot from the panel's side.
+// The chevron sits on the side of the label that points where the panel will
+// move — left chevron + label for "expand leftward", label + right chevron for
+// "collapse rightward" — so the affordance reads at a glance.
+// Each button self-gates on usePanelVisibility() so callers can drop both into
+// their respective layout slots without conditionals — only one ever renders.
+const panelBtnClass = 'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition cursor-pointer';
+
+export function ShowPanelButton() {
+  const [visible, setVisible] = usePanelVisibility();
+  if (visible) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => setVisible(true)}
+      class={panelBtnClass}
+      aria-label="Show dev panel"
+    >
+      <ConsoleIcon />
+      <span>Dev</span>
+    </button>
+  );
+}
+
+export function HidePanelButton() {
+  const [visible, setVisible] = usePanelVisibility();
+  if (!visible) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => setVisible(false)}
+      class={panelBtnClass}
+      aria-label="Close dev panel"
+      title="Close dev panel"
+    >
+      <CloseIcon />
+    </button>
   );
 }
 
@@ -152,6 +202,25 @@ function DesktopIcon() {
       <rect x="2" y="3" width="20" height="14" rx="2" />
       <line x1="8" y1="21" x2="16" y2="21" />
       <line x1="12" y1="17" x2="12" y2="21" />
+    </svg>
+  );
+}
+
+// Terminal-style glyph: caret + underline, signalling "developer console".
+function ConsoleIcon() {
+  return (
+    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="4 17 10 11 4 5" />
+      <line x1="12" y1="19" x2="20" y2="19" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   );
 }
