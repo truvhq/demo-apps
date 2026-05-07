@@ -104,20 +104,6 @@ export default function ordersRoutes({ truv, db, apiLogger }) {
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 
-  // POST /api/orders/:id/refresh: Trigger a data refresh for an existing order at Truv.
-  // Flow: look up DB -> POST /v1/orders/:truv_order_id/refresh/ -> return Truv response.
-  router.post('/api/orders/:id/refresh', async (req, res) => {
-    try {
-      const order = db.getOrder(req.params.id);
-      if (!order) return res.status(404).json({ error: 'Order not found' });
-      if (!order.truv_order_id) return res.status(400).json({ error: 'No Truv order ID' });
-
-      const result = await truv.refreshOrder(order.truv_order_id);
-      apiLogger.logApiCall({ userId: order.user_id, method: 'POST', endpoint: `/v1/orders/${order.truv_order_id}/refresh/`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
-      res.json(result.data);
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
-  });
-
   // Export the configured router
   return router;
 }
