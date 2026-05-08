@@ -37,6 +37,8 @@ import { BankIncomeDemo } from './demos/BankIncome.jsx';
 import { PayrollIncomeDemo } from './demos/PayrollIncome.jsx';
 import { PaycheckLinkedLoansDemo } from './demos/PaycheckLinkedLoans.jsx';
 import { DirectDepositSwitchDemo } from './demos/DirectDepositSwitch.jsx';
+import { PayrollCoverageDemo } from './demos/PayrollCoverage.jsx';
+import { BankCoverageDemo } from './demos/BankCoverage.jsx';
 
 // INDUSTRIES registry: each entry has an id, display name, description, and a
 // demos array. Each demo object maps { id, name, component, desc, tags } so
@@ -80,6 +82,15 @@ export const INDUSTRIES = [
     desc: 'Acquire deposits and enable paycheck-linked lending with direct payroll connections.',
     demos: [
       { id: 'deposit-switch', name: 'Direct Deposit Switch', component: DirectDepositSwitchDemo, desc: 'Switch a customer\'s direct deposit to your bank through their payroll provider. Changes take effect on the next pay cycle.', tags: ['deposit_switch', 'Bridge', 'Payroll'] },
+    ],
+  },
+  {
+    id: 'coverage-analysis',
+    name: 'Coverage Analysis',
+    desc: 'Bulk-check Truv coverage for thousands of employers or financial institutions in one upload. Rate-limited and retried so you can run an entire book of business in minutes.',
+    demos: [
+      { id: 'payroll-coverage', name: 'Payroll Coverage', component: PayrollCoverageDemo, desc: 'Upload a CSV of up to 10,000 employers and see which ones Truv supports for income, employment, deposit-switch, or paycheck-linked-loans.', tags: ['Bulk', 'companies', 'CSV', 'Rate-limited'] },
+      { id: 'bank-coverage', name: 'Financial Accounts Coverage', component: BankCoverageDemo, desc: 'Upload a CSV of up to 10,000 financial accounts and see which ones Truv can connect to for transactions or assets data.', tags: ['Bulk', 'providers', 'financial_accounts', 'CSV'] },
     ],
   },
 ];

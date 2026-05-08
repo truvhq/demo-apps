@@ -13,6 +13,8 @@ const DEMO_ICONS = {
   'payroll-income': Icons.briefcase,
   'pll': Icons.repeat,
   'deposit-switch': Icons.arrowRightLeft,
+  'payroll-coverage': Icons.barChart,
+  'bank-coverage': Icons.search,
 };
 
 function DemoCard({ demo, industryId, index }) {
