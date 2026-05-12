@@ -35,7 +35,6 @@ export function createMockTruv(overrides = {}) {
     'searchProviders',
     'createOrder',
     'getOrder',
-    'refreshOrder',
     'createVoieReport',
     'getVoieReport',
     'createAssetsReport',
