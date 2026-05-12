@@ -1,5 +1,11 @@
 import { render } from 'preact';
 import './components/styles.css';
 import { App } from './App.jsx';
+import { DeviceFramePresenceProvider } from './hooks/deviceFramePresence.jsx';
 
-render(<App />, document.getElementById('app'));
+render(
+  <DeviceFramePresenceProvider>
+    <App />
+  </DeviceFramePresenceProvider>,
+  document.getElementById('app'),
+);

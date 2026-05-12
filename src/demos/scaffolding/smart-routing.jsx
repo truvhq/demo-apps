@@ -74,11 +74,13 @@ export function MethodPicker({ methods, recommended, onSelect, loading }) {
             }`}
           >
             <div class="flex items-center gap-3 mb-1">
-              <div class="w-9 h-9 rounded-lg bg-[#f5f5f7] border border-[#e8e8ed] flex items-center justify-center text-[#8E8E93]"><m.Icon size={18} /></div>
-              <h3 class="text-[15px] font-semibold text-[#171717]">{m.name}</h3>
-              {isRecommended && (
-                <span class="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Recommended</span>
-              )}
+              <div class="w-9 h-9 rounded-lg bg-[#f5f5f7] border border-[#e8e8ed] flex items-center justify-center text-[#8E8E93] flex-shrink-0"><m.Icon size={18} /></div>
+              <div class="min-w-0 flex-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h3 class="text-[15px] font-semibold text-[#171717]">{m.name}</h3>
+                {isRecommended && (
+                  <span class="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full whitespace-nowrap">Recommended</span>
+                )}
+              </div>
             </div>
             <p class="text-[14px] text-[#8E8E93] leading-[1.5]">{m.desc}</p>
           </button>
