@@ -57,7 +57,7 @@ export function Layout({ badge, steps, panel, flush, hidePanel, children }) {
       {/* Unified top bar: logo+badge | device toggle | panel toggle | panel tabs */}
       <header class="flex items-center h-12 bg-white/80 backdrop-blur-xl border-b border-border/40">
         <div class="flex items-center gap-3 px-6 flex-1 min-w-0">
-          <a href="#" class="flex items-center hover:opacity-80 transition-opacity">
+          <a href="/" aria-label="Go to home" class="flex items-center hover:opacity-80 transition-opacity">
             <Icons.truvLogo height={16} className="text-text" />
           </a>
           {badge && <div class="text-[11px] font-medium text-muted bg-surface-secondary px-2 py-0.5 rounded-md whitespace-nowrap">{badge}</div>}

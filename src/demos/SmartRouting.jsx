@@ -218,9 +218,9 @@ export function SmartRoutingDemo() {
       if (method) handleMethodSelect(method);
     },
     'nav:back': () => {
-      setFormData(null);
-      setRecommended(null);
-      setScreen('select');
+      // Full reset clears in-flight token, selectedMethod, and userId so late
+      // webhooks from the abandoned session can't push the demo into 'waiting'/'review'.
+      resetDemo();
       setShowForm(true);
     },
     'bridge:onLoad': () => addBridgeEvent('onLoad()', null),

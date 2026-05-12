@@ -12,9 +12,14 @@ const STORAGE_KEY = 'truv-demo-device-mode';
 const listeners = new Set();
 let current = 'mobile';
 
-if (typeof localStorage !== 'undefined') {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved === 'mobile' || saved === 'desktop') current = saved;
+try {
+  if (typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === 'mobile' || saved === 'desktop') current = saved;
+  }
+} catch {
+  // Storage may be blocked (Safari private mode, sandboxed iframe, etc.) —
+  // fall back to the in-memory default so module import never throws.
 }
 
 export function useDeviceMode() {
@@ -29,7 +34,11 @@ export function useDeviceMode() {
   const setMode = (m) => {
     if (m === current) return;
     current = m;
-    if (typeof localStorage !== 'undefined') localStorage.setItem(STORAGE_KEY, m);
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(STORAGE_KEY, m);
+    } catch {
+      // Persistence is best-effort; keep the in-memory state updated either way.
+    }
     listeners.forEach(l => l(m));
   };
 

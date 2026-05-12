@@ -35,10 +35,15 @@ if (typeof window !== 'undefined') {
       listeners.forEach(l => l(isLg ? lgValue : smValue));
     });
   }
-  if (typeof localStorage !== 'undefined') {
-    const saved = localStorage.getItem(STORAGE_KEY_LG);
-    if (saved === '0') lgValue = false;
-    else if (saved === '1') lgValue = true;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY_LG);
+      if (saved === '0') lgValue = false;
+      else if (saved === '1') lgValue = true;
+    }
+  } catch {
+    // Storage may be blocked (Safari private mode, sandboxed iframe, etc.) —
+    // fall back to the in-memory default so module import never throws.
   }
 }
 
@@ -62,7 +67,11 @@ export function usePanelVisibility() {
     if (isLg) {
       if (next === lgValue) return;
       lgValue = next;
-      if (typeof localStorage !== 'undefined') localStorage.setItem(STORAGE_KEY_LG, next ? '1' : '0');
+      try {
+        if (typeof localStorage !== 'undefined') localStorage.setItem(STORAGE_KEY_LG, next ? '1' : '0');
+      } catch {
+        // Persistence is best-effort; keep the in-memory state updated either way.
+      }
     } else {
       if (next === smValue) return;
       smValue = next;

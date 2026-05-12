@@ -120,7 +120,7 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
 export function DeviceToggle() {
   const [mode, setMode] = useDeviceMode();
   return (
-    <div class={segGroup}>
+    <div class={segGroup} role="group" aria-label="Preview device mode">
       <button
         type="button"
         onClick={() => setMode('mobile')}
