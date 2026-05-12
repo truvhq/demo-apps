@@ -218,11 +218,6 @@ export class TruvClient {
     return this._request('GET', `orders/${truvOrderId}/`);
   }
 
-  // Triggers a refresh of an existing order. Used when re-pulling data for an order.
-  async refreshOrder(truvOrderId) {
-    return this._request('POST', `orders/${truvOrderId}/refresh/`);
-  }
-
   // --- Webhooks API ---
   // CRUD operations for managing webhook registrations on the Truv platform.
   // Used by webhook-setup.js to auto-register an ngrok URL on startup.
