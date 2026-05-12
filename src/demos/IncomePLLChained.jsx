@@ -69,9 +69,11 @@ export function IncomePLLChainedDemo() {
   const [manualReason, setManualReason] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Refs: idempotency guards so webhook polling doesn't re-trigger fetches
+  // Refs: idempotency guards so webhook polling doesn't re-trigger fetches.
+  // bridgeInstanceRef holds the active TruvBridge instance so onSuccess can close it.
   const decisionFetchedRef = useRef(false);
   const reportFetchedRef = useRef(false);
+  const bridgeInstanceRef = useRef(null);
 
   // Panel hook: sidebar state, session tracking, webhook polling, bridge events
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
@@ -81,6 +83,15 @@ export function IncomePLLChainedDemo() {
     const stepByScreen = { select: 0, coverage: 0, 'voie-waiting': 2, decision: 3, 'pll-waiting': 4, review: 5, manual: 0 };
     setCurrentStep(stepByScreen[screen] ?? 0);
   }, [screen]);
+
+  // Start polling as soon as the user opens the form so pre-order calls
+  // (employer search, coverage pre-check) appear in the API panel in real time.
+  // Uses a sentinel userId — the SQL fallback `user_id IS NULL AND session_id = ?`
+  // returns session-scoped logs even though the sentinel never matches a real row.
+  // startPolling gets called again later with the real userId once VOIE creates one.
+  useEffect(() => {
+    if (showForm) startPolling('_pre_order_');
+  }, [showForm]);
 
   // Effect: when task-status-updated:done arrives during voie-waiting, fetch the
   // decision payload and either advance to the decision screen or to manual route.
@@ -112,27 +123,30 @@ export function IncomePLLChainedDemo() {
     fetchPllReport(pllOrder.order_id);
   }, [panel.webhooks, screen, pllOrder]);
 
-  // Step 1: pre-check coverage. Sets the manual-route screen on a bad gate.
+  // Step 1: pre-check coverage. The result is advisory — the user can always
+  // proceed. If no employer was selected on the form, skip the API call entirely
+  // and let Bridge prompt the borrower to pick one during VOIE auth.
   async function checkCoverage(data) {
     setFormData(data);
-    setLoading(true);
     setScreen('coverage');
+    if (!data.company_mapping_id) {
+      setCoverage({ skipped: true, name: data.employer || null });
+      return;
+    }
+    setLoading(true);
     try {
       const url = `${API_BASE}/api/voie-pll/coverage/${encodeURIComponent(data.company_mapping_id)}?session_id=${encodeURIComponent(sessionId)}`;
       const resp = await fetch(url);
       const result = await resp.json();
       if (!resp.ok) { alert('Error: ' + (result.error || 'Unknown')); setLoading(false); return; }
       setCoverage(result);
-      if (!result.decision?.proceed) {
-        setManualReason(`coverage_${result.coverage || 'missing'}`);
-        setScreen('manual');
-      }
     } catch (e) { console.error(e); }
     setLoading(false);
   }
 
-  // Step 2 + 3: create the VOIE order and immediately open Bridge. The waiting
-  // screen polls webhooks until task-status-updated:done arrives.
+  // Step 2 + 3: create the VOIE order and immediately open Bridge. Bridge's
+  // onSuccess callback drives the transition to the decision screen — the
+  // webhook-based useEffect remains as a backup if onSuccess doesn't fire.
   async function startVoieOrder() {
     setLoading(true);
     setCurrentStep(1);
@@ -150,26 +164,34 @@ export function IncomePLLChainedDemo() {
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setLoading(false); return; }
       setVoieOrder(data);
       startPolling(data.user_id);
-      openBridge(data.bridge_token);
+      openBridge(data.bridge_token, () => {
+        decisionFetchedRef.current = true;
+        // Truv needs a moment after onSuccess to populate link_id + bank_accounts.
+        setTimeout(() => fetchDecision(data.order_id), 1500);
+      });
       setScreen('voie-waiting');
     } catch (e) { console.error(e); }
     setLoading(false);
   }
 
-  // Step 5: read decision-gate fields from the VOIE order + link. Routes to
-  // manual if any of the three remaining gates fail.
-  async function fetchDecision(voieOrderId) {
+  // Step 5: read decision-gate fields from the VOIE order + link. The result is
+  // shown on the handoff screen as supporting data with warnings — never blocks.
+  // The user always lands on 'decision' so they can choose to pause or continue.
+  // Retries with backoff because Truv may not have populated link_id or
+  // bank_accounts on the order in the first second or two after Bridge succeeds.
+  async function fetchDecision(voieOrderId, attempt = 0) {
     try {
       const resp = await fetch(`${API_BASE}/api/voie-pll/decision/${encodeURIComponent(voieOrderId)}`);
       const data = await resp.json();
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); return; }
-      setDecision(data);
-      if (!data.decision?.proceed) {
-        setManualReason((data.decision?.reasons || []).filter(r => r && !r.endsWith('_ok')).join(', ') || 'unknown');
-        setScreen(prev => atLeastScreen(prev, 'manual'));
-      } else {
-        setScreen(prev => atLeastScreen(prev, 'decision'));
+      // If link_id isn't on the order yet, the order is still being processed.
+      // Retry up to 6 times (~12s total) before showing whatever we have.
+      if (!data.link_id && attempt < 6) {
+        setTimeout(() => fetchDecision(voieOrderId, attempt + 1), 2000);
+        return;
       }
+      setDecision(data);
+      setScreen(prev => atLeastScreen(prev, 'decision'));
     } catch (e) { console.error(e); }
   }
 
@@ -179,25 +201,36 @@ export function IncomePLLChainedDemo() {
     if (!voieOrder?.order_id) return;
     setLoading(true);
     try {
+      // Pass the cmid from the decision payload — covers the case where VOIE was
+      // created without an employer and the borrower picked one inside Bridge.
       const resp = await fetch(`${API_BASE}/api/voie-pll/pll-order/${encodeURIComponent(voieOrder.order_id)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ company_mapping_id: decision?.company_mapping_id || undefined }),
       });
       const data = await resp.json();
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setLoading(false); return; }
       setPllOrder(data);
-      openBridge(data.bridge_token);
+      openBridge(data.bridge_token, () => {
+        reportFetchedRef.current = true;
+        setTimeout(() => fetchPllReport(data.order_id), 1500);
+      });
       setScreen('pll-waiting');
     } catch (e) { console.error(e); }
     setLoading(false);
   }
 
   // Step 9: fetch the final PLL deposit-switch report and stop polling.
-  async function fetchPllReport(pllOrderId) {
+  // Retries until the underlying PLL link's report is ready (link_id has been
+  // attached to the order). This avoids any dependency on webhook delivery.
+  async function fetchPllReport(pllOrderId, attempt = 0) {
     try {
       const resp = await fetch(`${API_BASE}/api/voie-pll/pll-report/${encodeURIComponent(pllOrderId)}`);
       const data = await resp.json();
+      if (resp.ok && !data.link_id && attempt < 6) {
+        setTimeout(() => fetchPllReport(pllOrderId, attempt + 1), 2000);
+        return;
+      }
       if (resp.ok) setPllReport(data);
     } catch (e) { console.error(e); }
     setScreen(prev => atLeastScreen(prev, 'review'));
@@ -205,8 +238,11 @@ export function IncomePLLChainedDemo() {
   }
 
   // Reusable Bridge popup launcher. Used for both the VOIE and PLL bridge tokens.
-  // isOrder=true tells Bridge the token is order-scoped.
-  function openBridge(bridgeToken) {
+  // isOrder=true tells Bridge the token is order-scoped. The instance reference is
+  // held in a ref so onSuccess can call .close() and dismiss the success screen.
+  // onSuccessCallback drives the next step directly off the SDK callback so the
+  // flow doesn't depend on webhook delivery (which may not reach this backend).
+  function openBridge(bridgeToken, onSuccessCallback) {
     if (!bridgeToken || !window.TruvBridge) return;
     const opts = {
       bridgeToken,
@@ -217,6 +253,10 @@ export function IncomePLLChainedDemo() {
           { label: 'publicToken', value: publicToken },
           { label: 'meta', value: meta },
         ]);
+        // Close the popup so the borrower returns to the demo immediately
+        // instead of staring at the "verification completed" success screen.
+        try { bridgeInstanceRef.current?.close(); } catch {}
+        if (onSuccessCallback) onSuccessCallback();
       },
       onEvent: (type, payload) => {
         const payloadStr = payload ? 'payload' : 'undefined';
@@ -224,7 +264,8 @@ export function IncomePLLChainedDemo() {
       },
       onClose: () => addBridgeEvent('onClose()', null),
     };
-    window.TruvBridge.init(opts).open();
+    bridgeInstanceRef.current = window.TruvBridge.init(opts);
+    bridgeInstanceRef.current.open();
   }
 
   // Handler: reset all state to start over
@@ -311,15 +352,48 @@ function CoverageBadge({ coverage }) {
   return <span class={`text-[12px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md ${cls}`}>{coverage || 'unknown'}</span>;
 }
 
+function InternalCallout() {
+  return (
+    <div class="bg-[#f5f5f7] border border-[#e8e8ed] rounded-2xl p-4 mb-6 flex gap-3 items-start">
+      <svg class="w-4 h-4 text-[#86868b] flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+      <div class="text-xs text-gray-600 leading-relaxed">
+        <span class="font-semibold text-gray-700">Internal-only step.</span> The borrower wouldn't see this in production — it represents the backend coverage pre-check that decides whether to create a Truv order or route to a manual path.
+      </div>
+    </div>
+  );
+}
+
 function CoverageScreen({ coverage, loading, onContinue }) {
   if (!coverage) {
     return <div class="text-center py-16"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /><p class="text-sm text-gray-500 mt-4">Checking PLL coverage...</p></div>;
   }
+
+  // No employer was selected — skip the coverage card and let Bridge prompt for one.
+  if (coverage.skipped) {
+    return (
+      <div>
+        <h2 class="text-2xl font-bold tracking-tight mb-1.5">No employer selected</h2>
+        <p class="text-sm text-gray-500 mb-7">The borrower will search for and pick their employer inside Bridge during the VOIE step. Coverage will be evaluated after they connect.</p>
+        <InternalCallout />
+        <button onClick={onContinue} disabled={loading} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
+          {loading ? <span class="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Create VOIE order & open Bridge'}
+        </button>
+      </div>
+    );
+  }
+
+  // Coverage is "bad" only when it's an explicit low/unsupported. Null = Truv has
+  // no data on this combo yet, treated as unknown — the order can still proceed.
+  const isBadCoverage = coverage.coverage === 'low' || coverage.coverage === 'unsupported';
+
   return (
     <div>
       <h2 class="text-2xl font-bold tracking-tight mb-1.5">Coverage pre-check</h2>
-      <p class="text-sm text-gray-500 mb-7">Truv's PLL support for <strong>{coverage.name || 'this employer'}</strong>:</p>
-      <div class="border border-gray-200 rounded-2xl p-5 mb-6">
+      <p class="text-sm text-gray-500 mb-5">Truv's PLL support for <strong>{coverage.name || 'this employer'}</strong>:</p>
+
+      <InternalCallout />
+
+      <div class="border border-gray-200 rounded-2xl p-5 mb-4">
         <div class="flex items-center justify-between mb-4">
           <span class="text-xs text-gray-400 uppercase tracking-wide">Coverage</span>
           <CoverageBadge coverage={coverage.coverage} />
@@ -329,9 +403,18 @@ function CoverageScreen({ coverage, loading, onContinue }) {
           <span class="text-sm font-mono text-gray-900">{coverage.max_number ?? '—'}</span>
         </div>
       </div>
-      <p class="text-xs text-gray-500 mb-6">High/medium = proceed. Low/unsupported/null = manual route.</p>
+
+      {isBadCoverage && (
+        <div class="bg-warning-bg border border-warning/30 rounded-2xl p-4 mb-6">
+          <div class="text-sm font-semibold text-warning mb-1">Production would route to manual</div>
+          <div class="text-xs text-gray-600 leading-relaxed">
+            Coverage came back as <code class="font-mono">{coverage.coverage}</code>. In a live integration the recommendation is to send the borrower down a manual path here — but you can proceed for the sandbox demo.
+          </div>
+        </div>
+      )}
+
       <button onClick={onContinue} disabled={loading} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
-        {loading ? <span class="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Create VOIE order & open Bridge'}
+        {loading ? <span class="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (isBadCoverage ? 'Continue anyway' : 'Create VOIE order & open Bridge')}
       </button>
     </div>
   );
@@ -343,12 +426,36 @@ function DecisionScreen({ decision, onContinue, loading }) {
   }
   const ddsLabel = decision.is_dds_supported === true ? 'true' : decision.is_dds_supported === false ? 'false' : 'null';
   const ddsClass = decision.is_dds_supported === false ? 'text-red-500' : decision.is_dds_supported === true ? 'text-success' : 'text-gray-500';
+  const wouldRouteManual = !decision.decision?.proceed;
 
   return (
     <div>
-      <h2 class="text-2xl font-bold tracking-tight mb-1.5">Decision review</h2>
-      <p class="text-sm text-gray-500 mb-7">Before creating the PLL order, check the borrower's current allocations and the link's DDS support flag.</p>
+      <h2 class="text-2xl font-bold tracking-tight mb-1.5">Income verification complete</h2>
+      <p class="text-sm text-gray-500 mb-5 leading-relaxed">
+        The borrower authenticated with their payroll provider. That session is now linked to <code class="font-mono text-xs bg-[#f5f5f7] px-1 py-0.5 rounded">order_number</code> — when you create the PLL order with the same value, they'll confirm the deduction without re-authenticating.
+      </p>
 
+      {/* Two-path handoff callout — emphasizes integrator flexibility */}
+      <div class="border border-primary/30 bg-[#f5f8ff] rounded-2xl p-5 mb-5">
+        <div class="text-[12px] font-bold uppercase tracking-[0.08em] text-primary mb-3">What's next is up to you</div>
+        <div class="space-y-3 text-sm text-[#1d1d1f] leading-relaxed">
+          <div class="flex gap-2.5">
+            <span class="text-primary font-bold mt-0.5">→</span>
+            <div>
+              <span class="font-semibold">Continue straight into PLL.</span> Click below to create the linked PLL order, reopen Bridge, and have the borrower confirm the deduction now.
+            </div>
+          </div>
+          <div class="flex gap-2.5">
+            <span class="text-primary font-bold mt-0.5">→</span>
+            <div>
+              <span class="font-semibold">Or pause here in your own UI.</span> Collect more borrower info, run underwriting, fetch the income report, send a notification — then create the PLL order whenever you're ready. Same <code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-[#e8e8ed]">order_number</code> + <code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-[#e8e8ed]">company_mapping_id</code> keep the payroll session linked.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Decision-gate data — supporting info, the backend's check before proceeding */}
+      <div class="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2 px-1">Decision-gate data (backend pre-check)</div>
       <div class="border border-gray-200 rounded-2xl p-5 mb-4">
         <div class="text-xs text-gray-400 uppercase tracking-wide mb-3">Bank accounts on file</div>
         {decision.bank_accounts?.length ? (
@@ -370,7 +477,7 @@ function DecisionScreen({ decision, onContinue, loading }) {
         )}
       </div>
 
-      <div class="border border-gray-200 rounded-2xl p-5 mb-6">
+      <div class="border border-gray-200 rounded-2xl p-5 mb-4">
         <div class="flex items-center justify-between">
           <div>
             <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">is_dds_supported</div>
@@ -380,8 +487,24 @@ function DecisionScreen({ decision, onContinue, loading }) {
         </div>
       </div>
 
+      {wouldRouteManual && (
+        <div class="bg-warning-bg border border-warning/30 rounded-2xl p-4 mb-6">
+          <div class="text-sm font-semibold text-warning mb-1">Production would route to manual</div>
+          <div class="text-xs text-gray-600 leading-relaxed">
+            One of the gates flagged: <code class="font-mono">{(decision.decision?.reasons || []).filter(r => r && !r.endsWith('_ok') && !r.endsWith('_supported') && r !== 'dds_unknown').join(', ') || 'unknown'}</code>. In a live integration this is where you'd send the borrower down a manual path — proceed for the demo.
+          </div>
+        </div>
+      )}
+
+      {decision._raw?.order && (
+        <details class="mb-6">
+          <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Raw GET /v1/orders/{`{id}`}/ response</summary>
+          <pre class="bg-gray-50 border border-gray-200 rounded-lg p-3 text-[11px] font-mono overflow-auto max-h-72 whitespace-pre-wrap mt-2">{JSON.stringify(decision._raw.order, null, 2)}</pre>
+        </details>
+      )}
+
       <button onClick={onContinue} disabled={loading} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
-        {loading ? <span class="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Create PLL order & open Bridge'}
+        {loading ? <span class="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (wouldRouteManual ? 'Continue to PLL anyway' : 'Continue to PLL')}
       </button>
     </div>
   );

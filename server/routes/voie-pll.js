@@ -3,7 +3,7 @@
  * DATA FLOW: Frontend -> POST/GET /api/voie-pll/* -> TruvClient -> Truv API
  * INTEGRATION PATTERN: Orders flow with two linked orders sharing order_number
  *
- * Walks the borrower through the OMF-style production flow:
+ * Walks the borrower through the chained Income → PLL flow:
  *   1. Pre-check coverage          GET /api/voie-pll/coverage/:cmid
  *   2. Create VOIE order           POST /api/voie-pll/voie-order
  *   3. Inspect bank_accounts +
@@ -14,9 +14,9 @@
  *
  * The VOIE and PLL orders share order_number + company_mapping_id so the
  * borrower's payroll auth from step 2 carries forward to step 4 — they confirm
- * the deposit allocation without re-authenticating. This pattern + the four
- * decision gates (coverage, percent allocations, max_number, is_dds_supported)
- * is what produces ~90% PLL success in production.
+ * the deposit allocation without re-authenticating. The four decision gates
+ * (coverage, percent allocations, max_number, is_dds_supported) catch
+ * unsupported combinations up front so borrowers aren't stranded mid-flow.
  */
 
 // Express router factory
@@ -46,7 +46,9 @@ function safeParse(str) { try { return JSON.parse(str); } catch { return {}; } }
 // with a stable reason code so the frontend can surface why a borrower was routed.
 function evaluateCoverage(coverage) {
   if (coverage === 'high' || coverage === 'medium') return { proceed: true, reason: 'good_coverage' };
-  return { proceed: false, reason: coverage ? `coverage_${coverage}` : 'coverage_missing' };
+  // null = Truv has no data on this combination yet, not a definitive "no". Proceed.
+  if (coverage == null) return { proceed: true, reason: 'coverage_unknown' };
+  return { proceed: false, reason: `coverage_${coverage}` };
 }
 function evaluateBankAccounts(bankAccounts, maxNumber) {
   const accounts = bankAccounts || [];
@@ -93,7 +95,8 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
   router.post('/api/voie-pll/voie-order', async (req, res) => {
     try {
       const { first_name, last_name, company_mapping_id } = req.body || {};
-      if (!company_mapping_id) return res.status(400).json({ error: 'company_mapping_id is required' });
+      // company_mapping_id is optional — when missing, Bridge prompts the borrower
+      // to search for and pick their employer themselves.
 
       // Stable shared identifiers — use your loan/application ID in production.
       const orderNumber = `qs-pll-${uuidv4().slice(0, 12)}`;
@@ -146,9 +149,26 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
       apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/orders/${order.truv_order_id}/`, responseBody: orderResult.data, statusCode: orderResult.statusCode, durationMs: orderResult.durationMs });
       if (orderResult.statusCode >= 400) return res.status(orderResult.statusCode).json({ error: 'Failed to fetch order', details: orderResult.data });
 
-      const employer = orderResult.data?.employers?.[0] || {};
-      const bankAccounts = employer.bank_accounts || [];
-      const linkId = employer.link_id || null;
+      // Different Truv response shapes may put bank_accounts at different paths.
+      // Scan all plausible locations: every employer, every task, and the root.
+      const employers = orderResult.data?.employers || [];
+      const employer = employers[0] || {};
+      let bankAccounts = [];
+      let linkId = null;
+      for (const e of employers) {
+        if (!linkId && e?.link_id) linkId = e.link_id;
+        if (!bankAccounts.length && Array.isArray(e?.bank_accounts) && e.bank_accounts.length) {
+          bankAccounts = e.bank_accounts;
+        }
+        for (const t of (e?.tasks || [])) {
+          if (!bankAccounts.length && Array.isArray(t?.bank_accounts) && t.bank_accounts.length) {
+            bankAccounts = t.bank_accounts;
+          }
+        }
+      }
+      if (!bankAccounts.length && Array.isArray(orderResult.data?.bank_accounts)) {
+        bankAccounts = orderResult.data.bank_accounts;
+      }
       const orderNumber = orderResult.data?.order_number || safeParse(order.raw_response)?.order_number;
       const companyMappingId = employer.company_mapping_id || safeParse(order.raw_response)?.employers?.[0]?.company_mapping_id || null;
 
@@ -193,6 +213,8 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
         is_dds_supported: isDdsSupported,
         decision: { proceed, reasons: [accountDecision.reason, ddsDecision.reason] },
         link_info: linkInfoData,
+        // Raw upstream payloads for debugging when fields don't render as expected.
+        _raw: { order: orderResult.data, link_info: linkInfoData },
       });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
@@ -208,7 +230,15 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
 
       const voieRaw = safeParse(voieOrder.raw_response);
       const orderNumber = voieRaw.order_number;
-      const companyMappingId = voieRaw.employers?.[0]?.company_mapping_id || req.body?.company_mapping_id;
+      // Resolve cmid: prefer the original create payload, then the request body
+      // (frontend passes it from decision data), then the live order state — the
+      // borrower may have picked the employer in Bridge after VOIE was created.
+      let companyMappingId = voieRaw.employers?.[0]?.company_mapping_id || req.body?.company_mapping_id || null;
+      if (!companyMappingId && voieOrder.truv_order_id) {
+        const liveResult = await truv.getOrder(voieOrder.truv_order_id);
+        apiLogger.logApiCall({ userId: voieOrder.user_id, method: 'GET', endpoint: `/v1/orders/${voieOrder.truv_order_id}/`, responseBody: liveResult.data, statusCode: liveResult.statusCode, durationMs: liveResult.durationMs });
+        companyMappingId = liveResult.data?.employers?.[0]?.company_mapping_id || null;
+      }
       if (!orderNumber || !companyMappingId) return res.status(400).json({ error: 'Missing order_number or company_mapping_id from VOIE order' });
 
       const externalUserId = voieRaw.external_user_id || `qs-${uuidv4()}`;

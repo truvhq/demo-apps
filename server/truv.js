@@ -211,17 +211,18 @@ export class TruvClient {
   // confirm the deposit allocation without re-authenticating.
 
   // Creates the VOIE (income) order that drives the borrower's payroll login.
+  // companyMappingId is optional — when omitted, Truv presents the employer-search
+  // step inside Bridge so the borrower picks their employer there.
   async createVoiePllVoieOrder({ orderNumber, externalUserId, firstName, lastName, companyMappingId }) {
-    return this._request('POST', 'orders/', {
-      json: {
-        products: ['income'],
-        order_number: orderNumber,
-        external_user_id: externalUserId,
-        first_name: firstName,
-        last_name: lastName,
-        employers: [{ company_mapping_id: companyMappingId }],
-      },
-    });
+    const payload = {
+      products: ['income'],
+      order_number: orderNumber,
+      external_user_id: externalUserId,
+      first_name: firstName,
+      last_name: lastName,
+    };
+    if (companyMappingId) payload.employers = [{ company_mapping_id: companyMappingId }];
+    return this._request('POST', 'orders/', { json: payload });
   }
 
   // Creates the PLL order linked to a prior VOIE order via shared order_number +

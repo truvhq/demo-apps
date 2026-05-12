@@ -13,7 +13,7 @@ export const STEPS = [
 export const INTRO_SLIDE_CONFIG = {
   label: 'Consumer Credit . Income + PLL',
   title: 'Verify income, then auto-repay',
-  subtitle: 'OMF-style chained flow: pre-check coverage, run a VOIE order so the borrower authenticates with payroll, then create a linked PLL order using the same order_number — they confirm the deduction without re-authenticating.',
+  subtitle: 'Pre-check employer coverage and DDS support, run a VOIE order so the borrower authenticates with payroll once, then create a linked PLL order using the same order_number — they confirm the deduction without re-authenticating. Catches unsupported combinations up front so borrowers aren\'t stranded mid-flow.',
 };
 
 export const REPORT_HEADER = {
