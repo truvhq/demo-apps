@@ -52,7 +52,10 @@ function evaluateCoverage(coverage) {
 }
 function evaluateBankAccounts(bankAccounts, maxNumber) {
   const accounts = bankAccounts || [];
-  if (accounts.some(a => a?.deposit_type === 'percent')) return { proceed: false, reason: 'percent_allocation' };
+  // Truv emits both the long form ("percent"/"amount") and short codes ("P"/"A").
+  // Treat anything starting with P as percent — covers "P", "PT", "percent".
+  const isPercent = (dt) => typeof dt === 'string' && dt.toUpperCase().startsWith('P');
+  if (accounts.some(a => isPercent(a?.deposit_type))) return { proceed: false, reason: 'percent_allocation' };
   if (typeof maxNumber === 'number' && accounts.length >= maxNumber) return { proceed: false, reason: 'over_max_allocations' };
   return { proceed: true, reason: 'allocations_ok' };
 }
@@ -115,6 +118,13 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
       apiLogger.logApiCall({ userId, method: 'POST', endpoint: '/v1/orders/', requestBody: result.requestBody, responseBody: truvData, statusCode: result.statusCode, durationMs: result.durationMs });
       if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Failed to create VOIE order', details: truvData });
 
+      // Truv's order response omits company_mapping_id from employers[]. Inject it
+      // back from the request so the PLL step can read it from the stored response
+      // and reuse the exact cmid for the linked order.
+      if (company_mapping_id && Array.isArray(truvData?.employers) && truvData.employers[0]) {
+        truvData.employers[0].company_mapping_id = company_mapping_id;
+      }
+
       db.createOrder({
         orderId, truvOrderId: truvData.id, userId,
         demoId: PLL_DEMO_ID,
@@ -149,8 +159,9 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
       apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/orders/${order.truv_order_id}/`, responseBody: orderResult.data, statusCode: orderResult.statusCode, durationMs: orderResult.durationMs });
       if (orderResult.statusCode >= 400) return res.status(orderResult.statusCode).json({ error: 'Failed to fetch order', details: orderResult.data });
 
-      // Different Truv response shapes may put bank_accounts at different paths.
-      // Scan all plausible locations: every employer, every task, and the root.
+      // Truv puts bank_accounts under employers[].employments[].bank_accounts for
+      // the income product. Scan every plausible location so a response-shape
+      // change doesn't strand the flow.
       const employers = orderResult.data?.employers || [];
       const employer = employers[0] || {};
       let bankAccounts = [];
@@ -159,6 +170,11 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
         if (!linkId && e?.link_id) linkId = e.link_id;
         if (!bankAccounts.length && Array.isArray(e?.bank_accounts) && e.bank_accounts.length) {
           bankAccounts = e.bank_accounts;
+        }
+        for (const em of (e?.employments || [])) {
+          if (!bankAccounts.length && Array.isArray(em?.bank_accounts) && em.bank_accounts.length) {
+            bankAccounts = em.bank_accounts;
+          }
         }
         for (const t of (e?.tasks || [])) {
           if (!bankAccounts.length && Array.isArray(t?.bank_accounts) && t.bank_accounts.length) {
@@ -184,7 +200,9 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
         }
       }
 
-      // Step 5 of postman flow: read is_dds_supported — Truv's verdict on this combo.
+      // Step 5 of postman flow: Truv's DDS verdict for this combo.
+      // The link endpoint returns this as `is_dds_available`; older docs called it
+      // `is_dds_supported` — accept either to be safe.
       let isDdsSupported = null;
       let linkInfoData = null;
       if (linkId) {
@@ -192,9 +210,15 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
         apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/links/${linkId}/`, responseBody: linkResult.data, statusCode: linkResult.statusCode, durationMs: linkResult.durationMs });
         if (linkResult.statusCode < 400) {
           linkInfoData = linkResult.data;
-          isDdsSupported = linkResult.data?.is_dds_supported ?? null;
+          isDdsSupported = linkResult.data?.is_dds_available ?? linkResult.data?.is_dds_supported ?? null;
         }
       }
+
+      // Truv strips company_mapping_id from order.employers[] but the link endpoint
+      // returns it nested under company_mapping. Last-chance fallback so the PLL
+      // step can reuse the borrower's exact cmid.
+      const cmidFromLink = linkInfoData?.company_mapping?.id || null;
+      const resolvedCmid = companyMappingId || cmidFromLink;
 
       const accountDecision = evaluateBankAccounts(bankAccounts, maxNumber);
       const ddsDecision = evaluateDdsSupport(isDdsSupported);
@@ -205,7 +229,7 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
         truv_order_id: order.truv_order_id,
         user_id: userId,
         order_number: orderNumber,
-        company_mapping_id: companyMappingId,
+        company_mapping_id: resolvedCmid,
         link_id: linkId,
         bank_accounts: bankAccounts,
         coverage,

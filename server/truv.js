@@ -235,10 +235,10 @@ export class TruvClient {
         external_user_id: externalUserId,
         first_name: firstName,
         last_name: lastName,
-        employers: [
-          { company_mapping_id: companyMappingId },
-          { account },
-        ],
+        // Single employer object holding both the cmid and the destination account
+        // (account.action: "create" or "update"). Splitting these across two array
+        // entries is what Truv rejected previously.
+        employers: [{ company_mapping_id: companyMappingId, account }],
       },
     });
   }
