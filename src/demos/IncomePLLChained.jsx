@@ -66,6 +66,7 @@ export function IncomePLLChainedDemo() {
   const [decision, setDecision] = useState(null);
   const [pllOrder, setPllOrder] = useState(null);
   const [pllReport, setPllReport] = useState(null);
+  const [pllError, setPllError] = useState(null);
   const [manualReason, setManualReason] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -231,8 +232,18 @@ export function IncomePLLChainedDemo() {
         setTimeout(() => fetchPllReport(pllOrderId, attempt + 1), 2000);
         return;
       }
-      if (resp.ok) setPllReport(data);
-    } catch (e) { console.error(e); }
+      if (resp.ok) {
+        setPllReport(data);
+      } else {
+        // Surface the error instead of advancing to review with a null report,
+        // which would render an endless spinner. The user sees what failed and
+        // can restart, contact support, or check the API panel.
+        setPllError(data?.error || `Failed to load PLL report (${resp.status})`);
+      }
+    } catch (e) {
+      console.error(e);
+      setPllError(e?.message || 'Network error while loading PLL report');
+    }
     setScreen(prev => atLeastScreen(prev, 'review'));
     pollOnceAndStop();
   }
@@ -281,6 +292,7 @@ export function IncomePLLChainedDemo() {
     setDecision(null);
     setPllOrder(null);
     setPllReport(null);
+    setPllError(null);
     setManualReason(null);
   }
 
@@ -328,7 +340,7 @@ export function IncomePLLChainedDemo() {
           <div>
             <h2 class="text-2xl font-bold tracking-tight mb-1.5">{REPORT_HEADER.title}</h2>
             <p class="text-sm text-gray-500 mb-7">{REPORT_HEADER.subtitle}</p>
-            <ReviewBody report={pllReport} userId={pllOrder?.user_id || voieOrder?.user_id} onReset={resetDemo} />
+            <ReviewBody report={pllReport} error={pllError} userId={pllOrder?.user_id || voieOrder?.user_id} onReset={resetDemo} />
           </div>
         )}
 
@@ -510,7 +522,21 @@ function DecisionScreen({ decision, onContinue, loading }) {
   );
 }
 
-function ReviewBody({ report, userId, onReset }) {
+function ReviewBody({ report, error, userId, onReset }) {
+  if (error) {
+    return (
+      <div>
+        <div class="bg-red-50 border border-red-200 rounded-2xl p-4">
+          <div class="text-sm font-semibold text-red-500 mb-1">Couldn't load PLL report</div>
+          <div class="text-xs text-gray-600 mb-2">{error}</div>
+          {userId && <a href={`${API_BASE}/api/voie-pll/tasks/${userId}`} target="_blank" class="text-xs text-primary font-medium">View raw tasks →</a>}
+        </div>
+        <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
+          <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={onReset}>Start Over</button>
+        </div>
+      </div>
+    );
+  }
   if (!report) {
     return <div class="text-center py-10"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>;
   }

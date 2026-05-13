@@ -44,13 +44,14 @@ function safeParse(str) { try { return JSON.parse(str); } catch { return {}; } }
 
 // Decision-gate helpers. Each maps an upstream Truv field to a proceed/manual signal
 // with a stable reason code so the frontend can surface why a borrower was routed.
-function evaluateCoverage(coverage) {
+// Exported so the test suite exercises the real logic instead of duplicating it.
+export function evaluateCoverage(coverage) {
   if (coverage === 'high' || coverage === 'medium') return { proceed: true, reason: 'good_coverage' };
   // null = Truv has no data on this combination yet, not a definitive "no". Proceed.
   if (coverage == null) return { proceed: true, reason: 'coverage_unknown' };
   return { proceed: false, reason: `coverage_${coverage}` };
 }
-function evaluateBankAccounts(bankAccounts, maxNumber) {
+export function evaluateBankAccounts(bankAccounts, maxNumber) {
   const accounts = bankAccounts || [];
   // Truv emits both the long form ("percent"/"amount") and short codes ("P"/"A").
   // Treat anything starting with P as percent — covers "P", "PT", "percent".
@@ -59,7 +60,7 @@ function evaluateBankAccounts(bankAccounts, maxNumber) {
   if (typeof maxNumber === 'number' && accounts.length >= maxNumber) return { proceed: false, reason: 'over_max_allocations' };
   return { proceed: true, reason: 'allocations_ok' };
 }
-function evaluateDdsSupport(isDdsSupported) {
+export function evaluateDdsSupport(isDdsSupported) {
   if (isDdsSupported === false) return { proceed: false, reason: 'dds_unsupported' };
   return { proceed: true, reason: isDdsSupported === true ? 'dds_supported' : 'dds_unknown' };
 }
@@ -254,14 +255,21 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
 
       const voieRaw = safeParse(voieOrder.raw_response);
       const orderNumber = voieRaw.order_number;
-      // Resolve cmid: prefer the original create payload, then the request body
-      // (frontend passes it from decision data), then the live order state — the
-      // borrower may have picked the employer in Bridge after VOIE was created.
-      let companyMappingId = voieRaw.employers?.[0]?.company_mapping_id || req.body?.company_mapping_id || null;
-      if (!companyMappingId && voieOrder.truv_order_id) {
+      // Resolve cmid from VOIE-authenticated server state only — never from the
+      // client. Chain: stored response -> live order -> link_info.company_mapping.
+      // The last step covers the borrower-picks-employer-in-Bridge flow without
+      // exposing a cmid-override surface in the request body.
+      let companyMappingId = voieRaw.employers?.[0]?.company_mapping_id || null;
+      if (!companyMappingId) {
         const liveResult = await truv.getOrder(voieOrder.truv_order_id);
         apiLogger.logApiCall({ userId: voieOrder.user_id, method: 'GET', endpoint: `/v1/orders/${voieOrder.truv_order_id}/`, responseBody: liveResult.data, statusCode: liveResult.statusCode, durationMs: liveResult.durationMs });
         companyMappingId = liveResult.data?.employers?.[0]?.company_mapping_id || null;
+        const linkId = liveResult.data?.employers?.[0]?.link_id || null;
+        if (!companyMappingId && linkId) {
+          const linkResult = await truv.getLinkInfo(linkId);
+          apiLogger.logApiCall({ userId: voieOrder.user_id, method: 'GET', endpoint: `/v1/links/${linkId}/`, responseBody: linkResult.data, statusCode: linkResult.statusCode, durationMs: linkResult.durationMs });
+          companyMappingId = linkResult.data?.company_mapping?.id || null;
+        }
       }
       if (!orderNumber || !companyMappingId) return res.status(400).json({ error: 'Missing order_number or company_mapping_id from VOIE order' });
 
