@@ -44,9 +44,9 @@ Every demo in this repo uses one of two integration patterns. Pick whichever mat
 The demo collects applicant name/DOB/SSN on a form, posts it to `/v1/orders/` server-side, and Truv returns a `bridge_token` that mounts inline. Reports are fetched by user_id once the `order-status-updated` webhook arrives.
 
 Reference demos in this repo:
-- **`src/demos/Application.jsx`** — Mortgage POS application; cleanest reference for the Orders flow.
+- **`src/demos/POSApplication.jsx`** — Mortgage POS application; cleanest reference for the Orders flow.
 - **`src/demos/CustomerPortal.jsx`** — Public-sector benefits portal; same pattern with a government-portal chrome.
-- **`src/demos/LOS.jsx`** / **`src/demos/EmployeePortal.jsx`** — Agent-side variants where a loan officer or case worker creates the order on behalf of an applicant.
+- **`src/demos/LOS.jsx`** / **`src/demos/CaseWorkerPortal.jsx`** — Agent-side variants where a loan officer or case worker creates the order on behalf of an applicant.
 
 Key files: `server/routes/orders.js`, `server/routes/user-reports.js`, `src/components/screens/BridgeScreen.jsx`.
 
@@ -57,7 +57,7 @@ The demo creates a user, generates a bridge token with explicit `product_type` +
 Reference demos:
 - **`src/demos/SmartRouting.jsx`** — Consumer Credit; best fit for "show all available verification methods and let the user pick."
 - **`src/demos/PayrollIncome.jsx`** / **`src/demos/BankIncome.jsx`** — Single-data-source variants.
-- **`src/demos/DepositSwitch.jsx`** — Retail banking direct-deposit-switch flow.
+- **`src/demos/DirectDepositSwitch.jsx`** — Retail banking direct-deposit-switch flow.
 
 Key files: `server/routes/bridge.js`, `server/routes/user-reports.js`, `src/demos/SmartRouting.jsx`.
 
@@ -94,7 +94,7 @@ For Path B (or the per-demo chrome on Path A), replace per partner; everything e
 | File | What changes |
 |---|---|
 | `index.html` | Title, Google Fonts link, favicon |
-| `src/styles.css` / Tailwind theme | Color tokens, typeface variables |
+| `src/components/styles.css` / Tailwind theme | Color tokens, typeface variables |
 | `src/components/Header.jsx` | Partner logo + brand mark |
 | `src/components/Layout.jsx` | Top bar, breadcrumb (if their portal has one), footer |
 | New step components under `src/demos/` | Step labels, copy, form fields |
