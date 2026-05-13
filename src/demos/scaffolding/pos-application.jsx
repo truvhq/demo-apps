@@ -30,11 +30,11 @@ export const STEPS = [
       + '<p>For financial institutions (banks):</p>'
       + '<pre>GET /v1/providers/?query=...</pre>'
       + '<p>Then an order is created:</p><pre>POST /v1/orders/</pre>'
-      + '<p><a href="https://docs.truv.com/reference/company_autocomplete_search" target="_blank">Company Search</a> · <a href="https://docs.truv.com/reference/providers-list" target="_blank">Providers</a> · <a href="https://docs.truv.com/reference/orders_create" target="_blank">Orders</a></p>',
+      + '<p><a href="https://truv.com/docs/api-reference/companies/company_autocomplete_search" target="_blank">Company Search</a> · <a href="https://truv.com/docs/api-reference/data-providers/providers-list" target="_blank">Providers</a> · <a href="https://truv.com/docs/api-reference/orders/orders_create" target="_blank">Orders</a></p>',
   },
-  { title: 'Borrower completes verification', guide: '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p><p><a href="https://docs.truv.com/docs/truv-bridge" target="_blank">Bridge Docs →</a></p>' },
-  { title: 'Truv processes results', guide: '<p>Truv sends webhooks as the verification progresses.</p><p><a href="https://docs.truv.com/docs/webhooks" target="_blank">Webhooks Docs →</a></p>' },
-  { title: 'Loan Processor reviews report', guide: '<p>Fetch reports:</p><pre>POST /v1/users/{user_id}/reports/</pre><p><a href="https://docs.truv.com/reference/users_reports" target="_blank">Reports API →</a></p>' },
+  { title: 'Borrower completes verification', guide: '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p><p><a href="https://truv.com/docs/developers/integration/bridge-widget/overview" target="_blank">Bridge Docs →</a></p>' },
+  { title: 'Truv processes results', guide: '<p>Truv sends webhooks as the verification progresses.</p><p><a href="https://truv.com/docs/api-reference/webhook-events" target="_blank">Webhooks Docs →</a></p>' },
+  { title: 'Loan Processor reviews report', guide: '<p>Fetch reports:</p><pre>POST /v1/users/{user_id}/reports/</pre><p><a href="https://truv.com/docs/api-reference/user-income-and-employment-reports/users_reports" target="_blank">Reports API →</a></p>' },
 ];
 
 // --- Config: product options for the intro screen picker ---
