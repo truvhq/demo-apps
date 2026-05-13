@@ -2,7 +2,7 @@
   "mcpServers": {
     "truv": {
       "type": "http",
-      "url": "https://docs.truv.com/mcp"
+      "url": "https://truv.com/docs/mcp"
     }
   }
 }

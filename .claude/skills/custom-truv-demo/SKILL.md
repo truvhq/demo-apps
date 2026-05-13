@@ -16,7 +16,7 @@ Trigger when the user:
 - Has a Truv sandbox client_id + secret and wants a runnable demo for a specific integration scenario
 - Asks to fork or strip this repo down to a single industry or flow
 
-Don't trigger for: questions about a specific Truv endpoint (use the [Truv docs MCP](https://docs.truv.com/mcp) or [docs.truv.com](https://docs.truv.com)), edits to an existing demo in this repo (just modify it inline), or pure code reviews.
+Don't trigger for: questions about a specific Truv endpoint (use the [Truv docs MCP](https://truv.com/docs/mcp) or [truv.com/docs](https://truv.com/docs)), edits to an existing demo in this repo (just modify it inline), or pure code reviews.
 
 ## What this skill does not do
 
@@ -169,7 +169,7 @@ Tell the user, in one short paragraph:
 
 ## Reference material
 
-- [docs.truv.com](https://docs.truv.com) — Full API and concept docs
-- [Truv docs MCP](https://docs.truv.com/mcp) — Already wired in this repo's `.mcp.json`; reload your editor after cloning to pick it up
+- [truv.com/docs](https://truv.com/docs) — Full API and concept docs
+- [Truv docs MCP](https://truv.com/docs/mcp) — Already wired in this repo's `.mcp.json`; reload your editor after cloning to pick it up
 - [llms.txt](https://truv.com/docs/llms.txt) — Plain-text docs index for AI assistants without MCP support
-- Topic-specific: [Bridge overview](https://docs.truv.com/docs/truv-bridge) · [Webhooks](https://docs.truv.com/docs/webhooks) · [User Reports](https://docs.truv.com/reference/users_reports) · [Company Search](https://docs.truv.com/reference/company_autocomplete_search) · [Providers](https://docs.truv.com/reference/list_providers)
+- Topic-specific: [Bridge overview](https://truv.com/docs/developers/integration/bridge-widget/overview) · [Webhooks](https://truv.com/docs/api-reference/webhook-events) · [User Reports](https://truv.com/docs/api-reference/user-income-and-employment-reports/users_reports) · [Company Search](https://truv.com/docs/api-reference/companies/company_autocomplete_search) · [Providers](https://truv.com/docs/api-reference/data-providers/providers-list)

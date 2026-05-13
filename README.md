@@ -1,6 +1,6 @@
 # Truv Demo Apps
 
-Interactive demo apps for the [Truv API](https://docs.truv.com). Each demo walks through a real integration pattern end-to-end: creating users, launching Bridge, receiving webhooks, and fetching reports.
+Interactive demo apps for the [Truv API](https://truv.com/docs). Each demo walks through a real integration pattern end-to-end: creating users, launching Bridge, receiving webhooks, and fetching reports.
 
 Built with Preact, Vite, Tailwind CSS v4, and Express.
 
@@ -266,20 +266,20 @@ The server verifies webhook signatures via HMAC-SHA256.
 
 ## Learn more
 
-- [Truv documentation](https://docs.truv.com)
-- [API reference](https://docs.truv.com/reference)
-- [Bridge overview](https://docs.truv.com/docs/truv-bridge)
-- [Webhooks guide](https://docs.truv.com/docs/webhooks)
-- [Company Search API](https://docs.truv.com/reference/company_autocomplete_search)
-- [Providers API](https://docs.truv.com/reference/list_providers)
-- [Bridge Tokens API](https://docs.truv.com/reference/users_tokens)
-- [User Reports API](https://docs.truv.com/reference/users_reports)
+- [Truv documentation](https://truv.com/docs)
+- [API reference](https://truv.com/docs/api-reference/authentication)
+- [Bridge overview](https://truv.com/docs/developers/integration/bridge-widget/overview)
+- [Webhooks guide](https://truv.com/docs/api-reference/webhook-events)
+- [Company Search API](https://truv.com/docs/api-reference/companies/company_autocomplete_search)
+- [Providers API](https://truv.com/docs/api-reference/data-providers/providers-list)
+- [Bridge Tokens API](https://truv.com/docs/api-reference/bridge-token/users_tokens)
+- [User Reports API](https://truv.com/docs/api-reference/user-income-and-employment-reports/users_reports)
 
 ## AI tools
 
 This project ships with Truv's documentation wired up for AI coding assistants so you can ask questions about the API and this integration directly in your editor.
 
-- **MCP server** — `https://docs.truv.com/mcp`. Already configured for this repo in [`.mcp.json`](.mcp.json). Reload your editor (Cursor, Windsurf, Claude Code, Claude Desktop) after cloning to pick it up. Full setup docs: [truv.com/docs/mcp](https://truv.com/docs/mcp).
+- **MCP server** — `https://truv.com/docs/mcp`. Already configured for this repo in [`.mcp.json`](.mcp.json). Reload your editor (Cursor, Windsurf, Claude Code, Claude Desktop) after cloning to pick it up. Full setup docs: [truv.com/docs/mcp](https://truv.com/docs/mcp).
 - **llms.txt** — [truv.com/docs/llms.txt](https://truv.com/docs/llms.txt) is a plain-text index of the Truv docs optimized for LLMs. Paste it into an assistant that doesn't support MCP to give it full context on Truv APIs.
 - **Claude Code skill** — [`.claude/skills/custom-truv-demo/SKILL.md`](.claude/skills/custom-truv-demo/SKILL.md) is a step-by-step playbook for turning this repo into a partner-branded demo: picking the right starting pattern (Orders vs Bridge/User+Token), reskinning the chrome, wiring the inline Bridge embed, and smoke-testing. In [Claude Code](https://claude.com/claude-code), the skill auto-loads when you open this repo — just describe what you want to build (e.g. "build a custom demo for ACME using their Figma at <url>"). Outside Claude Code it still reads as a standalone reference.
 
