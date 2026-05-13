@@ -18,6 +18,23 @@ Trigger when the user:
 
 Don't trigger for: questions about a specific Truv endpoint (use the [Truv docs MCP](https://docs.truv.com/mcp) or [docs.truv.com](https://docs.truv.com)), edits to an existing demo in this repo (just modify it inline), or pure code reviews.
 
+## What this skill does not do
+
+- **Create the Bridge template in the Truv dashboard.** The user must do this themselves.
+- **Produce production-fidelity branding.** Screenshots and Figma references inform a "looks like," not "is." For a customer-facing handoff, expect a hand-tuning pass after.
+- **Touch production credentials or real applicant data.** Sandbox only.
+- **Modify shared infrastructure** (`server/`, shared screens, hooks) unless the user explicitly asks.
+
+## Checkpoint — collect from the user before wiring
+
+Stop and confirm the three things only the user can provide. Do not invent or guess these.
+
+1. **Template ID** — from the Truv dashboard (Bridge Templates section).
+2. **Sandbox credentials** — `API_CLIENT_ID` and `API_SECRET` from [Dashboard → Development → API Keys](https://dashboard.truv.com/app/development/keys). These belong in `.env`.
+3. **Brand assets** — Figma URL, screenshots, or both. Without these the demo ends up generic.
+
+If the user has not provided all three, ask before proceeding. Do not fall back to placeholders.
+
 ## Step 1 — Pick the starting pattern
 
 Every demo in this repo uses one of two integration patterns. Pick whichever matches the use case:
@@ -131,6 +148,15 @@ Verify the activity panel on the right shows:
 - An inbound `order-status-updated` event under **Webhooks** (only when `NGROK_URL` is set in `.env`)
 
 If the embed never appears: confirm `https://cdn.truv.com/bridge.js` loaded in the Network panel and that the inline container has non-zero height.
+
+## Before reporting done
+
+- [ ] `npm install` + `npm start` + `npm run dev` all run cleanly
+- [ ] The new demo is reachable (registry entry or standalone route)
+- [ ] Bridge mounts inline and the activity panel shows `POST /v1/orders/` + `bridge_token` returned
+- [ ] `onLoad`, `onEvent(COMPLETED, "order")`, `onSuccess`, `onClose` all fire under the Bridge panel
+- [ ] Branding reflects the screenshots or Figma provided
+- [ ] No `.env` contents, real customer logos, or PII in any committed file
 
 ## Output
 
