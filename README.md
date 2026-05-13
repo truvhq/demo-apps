@@ -281,6 +281,7 @@ This project ships with Truv's documentation wired up for AI coding assistants s
 
 - **MCP server** — `https://docs.truv.com/mcp`. Already configured for this repo in [`.mcp.json`](.mcp.json). Reload your editor (Cursor, Windsurf, Claude Code, Claude Desktop) after cloning to pick it up. Full setup docs: [truv.com/docs/mcp](https://truv.com/docs/mcp).
 - **llms.txt** — [truv.com/docs/llms.txt](https://truv.com/docs/llms.txt) is a plain-text index of the Truv docs optimized for LLMs. Paste it into an assistant that doesn't support MCP to give it full context on Truv APIs.
+- **Claude Code skill** — [`.claude/skills/custom-truv-demo/SKILL.md`](.claude/skills/custom-truv-demo/SKILL.md) is a step-by-step playbook for turning this repo into a partner-branded demo: picking the right starting pattern (Orders vs Bridge/User+Token), reskinning the chrome, wiring the inline Bridge embed, and smoke-testing. In [Claude Code](https://claude.com/claude-code), the skill auto-loads when you open this repo — just describe what you want to build (e.g. "build a custom demo for ACME using their Figma at <url>"). Outside Claude Code it still reads as a standalone reference.
 
 ## License
 
