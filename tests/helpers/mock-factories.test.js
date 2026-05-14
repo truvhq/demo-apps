@@ -14,7 +14,6 @@ describe('mock factories', () => {
         'searchProviders',
         'createOrder',
         'getOrder',
-        'refreshOrder',
         'createVoieReport',
         'getVoieReport',
         'createAssetsReport',

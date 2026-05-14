@@ -14,6 +14,8 @@ const DEMO_ICONS = {
   'pll': Icons.repeat,
   'income-pll': Icons.link2,
   'deposit-switch': Icons.arrowRightLeft,
+  'payroll-coverage': Icons.barChart,
+  'bank-coverage': Icons.search,
 };
 
 function DemoCard({ demo, industryId, index }) {

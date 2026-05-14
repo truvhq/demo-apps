@@ -41,6 +41,15 @@ Demos are organized by industry. Each starts with a split intro screen (business
 |------|---------------|
 | **Direct Deposit Switch** | Switch a customer's direct deposit to your bank through their payroll provider |
 
+### Coverage Analysis
+
+| Demo | What it shows |
+|------|---------------|
+| **Payroll Coverage** | Upload up to 10,000 employers and bulk-check Truv coverage via `POST /v1/companies/`. Rate-limited and retried |
+| **Financial Accounts Coverage** | Upload up to 10,000 financial institutions and bulk-check Truv coverage via `providers` (data_source=financial_accounts) |
+
+The two Coverage Analysis demos ship with sample CSVs (`public/samples/employer_sample.csv`, `public/samples/bank_sample.csv`). Jobs run in-memory on the backend with concurrency 5; 429 responses honor the API's `Retry-After` hint (plus a 10s buffer) and 5xx responses fall back to exponential backoff. There is no DB persistence, so a server restart cancels in-flight jobs.
+
 ## Architecture
 
 All demos follow the same 3-tier architecture. API keys never touch the frontend.

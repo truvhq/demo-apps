@@ -49,7 +49,13 @@ export class TruvClient {
     }
 
     console.log(`TRUV: ${method.toUpperCase()} ${url} — ${response.status} (${durationMs}ms)`);
-    return { statusCode: response.status, data, durationMs, requestBody: json || null };
+    return {
+      statusCode: response.status,
+      data,
+      durationMs,
+      requestBody: json || null,
+      retryAfter: response.headers.get('retry-after'),
+    };
   }
 
   // --- Users API ---
@@ -110,8 +116,10 @@ export class TruvClient {
   // when the product requires bank/financial account connections.
 
   async searchProviders(query, productType, dataSource) {
+    // Note: Truv expects ?query= here (NOT ?search=). ?search= is silently ignored
+    // and returns the unfiltered list of all 11k+ providers.
     const params = new URLSearchParams();
-    if (query) params.set('search', query);
+    if (query) params.set('query', query);
     if (productType) params.set('product_type', productType);
     if (dataSource) params.set('data_source', dataSource);
     return this._request('GET', `providers/?${params}`);
@@ -131,6 +139,24 @@ export class TruvClient {
   async getCompanyInfo(companyMappingId, productType) {
     const params = productType ? `?product_type=${encodeURIComponent(productType)}` : '';
     return this._request('GET', `companies/${companyMappingId}${params}`);
+  }
+
+  // Look up a company with full identifying fields. Used by Coverage Analysis
+  // for accurate coverage matching when the caller has name + domain + state.
+  // POST /v1/companies/  body: { name, domain, ein, phone, id, product_type }
+  // Response shape mirrors company-mappings-search: matches with logo_url,
+  // success_rate, and confidence_level.
+  async lookupCompany({ name, domain, ein, phone, id, product_type, state, address }) {
+    const body = {};
+    if (name) body.name = name;
+    if (domain) body.domain = domain;
+    if (ein) body.ein = ein;
+    if (phone) body.phone = phone;
+    if (id) body.id = id;
+    if (product_type) body.product_type = product_type;
+    if (state) body.state = state;
+    if (address) body.address = address;
+    return this._request('POST', 'companies/', { json: body });
   }
 
   // --- Orders API ---

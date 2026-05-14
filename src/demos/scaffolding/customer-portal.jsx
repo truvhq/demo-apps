@@ -29,7 +29,7 @@ export const STEPS = [
     guide: '<p>The form collects applicant PII and employer/institution. Employers are searched via:</p>'
       + '<pre>GET /v1/company-mappings-search/?query=...</pre>'
       + '<p>For financial institutions (banks):</p>'
-      + '<pre>GET /v1/providers/?search=...</pre>'
+      + '<pre>GET /v1/providers/?query=...</pre>'
       + '<p>Then an order is created:</p><pre>POST /v1/orders/</pre>'
       + '<p><a href="https://docs.truv.com/reference/company_autocomplete_search" target="_blank">Company Search</a> · <a href="https://docs.truv.com/reference/providers-list" target="_blank">Providers</a> · <a href="https://docs.truv.com/reference/orders_create" target="_blank">Orders</a></p>',
   },

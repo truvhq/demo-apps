@@ -26,6 +26,7 @@ import bridgeRoutes from './routes/bridge.js';
 import uploadDocumentsRoutes from './routes/upload-documents.js';
 import userReportsRoutes from './routes/user-reports.js';
 import voiePllRoutes from './routes/voie-pll.js';
+import coverageAnalysisRoutes from './routes/coverage-analysis.js';
 
 // Configuration: read API credentials from .env and validate they exist
 const PORT = process.env.PORT || 3000;
@@ -68,7 +69,7 @@ app.get('/api/providers', async (req, res) => {
     const query = req.query.q;
     if (!query) return res.json([]);
     const result = await truv.searchProviders(query, req.query.product_type, req.query.data_source);
-    apiLogger.logApiCall({ sessionId: req.query.session_id, method: 'GET', endpoint: `/v1/providers/?search=${query}`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
+    apiLogger.logApiCall({ sessionId: req.query.session_id, method: 'GET', endpoint: `/v1/providers/?query=${query}`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
     const data = result.data?.results || result.data || [];
     res.json(Array.isArray(data) ? data : []);
   } catch (err) { console.error(err); res.json([]); }
@@ -122,6 +123,7 @@ app.use(bridgeRoutes(deps));
 app.use(uploadDocumentsRoutes(deps));
 app.use(userReportsRoutes(deps));
 app.use(voiePllRoutes(deps));
+app.use(coverageAnalysisRoutes(deps));
 
 // --- Health check ---
 app.get('/api/health', (_req, res) => res.json({ ok: true }));

@@ -11,10 +11,12 @@
 
 // Preact state hook
 import { useState } from 'preact/hooks';
+import { HidePanelButton } from './DeviceFrame.jsx';
 
-// TabButton: individual tab selector in the panel header.
-// Shows label text and optional count badge for items in that tab.
-function TabButton({ active, label, count, onClick }) {
+// TabButton: individual tab selector. Shared between Panel (the sidebar content
+// area) and Layout (the unified top bar). Exported so Layout can render the same
+// pill in its top bar.
+export function TabButton({ active, label, count, onClick }) {
   return (
     <button
       onClick={onClick}
@@ -201,33 +203,33 @@ function tryFormat(s) {
   try { return JSON.stringify(JSON.parse(str), null, 2); } catch { return str; }
 }
 
-// Panel: main exported sidebar component. Consumes all polled data from usePanel()
-// and renders it across four tabs. The panel prop contains currentStep, apiLogs,
-// bridgeEvents, webhooks, and tunnelUrl.
-export function Panel({ steps, panel }) {
-  // Active tab state: defaults to Guide tab
-  const [activeTab, setActiveTab] = useState('guide');
+// Panel: viewport-responsive content area.
+//   lg+   : right-side sidebar (w-1/3, static positioning, bordered). The tab
+//           navigation lives in Layout's top bar aligned with this column.
+//   <lg   : full-bleed overlay covering the parent content row (which is
+//           position:relative). Layered above <main> via z-30 so the iframe
+//           inside any DeviceFrame stays mounted underneath. The tab strip
+//           renders inside the overlay since the top-bar strip is hidden below lg.
+// Tabs are always passed in but only one strip is visible per breakpoint thanks
+// to mirrored `hidden lg:flex` / `flex lg:hidden` modifiers in the two locations.
+export function Panel({ steps, panel, activeTab, tabs, onTabChange }) {
   // Destructure polled data from usePanel() with safe defaults
   const { currentStep = 0, apiLogs = [], bridgeEvents = [], webhooks = [], tunnelUrl = null } = panel || {};
 
-  // Tab definitions with counts for API, Bridge, and Webhooks tabs
-  const tabs = [
-    { id: 'guide', label: 'Guide' },
-    { id: 'api', label: 'API', count: apiLogs.length },
-    { id: 'bridge', label: 'Bridge', count: bridgeEvents.length },
-    { id: 'webhooks', label: 'Webhooks', count: webhooks.length },
-  ];
+  const asideClass = 'absolute inset-0 z-30 lg:static lg:z-auto lg:w-1/3 lg:min-w-0 lg:border-l lg:border-border bg-white flex flex-col overflow-hidden';
 
-  // Render: sidebar with tab header and scrollable content area
   return (
-    <aside class="w-1/3 min-w-0 border-l border-border bg-white flex flex-col overflow-hidden">
-      {/* Tab navigation bar */}
-      <div class="flex gap-0.5 px-5 py-4 border-b border-border">
-        {tabs.map(t => (
-          <TabButton key={t.id} active={activeTab === t.id} label={t.label} count={t.count} onClick={() => setActiveTab(t.id)} />
-        ))}
-      </div>
-      {/* Tab content area: renders the active tab's component */}
+    <aside class={asideClass}>
+      {tabs && onTabChange && (
+        <div class="flex lg:hidden items-center gap-0.5 px-5 h-12 border-b border-border/40 flex-shrink-0">
+          <div class="flex items-center gap-0.5 flex-1 min-w-0 overflow-x-auto">
+            {tabs.map(t => (
+              <TabButton key={t.id} active={activeTab === t.id} label={t.label} count={t.count} onClick={() => onTabChange(t.id)} />
+            ))}
+          </div>
+          <HidePanelButton />
+        </div>
+      )}
       <div class="flex-1 overflow-y-auto px-5 py-4">
         {activeTab === 'guide' && <GuideTab steps={steps || []} currentStep={currentStep} />}
         {activeTab === 'api' && <ApiTab logs={apiLogs} />}

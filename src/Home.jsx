@@ -7,6 +7,7 @@ const INDUSTRY_ICONS = {
   'public-sector': Icons.landmark,
   'consumer-credit': Icons.creditCard,
   'retail-banking': Icons.wallet,
+  'coverage-analysis': Icons.barChart,
 };
 
 function IndustryCard({ industry, index }) {
