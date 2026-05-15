@@ -12,6 +12,7 @@ const DEMO_ICONS = {
   'bank-income': Icons.bankBuilding,
   'payroll-income': Icons.briefcase,
   'pll': Icons.repeat,
+  'income-pll': Icons.link2,
   'deposit-switch': Icons.arrowRightLeft,
   'payroll-coverage': Icons.barChart,
   'bank-coverage': Icons.search,
