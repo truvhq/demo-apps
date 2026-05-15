@@ -296,12 +296,12 @@ export { runJob, lookupWithRetry, isThrottled, parseRetryAfterMs, MAX_RETRY_AFTE
 function buildSummary(results, kind) {
   const total = results.length;
   const counts = { covered: 0, not_found: 0, error: 0 };
-  const sr = { high: 0, medium: 0, low: 0, unsupported: 0, missing: 0 };
+  const sr = { high: 0, low: 0, unsupported: 0, missing: 0 };
   for (const r of results) {
     if (r.status in counts) counts[r.status]++;
     if (r.status === 'covered') {
       const v = String(r.success_rate || '').toLowerCase();
-      if (v === 'high' || v === 'medium' || v === 'low' || v === 'unsupported') sr[v]++;
+      if (v === 'high' || v === 'low' || v === 'unsupported') sr[v]++;
       else sr.missing++;
     }
   }
@@ -325,7 +325,6 @@ function serializeSummary(s) {
     ',,',
     `Success rate (% of covered ${s.entityLabel}),Count,Percent`,
     `High,${s.sr.high},${pctOfCovered(s.sr.high)}`,
-    `Medium,${s.sr.medium},${pctOfCovered(s.sr.medium)}`,
     `Low,${s.sr.low},${pctOfCovered(s.sr.low)}`,
     `Unsupported,${s.sr.unsupported},${pctOfCovered(s.sr.unsupported)}`,
     `Missing,${s.sr.missing},${pctOfCovered(s.sr.missing)}`,
