@@ -146,11 +146,11 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
   const summary = rows.reduce((acc, r) => {
     if (r.status === 'covered') {
       const sr = String(r.success_rate || '').toLowerCase();
-      if (sr === 'high' || sr === 'low' || sr === 'unsupported') acc[sr]++;
+      if (sr === 'high' || sr === 'medium' || sr === 'low' || sr === 'unsupported') acc[sr]++;
       else acc.missing++;
     }
     return acc;
-  }, { high: 0, low: 0, unsupported: 0, missing: 0 });
+  }, { high: 0, medium: 0, low: 0, unsupported: 0, missing: 0 });
 
   return (
     <div class="px-8 py-10 max-w-[1100px] w-full mx-auto">
@@ -317,8 +317,9 @@ function SummaryPanel({ total, covered, notFound, errors, breakdown, entityLabel
 
       <div class="text-xs font-semibold uppercase tracking-wide text-[#6b7280] mb-1">Success rate</div>
       <div class="text-xs text-[#6b7280] mb-2">Percentages below are of <strong>covered {entityLabel}</strong> ({covered}), not of total uploaded.</div>
-      <div class="grid grid-cols-4 gap-3">
+      <div class="grid grid-cols-5 gap-3">
         <SummaryStat label="High" value={breakdown.high} pct={pctOfCovered(breakdown.high)} color="green" />
+        <SummaryStat label="Medium" value={breakdown.medium} pct={pctOfCovered(breakdown.medium)} color="yellow" />
         <SummaryStat label="Low" value={breakdown.low} pct={pctOfCovered(breakdown.low)} color="orange" />
         <SummaryStat label="Unsupported" value={breakdown.unsupported} pct={pctOfCovered(breakdown.unsupported)} color="red" />
         <SummaryStat label="Missing" value={breakdown.missing} pct={pctOfCovered(breakdown.missing)} color="gray" />
@@ -333,6 +334,7 @@ function SummaryStat({ label, value, pct, color }) {
     gray: 'text-gray-700',
     red: 'text-red-700',
     orange: 'text-orange-700',
+    yellow: 'text-yellow-700',
   };
   return (
     <div class="bg-white border border-[#e5e7eb] rounded-md px-3 py-2">

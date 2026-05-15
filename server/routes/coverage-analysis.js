@@ -114,6 +114,7 @@ export default function coverageAnalysisRoutes({ truv, apiLogger }) {
   router.get('/api/coverage/:kind/jobs/:id/csv', (req, res) => {
     const job = jobs.get(req.params.id);
     if (!job || job.kind !== req.params.kind) return res.status(404).json({ error: 'Not found' });
+    if (job.status !== 'completed') return res.status(409).json({ error: 'Job not completed' });
     const cols = job.kind === 'payroll' ? PAYROLL_COLUMNS : BANK_COLUMNS;
     const summary = buildSummary(job.results, job.kind);
     const csv = serializeCsv(job.results, cols) + '\n' + serializeSummary(summary);
@@ -295,12 +296,12 @@ export { runJob, lookupWithRetry, isThrottled, parseRetryAfterMs, MAX_RETRY_AFTE
 function buildSummary(results, kind) {
   const total = results.length;
   const counts = { covered: 0, not_found: 0, error: 0 };
-  const sr = { high: 0, low: 0, unsupported: 0, missing: 0 };
+  const sr = { high: 0, medium: 0, low: 0, unsupported: 0, missing: 0 };
   for (const r of results) {
     if (r.status in counts) counts[r.status]++;
     if (r.status === 'covered') {
       const v = String(r.success_rate || '').toLowerCase();
-      if (v === 'high' || v === 'low' || v === 'unsupported') sr[v]++;
+      if (v === 'high' || v === 'medium' || v === 'low' || v === 'unsupported') sr[v]++;
       else sr.missing++;
     }
   }
@@ -308,9 +309,9 @@ function buildSummary(results, kind) {
   return { total, covered: counts.covered, notFound: counts.not_found, errors: counts.error, sr, entityLabel };
 }
 
-// Render the summary as CSV rows (3-column Metric/Count/Percent table, then a blank
-// separator row). Returned string has a trailing newline so the caller can simply
-// concatenate the data CSV after it.
+// Render the summary as CSV rows (3-column Metric/Count/Percent table).
+// The returned string ends with a trailing newline. The caller is expected to
+// prepend the data CSV and a blank separator row: dataCsv + '\n' + serializeSummary(s).
 function serializeSummary(s) {
   const pctOfTotal = n => s.total > 0 ? `${Math.round((n / s.total) * 100)}%` : '0%';
   const pctOfCovered = n => s.covered > 0 ? `${Math.round((n / s.covered) * 100)}%` : '0%';
@@ -324,6 +325,7 @@ function serializeSummary(s) {
     ',,',
     `Success rate (% of covered ${s.entityLabel}),Count,Percent`,
     `High,${s.sr.high},${pctOfCovered(s.sr.high)}`,
+    `Medium,${s.sr.medium},${pctOfCovered(s.sr.medium)}`,
     `Low,${s.sr.low},${pctOfCovered(s.sr.low)}`,
     `Unsupported,${s.sr.unsupported},${pctOfCovered(s.sr.unsupported)}`,
     `Missing,${s.sr.missing},${pctOfCovered(s.sr.missing)}`,
