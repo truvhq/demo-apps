@@ -396,7 +396,8 @@ function CoverageScreen({ coverage, loading, onContinue }) {
 
   // Coverage is "bad" only when it's an explicit low/unsupported. Null = Truv has
   // no data on this combo yet, treated as unknown — the order can still proceed.
-  const isBadCoverage = coverage.coverage === 'low' || coverage.coverage === 'unsupported';
+  const isBadCoverage = coverage.success_rate === 'low' || coverage.success_rate === 'unsupported';
+  const depositTypes = Array.isArray(coverage.deposit_types) ? coverage.deposit_types.join(', ') : null;
 
   return (
     <div>
@@ -405,10 +406,22 @@ function CoverageScreen({ coverage, loading, onContinue }) {
 
       <InternalCallout />
 
-      <div class="border border-gray-200 rounded-2xl p-5 mb-4">
-        <div class="flex items-center justify-between mb-4">
+      <div class="border border-gray-200 rounded-2xl p-5 mb-4 space-y-4">
+        <div class="flex items-center justify-between">
           <span class="text-xs text-gray-400 uppercase tracking-wide">Coverage</span>
-          <CoverageBadge coverage={coverage.coverage} />
+          <CoverageBadge coverage={coverage.success_rate} />
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-gray-400 uppercase tracking-wide">Deposit types</span>
+          <span class="text-sm font-mono text-gray-900">{depositTypes || '—'}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-gray-400 uppercase tracking-wide">Amount precision</span>
+          <span class="text-sm font-mono text-gray-900">{coverage.amount_precision ?? '—'}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-gray-400 uppercase tracking-wide">Percent precision</span>
+          <span class="text-sm font-mono text-gray-900">{coverage.percent_precision ?? '—'}</span>
         </div>
         <div class="flex items-center justify-between">
           <span class="text-xs text-gray-400 uppercase tracking-wide">Max allocations</span>
@@ -420,7 +433,7 @@ function CoverageScreen({ coverage, loading, onContinue }) {
         <div class="bg-warning-bg border border-warning/30 rounded-2xl p-4 mb-6">
           <div class="text-sm font-semibold text-warning mb-1">Production would route to manual</div>
           <div class="text-xs text-gray-600 leading-relaxed">
-            Coverage came back as <code class="font-mono">{coverage.coverage}</code>. In a live integration the recommendation is to send the borrower down a manual path here — but you can proceed for the sandbox demo.
+            Coverage came back as <code class="font-mono">{coverage.success_rate}</code>. In a live integration the recommendation is to send the borrower down a manual path here — but you can proceed for the sandbox demo.
           </div>
         </div>
       )}

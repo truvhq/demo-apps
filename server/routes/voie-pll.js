@@ -80,14 +80,18 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
       apiLogger.logApiCall({ sessionId, method: 'GET', endpoint: `/v1/companies/${cmid}?product_type=pll`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
       if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Failed to fetch coverage', details: result.data });
 
-      const coverage = result.data?.coverage ?? null;
-      const maxNumber = result.data?.features?.deposit_switch?.max_number ?? null;
+      const successRate = result.data?.success_rate ?? null;
+      const depositSwitch = result.data?.features?.deposit_switch || {};
+      const maxNumber = depositSwitch.max_number ?? null;
       res.json({
         company_mapping_id: cmid,
         name: result.data?.name || null,
-        coverage,
+        success_rate: successRate,
+        deposit_types: depositSwitch.deposit_types ?? null,
+        amount_precision: depositSwitch.amount_precision ?? null,
+        percent_precision: depositSwitch.percent_precision ?? null,
         max_number: maxNumber,
-        decision: evaluateCoverage(coverage),
+        decision: evaluateCoverage(successRate),
         raw: result.data,
       });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
@@ -125,6 +129,12 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
       if (company_mapping_id && Array.isArray(truvData?.employers) && truvData.employers[0]) {
         truvData.employers[0].company_mapping_id = company_mapping_id;
       }
+
+      // The PLL order MUST reuse the exact same external_user_id as the VOIE order —
+      // that's what carries the borrower's payroll auth forward so they don't have
+      // to re-authenticate. Pin it on the stored response so the PLL step reads the
+      // value we actually sent, not whatever Truv may or may not echo back.
+      if (truvData) truvData.external_user_id = externalUserId;
 
       db.createOrder({
         orderId, truvOrderId: truvData.id, userId,
@@ -191,12 +201,12 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
 
       // Re-fetch coverage so we have max_number for the bank-accounts check.
       let maxNumber = null;
-      let coverage = null;
+      let successRate = null;
       if (companyMappingId) {
         const covResult = await truv.getCompanyInfo(companyMappingId, 'pll');
         apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/companies/${companyMappingId}?product_type=pll`, responseBody: covResult.data, statusCode: covResult.statusCode, durationMs: covResult.durationMs });
         if (covResult.statusCode < 400) {
-          coverage = covResult.data?.coverage ?? null;
+          successRate = covResult.data?.success_rate ?? null;
           maxNumber = covResult.data?.features?.deposit_switch?.max_number ?? null;
         }
       }
@@ -233,7 +243,7 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
         company_mapping_id: resolvedCmid,
         link_id: linkId,
         bank_accounts: bankAccounts,
-        coverage,
+        success_rate: successRate,
         max_number: maxNumber,
         is_dds_supported: isDdsSupported,
         decision: { proceed, reasons: [accountDecision.reason, ddsDecision.reason] },
@@ -271,9 +281,9 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
           companyMappingId = linkResult.data?.company_mapping?.id || null;
         }
       }
-      if (!orderNumber || !companyMappingId) return res.status(400).json({ error: 'Missing order_number or company_mapping_id from VOIE order' });
+      const externalUserId = voieRaw.external_user_id || null;
+      if (!orderNumber || !companyMappingId || !externalUserId) return res.status(400).json({ error: 'Missing order_number, company_mapping_id, or external_user_id from VOIE order' });
 
-      const externalUserId = voieRaw.external_user_id || `qs-${uuidv4()}`;
       const account = req.body?.account || SANDBOX_PLL_ACCOUNT;
       const orderId = db.generateId();
       const userId = voieOrder.user_id;
