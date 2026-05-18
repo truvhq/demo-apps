@@ -19,7 +19,7 @@
     "uuid": "^14.0.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.19.0"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.5",

@@ -104,7 +104,7 @@ Best for consumer-facing flows. The server creates a user, generates a bridge to
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) 18+
+- [Node.js](https://nodejs.org/) 20.19+
 - [ngrok](https://ngrok.com/) (free tier) for receiving webhooks locally
 - A [Truv sandbox account](https://dashboard.truv.com/app/development/keys) (free)
 
