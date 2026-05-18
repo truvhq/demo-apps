@@ -252,8 +252,14 @@ export class TruvClient {
   }
 
   // Creates the PLL order linked to a prior VOIE order via shared order_number +
-  // company_mapping_id. The account block specifies the destination + allocation.
+  // external_user_id (the auth-carry-forward fields). The account block specifies
+  // the destination + allocation. company_mapping_id is OPTIONAL — when the VOIE
+  // order was created without an employer (borrower picked one inside Bridge),
+  // we must omit it here entirely; the auth still carries forward via order_number
+  // + external_user_id, and Truv rejects PLL creates that include a stale/missing cmid.
   async createVoiePllPllOrder({ orderNumber, externalUserId, firstName, lastName, companyMappingId, account }) {
+    const employer = { account };
+    if (companyMappingId) employer.company_mapping_id = companyMappingId;
     return this._request('POST', 'orders/', {
       json: {
         products: ['pll'],
@@ -261,10 +267,7 @@ export class TruvClient {
         external_user_id: externalUserId,
         first_name: firstName,
         last_name: lastName,
-        // Single employer object holding both the cmid and the destination account
-        // (account.action: "create" or "update"). Splitting these across two array
-        // entries is what Truv rejected previously.
-        employers: [{ company_mapping_id: companyMappingId, account }],
+        employers: [employer],
       },
     });
   }

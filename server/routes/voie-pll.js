@@ -282,7 +282,11 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
         }
       }
       const externalUserId = voieRaw.external_user_id || null;
-      if (!orderNumber || !companyMappingId || !externalUserId) return res.status(400).json({ error: 'Missing order_number, company_mapping_id, or external_user_id from VOIE order' });
+      // order_number + external_user_id are required to carry the borrower's auth forward.
+      // company_mapping_id is optional: when the borrower picked their employer inside
+      // Bridge during the VOIE step, we won't have one to pass and must omit the field
+      // entirely (passing it as null or a stale value causes Truv to reject the PLL order).
+      if (!orderNumber || !externalUserId) return res.status(400).json({ error: 'Missing order_number or external_user_id from VOIE order' });
 
       const account = req.body?.account || SANDBOX_PLL_ACCOUNT;
       const orderId = db.generateId();

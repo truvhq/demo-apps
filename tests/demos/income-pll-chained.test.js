@@ -55,14 +55,30 @@ describe('IncomePLLChained demo contracts', () => {
     expect(voiePayload.order_number).toBe(pllPayload.order_number);
   });
 
-  it('PLL employer payload nests company_mapping_id and account together', () => {
+  it('PLL employer payload nests company_mapping_id and account together when cmid present', () => {
     const cmid = 'cmid-123';
     const account = { action: 'create' };
     // Asserting the shape we send to /v1/orders/ for PLL — Truv rejects the
     // payload when these are split across two employer entries.
-    const pllEmployers = [{ company_mapping_id: cmid, account }];
+    const employer = { account };
+    if (cmid) employer.company_mapping_id = cmid;
+    const pllEmployers = [employer];
     expect(pllEmployers).toHaveLength(1);
     expect(pllEmployers[0].company_mapping_id).toBe(cmid);
+    expect(pllEmployers[0].account).toEqual(account);
+  });
+
+  it('PLL employer payload OMITS company_mapping_id when borrower picked employer inside Bridge', () => {
+    // Repro of the bug: when the VOIE order was created without an employer, the
+    // PLL employer entry must contain ONLY the account block. Passing cmid as
+    // null/undefined leaves a stale key that Truv rejects.
+    const cmid = null;
+    const account = { action: 'create' };
+    const employer = { account };
+    if (cmid) employer.company_mapping_id = cmid;
+    const pllEmployers = [employer];
+    expect(pllEmployers).toHaveLength(1);
+    expect(pllEmployers[0]).not.toHaveProperty('company_mapping_id');
     expect(pllEmployers[0].account).toEqual(account);
   });
 

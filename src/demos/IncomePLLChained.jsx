@@ -1,19 +1,24 @@
 /**
  * FILE SUMMARY: Consumer Credit: Income + Paycheck-Linked Loans (chained orders) demo.
  * INTEGRATION PATTERN: Orders flow with two linked orders (VOIE then PLL) sharing
- *                     order_number + company_mapping_id so the borrower's payroll
+ *                     order_number + external_user_id so the borrower's payroll
  *                     auth carries forward and they don't re-authenticate.
  *
  * DATA FLOW:
  *   1. GET /api/voie-pll/coverage/:cmid          : pre-check PLL coverage + max_number
  *   2. POST /api/voie-pll/voie-order             : create VOIE order, return bridge_token
- *   3. TruvBridge.init().open()                  : Bridge popup for payroll login
+ *   3. Bridge widget (inline in DeviceFrame)     : payroll login
  *   4. Webhook: task-status-updated (done)       : VOIE task completed
  *   5. GET /api/voie-pll/decision/:voieOrderId   : read bank_accounts + is_dds_supported
  *   6. POST /api/voie-pll/pll-order/:voieOrderId : create linked PLL order
- *   7. TruvBridge.init().open()                  : Bridge popup for PLL confirmation
+ *   7. Bridge widget (inline in DeviceFrame)     : PLL confirmation (no re-auth)
  *   8. Webhook: task-status-updated (done)       : PLL task completed
  *   9. GET /api/voie-pll/pll-report/:pllOrderId  : final deposit-switch report
+ *
+ * The form + Bridge run inside a preview iframe wrapped in DeviceFrame, mirroring
+ * the SmartRouting demo. The host swaps the iframe's contents via postMessage
+ * (`application-form` → `bridge`) so a single iframe element persists across
+ * the form-submit and bridge-open transitions; events return as preview:event.
  *
  * Decision gates that send the borrower to a manual path before stranding them:
  *   - coverage: low/unsupported/null
@@ -26,10 +31,9 @@
  *
  * WHAT TO COPY (for your own Truv integration):
  *   - checkCoverage()    : GET /v1/companies/{cmid}?product_type=pll for the first decision gate
- *   - startVoieOrder()   : creates a VOIE order with a stable order_number + company_mapping_id
+ *   - startVoieOrder()   : creates a VOIE order with a stable order_number + external_user_id
  *   - fetchDecision()    : reads bank_accounts and is_dds_supported for the remaining gates
- *   - startPllOrder()    : creates the linked PLL order with the SAME order_number + company_mapping_id
- *   - openBridge()       : opens TruvBridge with isOrder=true for both VOIE and PLL bridge tokens
+ *   - startPllOrder()    : creates the linked PLL order with the SAME order_number + external_user_id
  */
 
 // --- Imports: Preact hooks ---
@@ -38,11 +42,12 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 // --- Imports: shared layout, components, hooks, and API utilities ---
 import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, parsePayload } from '../components/index.js';
 
+// --- Imports: device-frame preview wrapper + iframe channel hook ---
+import { DeviceFrame } from '../components/DeviceFrame.jsx';
+import { usePreviewIframe } from '../hooks/usePreviewIframe.js';
+
 // --- Imports: report display component (re-used from the standalone PLL demo) ---
 import { PLLReport } from '../components/reports/PLLReport.jsx';
-
-// --- Imports: reusable form component ---
-import { ApplicationForm } from '../components/ApplicationForm.jsx';
 
 // --- Imports: Mermaid diagram for intro slide ---
 import { DIAGRAM } from '../diagrams/income-pll-chained.js';
@@ -70,11 +75,14 @@ export function IncomePLLChainedDemo() {
   const [manualReason, setManualReason] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Bridge widget lives inside the preview iframe; the host only tracks the token.
+  // The iframe initializes TruvBridge with this token and forwards SDK events back.
+  const [bridgeToken, setBridgeToken] = useState(null);
+  const iframeRef = useRef(null);
+
   // Refs: idempotency guards so webhook polling doesn't re-trigger fetches.
-  // bridgeInstanceRef holds the active TruvBridge instance so onSuccess can close it.
   const decisionFetchedRef = useRef(false);
   const reportFetchedRef = useRef(false);
-  const bridgeInstanceRef = useRef(null);
 
   // Panel hook: sidebar state, session tracking, webhook polling, bridge events
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
@@ -145,9 +153,10 @@ export function IncomePLLChainedDemo() {
     setLoading(false);
   }
 
-  // Step 2 + 3: create the VOIE order and immediately open Bridge. Bridge's
-  // onSuccess callback drives the transition to the decision screen — the
-  // webhook-based useEffect remains as a backup if onSuccess doesn't fire.
+  // Step 2 + 3: create the VOIE order, then hand the bridge_token to the preview
+  // iframe so Bridge renders inline inside the DeviceFrame. Bridge's onSuccess
+  // event (routed back via postMessage) drives the transition to the decision
+  // screen; the webhook-based useEffect remains as a backup.
   async function startVoieOrder() {
     setLoading(true);
     setCurrentStep(1);
@@ -165,11 +174,7 @@ export function IncomePLLChainedDemo() {
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setLoading(false); return; }
       setVoieOrder(data);
       startPolling(data.user_id);
-      openBridge(data.bridge_token, () => {
-        decisionFetchedRef.current = true;
-        // Truv needs a moment after onSuccess to populate link_id + bank_accounts.
-        setTimeout(() => fetchDecision(data.order_id), 1500);
-      });
+      setBridgeToken(data.bridge_token);
       setScreen('voie-waiting');
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -196,26 +201,27 @@ export function IncomePLLChainedDemo() {
     } catch (e) { console.error(e); }
   }
 
-  // Step 6 + 7: create the linked PLL order (sharing order_number + cmid with VOIE)
-  // and open Bridge again. Same payroll session — borrower confirms without re-auth.
+  // Step 6 + 7: create the linked PLL order (sharing order_number + external_user_id
+  // with VOIE) and hand the new bridge_token to the iframe. Same payroll session —
+  // borrower confirms without re-auth.
   async function startPllOrder() {
     if (!voieOrder?.order_id) return;
     setLoading(true);
     try {
-      // Pass the cmid from the decision payload — covers the case where VOIE was
-      // created without an employer and the borrower picked one inside Bridge.
+      // Pass the cmid only if the decision payload resolved one. If the borrower
+      // picked their employer inside Bridge during VOIE, decision.company_mapping_id
+      // will be null — sending it would force Truv to reject the PLL order. The
+      // backend re-validates this and omits the field from the upstream payload.
+      const body = decision?.company_mapping_id ? { company_mapping_id: decision.company_mapping_id } : {};
       const resp = await fetch(`${API_BASE}/api/voie-pll/pll-order/${encodeURIComponent(voieOrder.order_id)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ company_mapping_id: decision?.company_mapping_id || undefined }),
+        body: JSON.stringify(body),
       });
       const data = await resp.json();
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setLoading(false); return; }
       setPllOrder(data);
-      openBridge(data.bridge_token, () => {
-        reportFetchedRef.current = true;
-        setTimeout(() => fetchPllReport(data.order_id), 1500);
-      });
+      setBridgeToken(data.bridge_token);
       setScreen('pll-waiting');
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -248,36 +254,50 @@ export function IncomePLLChainedDemo() {
     pollOnceAndStop();
   }
 
-  // Reusable Bridge popup launcher. Used for both the VOIE and PLL bridge tokens.
-  // isOrder=true tells Bridge the token is order-scoped. The instance reference is
-  // held in a ref so onSuccess can call .close() and dismiss the success screen.
-  // onSuccessCallback drives the next step directly off the SDK callback so the
-  // flow doesn't depend on webhook delivery (which may not reach this backend).
-  function openBridge(bridgeToken, onSuccessCallback) {
-    if (!bridgeToken || !window.TruvBridge) return;
-    const opts = {
-      bridgeToken,
-      isOrder: true,
-      onLoad: () => addBridgeEvent('onLoad()', null),
-      onSuccess: (publicToken, meta) => {
-        addBridgeEvent('onSuccess(publicToken, meta)', [
-          { label: 'publicToken', value: publicToken },
-          { label: 'meta', value: meta },
-        ]);
-        // Close the popup so the borrower returns to the demo immediately
-        // instead of staring at the "verification completed" success screen.
-        try { bridgeInstanceRef.current?.close(); } catch {}
-        if (onSuccessCallback) onSuccessCallback();
-      },
-      onEvent: (type, payload) => {
-        const payloadStr = payload ? 'payload' : 'undefined';
-        addBridgeEvent(`onEvent("${type}", ${payloadStr})`, payload ? [{ label: 'payload', value: payload }] : null);
-      },
-      onClose: () => addBridgeEvent('onClose()', null),
-    };
-    bridgeInstanceRef.current = window.TruvBridge.init(opts);
-    bridgeInstanceRef.current.open();
-  }
+  // Preview iframe channel: maps user/SDK events from inside the iframe back to
+  // host state changes. The iframe never closes over host functions — events
+  // travel as plain { name, args } messages and the host re-binds them here.
+  const sendPreview = usePreviewIframe(iframeRef, {
+    'form:submit': (data) => checkCoverage(data),
+    'bridge:onLoad': () => addBridgeEvent('onLoad()', null),
+    'bridge:onEvent': (type, payload) => {
+      const payloadStr = payload ? 'payload' : 'undefined';
+      addBridgeEvent(`onEvent("${type}", ${payloadStr})`, payload ? [{ label: 'payload', value: payload }] : null);
+    },
+    'bridge:onSuccess': (publicToken, meta) => {
+      addBridgeEvent('onSuccess(publicToken, meta)', [
+        { label: 'publicToken', value: publicToken },
+        { label: 'meta', value: meta },
+      ]);
+      // Drive the next step directly off the SDK callback so the flow doesn't
+      // depend on webhook delivery. The 1500ms delay gives Truv time to populate
+      // link_id + bank_accounts on the VOIE order (and the PLL report on PLL).
+      if (screen === 'voie-waiting' && voieOrder?.order_id) {
+        decisionFetchedRef.current = true;
+        setTimeout(() => fetchDecision(voieOrder.order_id), 1500);
+      } else if (screen === 'pll-waiting' && pllOrder?.order_id) {
+        reportFetchedRef.current = true;
+        setTimeout(() => fetchPllReport(pllOrder.order_id), 1500);
+      }
+    },
+    'bridge:onClose': () => {
+      addBridgeEvent('onClose()', null);
+      setBridgeToken(null);
+    },
+  });
+
+  // Drive the preview iframe from host state. A single source of truth: whenever
+  // any of these inputs change, the host issues a render command and the iframe
+  // swaps in the matching component.
+  useEffect(() => {
+    if (screen === 'select' && showForm) {
+      sendPreview('application-form', { sessionId, productType: 'pll', submitting: loading });
+      return;
+    }
+    if ((screen === 'voie-waiting' || screen === 'pll-waiting') && bridgeToken) {
+      sendPreview('bridge', { bridgeToken, isOrder: true });
+    }
+  }, [screen, showForm, bridgeToken, loading, sessionId, sendPreview]);
 
   // Handler: reset all state to start over
   function resetDemo() {
@@ -294,17 +314,25 @@ export function IncomePLLChainedDemo() {
     setPllReport(null);
     setPllError(null);
     setManualReason(null);
+    setBridgeToken(null);
   }
 
-  // Derived state: layout flag
+  // Derived state: layout flags
   const isIntro = screen === 'select' && !showForm;
+  // Show the DeviceFrame whenever the borrower-facing experience is on screen:
+  // the form, and either of the two Bridge handoffs. Internal pre-check screens
+  // (coverage, decision, review, manual) render as host UI outside the frame.
+  const showDeviceFrame =
+    (screen === 'select' && showForm) ||
+    (screen === 'voie-waiting' && bridgeToken) ||
+    (screen === 'pll-waiting' && bridgeToken);
 
   // --- Render: state-driven screen routing ---
   return (
     <Layout badge="Income + PLL" steps={STEPS} panel={panel} hidePanel={isIntro}>
-      <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
-        {/* Intro slide: architecture diagram on the right */}
-        {screen === 'select' && !showForm && (
+      {/* Intro slide: architecture diagram on the right (host UI, no DeviceFrame) */}
+      {screen === 'select' && !showForm && (
+        <div class="flex-1 flex flex-col">
           <IntroSlide
             label={INTRO_SLIDE_CONFIG.label}
             title={INTRO_SLIDE_CONFIG.title}
@@ -312,41 +340,57 @@ export function IncomePLLChainedDemo() {
             diagram={DIAGRAM}
             actions={<button onClick={() => setShowForm(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
           />
-        )}
+        </div>
+      )}
 
-        {/* Application form: collects PII + employer with product_type=pll for ranking */}
-        {screen === 'select' && showForm && (
-          <ApplicationForm sessionId={sessionId} onSubmit={checkCoverage} submitting={loading} productType="pll" />
-        )}
+      {/* Application form + Bridge widget both live inside the preview iframe.
+          The host swaps the iframe's content via postMessage as state evolves;
+          a single iframe element persists across each form → bridge transition. */}
+      {showDeviceFrame && (
+        <DeviceFrame url="lending.example.com">
+          <iframe
+            ref={iframeRef}
+            src="/preview.html"
+            title="Demo preview"
+            class="w-full h-full block border-0 bg-white"
+          />
+        </DeviceFrame>
+      )}
 
-        {/* Coverage screen: pre-check result + button to proceed to VOIE order */}
-        {screen === 'coverage' && (
-          <CoverageScreen coverage={coverage} loading={loading} onContinue={startVoieOrder} />
-        )}
+      {/* Host-UI screens — internal pre-check and review pages outside the frame */}
+      {(screen === 'coverage' || screen === 'decision' || screen === 'review' || screen === 'manual'
+        || (screen === 'voie-waiting' && !bridgeToken)
+        || (screen === 'pll-waiting' && !bridgeToken)) && (
+        <div class="max-w-lg mx-auto px-8 py-10 w-full">
+          {/* Coverage screen: pre-check result + button to proceed to VOIE order */}
+          {screen === 'coverage' && (
+            <CoverageScreen coverage={coverage} loading={loading} onContinue={startVoieOrder} />
+          )}
 
-        {/* VOIE waiting: webhook polling spinner until VOIE task completes */}
-        {screen === 'voie-waiting' && <WaitingScreen webhooks={panel.webhooks} />}
+          {/* VOIE waiting (post-bridge): webhook polling spinner until decision loads */}
+          {screen === 'voie-waiting' && !bridgeToken && <WaitingScreen webhooks={panel.webhooks} />}
 
-        {/* Decision review: bank_accounts + is_dds_supported, button to proceed to PLL */}
-        {screen === 'decision' && (
-          <DecisionScreen decision={decision} onContinue={startPllOrder} loading={loading} />
-        )}
+          {/* Decision review: bank_accounts + is_dds_supported, button to proceed to PLL */}
+          {screen === 'decision' && (
+            <DecisionScreen decision={decision} onContinue={startPllOrder} loading={loading} />
+          )}
 
-        {/* PLL waiting: webhook polling spinner until PLL task completes */}
-        {screen === 'pll-waiting' && <WaitingScreen webhooks={panel.webhooks} />}
+          {/* PLL waiting (post-bridge): webhook polling spinner until report loads */}
+          {screen === 'pll-waiting' && !bridgeToken && <WaitingScreen webhooks={panel.webhooks} />}
 
-        {/* Review screen: PLL deposit allocation report */}
-        {screen === 'review' && (
-          <div>
-            <h2 class="text-2xl font-bold tracking-tight mb-1.5">{REPORT_HEADER.title}</h2>
-            <p class="text-sm text-gray-500 mb-7">{REPORT_HEADER.subtitle}</p>
-            <ReviewBody report={pllReport} error={pllError} userId={pllOrder?.user_id || voieOrder?.user_id} onReset={resetDemo} />
-          </div>
-        )}
+          {/* Review screen: PLL deposit allocation report */}
+          {screen === 'review' && (
+            <div>
+              <h2 class="text-2xl font-bold tracking-tight mb-1.5">{REPORT_HEADER.title}</h2>
+              <p class="text-sm text-gray-500 mb-7">{REPORT_HEADER.subtitle}</p>
+              <ReviewBody report={pllReport} error={pllError} userId={pllOrder?.user_id || voieOrder?.user_id} onReset={resetDemo} />
+            </div>
+          )}
 
-        {/* Manual route: shown when any decision gate fails */}
-        {screen === 'manual' && <ManualRouteScreen reason={manualReason} onReset={resetDemo} />}
-      </div>
+          {/* Manual route: shown when any decision gate fails */}
+          {screen === 'manual' && <ManualRouteScreen reason={manualReason} onReset={resetDemo} />}
+        </div>
+      )}
     </Layout>
   );
 }
