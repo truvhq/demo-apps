@@ -48,7 +48,7 @@ export function Home({ onResetCredentials }) {
 
   return (
     <div class="min-h-screen flex flex-col bg-white">
-      <Header badge="Demo Apps" sticky />
+      <Header badge="Demo Apps" sticky onUpdateKeys={onResetCredentials ? handleReset : undefined} />
       <main class="flex-1 flex items-start justify-center pt-16 pb-20 px-6">
         <div class="max-w-[640px] w-full">
           <div class="animate-slideUp mb-12">
@@ -62,17 +62,6 @@ export function Home({ onResetCredentials }) {
               <IndustryCard key={ind.id} industry={ind} index={i} />
             ))}
           </div>
-          {onResetCredentials && (
-            <div class="mt-12 pt-6 border-t border-[#e8e8ed] flex justify-center">
-              <button
-                type="button"
-                onClick={handleReset}
-                class="text-[13px] text-[#8E8E93] hover:text-[#171717] transition-colors"
-              >
-                Reset Truv credentials
-              </button>
-            </div>
-          )}
         </div>
       </main>
     </div>
