@@ -10,6 +10,55 @@
 import { useState } from 'preact/hooks';
 import { Icons } from './Icons.jsx';
 
+function EyeIcon({ open }) {
+  return open ? (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ) : (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-6.5 0-10-7-10-7a18.45 18.45 0 0 1 4.21-5.06" />
+      <path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19" />
+      <path d="M14.12 14.12A3 3 0 1 1 9.88 9.88" />
+      <line x1="2" y1="2" x2="22" y2="22" />
+    </svg>
+  );
+}
+
+function SecretInput({ label, value, onInput, placeholder, disabled }) {
+  const [revealed, setRevealed] = useState(false);
+  return (
+    <label class="block">
+      <span class="block text-[13px] font-medium text-[#171717] mb-1.5">{label}</span>
+      <div class="relative">
+        <input
+          type={revealed ? 'text' : 'password'}
+          autoComplete="off"
+          spellCheck={false}
+          required
+          minLength={8}
+          maxLength={256}
+          value={value}
+          onInput={onInput}
+          class="w-full px-3 py-2 pr-10 text-[14px] border border-[#e8e8ed] rounded-lg bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono"
+          placeholder={placeholder}
+          disabled={disabled}
+        />
+        <button
+          type="button"
+          onClick={() => setRevealed(r => !r)}
+          aria-label={revealed ? `Hide ${label}` : `Show ${label}`}
+          tabIndex={-1}
+          class="absolute inset-y-0 right-0 px-3 flex items-center text-[#8E8E93] hover:text-[#171717] transition-colors"
+        >
+          <EyeIcon open={revealed} />
+        </button>
+      </div>
+    </label>
+  );
+}
+
 const ERROR_COPY = {
   invalid_credentials: 'Those credentials were rejected by Truv. Double-check the client ID and secret on the dashboard.',
   invalid_input: 'Both fields are required and must be at least 8 characters.',
@@ -62,39 +111,20 @@ export function ConfigureScreen({ onSubmit }) {
         </div>
 
         <form onSubmit={handleSubmit} class="space-y-4">
-          <label class="block">
-            <span class="block text-[13px] font-medium text-[#171717] mb-1.5">API client ID</span>
-            <input
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              required
-              minLength={8}
-              maxLength={256}
-              value={clientId}
-              onInput={e => setClientId(e.currentTarget.value)}
-              class="w-full px-3 py-2 text-[14px] border border-[#e8e8ed] rounded-lg bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono"
-              placeholder="cid_..."
-              disabled={busy}
-            />
-          </label>
-
-          <label class="block">
-            <span class="block text-[13px] font-medium text-[#171717] mb-1.5">API secret</span>
-            <input
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              required
-              minLength={8}
-              maxLength={256}
-              value={secret}
-              onInput={e => setSecret(e.currentTarget.value)}
-              class="w-full px-3 py-2 text-[14px] border border-[#e8e8ed] rounded-lg bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono"
-              placeholder="sec_..."
-              disabled={busy}
-            />
-          </label>
+          <SecretInput
+            label="API client ID"
+            value={clientId}
+            onInput={e => setClientId(e.currentTarget.value)}
+            placeholder="cid_..."
+            disabled={busy}
+          />
+          <SecretInput
+            label="API secret"
+            value={secret}
+            onInput={e => setSecret(e.currentTarget.value)}
+            placeholder="sec_..."
+            disabled={busy}
+          />
 
           {error && (
             <div class="text-[13px] text-[#c81e1e] bg-[#fef2f2] border border-[#fecaca] rounded-lg px-3 py-2">
