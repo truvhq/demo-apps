@@ -25,6 +25,7 @@ import { setupWebhook, teardownWebhook, registerWebhook, unregisterWebhook } fro
 import { createSessionStore } from './sessions/store.js';
 import { sessionMiddleware } from './sessions/middleware.js';
 import { startSweeper } from './sessions/sweeper.js';
+import { DashboardClient } from './dashboard.js';
 import sessionRoutes from './routes/session.js';
 import ordersRoutes from './routes/orders.js';
 import reportsRoutes from './routes/reports.js';
@@ -38,6 +39,16 @@ const PORT = process.env.PORT || 3000;
 const { API_CLIENT_ID, API_SECRET, PUBLIC_BASE_URL, NGROK_URL } = process.env;
 const SESSION_IDLE_TTL_MS = Number(process.env.SESSION_IDLE_TTL_MS) || 3_600_000;
 const SESSION_COOKIE_SECRET = process.env.SESSION_COOKIE_SECRET || randomBytes(32).toString('hex');
+const DASHBOARD_BACKEND_URL = process.env.DASHBOARD_BACKEND_URL || 'https://dashboard-backend-prod.truv.com';
+
+// SSO is enabled when the frontend has Auth0 config AND the backend has a
+// dashboard URL. If any piece is missing the SSO route returns 503
+// sso_disabled — the rest of the app keeps working with paste-only flow.
+const SSO_ENABLED = Boolean(
+  process.env.VITE_AUTH0_DOMAIN
+  && process.env.VITE_AUTH0_CLIENT_ID
+  && process.env.VITE_AUTH0_AUDIENCE
+);
 // Fallback dev mode: when truthy, the server keeps a singleton TruvClient
 // from .env and registers one shared webhook at startup, preserving the
 // pre-BYO behavior for local development.
@@ -70,6 +81,11 @@ db.initDb();
 // Session store: in-memory, TTL'd. Holds per-visitor API credentials for the
 // BYO-credentials flow. Sessions never reach disk.
 const sessionStore = createSessionStore({ idleTtlMs: SESSION_IDLE_TTL_MS });
+
+// Dashboard backend client for the SSO key-fetch path. Constructed regardless
+// of SSO_ENABLED so the session routes can dependency-inject it; the route
+// itself short-circuits to 503 when SSO is disabled.
+const dashboardClient = new DashboardClient({ baseUrl: DASHBOARD_BACKEND_URL });
 
 // Sweeper: periodically evict idle sessions and best-effort delete their
 // per-session webhook from the customer's Truv account.
@@ -198,6 +214,8 @@ app.use(sessionRoutes({
   store: sessionStore,
   cookieSecret: SESSION_COOKIE_SECRET,
   idleTtlMs: SESSION_IDLE_TTL_MS,
+  dashboardClient,
+  ssoEnabled: SSO_ENABLED,
   async onSessionCreated({ id, client }) {
     if (!WEBHOOK_BASE_URL) {
       // Sessions still work for outbound API calls, but webhooks cannot be

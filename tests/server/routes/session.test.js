@@ -23,6 +23,8 @@ function startServer({
   storeOpts = { idleTtlMs: 60_000 },
   onSessionCreated,
   onSessionDestroyed,
+  dashboardClient,
+  ssoEnabled,
   rateLimitMax = 100,
   rateLimitWindowMs = 60_000,
 } = {}) {
@@ -37,6 +39,8 @@ function startServer({
     idleTtlMs: storeOpts.idleTtlMs,
     onSessionCreated,
     onSessionDestroyed,
+    dashboardClient,
+    ssoEnabled,
     rateLimitMax,
     rateLimitWindowMs,
   }));
@@ -386,6 +390,368 @@ describe('POST /api/session — integration with middleware', () => {
     } finally {
       vi.restoreAllMocks();
       await closeServer(server);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/session/sso
+// ---------------------------------------------------------------------------
+
+function makeMockDashboardClient(overrides = {}) {
+  return {
+    fetchUserKeys: vi.fn().mockResolvedValue({
+      statusCode: 200,
+      data: { keys: [{ client_id: 'sso_cid_abcdef', secret: 'sso_sec_abcdef' }] },
+      durationMs: 12,
+      ...overrides.fetchUserKeys,
+    }),
+    fetchMe: vi.fn().mockResolvedValue({
+      statusCode: 200,
+      data: { id: 'user_1', default_company_id: 'co_default' },
+      durationMs: 8,
+      ...overrides.fetchMe,
+    }),
+  };
+}
+
+const VALID_TOKEN = 'eyJ' + 'a'.repeat(40); // 43 chars, looks like a real JWT prefix
+
+describe('POST /api/session/sso', () => {
+  let ctx;
+
+  it('returns 503 sso_disabled when SSO is disabled or no dashboard client', async () => {
+    ctx = await startServer({ ssoEnabled: false });
+    try {
+      const res = await fetch(`${ctx.baseUrl}/api/session/sso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: VALID_TOKEN }),
+      });
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({ error: 'sso_disabled' });
+    } finally {
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('returns 503 when no dashboardClient is provided even if ssoEnabled defaults to true', async () => {
+    ctx = await startServer();
+    try {
+      const res = await fetch(`${ctx.baseUrl}/api/session/sso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: VALID_TOKEN }),
+      });
+      expect(res.status).toBe(503);
+    } finally {
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('creates a session and sets the cookie on a successful dashboard call', async () => {
+    const dashboardClient = makeMockDashboardClient();
+    ctx = await startServer({ dashboardClient });
+    try {
+      const res = await fetch(`${ctx.baseUrl}/api/session/sso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: VALID_TOKEN }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true });
+      expect(dashboardClient.fetchUserKeys).toHaveBeenCalledWith({ accessToken: VALID_TOKEN, env: 'sandbox' });
+
+      const signed = extractSessionCookie(res.headers.get('set-cookie'));
+      const sid = verifySessionCookie(signed, COOKIE_SECRET);
+      expect(ctx.store.get(sid)).toMatchObject({
+        clientId: 'sso_cid_abcdef',
+        secret: 'sso_sec_abcdef',
+      });
+    } finally {
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('returns 400 invalid_input when access_token is missing', async () => {
+    ctx = await startServer({ dashboardClient: makeMockDashboardClient() });
+    try {
+      const res = await fetch(`${ctx.baseUrl}/api/session/sso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: 'invalid_input' });
+    } finally {
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('returns 400 when access_token is too short', async () => {
+    ctx = await startServer({ dashboardClient: makeMockDashboardClient() });
+    try {
+      const res = await fetch(`${ctx.baseUrl}/api/session/sso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: 'short' }),
+      });
+      expect(res.status).toBe(400);
+    } finally {
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('returns 400 when access_token exceeds 4096 chars', async () => {
+    ctx = await startServer({ dashboardClient: makeMockDashboardClient() });
+    try {
+      const res = await fetch(`${ctx.baseUrl}/api/session/sso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: 'x'.repeat(4097) }),
+      });
+      expect(res.status).toBe(400);
+    } finally {
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('returns 401 invalid_credentials when dashboard returns 401', async () => {
+    const dashboardClient = makeMockDashboardClient({
+      fetchUserKeys: { statusCode: 401, data: { error: 'unauthorized' } },
+    });
+    ctx = await startServer({ dashboardClient });
+    try {
+      const res = await fetch(`${ctx.baseUrl}/api/session/sso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: VALID_TOKEN }),
+      });
+      expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({ error: 'invalid_credentials' });
+      expect(ctx.store.all()).toHaveLength(0);
+    } finally {
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('returns 502 truv_unreachable when dashboard returns 500', async () => {
+    const dashboardClient = makeMockDashboardClient({
+      fetchUserKeys: { statusCode: 500, data: { error: 'server' } },
+    });
+    ctx = await startServer({ dashboardClient });
+    try {
+      const res = await fetch(`${ctx.baseUrl}/api/session/sso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: VALID_TOKEN }),
+      });
+      expect(res.status).toBe(502);
+      expect(await res.json()).toEqual({ error: 'truv_unreachable' });
+    } finally {
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('returns 502 when fetch fails at the network layer (statusCode 0)', async () => {
+    const dashboardClient = makeMockDashboardClient({
+      fetchUserKeys: { statusCode: 0, data: null, error: 'network' },
+    });
+    ctx = await startServer({ dashboardClient });
+    try {
+      const res = await fetch(`${ctx.baseUrl}/api/session/sso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: VALID_TOKEN }),
+      });
+      expect(res.status).toBe(502);
+    } finally {
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('returns 409 no_keys_available when dashboard returns an empty keys array', async () => {
+    const dashboardClient = makeMockDashboardClient({
+      fetchUserKeys: { statusCode: 200, data: { keys: [] } },
+    });
+    ctx = await startServer({ dashboardClient });
+    try {
+      const res = await fetch(`${ctx.baseUrl}/api/session/sso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: VALID_TOKEN }),
+      });
+      expect(res.status).toBe(409);
+      const body = await res.json();
+      expect(body.error).toBe('no_keys_available');
+      expect(body.dashboard_url).toMatch(/dashboard\.truv\.com/);
+      expect(ctx.store.all()).toHaveLength(0);
+    } finally {
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('rolls back the session and returns 502 when onSessionCreated throws', async () => {
+    const dashboardClient = makeMockDashboardClient();
+    const onCreated = vi.fn(() => { throw new Error('webhook fail'); });
+    ctx = await startServer({ dashboardClient, onSessionCreated: onCreated });
+    try {
+      const res = await fetch(`${ctx.baseUrl}/api/session/sso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: VALID_TOKEN }),
+      });
+      expect(res.status).toBe(502);
+      expect(await res.json()).toEqual({ error: 'webhook_registration_failed' });
+      expect(ctx.store.all()).toHaveLength(0);
+    } finally {
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('picks the first key when dashboard returns multiple', async () => {
+    const dashboardClient = makeMockDashboardClient({
+      fetchUserKeys: {
+        statusCode: 200,
+        data: {
+          keys: [
+            { client_id: 'first_cid_abc', secret: 'first_sec_abc' },
+            { client_id: 'second_cid_xyz', secret: 'second_sec_xyz' },
+          ],
+        },
+      },
+    });
+    ctx = await startServer({ dashboardClient });
+    try {
+      const res = await fetch(`${ctx.baseUrl}/api/session/sso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: VALID_TOKEN }),
+      });
+      expect(res.status).toBe(200);
+      const signed = extractSessionCookie(res.headers.get('set-cookie'));
+      const sid = verifySessionCookie(signed, COOKIE_SECRET);
+      expect(ctx.store.get(sid).clientId).toBe('first_cid_abc');
+    } finally {
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('returns 502 when the returned key object has the wrong shape', async () => {
+    const dashboardClient = makeMockDashboardClient({
+      fetchUserKeys: {
+        statusCode: 200,
+        data: { keys: [{ id: 'unexpected' }] },
+      },
+    });
+    ctx = await startServer({ dashboardClient });
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const res = await fetch(`${ctx.baseUrl}/api/session/sso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: VALID_TOKEN }),
+      });
+      expect(res.status).toBe(502);
+    } finally {
+      errSpy.mockRestore();
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('does not log the access_token, returned client_id, or secret', async () => {
+    const dashboardClient = makeMockDashboardClient();
+    ctx = await startServer({ dashboardClient });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      await fetch(`${ctx.baseUrl}/api/session/sso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: VALID_TOKEN }),
+      });
+
+      const allLogs = [...logSpy.mock.calls, ...errSpy.mock.calls].map(args => JSON.stringify(args)).join(' ');
+      expect(allLogs).not.toContain(VALID_TOKEN);
+      expect(allLogs).not.toContain('sso_cid_abcdef');
+      expect(allLogs).not.toContain('sso_sec_abcdef');
+    } finally {
+      logSpy.mockRestore();
+      errSpy.mockRestore();
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('subsequent requests with the cookie populate req.truv via the middleware', async () => {
+    const dashboardClient = makeMockDashboardClient();
+    const store = createSessionStore({ idleTtlMs: 60_000 });
+    const app = express();
+    app.use(express.json());
+    app.use(cookieParser());
+    app.use(sessionMiddleware({ store, cookieSecret: COOKIE_SECRET }));
+    app.use(sessionRoutes({ store, cookieSecret: COOKIE_SECRET, idleTtlMs: 60_000, rateLimitMax: 100, dashboardClient }));
+    app.get('/api/test/echo', (req, res) => {
+      res.json({ has_truv: req.truv !== null, has_session: req.session !== null });
+    });
+
+    const server = await new Promise((resolve) => {
+      const s = http.createServer(app);
+      s.listen(0, '127.0.0.1', () => resolve(s));
+    });
+    const baseUrl = `http://127.0.0.1:${server.address().port}`;
+
+    try {
+      const create = await fetch(`${baseUrl}/api/session/sso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: VALID_TOKEN }),
+      });
+      const signed = extractSessionCookie(create.headers.get('set-cookie'));
+
+      const res = await fetch(`${baseUrl}/api/test/echo`, {
+        headers: { Cookie: `${SESSION_COOKIE_NAME}=${encodeURIComponent(signed)}` },
+      });
+      expect(await res.json()).toEqual({ has_truv: true, has_session: true });
+    } finally {
+      await closeServer(server);
+    }
+  });
+});
+
+describe('POST /api/session/sso — shared rate limit with paste', () => {
+  it('429 fires when paste and SSO together exceed the limit', async () => {
+    const dashboardClient = makeMockDashboardClient();
+    const ctx = await startServer({ dashboardClient, rateLimitMax: 2, rateLimitWindowMs: 60_000 });
+    mockFetch(() => Promise.resolve(jsonResponse(401, {})));
+
+    try {
+      // First attempt: paste (consumes 1 of 2)
+      const a = await fetch(`${ctx.baseUrl}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: 'cid_abcdef', secret: 'sec_abcdef' }),
+      });
+      // Second attempt: sso (consumes 2 of 2)
+      const b = await fetch(`${ctx.baseUrl}/api/session/sso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: VALID_TOKEN }),
+      });
+      // Third attempt: another paste — should 429
+      const c = await fetch(`${ctx.baseUrl}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: 'cid_abcdef', secret: 'sec_abcdef' }),
+      });
+
+      expect(a.status).toBe(401);
+      expect(b.status).toBe(200);
+      expect(c.status).toBe(429);
+    } finally {
+      vi.restoreAllMocks();
+      await closeServer(ctx.server);
     }
   });
 });

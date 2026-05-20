@@ -37,9 +37,21 @@ function cookieOptions({ ttlMs }) {
   };
 }
 
-export default function sessionRoutes({ store, cookieSecret, idleTtlMs, onSessionCreated, onSessionDestroyed, rateLimitWindowMs = 600_000, rateLimitMax = 10 }) {
+export default function sessionRoutes({
+  store,
+  cookieSecret,
+  idleTtlMs,
+  onSessionCreated,
+  onSessionDestroyed,
+  dashboardClient,
+  ssoEnabled = true,
+  rateLimitWindowMs = 600_000,
+  rateLimitMax = 10,
+}) {
   const router = Router();
 
+  // Shared rate limiter — paste and SSO both hit the same per-IP budget so a
+  // visitor can't bypass the limit by toggling between the two entry points.
   const limiter = rateLimit({
     windowMs: rateLimitWindowMs,
     max: rateLimitMax,
@@ -47,6 +59,26 @@ export default function sessionRoutes({ store, cookieSecret, idleTtlMs, onSessio
     legacyHeaders: false,
     message: { error: 'rate_limited' },
   });
+
+  async function createSession(req, res, { clientId, secret, probeClient }) {
+    const id = store.create({ clientId, secret });
+
+    if (typeof onSessionCreated === 'function') {
+      try {
+        const ok = await onSessionCreated({ id, client: probeClient });
+        if (ok === false) {
+          store.destroy(id);
+          return res.status(502).json({ error: 'webhook_registration_failed' });
+        }
+      } catch {
+        store.destroy(id);
+        return res.status(502).json({ error: 'webhook_registration_failed' });
+      }
+    }
+
+    res.cookie(SESSION_COOKIE_NAME, signSessionId(id, cookieSecret), cookieOptions({ ttlMs: idleTtlMs }));
+    res.json({ ok: true });
+  }
 
   router.post('/api/session', limiter, async (req, res) => {
     try {
@@ -72,27 +104,64 @@ export default function sessionRoutes({ store, cookieSecret, idleTtlMs, onSessio
         return res.status(502).json({ error: 'truv_unreachable' });
       }
 
-      const id = store.create({ clientId: client_id, secret });
-
-      // Hook for U4 (webhook registration). If it throws or returns false,
-      // roll back the session so the user sees a clear error.
-      if (typeof onSessionCreated === 'function') {
-        try {
-          const ok = await onSessionCreated({ id, client: probeClient });
-          if (ok === false) {
-            store.destroy(id);
-            return res.status(502).json({ error: 'webhook_registration_failed' });
-          }
-        } catch {
-          store.destroy(id);
-          return res.status(502).json({ error: 'webhook_registration_failed' });
-        }
-      }
-
-      res.cookie(SESSION_COOKIE_NAME, signSessionId(id, cookieSecret), cookieOptions({ ttlMs: idleTtlMs }));
-      res.json({ ok: true });
+      return createSession(req, res, { clientId: client_id, secret, probeClient });
     } catch (err) {
       console.error('session_create_failed', err.message);
+      res.status(500).json({ error: 'internal_error' });
+    }
+  });
+
+  // POST /api/session/sso — auto-populate keys via Auth0 + dashboard backend.
+  // Body: { access_token: string }. Picks the first key from the user's default
+  // company at sandbox env.
+  router.post('/api/session/sso', limiter, async (req, res) => {
+    try {
+      if (!ssoEnabled || !dashboardClient) {
+        return res.status(503).json({ error: 'sso_disabled' });
+      }
+
+      const accessToken = req.body?.access_token;
+      if (typeof accessToken !== 'string' || accessToken.length < 32 || accessToken.length > 4096) {
+        return res.status(400).json({ error: 'invalid_input' });
+      }
+
+      const result = await dashboardClient.fetchUserKeys({ accessToken, env: 'sandbox' });
+
+      if (result.statusCode === 401 || result.statusCode === 403) {
+        return res.status(401).json({ error: 'invalid_credentials' });
+      }
+      if (result.statusCode === 0 || result.statusCode >= 500) {
+        return res.status(502).json({ error: 'truv_unreachable' });
+      }
+      if (result.statusCode >= 400) {
+        return res.status(502).json({ error: 'truv_unreachable' });
+      }
+
+      const keys = Array.isArray(result.data?.keys) ? result.data.keys : null;
+      if (!keys || keys.length === 0) {
+        return res.status(409).json({
+          error: 'no_keys_available',
+          dashboard_url: 'https://dashboard.truv.com/app/development/keys',
+        });
+      }
+
+      // Use the dashboard's natural ordering. Implementation can refine if a
+      // 'default' or 'primary' flag turns out to exist in the response.
+      const firstKey = keys[0];
+      const clientId = firstKey.client_id || firstKey.clientId;
+      const secret = firstKey.secret || firstKey.access_secret;
+
+      if (typeof clientId !== 'string' || typeof secret !== 'string') {
+        console.error('sso_unexpected_key_shape', { keys_length: keys.length, has_client_id: !!clientId, has_secret: !!secret });
+        return res.status(502).json({ error: 'truv_unreachable' });
+      }
+
+      // Build a Truv client now so the per-session webhook callback can use it
+      // without re-creating one downstream.
+      const probeClient = new TruvClient({ clientId, secret });
+      return createSession(req, res, { clientId, secret, probeClient });
+    } catch (err) {
+      console.error('session_sso_failed', err.message);
       res.status(500).json({ error: 'internal_error' });
     }
   });
