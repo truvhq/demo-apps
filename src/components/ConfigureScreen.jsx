@@ -30,8 +30,8 @@ function SecretInput({ label, value, onInput, placeholder, disabled }) {
   const [revealed, setRevealed] = useState(false);
   return (
     <label class="block">
-      <span class="block text-[13px] font-medium text-[#171717] mb-1.5">{label}</span>
-      <div class="relative">
+      <span class="block text-[12px] font-medium text-[#171717] mb-1.5 tracking-[-0.005em]">{label}</span>
+      <div class="relative group">
         <input
           type={revealed ? 'text' : 'password'}
           autoComplete="off"
@@ -41,7 +41,7 @@ function SecretInput({ label, value, onInput, placeholder, disabled }) {
           maxLength={256}
           value={value}
           onInput={onInput}
-          class="w-full px-3 py-2 pr-10 text-[14px] border border-[#e8e8ed] rounded-lg bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono"
+          class="w-full px-3.5 py-2.5 pr-11 text-[14px] border border-[#e8e8ed] rounded-[10px] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)] placeholder:text-[#c7c7cc] focus:outline-none focus:border-primary focus:ring-[3px] focus:ring-primary/12 hover:border-[#d1d1d6] transition-all font-mono disabled:bg-[#fafafa] disabled:cursor-not-allowed"
           placeholder={placeholder}
           disabled={disabled}
         />
@@ -50,7 +50,7 @@ function SecretInput({ label, value, onInput, placeholder, disabled }) {
           onClick={() => setRevealed(r => !r)}
           aria-label={revealed ? `Hide ${label}` : `Show ${label}`}
           tabIndex={-1}
-          class="absolute inset-y-0 right-0 px-3 flex items-center text-[#8E8E93] hover:text-[#171717] transition-colors"
+          class="absolute inset-y-0 right-0 px-3 flex items-center text-[#a0a0a8] hover:text-[#171717] transition-colors"
         >
           <EyeIcon open={revealed} />
         </button>
@@ -99,61 +99,82 @@ export function ConfigureScreen({ onSubmit }) {
   }
 
   return (
-    <div class="min-h-screen flex items-center justify-center bg-[#fafafa] px-6">
-      <div class="w-full max-w-md">
-        <div class="flex flex-col items-center gap-3 mb-8">
-          <Icons.truvLogo height={20} className="text-text" />
-          <h1 class="text-[22px] font-semibold tracking-[-0.02em] text-[#171717]">Personalize your demo</h1>
-          <p class="text-[14px] text-[#8E8E93] text-center leading-[1.5]">
-            Plug in your own Truv API keys to run the demos against your account, with your employers, your webhooks, and your data.
-            Keys stay in this browser session only and never touch our server.
-          </p>
+    <div class="min-h-screen relative flex items-center justify-center px-6 overflow-hidden bg-[#fafafa]">
+      {/* Soft background ambience: two pastel radial blooms behind the card. */}
+      <div aria-hidden="true" class="pointer-events-none absolute inset-0">
+        <div class="absolute -top-32 left-1/2 -translate-x-1/2 w-[640px] h-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(94,92,230,0.10),transparent_60%)]" />
+        <div class="absolute -bottom-40 left-[60%] w-[520px] h-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(10,132,255,0.08),transparent_60%)]" />
+      </div>
+
+      <div class="relative w-full max-w-[420px] animate-slideUp">
+        <div class="bg-white border border-[#e8e8ed]/80 rounded-[20px] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_rgba(16,24,40,0.06)] px-8 py-9">
+          {/* Header */}
+          <div class="flex flex-col items-center gap-3 mb-7">
+            <Icons.truvLogo height={22} className="text-text" />
+            <h1 class="text-[22px] font-semibold tracking-[-0.025em] text-[#171717]">Personalize your demo</h1>
+            <p class="text-[13.5px] text-[#6e6e73] text-center leading-[1.55] max-w-[340px]">
+              Plug in your Truv API keys to run the demos against your own account, with your employers, your webhooks, and your data.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} class="space-y-3.5">
+            <SecretInput
+              label="API client ID"
+              value={clientId}
+              onInput={e => setClientId(e.currentTarget.value)}
+              placeholder="cid_..."
+              disabled={busy}
+            />
+            <SecretInput
+              label="API secret"
+              value={secret}
+              onInput={e => setSecret(e.currentTarget.value)}
+              placeholder="sec_..."
+              disabled={busy}
+            />
+
+            {error && (
+              <div class="text-[13px] text-[#b42318] bg-[#fef3f2] border border-[#fda29b]/60 rounded-[10px] px-3 py-2 animate-fadeIn">
+                {error}
+              </div>
+            )}
+
+            <div class="pt-1.5 space-y-2.5">
+              <button
+                type="submit"
+                disabled={busy || !clientId || !secret}
+                class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-[10px] shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary/90 hover:shadow-[0_2px_6px_rgba(94,92,230,0.25)] disabled:bg-[#d1d1d6] disabled:shadow-none disabled:cursor-not-allowed transition-all duration-150"
+              >
+                {busy ? (
+                  <span class="inline-flex items-center gap-2">
+                    <span class="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    Validating
+                  </span>
+                ) : 'Start demo'}
+              </button>
+
+              <a
+                href="https://dashboard.truv.com/app/development/keys"
+                target="_blank"
+                rel="noreferrer"
+                class="w-full py-2.5 text-[14px] font-medium text-[#171717] bg-white border border-[#e8e8ed] rounded-[10px] hover:bg-[#f5f5f7] hover:border-[#d1d1d6] transition-colors flex items-center justify-center gap-1.5"
+              >
+                Sign up to get API keys
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </a>
+            </div>
+          </form>
         </div>
 
-        <form onSubmit={handleSubmit} class="space-y-4">
-          <SecretInput
-            label="API client ID"
-            value={clientId}
-            onInput={e => setClientId(e.currentTarget.value)}
-            placeholder="cid_..."
-            disabled={busy}
-          />
-          <SecretInput
-            label="API secret"
-            value={secret}
-            onInput={e => setSecret(e.currentTarget.value)}
-            placeholder="sec_..."
-            disabled={busy}
-          />
-
-          {error && (
-            <div class="text-[13px] text-[#c81e1e] bg-[#fef2f2] border border-[#fecaca] rounded-lg px-3 py-2">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={busy || !clientId || !secret}
-            class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-lg hover:bg-primary/90 disabled:bg-[#c7c7cc] disabled:cursor-not-allowed transition-colors"
-          >
-            {busy ? 'Validating…' : 'Start demo'}
-          </button>
-
-          <a
-            href="https://dashboard.truv.com/app/development/keys"
-            target="_blank"
-            rel="noreferrer"
-            class="w-full py-2.5 text-[14px] font-medium text-[#171717] bg-white border border-[#e8e8ed] rounded-lg hover:bg-[#f5f5f7] hover:border-[#d1d1d6] transition-colors flex items-center justify-center gap-1.5"
-          >
-            Sign up to get API keys
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-              <polyline points="15 3 21 3 21 9" />
-              <line x1="10" y1="14" x2="21" y2="3" />
-            </svg>
-          </a>
-        </form>
+        {/* Trust footer below the card */}
+        <div class="flex items-center justify-center gap-1.5 mt-5 text-[12px] text-[#8E8E93]">
+          <Icons.shieldCheck size={13} />
+          <span>Keys stay in this browser session and never touch our server</span>
+        </div>
       </div>
     </div>
   );
