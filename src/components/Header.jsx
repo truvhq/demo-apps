@@ -56,6 +56,14 @@ export function Header({ badge, breadcrumb, sticky, onUpdateKeys }) {
             Update API keys
           </button>
         )}
+        <a
+          href="https://truv.com/contact-sales"
+          target="_blank"
+          rel="noreferrer"
+          class="text-[13px] font-medium text-white bg-primary rounded-md px-3 py-1.5 hover:bg-primary/90 transition-colors"
+        >
+          Contact sales
+        </a>
       </div>
     </header>
   );
