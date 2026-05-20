@@ -122,9 +122,9 @@ export function ConfigureScreen({ onSubmit }) {
           <div class="flex flex-col items-center gap-3 mb-6">
             <Icons.truvLogo height={22} className="text-text" />
             <h1 class="text-[22px] font-semibold tracking-[-0.025em] text-[#171717]">Personalize your demo</h1>
-            <p class="text-[13.5px] text-[#6e6e73] text-center leading-[1.55] max-w-[340px]">
+            <p class="text-[13.5px] text-[#6e6e73] text-center leading-[1.55] max-w-[360px]">
               Paste your Truv sandbox (or production) API keys to run every demo against your own account.
-              You'll see real employer searches, real webhook events, and real reports against your own data.
+              Users, orders, webhooks, and reports all land in your Truv dashboard, so you can watch demo data flow end to end into your environment.
             </p>
           </div>
 
