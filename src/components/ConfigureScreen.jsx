@@ -106,6 +106,16 @@ export function ConfigureScreen({ onSubmit }) {
         <div class="absolute -bottom-40 left-[60%] w-[520px] h-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(10,132,255,0.08),transparent_60%)]" />
       </div>
 
+      {/* Contact sales CTA — always reachable from the entry screen. */}
+      <a
+        href="https://truv.com/contact-sales"
+        target="_blank"
+        rel="noreferrer"
+        class="absolute top-5 right-6 z-10 text-[13px] font-medium text-white bg-primary rounded-md px-3.5 py-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.06)] hover:bg-primary/90 hover:shadow-[0_2px_6px_rgba(94,92,230,0.25)] transition-all"
+      >
+        Contact sales
+      </a>
+
       <div class="relative w-full max-w-[420px] animate-slideUp">
         <div class="bg-white border border-[#e8e8ed]/80 rounded-[20px] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_rgba(16,24,40,0.06)] px-8 py-9">
           {/* Header */}
