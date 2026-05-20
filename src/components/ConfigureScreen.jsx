@@ -109,11 +109,12 @@ export function ConfigureScreen({ onSubmit }) {
       <div class="relative w-full max-w-[420px] animate-slideUp">
         <div class="bg-white border border-[#e8e8ed]/80 rounded-[20px] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_rgba(16,24,40,0.06)] px-8 py-9">
           {/* Header */}
-          <div class="flex flex-col items-center gap-3 mb-7">
+          <div class="flex flex-col items-center gap-3 mb-6">
             <Icons.truvLogo height={22} className="text-text" />
             <h1 class="text-[22px] font-semibold tracking-[-0.025em] text-[#171717]">Personalize your demo</h1>
             <p class="text-[13.5px] text-[#6e6e73] text-center leading-[1.55] max-w-[340px]">
-              Plug in your Truv API keys to run the demos against your own account, with your employers, your webhooks, and your data.
+              Paste your Truv sandbox (or production) API keys to run every demo against your own account.
+              You'll see real employer searches, real webhook events, and real reports against your own data.
             </p>
           </div>
 
@@ -171,9 +172,14 @@ export function ConfigureScreen({ onSubmit }) {
         </div>
 
         {/* Trust footer below the card */}
-        <div class="flex items-center justify-center gap-1.5 mt-5 text-[12px] text-[#8E8E93]">
-          <Icons.shieldCheck size={13} />
-          <span>Keys stay in this browser session and never touch our server</span>
+        <div class="flex flex-col items-center gap-1.5 mt-5 text-[12px] text-[#8E8E93]">
+          <div class="flex items-center gap-1.5">
+            <Icons.shieldCheck size={13} />
+            <span>Keys are kept in memory for this browser session only. Nothing is written to disk or logged.</span>
+          </div>
+          <div>
+            Need a sandbox account? <a href="https://dashboard.truv.com/signup" target="_blank" rel="noreferrer" class="text-primary hover:underline">Sign up free</a> in under a minute.
+          </div>
         </div>
       </div>
     </div>
