@@ -182,9 +182,9 @@ export function ConfigureScreen({ onSubmit }) {
         </div>
 
         {/* Trust footer below the card */}
-        <div class="flex items-center justify-center gap-1.5 mt-5 text-[12px] text-[#8E8E93]">
-          <Icons.shieldCheck size={13} />
-          <span>Keys are kept in memory for this browser session only. Nothing is written to disk or logged.</span>
+        <div class="flex items-center justify-center gap-1.5 mt-5 text-[12px] text-[#8E8E93] whitespace-nowrap">
+          <Icons.shieldCheck size={12} />
+          <span>Kept in memory for this session. Never saved or logged.</span>
         </div>
       </div>
     </div>
