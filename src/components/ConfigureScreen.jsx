@@ -140,12 +140,19 @@ export function ConfigureScreen({ onSubmit }) {
             {busy ? 'Validating…' : 'Start demo'}
           </button>
 
-          <p class="text-[12px] text-[#8E8E93] text-center pt-2">
-            Get your keys from the{' '}
-            <a href="https://dashboard.truv.com/app/development/keys" target="_blank" rel="noreferrer" class="text-primary hover:underline">
-              Truv dashboard
-            </a>.
-          </p>
+          <a
+            href="https://dashboard.truv.com/app/development/keys"
+            target="_blank"
+            rel="noreferrer"
+            class="w-full py-2.5 text-[14px] font-medium text-[#171717] bg-white border border-[#e8e8ed] rounded-lg hover:bg-[#f5f5f7] hover:border-[#d1d1d6] transition-colors flex items-center justify-center gap-1.5"
+          >
+            Get API keys
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+          </a>
         </form>
       </div>
     </div>
