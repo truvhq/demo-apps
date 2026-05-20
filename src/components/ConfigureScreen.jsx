@@ -122,9 +122,9 @@ export function ConfigureScreen({ onSubmit }) {
           <div class="flex flex-col items-center gap-3 mb-6">
             <Icons.truvLogo height={22} className="text-text" />
             <h1 class="text-[22px] font-semibold tracking-[-0.025em] text-[#171717]">Personalize your demo</h1>
-            <p class="text-[13.5px] text-[#6e6e73] text-center leading-[1.55] max-w-[360px]">
-              Paste your Truv sandbox (or production) API keys to run every demo against your own account.
-              Users, orders, webhooks, and reports all land in your Truv dashboard, so you can watch demo data flow end to end into your environment.
+            <p class="text-[13.5px] text-[#6e6e73] text-center leading-[1.55] max-w-[340px]">
+              Add your Truv API keys to try the demos on your own account.
+              The demo will create users, send requests, and pull reports. You can watch all of it show up in your Truv dashboard.
             </p>
           </div>
 
@@ -182,14 +182,9 @@ export function ConfigureScreen({ onSubmit }) {
         </div>
 
         {/* Trust footer below the card */}
-        <div class="flex flex-col items-center gap-1.5 mt-5 text-[12px] text-[#8E8E93]">
-          <div class="flex items-center gap-1.5">
-            <Icons.shieldCheck size={13} />
-            <span>Keys are kept in memory for this browser session only. Nothing is written to disk or logged.</span>
-          </div>
-          <div>
-            Need a sandbox account? <a href="https://dashboard.truv.com/signup" target="_blank" rel="noreferrer" class="text-primary hover:underline">Sign up free</a> in under a minute.
-          </div>
+        <div class="flex items-center justify-center gap-1.5 mt-5 text-[12px] text-[#8E8E93]">
+          <Icons.shieldCheck size={13} />
+          <span>Keys are kept in memory for this browser session only. Nothing is written to disk or logged.</span>
         </div>
       </div>
     </div>
