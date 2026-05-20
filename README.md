@@ -102,11 +102,16 @@ Best for consumer-facing flows. The server creates a user, generates a bridge to
 
 ## Quick start
 
+The demo runs in two modes:
+
+- **BYO credentials mode** (default, used by the public deployment at `demo.truv.com`) — each visitor pastes their own Truv API keys into a Configure screen on first visit. Credentials live only in the server's process memory for the duration of the session; nothing hits disk, logs, or the database. Each session registers its own webhook on the visitor's Truv account, so webhook signatures and event delivery are isolated per visitor.
+- **Local fallback mode** — sets `ALLOW_ENV_FALLBACK_CREDS=true` and reads one shared set of credentials from `.env`. Skips the Configure screen. Convenient for local development against your own sandbox.
+
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) 20.19+
-- [ngrok](https://ngrok.com/) (free tier) for receiving webhooks locally
 - A [Truv sandbox account](https://dashboard.truv.com/app/development/keys) (free)
+- [ngrok](https://ngrok.com/) (only required for fallback mode — BYO mode uses `PUBLIC_BASE_URL`)
 
 ### 1. Clone and install
 
@@ -114,50 +119,60 @@ Best for consumer-facing flows. The server creates a user, generates a bridge to
 git clone https://github.com/truvhq/demo-apps.git
 cd demo-apps
 npm install
-```
-
-### 2. Configure
-
-```sh
 cp .env.example .env
 ```
 
-Add your Truv API credentials to `.env`:
+### 2A. Run as a public demo (BYO credentials)
+
+Set the public origin the customer's Truv account will reach you at, and a secret for cookie signing:
 
 ```
-API_CLIENT_ID=your_client_id
-API_SECRET=your_secret
+PUBLIC_BASE_URL=https://demo.truv.com
+SESSION_COOKIE_SECRET=<random 32+ char string>
 ```
 
-### 3. Start ngrok and configure NGROK_URL
-
-Webhooks need a public URL. In a terminal, run:
-
-```sh
-# Terminal 1 — ngrok
-ngrok http 3000
-```
-
-Copy the forwarding URL into `.env`:
-
-```
-NGROK_URL=https://your-tunnel.ngrok-free.dev
-```
-
-### 4. Run
-
-Keep ngrok terminal opened, open two new terminals and run following commands:
+Start the server and frontend:
 
 ```sh
 npm start      # Backend (Express, port 3000)
 npm run dev    # Frontend (Vite, port 5173)
 ```
 
-Open **http://localhost:5173** and pick an industry.
+Open the app and you'll see the Configure screen. Paste your Truv `API_CLIENT_ID` and `API_SECRET` — the server validates them with a probe to `/v1/webhooks/`, registers a per-session webhook at `<PUBLIC_BASE_URL>/api/webhooks/truv/<sid>`, and sets an HttpOnly session cookie. Then pick an industry.
+
+### 2B. Run locally (single dev account)
+
+For local dev, enable the fallback mode in `.env`:
+
+```
+ALLOW_ENV_FALLBACK_CREDS=true
+API_CLIENT_ID=your_client_id
+API_SECRET=your_secret
+```
+
+Start an ngrok tunnel so webhooks can reach your local server, and paste the URL into `.env`:
+
+```sh
+ngrok http 3000
+# Copy the forwarding URL
+```
+
+```
+NGROK_URL=https://your-tunnel.ngrok-free.dev
+```
+
+Start the server and frontend:
+
+```sh
+npm start      # Backend (Express, port 3000)
+npm run dev    # Frontend (Vite, port 5173)
+```
+
+Open **http://localhost:5173** and pick an industry — no Configure screen.
 
 ### Run with Docker
 
-Build and run everything in a single container:
+Build and run everything in a single container. Provide the relevant env vars for whichever mode you want:
 
 ```sh
 docker build -t truv-demo-app .

@@ -25,6 +25,8 @@
 import { useState, useEffect } from 'preact/hooks';
 import { Home } from './Home.jsx';
 import { IndustryPage } from './IndustryPage.jsx';
+import { ConfigureScreen } from './components/ConfigureScreen.jsx';
+import { useSession } from './hooks/useSession.js';
 import { POSApplicationDemo } from './demos/POSApplication.jsx';
 import { POSTasksDemo } from './demos/POSTasks.jsx';
 import { CaseWorkerPortalDemo } from './demos/CaseWorkerPortal.jsx';
@@ -116,6 +118,7 @@ export function navigate(path) {
 export function App() {
   // Route state: re-parsed on every hashchange event.
   const [route, setRoute] = useState(parseHash);
+  const session = useSession();
 
   // Effect: subscribe to hashchange so navigation triggers re-renders.
   useEffect(() => {
@@ -124,9 +127,13 @@ export function App() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
+  // Gate: BYO credentials must be configured before any demo can be reached.
+  if (session.loading) return null;
+  if (!session.authenticated) return <ConfigureScreen onSubmit={session.submit} />;
+
   // Routing logic: progressively resolve industry, then demo, then screen.
   // At each level, fall back to the parent view if no match is found.
-  if (!route.industry) return <Home />;
+  if (!route.industry) return <Home onResetCredentials={session.reset} />;
 
   const industry = INDUSTRIES.find(i => i.id === route.industry);
   if (!industry) return <Home />;

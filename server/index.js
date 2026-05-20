@@ -24,6 +24,7 @@ import { verifyWebhookSignature } from './webhooks.js';
 import { setupWebhook, teardownWebhook, registerWebhook, unregisterWebhook } from './webhook-setup.js';
 import { createSessionStore } from './sessions/store.js';
 import { sessionMiddleware } from './sessions/middleware.js';
+import { startSweeper } from './sessions/sweeper.js';
 import sessionRoutes from './routes/session.js';
 import ordersRoutes from './routes/orders.js';
 import reportsRoutes from './routes/reports.js';
@@ -47,6 +48,15 @@ if (ALLOW_ENV_FALLBACK_CREDS && (!API_CLIENT_ID || !API_SECRET)) {
   process.exit(1);
 }
 
+if (!ALLOW_ENV_FALLBACK_CREDS && !PUBLIC_BASE_URL) {
+  console.error('PUBLIC_BASE_URL is required in BYO mode. Set it to the public origin reachable from the customer\'s Truv account (e.g., https://demo.truv.com), or enable ALLOW_ENV_FALLBACK_CREDS=true for local dev.');
+  process.exit(1);
+}
+
+if (!ALLOW_ENV_FALLBACK_CREDS && !process.env.SESSION_COOKIE_SECRET) {
+  console.warn('SESSION_COOKIE_SECRET is not set — using a per-process random value. Active sessions will reset on each restart.');
+}
+
 // The base URL the customer's Truv account uses to reach us. In fallback dev
 // mode we keep accepting NGROK_URL. In BYO mode PUBLIC_BASE_URL is required.
 const WEBHOOK_BASE_URL = ALLOW_ENV_FALLBACK_CREDS ? (NGROK_URL || PUBLIC_BASE_URL) : PUBLIC_BASE_URL;
@@ -60,6 +70,18 @@ db.initDb();
 // Session store: in-memory, TTL'd. Holds per-visitor API credentials for the
 // BYO-credentials flow. Sessions never reach disk.
 const sessionStore = createSessionStore({ idleTtlMs: SESSION_IDLE_TTL_MS });
+
+// Sweeper: periodically evict idle sessions and best-effort delete their
+// per-session webhook from the customer's Truv account.
+const sweeper = startSweeper({
+  store: sessionStore,
+  intervalMs: 5 * 60_000,
+  async onExpire(record) {
+    if (!record.webhookId) return;
+    const client = new TruvClient({ clientId: record.clientId, secret: record.secret });
+    await unregisterWebhook(client, record.webhookId);
+  },
+});
 
 // Express setup: JSON body parsing (with raw body capture for webhook HMAC verification)
 // and CORS restricted to localhost origins only.
@@ -243,6 +265,7 @@ const server = app.listen(PORT, async () => {
 // Graceful shutdown: tears down singleton webhook (fallback mode) and any
 // per-session webhooks, drains connections, then exits.
 async function gracefulShutdown() {
+  sweeper.stop();
   const teardowns = [];
   if (fallbackTruv) teardowns.push(teardownWebhook(fallbackTruv));
   for (const meta of sessionStore.all()) {

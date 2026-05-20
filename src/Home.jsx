@@ -38,7 +38,14 @@ function IndustryCard({ industry, index }) {
   );
 }
 
-export function Home() {
+export function Home({ onResetCredentials }) {
+  function handleReset() {
+    if (typeof onResetCredentials !== 'function') return;
+    if (window.confirm('Clear stored Truv credentials and return to the configure screen?')) {
+      onResetCredentials();
+    }
+  }
+
   return (
     <div class="min-h-screen flex flex-col bg-white">
       <Header badge="Demo Apps" sticky />
@@ -55,6 +62,17 @@ export function Home() {
               <IndustryCard key={ind.id} industry={ind} index={i} />
             ))}
           </div>
+          {onResetCredentials && (
+            <div class="mt-12 pt-6 border-t border-[#e8e8ed] flex justify-center">
+              <button
+                type="button"
+                onClick={handleReset}
+                class="text-[13px] text-[#8E8E93] hover:text-[#171717] transition-colors"
+              >
+                Reset Truv credentials
+              </button>
+            </div>
+          )}
         </div>
       </main>
     </div>
