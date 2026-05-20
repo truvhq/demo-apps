@@ -105,7 +105,7 @@ export function ConfigureScreen({ onSubmit }) {
           <Icons.truvLogo height={20} className="text-text" />
           <h1 class="text-[22px] font-semibold tracking-[-0.02em] text-[#171717]">Personalize your demo</h1>
           <p class="text-[14px] text-[#8E8E93] text-center leading-[1.5]">
-            Plug in your own Truv API keys to run the demos against your account — your employers, your webhooks, your data.
+            Plug in your own Truv API keys to run the demos against your account, with your employers, your webhooks, and your data.
             Keys stay in this browser session only and never touch our server.
           </p>
         </div>
