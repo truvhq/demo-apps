@@ -10,16 +10,21 @@
 
 // Imports: environment config, Express framework, CORS, and all server modules
 import 'dotenv/config';
+import { randomBytes } from 'crypto';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { TruvClient } from './truv.js';
 import * as db from './db.js';
 import * as apiLogger from './api-logger.js';
 import { verifyWebhookSignature } from './webhooks.js';
 import { setupWebhook, teardownWebhook } from './webhook-setup.js';
+import { createSessionStore } from './sessions/store.js';
+import { sessionMiddleware } from './sessions/middleware.js';
+import sessionRoutes from './routes/session.js';
 import ordersRoutes from './routes/orders.js';
 import reportsRoutes from './routes/reports.js';
 import bridgeRoutes from './routes/bridge.js';
@@ -30,6 +35,10 @@ import coverageAnalysisRoutes from './routes/coverage-analysis.js';
 // Configuration: read API credentials from .env and validate they exist
 const PORT = process.env.PORT || 3000;
 const { API_CLIENT_ID, API_SECRET } = process.env;
+const SESSION_IDLE_TTL_MS = Number(process.env.SESSION_IDLE_TTL_MS) || 3_600_000;
+// Cookie secret defaults to a per-process random value when unset. Production
+// must set SESSION_COOKIE_SECRET so cookies survive restarts; see U8.
+const SESSION_COOKIE_SECRET = process.env.SESSION_COOKIE_SECRET || randomBytes(32).toString('hex');
 
 if (!API_CLIENT_ID || !API_SECRET) {
   console.error('Missing API_CLIENT_ID or API_SECRET in .env');
@@ -41,11 +50,17 @@ if (!API_CLIENT_ID || !API_SECRET) {
 const truv = new TruvClient({ clientId: API_CLIENT_ID, secret: API_SECRET });
 db.initDb();
 
+// Session store: in-memory, TTL'd. Holds per-visitor API credentials for the
+// BYO-credentials flow. Sessions never reach disk.
+const sessionStore = createSessionStore({ idleTtlMs: SESSION_IDLE_TTL_MS });
+
 // Express setup: JSON body parsing (with raw body capture for webhook HMAC verification)
 // and CORS restricted to localhost origins only.
 const app = express();
 app.use(express.json({ limit: '100mb', verify: (req, _res, buf) => { req.rawBody = buf.toString('utf-8'); } }));
-app.use(cors({ origin: /^http:\/\/localhost(:\d+)?$/ }));
+app.use(cors({ origin: /^http:\/\/localhost(:\d+)?$/, credentials: true }));
+app.use(cookieParser());
+app.use(sessionMiddleware({ store: sessionStore, cookieSecret: SESSION_COOKIE_SECRET }));
 
 // --- Company search ---
 // Frontend --> GET /api/companies?q=... --> Truv company-mappings-search API.
@@ -112,6 +127,15 @@ app.get('/api/tunnel-url', (_req, res) => res.json({ url: tunnelUrl }));
 // Frontend polls these to display real-time webhook events and API logs in the activity panel.
 app.get('/api/users/:userId/webhooks', (req, res) => res.json(db.getWebhookEventsByUserId(req.params.userId)));
 app.get('/api/users/:userId/logs', (req, res) => res.json(db.getApiLogsByUserId(req.params.userId, req.query.session_id)));
+
+// --- Session routes ---
+// BYO API credentials: visitors POST their Truv keys to /api/session and
+// receive an HttpOnly cookie. Webhook registration callbacks land in U4.
+app.use(sessionRoutes({
+  store: sessionStore,
+  cookieSecret: SESSION_COOKIE_SECRET,
+  idleTtlMs: SESSION_IDLE_TTL_MS,
+}));
 
 // --- Demo routes ---
 // Mounts sub-route modules. Each receives the shared { truv, db, apiLogger } dependencies.
