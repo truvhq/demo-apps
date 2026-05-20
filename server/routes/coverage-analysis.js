@@ -59,6 +59,9 @@ export default function coverageAnalysisRoutes({ truv, apiLogger }) {
 
   // POST /api/coverage/:kind/jobs — accept rows + product type, kick off async processing.
   router.post('/api/coverage/:kind/jobs', (req, res) => {
+    const truvClient = req.truv || truv;
+    if (!truvClient) return res.status(401).json({ error: 'session_required' });
+
     const { kind } = req.params;
     if (kind !== 'payroll' && kind !== 'bank') return res.status(404).json({ error: 'Unknown kind' });
 
@@ -83,7 +86,7 @@ export default function coverageAnalysisRoutes({ truv, apiLogger }) {
     };
     jobs.set(jobId, job);
 
-    runJob({ job, truv, apiLogger }).catch(err => {
+    runJob({ job, truv: truvClient, apiLogger }).catch(err => {
       console.error('Coverage job failed:', err);
       job.status = 'failed';
       job.error = err.message;
