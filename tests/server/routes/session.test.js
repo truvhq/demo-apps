@@ -720,6 +720,135 @@ describe('POST /api/session/sso', () => {
   });
 });
 
+describe('PUT /api/session/keys — in-session override', () => {
+  it('returns 401 without an existing session', async () => {
+    const ctx = await startServer();
+    try {
+      const res = await fetch(`${ctx.baseUrl}/api/session/keys`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: 'cid_newvalue', secret: 'sec_newvalue' }),
+      });
+      expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({ error: 'session_required' });
+    } finally {
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('swaps credentials in place when a session exists and new keys are valid', async () => {
+    const onCreated = vi.fn().mockResolvedValue(true);
+    const onDestroyed = vi.fn().mockResolvedValue(true);
+    const ctx = await startServer({ onSessionCreated: onCreated, onSessionDestroyed: onDestroyed });
+
+    // Create a session via paste
+    mockFetch(() => Promise.resolve(jsonResponse(200, { results: [] })));
+    const create = await fetch(`${ctx.baseUrl}/api/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: 'cid_oldvalue', secret: 'sec_oldvalue' }),
+    });
+    const signed = extractSessionCookie(create.headers.get('set-cookie'));
+    const sid = verifySessionCookie(signed, COOKIE_SECRET);
+    ctx.store.setWebhookId(sid, 'wh_old');
+
+    try {
+      // Override
+      const res = await fetch(`${ctx.baseUrl}/api/session/keys`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `${SESSION_COOKIE_NAME}=${encodeURIComponent(signed)}`,
+        },
+        body: JSON.stringify({ client_id: 'cid_newvalue', secret: 'sec_newvalue' }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true });
+
+      // Cookie/session id is preserved across the swap
+      const record = ctx.store.get(sid);
+      expect(record).toBeDefined();
+      expect(record.clientId).toBe('cid_newvalue');
+      expect(record.secret).toBe('sec_newvalue');
+
+      // Old webhook teardown fired before new credentials were stored
+      expect(onDestroyed).toHaveBeenCalled();
+      // New webhook registration fired with the new client
+      expect(onCreated).toHaveBeenCalledTimes(2); // once at create, once at override
+    } finally {
+      vi.restoreAllMocks();
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('returns 401 invalid_credentials and does not touch the session when probe fails', async () => {
+    const onDestroyed = vi.fn();
+    const ctx = await startServer({ onSessionDestroyed: onDestroyed });
+
+    mockFetch(() => Promise.resolve(jsonResponse(200, { results: [] })));
+    const create = await fetch(`${ctx.baseUrl}/api/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: 'cid_oldvalue', secret: 'sec_oldvalue' }),
+    });
+    const signed = extractSessionCookie(create.headers.get('set-cookie'));
+    const sid = verifySessionCookie(signed, COOKIE_SECRET);
+
+    // Probe rejects the new creds
+    mockFetch(() => Promise.resolve(jsonResponse(401, {})));
+
+    try {
+      const res = await fetch(`${ctx.baseUrl}/api/session/keys`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `${SESSION_COOKIE_NAME}=${encodeURIComponent(signed)}`,
+        },
+        body: JSON.stringify({ client_id: 'cid_badnewvalue', secret: 'sec_badnewvalue' }),
+      });
+
+      expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({ error: 'invalid_credentials' });
+
+      // Old credentials still in place — no destructive change happened
+      const record = ctx.store.get(sid);
+      expect(record.clientId).toBe('cid_oldvalue');
+      expect(record.secret).toBe('sec_oldvalue');
+      expect(onDestroyed).not.toHaveBeenCalled();
+    } finally {
+      vi.restoreAllMocks();
+      await closeServer(ctx.server);
+    }
+  });
+
+  it('returns 400 on bad input', async () => {
+    const ctx = await startServer();
+    mockFetch(() => Promise.resolve(jsonResponse(200, { results: [] })));
+    const create = await fetch(`${ctx.baseUrl}/api/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: 'cid_oldvalue', secret: 'sec_oldvalue' }),
+    });
+    const signed = extractSessionCookie(create.headers.get('set-cookie'));
+
+    try {
+      const res = await fetch(`${ctx.baseUrl}/api/session/keys`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `${SESSION_COOKIE_NAME}=${encodeURIComponent(signed)}`,
+        },
+        body: JSON.stringify({ client_id: '', secret: 'sec_newvalue' }),
+      });
+      expect(res.status).toBe(400);
+    } finally {
+      vi.restoreAllMocks();
+      await closeServer(ctx.server);
+    }
+  });
+});
+
 describe('POST /api/session/sso — shared rate limit with paste', () => {
   it('429 fires when paste and SSO together exceed the limit', async () => {
     const dashboardClient = makeMockDashboardClient();

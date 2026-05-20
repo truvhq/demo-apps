@@ -67,6 +67,38 @@ describe('createSessionStore', () => {
     });
   });
 
+  describe('updateCredentials', () => {
+    it('swaps clientId, secret, and webhookId on an existing session', () => {
+      const id = store.create({ clientId: 'old_c', secret: 'old_s' });
+      store.setWebhookId(id, 'wh_old');
+
+      const updated = store.updateCredentials(id, { clientId: 'new_c', secret: 'new_s', webhookId: null });
+
+      expect(updated.clientId).toBe('new_c');
+      expect(updated.secret).toBe('new_s');
+      expect(updated.webhookId).toBeNull();
+      expect(store.get(id).clientId).toBe('new_c');
+    });
+
+    it('preserves the session id across the update', () => {
+      const id = store.create({ clientId: 'a', secret: 'b' });
+      store.updateCredentials(id, { clientId: 'c', secret: 'd', webhookId: null });
+      expect(store.get(id).id).toBe(id);
+    });
+
+    it('refreshes lastUsedAt', async () => {
+      const id = store.create({ clientId: 'a', secret: 'b' });
+      const before = store.get(id).lastUsedAt;
+      await new Promise(r => setTimeout(r, 5));
+      store.updateCredentials(id, { clientId: 'c', secret: 'd', webhookId: null });
+      expect(store.get(id).lastUsedAt).toBeGreaterThan(before);
+    });
+
+    it('returns undefined for unknown ids', () => {
+      expect(store.updateCredentials('missing', { clientId: 'x', secret: 'y' })).toBeUndefined();
+    });
+  });
+
   describe('destroy', () => {
     it('removes the session so get returns undefined', () => {
       const id = store.create({ clientId: 'c', secret: 's' });

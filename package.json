@@ -10,6 +10,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@auth0/auth0-spa-js": "^2.19.3",
     "better-sqlite3": "^11.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

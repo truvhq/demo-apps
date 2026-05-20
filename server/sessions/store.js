@@ -76,6 +76,19 @@ export function createSessionStore({ idleTtlMs }) {
       record.webhookId = webhookId;
     },
 
+    // Atomically swap the credentials and webhook on an existing session.
+    // Used by the in-session "Override keys" flow so the cookie/session id
+    // is preserved while the underlying Truv account changes.
+    updateCredentials(id, { clientId, secret, webhookId = null }) {
+      const record = records.get(id);
+      if (!record) return undefined;
+      record.clientId = clientId;
+      record.secret = secret;
+      record.webhookId = webhookId;
+      record.lastUsedAt = Date.now();
+      return record;
+    },
+
     destroy(id) {
       const record = records.get(id);
       if (!record) return undefined;

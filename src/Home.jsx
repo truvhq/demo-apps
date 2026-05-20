@@ -1,6 +1,8 @@
+import { useState } from 'preact/hooks';
 import { INDUSTRIES } from './App.jsx';
 import { Icons } from './components/Icons.jsx';
 import { Header } from './components/Header.jsx';
+import { OverrideKeyDialog } from './components/OverrideKeyDialog.jsx';
 
 const INDUSTRY_ICONS = {
   'mortgage': Icons.building,
@@ -38,7 +40,9 @@ function IndustryCard({ industry, index }) {
   );
 }
 
-export function Home({ onResetCredentials }) {
+export function Home({ onResetCredentials, onOverrideKeys }) {
+  const [overrideOpen, setOverrideOpen] = useState(false);
+
   function handleReset() {
     if (typeof onResetCredentials !== 'function') return;
     if (window.confirm('Clear stored Truv credentials and return to the configure screen?')) {
@@ -48,7 +52,17 @@ export function Home({ onResetCredentials }) {
 
   return (
     <div class="min-h-screen flex flex-col bg-white">
-      <Header badge="Demo Apps" sticky onUpdateKeys={onResetCredentials ? handleReset : undefined} />
+      <Header
+        badge="Demo Apps"
+        sticky
+        onUpdateKeys={onResetCredentials ? handleReset : undefined}
+        onOverrideKeys={onOverrideKeys ? () => setOverrideOpen(true) : undefined}
+      />
+      <OverrideKeyDialog
+        open={overrideOpen}
+        onClose={() => setOverrideOpen(false)}
+        onSubmit={onOverrideKeys}
+      />
       <main class="flex-1 flex items-start justify-center pt-16 pb-20 px-6">
         <div class="max-w-[640px] w-full">
           <div class="animate-slideUp mb-12">

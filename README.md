@@ -140,6 +140,18 @@ npm run dev    # Frontend (Vite, port 5173)
 
 Open the app and you'll see the Configure screen. Paste your Truv `API_CLIENT_ID` and `API_SECRET` — the server validates them with a probe to `/v1/webhooks/`, registers a per-session webhook at `<PUBLIC_BASE_URL>/api/webhooks/truv/<sid>`, and sets an HttpOnly session cookie. Then pick an industry.
 
+#### Sign in with Truv (optional)
+
+If you also set the Auth0 vars, the Configure screen leads with **Sign in with Truv** and visitors with a `dashboard.truv.com` account skip the paste step entirely. After Auth0 PKCE, the demo backend calls `GET https://dashboard-backend-prod.truv.com/v2/user_keys/` with the user's access token and lands their sandbox keys in the session.
+
+```
+VITE_AUTH0_DOMAIN=auth.truv.com
+VITE_AUTH0_CLIENT_ID=<dashboard SPA client id>
+VITE_AUTH0_AUDIENCE=https://dashboard-backend-prod.truv.com/
+```
+
+If any of these is missing, the SSO route returns `503 sso_disabled` and the Configure screen renders the paste flow as it does today — no breakage.
+
 ### 2B. Run locally (single dev account)
 
 For local dev, enable the fallback mode in `.env`:

@@ -166,6 +166,72 @@ export default function sessionRoutes({
     }
   });
 
+  // PUT /api/session/keys — swap the credentials on an existing session in
+  // place. Unregisters the old per-session webhook, validates the new keys,
+  // registers a new webhook, then atomically updates the store. The session
+  // id (and therefore the cookie) is preserved across the swap.
+  router.put('/api/session/keys', limiter, async (req, res) => {
+    try {
+      if (!req.session) return res.status(401).json({ error: 'session_required' });
+
+      const { client_id, secret } = req.body || {};
+      if (!isValidCred(client_id) || !isValidCred(secret)) {
+        return res.status(400).json({ error: 'invalid_input' });
+      }
+
+      // Probe the new credentials before tearing anything down. If they're
+      // bad, the old session stays intact.
+      const probeClient = new TruvClient({ clientId: client_id, secret });
+      let probe;
+      try {
+        probe = await probeClient.listWebhooks();
+      } catch {
+        return res.status(502).json({ error: 'truv_unreachable' });
+      }
+      if (probe.statusCode === 401 || probe.statusCode === 403) {
+        return res.status(401).json({ error: 'invalid_credentials' });
+      }
+      if (probe.statusCode >= 400) {
+        return res.status(502).json({ error: 'truv_unreachable' });
+      }
+
+      const existing = store.get(req.session.id);
+      if (!existing) return res.status(401).json({ error: 'session_required' });
+
+      // Tear down the OLD webhook on the OLD account. Best-effort — a stuck
+      // remote webhook is less bad than a stuck local session.
+      if (existing.webhookId && typeof onSessionDestroyed === 'function') {
+        try {
+          await onSessionDestroyed({ record: { ...existing } });
+        } catch (err) {
+          console.error('override_teardown_failed', err.message);
+        }
+      }
+
+      // Swap creds in place, then register a new webhook on the new account.
+      store.updateCredentials(req.session.id, { clientId: client_id, secret, webhookId: null });
+
+      if (typeof onSessionCreated === 'function') {
+        try {
+          const ok = await onSessionCreated({ id: req.session.id, client: probeClient });
+          if (ok === false) {
+            // New webhook registration failed. The credentials are swapped
+            // but no webhook is attached. Surface a clear error so the user
+            // knows webhooks won't be delivered.
+            return res.status(502).json({ error: 'webhook_registration_failed' });
+          }
+        } catch {
+          return res.status(502).json({ error: 'webhook_registration_failed' });
+        }
+      }
+
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('session_override_failed', err.message);
+      res.status(500).json({ error: 'internal_error' });
+    }
+  });
+
   router.delete('/api/session', async (req, res) => {
     const id = req.session?.id;
     if (!id) {

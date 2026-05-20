@@ -14,7 +14,9 @@ import { Icons } from './Icons.jsx';
 //   breadcrumb     : text shown after a chevron separator (e.g. industry name)
 //   sticky         : whether the header sticks to the top on scroll
 //   onUpdateKeys   : if provided, renders an "Update API keys" action on the right
-export function Header({ badge, breadcrumb, sticky, onUpdateKeys }) {
+//   onOverrideKeys : if provided, renders an "Override key" action that swaps
+//                    credentials in place without dropping the session
+export function Header({ badge, breadcrumb, sticky, onUpdateKeys, onOverrideKeys }) {
   // Rendering: sticky header bar with logo, breadcrumb, and badge
   return (
     <header class={`flex items-center justify-between h-12 px-6 bg-white/80 backdrop-blur-xl border-b border-border/40 ${sticky ? 'sticky top-0 z-10' : ''}`}>
@@ -47,6 +49,15 @@ export function Header({ badge, breadcrumb, sticky, onUpdateKeys }) {
             <line x1="10" y1="14" x2="21" y2="3" />
           </svg>
         </a>
+        {onOverrideKeys && (
+          <button
+            type="button"
+            onClick={onOverrideKeys}
+            class="text-[13px] font-medium text-[#171717] bg-white border border-[#e8e8ed] rounded-md px-3 py-1.5 hover:bg-[#f5f5f7] hover:border-[#d1d1d6] transition-colors"
+          >
+            Override key
+          </button>
+        )}
         {onUpdateKeys && (
           <button
             type="button"
