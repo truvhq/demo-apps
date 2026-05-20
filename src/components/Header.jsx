@@ -33,14 +33,14 @@ export function Header({ badge, breadcrumb, sticky, onUpdateKeys }) {
         {/* Optional badge label */}
         {badge && <div class="text-[11px] font-medium text-muted bg-surface-secondary px-2 py-0.5 rounded-md">{badge}</div>}
       </div>
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2">
         <a
           href="https://dashboard.truv.com/app/development/keys"
           target="_blank"
           rel="noreferrer"
-          class="text-[13px] font-medium text-muted hover:text-text transition-colors inline-flex items-center gap-1"
+          class="text-[13px] font-medium text-[#171717] bg-white border border-[#e8e8ed] rounded-md px-3 py-1.5 hover:bg-[#f5f5f7] hover:border-[#d1d1d6] transition-colors inline-flex items-center gap-1.5"
         >
-          Get API keys
+          Truv Dashboard
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
             <polyline points="15 3 21 3 21 9" />
@@ -51,7 +51,7 @@ export function Header({ badge, breadcrumb, sticky, onUpdateKeys }) {
           <button
             type="button"
             onClick={onUpdateKeys}
-            class="text-[13px] font-medium text-muted hover:text-text transition-colors"
+            class="text-[13px] font-medium text-[#171717] bg-white border border-[#e8e8ed] rounded-md px-3 py-1.5 hover:bg-[#f5f5f7] hover:border-[#d1d1d6] transition-colors"
           >
             Update API keys
           </button>
