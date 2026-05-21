@@ -117,33 +117,41 @@ export default function sessionRoutes({
   router.post('/api/session/sso', limiter, async (req, res) => {
     try {
       if (!ssoEnabled || !dashboardClient) {
+        console.log('SSO: 503 sso_disabled');
         return res.status(503).json({ error: 'sso_disabled' });
       }
 
       const accessToken = req.body?.access_token;
       if (typeof accessToken !== 'string' || accessToken.length < 32 || accessToken.length > 4096) {
+        console.log(`SSO: 400 invalid_input (token type=${typeof accessToken}, length=${accessToken?.length ?? 'n/a'})`);
         return res.status(400).json({ error: 'invalid_input' });
       }
 
+      console.log(`SSO: fetching user_keys (token length=${accessToken.length})`);
       const result = await dashboardClient.fetchUserKeys({ accessToken, env: 'sandbox' });
 
       if (result.statusCode === 401 || result.statusCode === 403) {
+        console.log(`SSO: 401 invalid_credentials (dashboard returned ${result.statusCode})`);
         return res.status(401).json({ error: 'invalid_credentials' });
       }
       if (result.statusCode === 0 || result.statusCode >= 500) {
+        console.log(`SSO: 502 truv_unreachable (dashboard returned ${result.statusCode}, error=${result.error || 'none'})`);
         return res.status(502).json({ error: 'truv_unreachable' });
       }
       if (result.statusCode >= 400) {
+        console.log(`SSO: 502 (dashboard returned ${result.statusCode}, body preview=${JSON.stringify(result.data || {}).slice(0, 200)})`);
         return res.status(502).json({ error: 'truv_unreachable' });
       }
 
       const keys = Array.isArray(result.data?.keys) ? result.data.keys : null;
       if (!keys || keys.length === 0) {
+        console.log(`SSO: 409 no_keys_available (data keys present: ${result.data ? Object.keys(result.data).join(',') : 'no body'})`);
         return res.status(409).json({
           error: 'no_keys_available',
           dashboard_url: 'https://dashboard.truv.com/app/development/keys',
         });
       }
+      console.log(`SSO: dashboard returned ${keys.length} key(s), using first`);
 
       // Use the dashboard's natural ordering. Implementation can refine if a
       // 'default' or 'primary' flag turns out to exist in the response.

@@ -13,30 +13,30 @@ import { createAuth0Client } from '@auth0/auth0-spa-js';
 
 const domain = import.meta.env.VITE_AUTH0_DOMAIN;
 const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
+// Audience is optional. When set, we additionally request an access token for
+// that API. When unset, we use the ID token as the bearer to the dashboard
+// backend (which is what dashboard.truv.com itself does).
 const audience = import.meta.env.VITE_AUTH0_AUDIENCE;
 
 let _clientPromise = null;
 
 export function isSsoConfigured() {
-  return Boolean(domain && clientId && audience);
+  return Boolean(domain && clientId);
 }
 
 function getClient() {
   if (!isSsoConfigured()) {
-    throw new Error('Auth0 is not configured. Set VITE_AUTH0_DOMAIN, VITE_AUTH0_CLIENT_ID, and VITE_AUTH0_AUDIENCE.');
+    throw new Error('Auth0 is not configured. Set VITE_AUTH0_DOMAIN and VITE_AUTH0_CLIENT_ID.');
   }
   if (!_clientPromise) {
     _clientPromise = createAuth0Client({
       domain,
       clientId,
       authorizationParams: {
-        audience,
+        ...(audience ? { audience } : {}),
         redirect_uri: window.location.origin,
         scope: 'openid profile email',
       },
-      // Use refresh tokens stored in memory so getAccessTokenSilently works
-      // across page reloads without bouncing through Auth0.
-      useRefreshTokens: true,
       cacheLocation: 'memory',
     });
   }
@@ -60,9 +60,16 @@ export async function handleCallback() {
   window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
 }
 
-export async function getAccessToken() {
+// Returns the raw ID token JWT. dashboard-backend accepts this as a Bearer
+// (matches the request shape from dashboard.truv.com itself). If an audience
+// is configured, callers can switch to client.getTokenSilently() instead.
+export async function getIdToken() {
   const client = await getClient();
-  return client.getTokenSilently();
+  const claims = await client.getIdTokenClaims();
+  if (!claims?.__raw) {
+    throw new Error('No ID token available — sign in again.');
+  }
+  return claims.__raw;
 }
 
 // Logout from Auth0 in addition to clearing the demo session. We don't

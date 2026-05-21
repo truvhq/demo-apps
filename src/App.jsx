@@ -27,7 +27,7 @@ import { Home } from './Home.jsx';
 import { IndustryPage } from './IndustryPage.jsx';
 import { ConfigureScreen } from './components/ConfigureScreen.jsx';
 import { useSession } from './hooks/useSession.js';
-import { hasCallbackParams, handleCallback, getAccessToken } from './auth/auth0Client.js';
+import { hasCallbackParams, handleCallback, getIdToken } from './auth/auth0Client.js';
 import { POSApplicationDemo } from './demos/POSApplication.jsx';
 import { POSTasksDemo } from './demos/POSTasks.jsx';
 import { CaseWorkerPortalDemo } from './demos/CaseWorkerPortal.jsx';
@@ -138,7 +138,7 @@ export function App() {
     (async () => {
       try {
         await handleCallback();
-        const token = await getAccessToken();
+        const token = await getIdToken();
         const result = await session.submitSso(token);
         if (cancelled) return;
         if (!result.ok) setSsoError(result);

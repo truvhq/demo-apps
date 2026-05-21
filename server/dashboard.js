@@ -36,6 +36,7 @@ export class DashboardClient {
       response = await fetch(url, opts);
     } catch (err) {
       const durationMs = Math.round((performance.now() - start) * 10) / 10;
+      console.log(`DASHBOARD: ${method} ${url} — network error: ${err.message} (${durationMs}ms)`);
       return { statusCode: 0, data: null, error: err.message, durationMs };
     }
 
@@ -46,6 +47,24 @@ export class DashboardClient {
       data = text ? JSON.parse(text) : {};
     } catch {
       data = { raw: text };
+    }
+
+    // Log status + minimal response shape. Do NOT log the bearer token or
+    // raw key values. We only log whether keys came back and how many.
+    const shape = (() => {
+      if (data && typeof data === 'object') {
+        if (Array.isArray(data.keys)) return `keys[${data.keys.length}]`;
+        if (data.raw) return `raw(${(data.raw || '').slice(0, 80)}...)`;
+        return `object(keys: ${Object.keys(data).join(',')})`;
+      }
+      return typeof data;
+    })();
+    console.log(`DASHBOARD: ${method} ${url} — ${response.status} ${shape} (${durationMs}ms) [headers sent: ${Object.keys(opts.headers).filter(h => h !== 'Authorization').join(', ')}]`);
+    // On non-success, dump the body so we can read the actual error message.
+    // Safe in this context — the dashboard backend's 4xx/5xx error bodies
+    // describe what's wrong with the request, not the user's keys.
+    if (response.status >= 400) {
+      console.log(`DASHBOARD: error body: ${JSON.stringify(data).slice(0, 500)}`);
     }
 
     return { statusCode: response.status, data, durationMs };

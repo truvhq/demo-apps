@@ -69,6 +69,7 @@ const ERROR_COPY = {
   webhook_registration_failed: 'Truv accepted the credentials but a webhook could not be registered. Try again or check the Truv dashboard for webhook quota.',
   rate_limited: 'Too many attempts from this address. Wait a few minutes and try again.',
   sso_disabled: 'Sign in with Truv is not enabled on this demo. Use a key instead.',
+  sso_callback_failed: 'Sign-in did not complete. Try again or use a key instead.',
 };
 
 function describeError(status, error, retryAfter) {
@@ -130,6 +131,11 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
 
   // Treat an upstream "no_keys_available" signal as a state, not just an error.
   const noKeysState = ssoError?.error === 'no_keys_available' ? ssoError : null;
+
+  // Any other SSO error gets surfaced as a banner above the buttons.
+  const ssoBannerError = ssoError && ssoError.error !== 'no_keys_available'
+    ? describeError(ssoError.status, ssoError.error, ssoError.retryAfter)
+    : null;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -194,9 +200,9 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
             <NoKeysState dashboardUrl={noKeysState.dashboard_url} onPasteInstead={() => setMode('paste')} />
           ) : mode === 'sso' ? (
             <div class="space-y-3">
-              {error && (
+              {(error || ssoBannerError) && (
                 <div class="text-[13px] text-[#b42318] bg-[#fef3f2] border border-[#fda29b]/60 rounded-[10px] px-3 py-2 animate-fadeIn">
-                  {error}
+                  {error || ssoBannerError}
                 </div>
               )}
 

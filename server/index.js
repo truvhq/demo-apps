@@ -41,13 +41,12 @@ const SESSION_IDLE_TTL_MS = Number(process.env.SESSION_IDLE_TTL_MS) || 3_600_000
 const SESSION_COOKIE_SECRET = process.env.SESSION_COOKIE_SECRET || randomBytes(32).toString('hex');
 const DASHBOARD_BACKEND_URL = process.env.DASHBOARD_BACKEND_URL || 'https://dashboard-backend-prod.truv.com';
 
-// SSO is enabled when the frontend has Auth0 config AND the backend has a
-// dashboard URL. If any piece is missing the SSO route returns 503
-// sso_disabled — the rest of the app keeps working with paste-only flow.
+// SSO is enabled when the frontend has Auth0 config. Audience is optional
+// (we use the ID token as bearer when it's omitted). If domain or client_id
+// are missing the SSO route returns 503 sso_disabled.
 const SSO_ENABLED = Boolean(
   process.env.VITE_AUTH0_DOMAIN
   && process.env.VITE_AUTH0_CLIENT_ID
-  && process.env.VITE_AUTH0_AUDIENCE
 );
 // Fallback dev mode: when truthy, the server keeps a singleton TruvClient
 // from .env and registers one shared webhook at startup, preserving the
