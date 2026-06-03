@@ -13,7 +13,7 @@ import 'dotenv/config';
 import { randomBytes } from 'crypto';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -245,10 +245,19 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distPath = join(__dirname, '..', 'dist');
 if (existsSync(join(distPath, 'index.html'))) {
-  app.use(express.static(distPath));
+  // URL baked into the built HTML; also the fallback when BRIDGE_URL is unset.
+  const BUILT_IN_BRIDGE_URL = 'https://cdn.truv.com/bridge.js';
+  const BRIDGE_URL = process.env.BRIDGE_URL || BUILT_IN_BRIDGE_URL;
+  const renderHtml = (file) => readFileSync(join(distPath, file), 'utf-8').replaceAll(BUILT_IN_BRIDGE_URL, BRIDGE_URL);
+  const indexHtml = renderHtml('index.html');
+  const previewHtml = existsSync(join(distPath, 'preview.html')) ? renderHtml('preview.html') : null;
+
+  // Serve the injected HTML pages explicitly; static serves only hashed assets.
+  if (previewHtml) app.get('/preview.html', (_req, res) => res.type('html').send(previewHtml));
+  app.use(express.static(distPath, { index: false }));
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) return next();
-    res.sendFile(join(distPath, 'index.html'), (err) => { if (err) next(err); });
+    res.type('html').send(indexHtml);
   });
 }
 
