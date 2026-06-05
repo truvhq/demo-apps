@@ -398,11 +398,18 @@ describe('POST /api/session — integration with middleware', () => {
 // POST /api/session/sso
 // ---------------------------------------------------------------------------
 
+// Wrap key objects in the real dashboard /v2/user_keys/ response shape, which
+// is keyed by environment with an active_keys[] array (not a flat keys[]).
+// The secret is carried as `access_key`.
+function userKeysResponse(activeKeys, env = 'sandbox') {
+  return { [env]: { title: env, can_create_new_key: true, active_keys: activeKeys } };
+}
+
 function makeMockDashboardClient(overrides = {}) {
   return {
     fetchUserKeys: vi.fn().mockResolvedValue({
       statusCode: 200,
-      data: { keys: [{ client_id: 'sso_cid_abcdef', secret: 'sso_sec_abcdef' }] },
+      data: userKeysResponse([{ client_id: 'sso_cid_abcdef', access_key: 'sso_sec_abcdef' }]),
       durationMs: 12,
       ...overrides.fetchUserKeys,
     }),
@@ -571,9 +578,9 @@ describe('POST /api/session/sso', () => {
     }
   });
 
-  it('returns 409 no_keys_available when dashboard returns an empty keys array', async () => {
+  it('returns 409 no_keys_available when dashboard returns no active sandbox keys', async () => {
     const dashboardClient = makeMockDashboardClient({
-      fetchUserKeys: { statusCode: 200, data: { keys: [] } },
+      fetchUserKeys: { statusCode: 200, data: userKeysResponse([]) },
     });
     ctx = await startServer({ dashboardClient });
     try {
@@ -614,12 +621,10 @@ describe('POST /api/session/sso', () => {
     const dashboardClient = makeMockDashboardClient({
       fetchUserKeys: {
         statusCode: 200,
-        data: {
-          keys: [
-            { client_id: 'first_cid_abc', secret: 'first_sec_abc' },
-            { client_id: 'second_cid_xyz', secret: 'second_sec_xyz' },
-          ],
-        },
+        data: userKeysResponse([
+          { client_id: 'first_cid_abc', access_key: 'first_sec_abc' },
+          { client_id: 'second_cid_xyz', access_key: 'second_sec_xyz' },
+        ]),
       },
     });
     ctx = await startServer({ dashboardClient });
@@ -642,7 +647,7 @@ describe('POST /api/session/sso', () => {
     const dashboardClient = makeMockDashboardClient({
       fetchUserKeys: {
         statusCode: 200,
-        data: { keys: [{ id: 'unexpected' }] },
+        data: userKeysResponse([{ id: 'unexpected' }]),
       },
     });
     ctx = await startServer({ dashboardClient });

@@ -144,24 +144,32 @@ export default function sessionRoutes({
         return res.status(502).json({ error: 'truv_unreachable' });
       }
 
-      const keys = Array.isArray(result.data?.keys) ? result.data.keys : null;
-      if (!keys || keys.length === 0) {
-        console.log(`SSO: 409 no_keys_available (data keys present: ${result.data ? Object.keys(result.data).join(',') : 'no body'})`);
+      // The dashboard /v2/user_keys/ response is keyed by environment
+      // (sandbox/dev/prod), each with an active_keys[] array — not a flat
+      // keys[]. The secret is exposed as `access_key`, the id as `client_id`.
+      const env = 'sandbox';
+      const activeKeys = Array.isArray(result.data?.[env]?.active_keys)
+        ? result.data[env].active_keys
+        : null;
+      if (!activeKeys || activeKeys.length === 0) {
+        console.log(`SSO: 409 no_keys_available (envs: ${result.data ? Object.keys(result.data).join(',') : 'no body'}; ${env}.active_keys=${result.data?.[env]?.active_keys?.length ?? 'n/a'})`);
         return res.status(409).json({
           error: 'no_keys_available',
           dashboard_url: `${dashboardUrl.replace(/\/$/, '')}/app/development/keys`,
         });
       }
-      console.log(`SSO: dashboard returned ${keys.length} key(s), using first`);
+      console.log(`SSO: dashboard returned ${activeKeys.length} ${env} key(s), using first`);
 
       // Use the dashboard's natural ordering. Implementation can refine if a
       // 'default' or 'primary' flag turns out to exist in the response.
-      const firstKey = keys[0];
-      const clientId = firstKey.client_id || firstKey.clientId;
-      const secret = firstKey.secret || firstKey.access_secret;
+      const firstKey = activeKeys[0];
+      const clientId = firstKey.client_id;
+      const secret = firstKey.access_key;
 
       if (typeof clientId !== 'string' || typeof secret !== 'string') {
-        console.error('sso_unexpected_key_shape', { keys_length: keys.length, has_client_id: !!clientId, has_secret: !!secret });
+        // Most likely the user lacks the CanViewKeys permission, so the
+        // dashboard returns key metadata without client_id/access_key.
+        console.error('sso_unexpected_key_shape', { keys_length: activeKeys.length, has_client_id: !!clientId, has_secret: !!secret });
         return res.status(502).json({ error: 'truv_unreachable' });
       }
 
