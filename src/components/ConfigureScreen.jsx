@@ -12,6 +12,7 @@
 import { useState } from 'preact/hooks';
 import { Icons } from './Icons.jsx';
 import { signIn, isSsoConfigured } from '../auth/auth0Client.js';
+import { DASHBOARD_KEYS_URL } from '../config.js';
 
 function EyeIcon({ open }) {
   return open ? (
@@ -99,7 +100,7 @@ function NoKeysState({ dashboardUrl, onPasteInstead }) {
       </div>
       <div class="space-y-2.5">
         <a
-          href={dashboardUrl || 'https://dashboard.truv.com/app/development/keys'}
+          href={dashboardUrl || DASHBOARD_KEYS_URL}
           target="_blank"
           rel="noreferrer"
           class="block w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-[10px] hover:bg-primary/90 transition-colors"
@@ -268,7 +269,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
                 </button>
 
                 <a
-                  href="https://dashboard.truv.com/app/development/keys"
+                  href={DASHBOARD_KEYS_URL}
                   target="_blank"
                   rel="noreferrer"
                   class="w-full py-2.5 text-[14px] font-medium text-[#171717] bg-white border border-[#e8e8ed] rounded-[10px] hover:bg-[#f5f5f7] hover:border-[#d1d1d6] transition-colors flex items-center justify-center gap-1.5"

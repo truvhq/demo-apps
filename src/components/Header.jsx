@@ -8,6 +8,7 @@
 
 // Imports
 import { Icons } from './Icons.jsx';
+import { DASHBOARD_KEYS_URL } from '../config.js';
 
 // Props:
 //   badge          : small label shown after the logo (e.g. "POS Application")
@@ -37,7 +38,7 @@ export function Header({ badge, breadcrumb, sticky, onUpdateKeys, onOverrideKeys
       </div>
       <div class="flex items-center gap-2">
         <a
-          href="https://dashboard.truv.com/app/development/keys"
+          href={DASHBOARD_KEYS_URL}
           target="_blank"
           rel="noreferrer"
           class="text-[13px] font-medium text-[#171717] bg-white border border-[#e8e8ed] rounded-md px-3 py-1.5 hover:bg-[#f5f5f7] hover:border-[#d1d1d6] transition-colors inline-flex items-center gap-1.5"

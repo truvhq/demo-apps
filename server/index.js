@@ -40,6 +40,10 @@ const { API_CLIENT_ID, API_SECRET, PUBLIC_BASE_URL, NGROK_URL } = process.env;
 const SESSION_IDLE_TTL_MS = Number(process.env.SESSION_IDLE_TTL_MS) || 3_600_000;
 const SESSION_COOKIE_SECRET = process.env.SESSION_COOKIE_SECRET || randomBytes(32).toString('hex');
 const DASHBOARD_BACKEND_URL = process.env.DASHBOARD_BACKEND_URL || 'https://dashboard-backend-prod.truv.com';
+// Dashboard frontend origin used for the "get API keys" / "webhook config"
+// links. Read at runtime (settable via env) and injected into the served HTML;
+// defaults to prod. Trailing slash stripped so path concatenation stays clean.
+const DASHBOARD_URL = (process.env.DASHBOARD_URL || 'https://dashboard.truv.com').replace(/\/$/, '');
 
 // SSO is enabled when the frontend has Auth0 config. Audience is optional
 // (we use the ID token as bearer when it's omitted). If domain or client_id
@@ -214,6 +218,7 @@ app.use(sessionRoutes({
   cookieSecret: SESSION_COOKIE_SECRET,
   idleTtlMs: SESSION_IDLE_TTL_MS,
   dashboardClient,
+  dashboardUrl: DASHBOARD_URL,
   ssoEnabled: SSO_ENABLED,
   async onSessionCreated({ id, client }) {
     if (!WEBHOOK_BASE_URL) {
@@ -265,7 +270,15 @@ if (existsSync(join(distPath, 'index.html'))) {
   // URL baked into the built HTML; also the fallback when BRIDGE_URL is unset.
   const BUILT_IN_BRIDGE_URL = 'https://cdn.truv.com/bridge.js';
   const BRIDGE_URL = process.env.BRIDGE_URL || BUILT_IN_BRIDGE_URL;
-  const renderHtml = (file) => readFileSync(join(distPath, file), 'utf-8').replaceAll(BUILT_IN_BRIDGE_URL, BRIDGE_URL);
+
+  // Runtime config the frontend reads from window.__DEMO_CONFIG__ (see src/config.js).
+  // Escape "<" so a URL can't break out of the inline <script>.
+  const configJson = JSON.stringify({ dashboardUrl: DASHBOARD_URL }).replace(/</g, '\\u003c');
+  const configScript = `<script>window.__DEMO_CONFIG__=${configJson};</script>`;
+
+  const renderHtml = (file) => readFileSync(join(distPath, file), 'utf-8')
+    .replaceAll(BUILT_IN_BRIDGE_URL, BRIDGE_URL)
+    .replace('</head>', `${configScript}</head>`);
   const indexHtml = renderHtml('index.html');
   const previewHtml = existsSync(join(distPath, 'preview.html')) ? renderHtml('preview.html') : null;
 

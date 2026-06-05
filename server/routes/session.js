@@ -44,6 +44,7 @@ export default function sessionRoutes({
   onSessionCreated,
   onSessionDestroyed,
   dashboardClient,
+  dashboardUrl = 'https://dashboard.truv.com',
   ssoEnabled = true,
   rateLimitWindowMs = 600_000,
   rateLimitMax = 10,
@@ -148,7 +149,7 @@ export default function sessionRoutes({
         console.log(`SSO: 409 no_keys_available (data keys present: ${result.data ? Object.keys(result.data).join(',') : 'no body'})`);
         return res.status(409).json({
           error: 'no_keys_available',
-          dashboard_url: 'https://dashboard.truv.com/app/development/keys',
+          dashboard_url: `${dashboardUrl.replace(/\/$/, '')}/app/development/keys`,
         });
       }
       console.log(`SSO: dashboard returned ${keys.length} key(s), using first`);
