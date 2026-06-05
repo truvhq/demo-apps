@@ -271,9 +271,12 @@ if (existsSync(join(distPath, 'index.html'))) {
   const BUILT_IN_BRIDGE_URL = 'https://cdn.truv.com/bridge.js';
   const BRIDGE_URL = process.env.BRIDGE_URL || BUILT_IN_BRIDGE_URL;
 
-  // Runtime config the frontend reads from window.__DEMO_CONFIG__ (see src/config.js).
-  // Escape "<" so a URL can't break out of the inline <script>.
-  const configJson = JSON.stringify({ dashboardUrl: DASHBOARD_URL }).replace(/</g, '\\u003c');
+  const configJson = JSON.stringify({
+    dashboardUrl: DASHBOARD_URL,
+    auth0Domain: process.env.VITE_AUTH0_DOMAIN || '',
+    auth0ClientId: process.env.VITE_AUTH0_CLIENT_ID || '',
+    auth0Audience: process.env.VITE_AUTH0_AUDIENCE || '',
+  }).replace(/</g, '\\u003c');
   const configScript = `<script>window.__DEMO_CONFIG__=${configJson};</script>`;
 
   const renderHtml = (file) => readFileSync(join(distPath, file), 'utf-8')

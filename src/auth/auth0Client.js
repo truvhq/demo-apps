@@ -4,19 +4,21 @@
  *            auth.truv.com redirects back with ?code -> handleCallback()
  *            getAccessToken() -> POST /api/session/sso { access_token }
  *
- * Holds a single Auth0Client instance lazily initialized from VITE_AUTH0_*
- * env vars. The access token lives in the SDK's in-memory cache; the rest of
- * the app never touches it directly.
+ * Holds a single Auth0Client instance lazily initialized from the Auth0 config.
+ * The access token lives in the SDK's in-memory cache; the rest of the app never
+ * touches it directly.
  */
 
 import { createAuth0Client } from '@auth0/auth0-spa-js';
 
-const domain = import.meta.env.VITE_AUTH0_DOMAIN;
-const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
+const runtimeConfig = (typeof window !== 'undefined' && window.__DEMO_CONFIG__) || {};
+
+const domain = runtimeConfig.auth0Domain || import.meta.env.VITE_AUTH0_DOMAIN;
+const clientId = runtimeConfig.auth0ClientId || import.meta.env.VITE_AUTH0_CLIENT_ID;
 // Audience is optional. When set, we additionally request an access token for
 // that API. When unset, we use the ID token as the bearer to the dashboard
 // backend (which is what dashboard.truv.com itself does).
-const audience = import.meta.env.VITE_AUTH0_AUDIENCE;
+const audience = runtimeConfig.auth0Audience || import.meta.env.VITE_AUTH0_AUDIENCE;
 
 let _clientPromise = null;
 
