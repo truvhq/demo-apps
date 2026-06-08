@@ -46,6 +46,7 @@ export default function sessionRoutes({
   dashboardClient,
   dashboardUrl = 'https://dashboard.truv.com',
   ssoEnabled = true,
+  localMode = false,
   rateLimitWindowMs = 600_000,
   rateLimitMax = 10,
 }) {
@@ -273,8 +274,11 @@ export default function sessionRoutes({
     res.status(204).end();
   });
 
+  // In local mode the server already has working .env credentials and injects
+  // them into every request, so the Configure gate is satisfied without a
+  // per-visitor session cookie.
   router.get('/api/session/status', (req, res) => {
-    res.json({ authenticated: req.session !== null });
+    res.json({ authenticated: req.session !== null || localMode });
   });
 
   return router;

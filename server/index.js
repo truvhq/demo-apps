@@ -1,22 +1,21 @@
 /**
  * FILE SUMMARY: Express Server Entry Point
- * DATA FLOW: Frontend (Browser on localhost) --> Express (port 3000) --> Truv API
- * INTEGRATION PATTERN: Supports both Orders flow and Bridge flow via sub-routes.
+ * DATA FLOW: Frontend (browser on localhost) --> Express (port 3000) --> Truv API
  *
- * Initializes the Express app, registers middleware, and defines top-level routes
- * for company/provider search, webhook ingestion, and polling endpoints. Delegates
- * demo-specific logic to sub-route modules (orders, reports, bridge, uploads, user-reports).
+ * Initializes the Express app, registers middleware, and defines top-level
+ * routes for company/provider search, webhook ingestion, and polling. Demo
+ * logic lives in sub-route modules (orders, reports, bridge, uploads,
+ * user-reports, coverage-analysis).
+ *
+ * Run mode and all deployment settings are resolved in ./config.js — for local
+ * development you only need API_CLIENT_ID / API_SECRET in .env.
  */
 
-// Imports: environment config, Express framework, CORS, and all server modules
-import 'dotenv/config';
-import { randomBytes } from 'crypto';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { existsSync, readFileSync } from 'fs';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import { config } from './config.js';
+import { mountStaticIfBuilt } from './serve-static.js';
 import { TruvClient } from './truv.js';
 import * as db from './db.js';
 import * as apiLogger from './api-logger.js';
@@ -34,64 +33,22 @@ import uploadDocumentsRoutes from './routes/upload-documents.js';
 import userReportsRoutes from './routes/user-reports.js';
 import coverageAnalysisRoutes from './routes/coverage-analysis.js';
 
-// Configuration
-const PORT = process.env.PORT || 3000;
-const { API_CLIENT_ID, API_SECRET, PUBLIC_BASE_URL, NGROK_URL } = process.env;
-const SESSION_IDLE_TTL_MS = Number(process.env.SESSION_IDLE_TTL_MS) || 3_600_000;
-const SESSION_COOKIE_SECRET = process.env.SESSION_COOKIE_SECRET || randomBytes(32).toString('hex');
-const DASHBOARD_BACKEND_URL = process.env.DASHBOARD_BACKEND_URL || 'https://dashboard-backend-prod.truv.com';
-// Dashboard frontend origin used for the "get API keys" / "webhook config"
-// links. Read at runtime (settable via env) and injected into the served HTML;
-// defaults to prod. Trailing slash stripped so path concatenation stays clean.
-const DASHBOARD_URL = (process.env.DASHBOARD_URL || 'https://dashboard.truv.com').replace(/\/$/, '');
-
-// SSO is enabled when the frontend has Auth0 config. Audience is optional
-// (we use the ID token as bearer when it's omitted). If domain or client_id
-// are missing the SSO route returns 503 sso_disabled.
-const SSO_ENABLED = Boolean(
-  process.env.VITE_AUTH0_DOMAIN
-  && process.env.VITE_AUTH0_CLIENT_ID
-);
-// Fallback dev mode: when truthy, the server keeps a singleton TruvClient
-// from .env and registers one shared webhook at startup, preserving the
-// pre-BYO behavior for local development.
-const ALLOW_ENV_FALLBACK_CREDS = process.env.ALLOW_ENV_FALLBACK_CREDS === 'true';
-
-if (ALLOW_ENV_FALLBACK_CREDS && (!API_CLIENT_ID || !API_SECRET)) {
-  console.error('ALLOW_ENV_FALLBACK_CREDS=true requires API_CLIENT_ID and API_SECRET in .env');
-  process.exit(1);
-}
-
-if (!ALLOW_ENV_FALLBACK_CREDS && !PUBLIC_BASE_URL) {
-  console.error('PUBLIC_BASE_URL is required in BYO mode. Set it to the public origin reachable from the customer\'s Truv account (e.g., https://demo.truv.com), or enable ALLOW_ENV_FALLBACK_CREDS=true for local dev.');
-  process.exit(1);
-}
-
-if (!ALLOW_ENV_FALLBACK_CREDS && !process.env.SESSION_COOKIE_SECRET) {
-  console.warn('SESSION_COOKIE_SECRET is not set — using a per-process random value. Active sessions will reset on each restart.');
-}
-
-// The base URL the customer's Truv account uses to reach us. In fallback dev
-// mode we keep accepting NGROK_URL. In BYO mode PUBLIC_BASE_URL is required.
-const WEBHOOK_BASE_URL = ALLOW_ENV_FALLBACK_CREDS ? (NGROK_URL || PUBLIC_BASE_URL) : PUBLIC_BASE_URL;
-
-// Initialization: optional singleton TruvClient for fallback mode, SQLite DB.
-const fallbackTruv = ALLOW_ENV_FALLBACK_CREDS
-  ? new TruvClient({ clientId: API_CLIENT_ID, secret: API_SECRET })
+// Local mode keeps one TruvClient built from your .env keys and uses it for
+// every request. (Hosted deployments build a client per visitor instead.)
+const localTruv = config.localMode
+  ? new TruvClient({ clientId: config.creds.clientId, secret: config.creds.secret })
   : null;
 db.initDb();
 
-// Session store: in-memory, TTL'd. Holds per-visitor API credentials for the
-// BYO-credentials flow. Sessions never reach disk.
-const sessionStore = createSessionStore({ idleTtlMs: SESSION_IDLE_TTL_MS });
+// In-memory, TTL'd session store. Holds per-visitor API credentials; never
+// touches disk.
+const sessionStore = createSessionStore({ idleTtlMs: config.session.idleTtlMs });
 
-// Dashboard backend client for the SSO key-fetch path. Constructed regardless
-// of SSO_ENABLED so the session routes can dependency-inject it; the route
-// itself short-circuits to 503 when SSO is disabled.
-const dashboardClient = new DashboardClient({ baseUrl: DASHBOARD_BACKEND_URL });
+// Dashboard backend client for the SSO key-fetch path. Always constructed so
+// session routes can inject it; the route returns 503 when SSO is disabled.
+const dashboardClient = new DashboardClient({ baseUrl: config.dashboard.backendUrl });
 
-// Sweeper: periodically evict idle sessions and best-effort delete their
-// per-session webhook from the customer's Truv account.
+// Sweeper: periodically evict idle sessions and best-effort delete their webhook.
 const sweeper = startSweeper({
   store: sessionStore,
   intervalMs: 5 * 60_000,
@@ -102,21 +59,19 @@ const sweeper = startSweeper({
   },
 });
 
-// Express setup: JSON body parsing (with raw body capture for webhook HMAC verification)
-// and CORS restricted to localhost origins only.
+// Express setup: JSON body parsing (with raw body capture for webhook HMAC
+// verification) and CORS restricted to localhost origins.
 const app = express();
 app.use(express.json({ limit: '100mb', verify: (req, _res, buf) => { req.rawBody = buf.toString('utf-8'); } }));
 app.use(cors({ origin: /^http:\/\/localhost(:\d+)?$/, credentials: true }));
 app.use(cookieParser());
-app.use(sessionMiddleware({ store: sessionStore, cookieSecret: SESSION_COOKIE_SECRET }));
+app.use(sessionMiddleware({ store: sessionStore, cookieSecret: config.session.cookieSecret }));
 
-// Fallback shim: when ALLOW_ENV_FALLBACK_CREDS is on and a request has no
-// active BYO session, fall back to the .env-configured singleton client. This
-// preserves the pre-BYO local-dev experience (no Configure screen, demos work
-// against API_CLIENT_ID/API_SECRET out of the box).
-if (fallbackTruv) {
+// Local mode: when a request has no per-visitor session, use the shared .env
+// client so demos work out of the box with no Configure screen.
+if (localTruv) {
   app.use((req, _res, next) => {
-    if (!req.truv) req.truv = fallbackTruv;
+    if (!req.truv) req.truv = localTruv;
     next();
   });
 }
@@ -188,11 +143,11 @@ app.post('/api/webhooks/truv/:sessionId', (req, res) => {
   res.status(200).end();
 });
 
-// Legacy single-tenant webhook receiver. Active only when fallback dev mode is
-// enabled so existing local-dev workflows keep working unchanged.
-if (ALLOW_ENV_FALLBACK_CREDS) {
+// Single-tenant webhook receiver — local mode only. Verifies against the
+// shared .env secret and shares the per-session payload handler above.
+if (config.localMode) {
   app.post('/api/webhooks/truv', (req, res) => {
-    const sigMatch = verifyWebhookSignature(req.rawBody, API_SECRET, req.headers['x-webhook-sign']);
+    const sigMatch = verifyWebhookSignature(req.rawBody, config.creds.secret, req.headers['x-webhook-sign']);
     if (!sigMatch) { console.warn('Webhook signature mismatch'); return res.status(401).end(); }
     console.log(`Webhook: ${req.body.event_type} (${req.body.status || '-'}) user=${req.body.user_id || '-'}`);
     processWebhookPayload(req);
@@ -209,26 +164,26 @@ app.get('/api/users/:userId/webhooks', (req, res) => res.json(db.getWebhookEvent
 app.get('/api/users/:userId/logs', (req, res) => res.json(db.getApiLogsByUserId(req.params.userId, req.query.session_id)));
 
 // --- Session routes ---
-// BYO API credentials: visitors POST their Truv keys to /api/session and
-// receive an HttpOnly cookie. The onSessionCreated/onSessionDestroyed hooks
-// register and tear down a per-session webhook on the customer's own Truv
-// account.
+// Per-visitor credentials: a visitor POSTs Truv keys to /api/session and gets
+// an HttpOnly cookie. In local mode the shim above means demos already work, so
+// this mainly serves the Configure UI. The hooks register/tear down a webhook
+// on that session's Truv account.
 app.use(sessionRoutes({
   store: sessionStore,
-  cookieSecret: SESSION_COOKIE_SECRET,
-  idleTtlMs: SESSION_IDLE_TTL_MS,
+  cookieSecret: config.session.cookieSecret,
+  idleTtlMs: config.session.idleTtlMs,
   dashboardClient,
-  dashboardUrl: DASHBOARD_URL,
-  ssoEnabled: SSO_ENABLED,
+  dashboardUrl: config.dashboard.url,
+  ssoEnabled: config.sso.enabled,
+  localMode: config.localMode,
   async onSessionCreated({ id, client }) {
-    if (!WEBHOOK_BASE_URL) {
-      // Sessions still work for outbound API calls, but webhooks cannot be
-      // delivered until PUBLIC_BASE_URL is configured. Surface the gap to
-      // the operator via logs; do not block session creation.
-      console.warn('PUBLIC_BASE_URL not set — skipping per-session webhook registration');
+    if (!config.webhookBaseUrl) {
+      // Sessions still work for outbound API calls; webhooks just can't be
+      // delivered without a reachable origin. Log it, don't block the session.
+      console.warn('No webhook origin configured — skipping webhook registration for this session.');
       return true;
     }
-    const webhookUrl = `${WEBHOOK_BASE_URL.replace(/\/$/, '')}/api/webhooks/truv/${id}`;
+    const webhookUrl = `${config.webhookBaseUrl.replace(/\/$/, '')}/api/webhooks/truv/${id}`;
     const name = `demo-${id.slice(0, 8)}`;
     const { webhookId: registeredId, error } = await registerWebhook(client, webhookUrl, { name });
     if (!registeredId) {
@@ -246,10 +201,9 @@ app.use(sessionRoutes({
 }));
 
 // --- Demo routes ---
-// Mounts sub-route modules. In BYO mode the per-request req.truv is used by
-// each handler (U5); the deps object only carries db and apiLogger. In
-// fallback mode the singleton truv is also provided for legacy compatibility.
-const deps = { truv: fallbackTruv, db, apiLogger };
+// Each handler uses the per-request req.truv (set by the session middleware, or
+// by the local shim above). The shared local client is passed for convenience.
+const deps = { truv: localTruv, db, apiLogger };
 app.use(ordersRoutes(deps));
 app.use(reportsRoutes(deps));
 app.use(bridgeRoutes(deps));
@@ -260,56 +214,27 @@ app.use(coverageAnalysisRoutes(deps));
 // --- Health check ---
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
-// --- Static files (production) ---
-// In production (after `npm run build`), serve the Vite-built frontend from dist/.
-// IMPORTANT: The catch-all '*' route must remain the last registered route.
-// Any non-/api route added after this block will be shadowed by the SPA fallback.
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const distPath = join(__dirname, '..', 'dist');
-if (existsSync(join(distPath, 'index.html'))) {
-  // URL baked into the built HTML; also the fallback when BRIDGE_URL is unset.
-  const BUILT_IN_BRIDGE_URL = 'https://cdn.truv.com/bridge.js';
-  const BRIDGE_URL = process.env.BRIDGE_URL || BUILT_IN_BRIDGE_URL;
-
-  const configJson = JSON.stringify({
-    dashboardUrl: DASHBOARD_URL,
-    auth0Domain: process.env.VITE_AUTH0_DOMAIN || '',
-    auth0ClientId: process.env.VITE_AUTH0_CLIENT_ID || '',
-    auth0Audience: process.env.VITE_AUTH0_AUDIENCE || '',
-  }).replace(/</g, '\\u003c');
-  const configScript = `<script>window.__DEMO_CONFIG__=${configJson};</script>`;
-
-  const renderHtml = (file) => readFileSync(join(distPath, file), 'utf-8')
-    .replaceAll(BUILT_IN_BRIDGE_URL, BRIDGE_URL)
-    .replace('</head>', `${configScript}</head>`);
-  const indexHtml = renderHtml('index.html');
-  const previewHtml = existsSync(join(distPath, 'preview.html')) ? renderHtml('preview.html') : null;
-
-  // Serve the injected HTML pages explicitly; static serves only hashed assets.
-  if (previewHtml) app.get('/preview.html', (_req, res) => res.type('html').send(previewHtml));
-  app.use(express.static(distPath, { index: false }));
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api')) return next();
-    res.type('html').send(indexHtml);
-  });
-}
+// --- Static files ---
+// No-op locally (Vite serves the frontend). Serves dist/ after a build; must be
+// last so its SPA catch-all doesn't shadow other routes.
+mountStaticIfBuilt(app, config);
 
 // --- Start ---
-// In fallback dev mode, register the legacy shared webhook at startup.
-// In BYO mode webhooks are registered per session and there is nothing to do here.
-const server = app.listen(PORT, async () => {
-  console.log(`Truv Demo Apps running on http://localhost:${PORT}`);
-  if (ALLOW_ENV_FALLBACK_CREDS) {
-    try { tunnelUrl = await setupWebhook({ path: '/api/webhooks/truv', truvClient: fallbackTruv }); } catch (err) { console.error('Webhook setup failed:', err.message); }
+// Local mode registers a single shared webhook at startup; otherwise webhooks
+// are registered per session as visitors configure their keys.
+const server = app.listen(config.port, async () => {
+  console.log(`Truv Demo Apps running on http://localhost:${config.port}`);
+  if (config.localMode) {
+    try { tunnelUrl = await setupWebhook({ path: '/api/webhooks/truv', truvClient: localTruv }); } catch (err) { console.error('Webhook setup failed:', err.message); }
   }
 });
 
-// Graceful shutdown: tears down singleton webhook (fallback mode) and any
+// Graceful shutdown: tears down the shared webhook (local mode) and any
 // per-session webhooks, drains connections, then exits.
 async function gracefulShutdown() {
   sweeper.stop();
   const teardowns = [];
-  if (fallbackTruv) teardowns.push(teardownWebhook(fallbackTruv));
+  if (localTruv) teardowns.push(teardownWebhook(localTruv));
   for (const meta of sessionStore.all()) {
     if (!meta.hasWebhook) continue;
     const record = sessionStore.destroy(meta.id);
