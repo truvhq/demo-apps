@@ -156,9 +156,15 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Dev affordance: `?configure` forces the Configure screen even in local
+  // mode (where the session is auto-authenticated), so it can be viewed and
+  // styled locally. Harmless in production — it only renders the entry screen.
+  const forceConfigure = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).has('configure');
+
   // Gate: BYO credentials must be configured before any demo can be reached.
   if (session.loading || ssoCallbackBusy) return null;
-  if (!session.authenticated) return <ConfigureScreen onSubmit={session.submit} ssoError={ssoError} />;
+  if (forceConfigure || !session.authenticated) return <ConfigureScreen onSubmit={session.submit} ssoError={ssoError} />;
 
   // Routing logic: progressively resolve industry, then demo, then screen.
   // At each level, fall back to the parent view if no match is found.

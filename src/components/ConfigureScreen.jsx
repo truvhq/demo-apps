@@ -169,10 +169,10 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
 
   return (
     <div class="min-h-screen relative flex items-center justify-center px-6 overflow-hidden bg-[#fafafa]">
-      {/* Soft background ambience: two pastel radial blooms behind the card. */}
+      {/* Soft background ambience: pastel radial blooms drifting behind the card. */}
       <div aria-hidden="true" class="pointer-events-none absolute inset-0">
-        <div class="absolute -top-32 left-1/2 -translate-x-1/2 w-[640px] h-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(94,92,230,0.10),transparent_60%)]" />
-        <div class="absolute -bottom-40 left-[60%] w-[520px] h-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(10,132,255,0.08),transparent_60%)]" />
+        <div class="config-bloom-a absolute -top-32 left-1/2 w-[640px] h-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(94,92,230,0.13),transparent_60%)]" />
+        <div class="config-bloom-b absolute -bottom-40 left-[60%] w-[520px] h-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(10,132,255,0.10),transparent_60%)]" />
       </div>
 
       {/* Contact sales CTA — always reachable from the entry screen. */}
@@ -186,14 +186,13 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
       </a>
 
       <div class="relative w-full max-w-[420px] animate-slideUp">
-        <div class="bg-white border border-[#e8e8ed]/80 rounded-[20px] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_rgba(16,24,40,0.06)] px-8 py-9">
+        <div class="gradient-ring relative bg-white border border-[#e8e8ed]/80 rounded-[20px] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_12px_40px_rgba(16,24,40,0.10),0_2px_8px_rgba(94,92,230,0.05)] px-8 py-9">
           {/* Header */}
           <div class="flex flex-col items-center gap-3 mb-6">
             <Icons.truvLogo height={22} className="text-text" />
             <h1 class="text-[22px] font-semibold tracking-[-0.025em] text-[#171717]">Personalize your demo</h1>
             <p class="text-[13.5px] text-[#6e6e73] text-center leading-[1.55] max-w-[340px]">
-              Add your Truv API keys to try the demos on your own account.
-              The demo will create users, send requests, and pull reports. You can watch all of it show up in your Truv dashboard.
+              Add your Truv keys to run the demos on your own account. Real users, real API calls, live reports in your dashboard.
             </p>
           </div>
 
@@ -211,7 +210,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
                 type="button"
                 onClick={handleSsoClick}
                 disabled={ssoBusy}
-                class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-[10px] shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary/90 hover:shadow-[0_2px_6px_rgba(94,92,230,0.25)] disabled:bg-[#d1d1d6] disabled:shadow-none disabled:cursor-not-allowed transition-all duration-150 inline-flex items-center justify-center gap-2"
+                class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-[10px] shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary/90 hover:-translate-y-px hover:shadow-[0_6px_16px_rgba(94,92,230,0.30)] active:translate-y-0 disabled:bg-[#d1d1d6] disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-150 inline-flex items-center justify-center gap-2"
               >
                 {ssoBusy ? (
                   <>
@@ -258,7 +257,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
                 <button
                   type="submit"
                   disabled={busy || !clientId || !secret}
-                  class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-[10px] shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary/90 hover:shadow-[0_2px_6px_rgba(94,92,230,0.25)] disabled:bg-[#d1d1d6] disabled:shadow-none disabled:cursor-not-allowed transition-all duration-150"
+                  class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-[10px] shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary/90 hover:-translate-y-px hover:shadow-[0_6px_16px_rgba(94,92,230,0.30)] active:translate-y-0 disabled:bg-[#d1d1d6] disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-150"
                 >
                   {busy ? (
                     <span class="inline-flex items-center gap-2">
@@ -300,6 +299,23 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
         <div class="flex items-center justify-center gap-1.5 mt-5 text-[12px] text-[#8E8E93] whitespace-nowrap">
           <Icons.shieldCheck size={12} />
           <span>Kept in memory for this session. Never saved or logged.</span>
+        </div>
+
+        {/* What you'll verify — a quiet preview of what the demos surface. */}
+        <div class="flex items-center justify-center gap-2 mt-4">
+          {[
+            { label: 'Income', dot: '#34c759' },
+            { label: 'Employment', dot: '#2C64E3' },
+            { label: 'Assets', dot: '#8b5cf6' },
+          ].map((chip, i) => (
+            <span
+              key={chip.label}
+              class={`animate-chipIn delay-${i + 1} inline-flex items-center gap-1.5 rounded-full bg-white/70 border border-[#e8e8ed] px-2.5 py-1 text-[11px] font-medium text-[#6e6e73] backdrop-blur-sm`}
+            >
+              <span class="w-1.5 h-1.5 rounded-full" style={{ background: chip.dot }} />
+              {chip.label}
+            </span>
+          ))}
         </div>
       </div>
     </div>
