@@ -162,7 +162,7 @@ export function App() {
 
   // Routing logic: progressively resolve industry, then demo, then screen.
   // At each level, fall back to the parent view if no match is found.
-  if (!route.industry) return <Home onResetCredentials={session.reset} onOverrideKeys={session.override} />;
+  if (!route.industry) return <Home />;
 
   const industry = INDUSTRIES.find(i => i.id === route.industry);
   if (!industry) return <Home />;

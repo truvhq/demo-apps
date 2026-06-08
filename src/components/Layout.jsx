@@ -25,6 +25,7 @@
 import { useState } from 'preact/hooks';
 import { Panel, TabButton } from './Panel.jsx';
 import { Icons } from './Icons.jsx';
+import { HeaderActions } from './HeaderActions.jsx';
 import { DeviceToggle, ShowPanelButton, HidePanelButton } from './DeviceFrame.jsx';
 import { useHasDeviceFrame } from '../hooks/deviceFramePresence.jsx';
 import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
@@ -61,6 +62,10 @@ export function Layout({ badge, steps, panel, flush, hidePanel, children }) {
             <Icons.truvLogo height={16} className="text-text" />
           </a>
           {badge && <div class="text-[11px] font-medium text-muted bg-surface-secondary px-2 py-0.5 rounded-md whitespace-nowrap">{badge}</div>}
+        </div>
+        {/* Shared header actions (GitHub, Dashboard, Contact sales) */}
+        <div class="pr-5 shrink-0">
+          <HeaderActions />
         </div>
         {!hidePanel && (
           <>

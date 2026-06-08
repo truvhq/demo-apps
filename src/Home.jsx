@@ -3,6 +3,7 @@ import { INDUSTRIES } from './App.jsx';
 import { Icons } from './components/Icons.jsx';
 import { Header } from './components/Header.jsx';
 import { OverrideKeyDialog } from './components/OverrideKeyDialog.jsx';
+import { useSession } from './hooks/useSession.js';
 
 const INDUSTRY_ICONS = {
   'mortgage': Icons.building,
@@ -40,29 +41,14 @@ function IndustryCard({ industry, index }) {
   );
 }
 
-export function Home({ onResetCredentials, onOverrideKeys }) {
+export function Home() {
   const [overrideOpen, setOverrideOpen] = useState(false);
-
-  function handleReset() {
-    if (typeof onResetCredentials !== 'function') return;
-    if (window.confirm('Clear stored Truv credentials and return to the configure screen?')) {
-      onResetCredentials();
-    }
-  }
+  const { override } = useSession();
 
   return (
     <div class="min-h-screen flex flex-col bg-white">
-      <Header
-        badge="Demo Apps"
-        sticky
-        onUpdateKeys={onResetCredentials ? handleReset : undefined}
-        onOverrideKeys={onOverrideKeys ? () => setOverrideOpen(true) : undefined}
-      />
-      <OverrideKeyDialog
-        open={overrideOpen}
-        onClose={() => setOverrideOpen(false)}
-        onSubmit={onOverrideKeys}
-      />
+      <Header badge="Demo Apps" sticky />
+      <OverrideKeyDialog open={overrideOpen} onClose={() => setOverrideOpen(false)} onSubmit={override} />
       <main class="flex-1 flex items-start justify-center pt-16 pb-20 px-6">
         <div class="max-w-[640px] w-full">
           <div class="animate-slideUp mb-12">
@@ -70,6 +56,14 @@ export function Home({ onResetCredentials, onOverrideKeys }) {
             <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[480px]">
               See how Truv helps verify income, employment, and assets across mortgage, consumer lending, government, and banking.
             </p>
+            {/* Home-only action: swap the API keys in use without leaving the page. */}
+            <button
+              type="button"
+              onClick={() => setOverrideOpen(true)}
+              class="mt-5 text-[13px] font-medium text-[#171717] bg-white border border-[#e8e8ed] rounded-md px-3 py-1.5 hover:bg-[#f5f5f7] hover:border-[#d1d1d6] transition-colors"
+            >
+              Update API keys
+            </button>
           </div>
           <div class="-mx-6">
             {INDUSTRIES.filter(i => i.demos.length > 0).map((ind, i) => (
