@@ -73,6 +73,8 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
 
       // Attach user_id to each document as required by the Truv documents API
       const userId = users[0].id;
+      // Record ownership so this session can poll the user's webhooks/logs.
+      db.recordSessionUser(req.session?.id, userId);
       const docsWithUser = documents.map(d => ({ ...d, user_id: userId }));
 
       // Create the document collection at Truv and persist in SQLite

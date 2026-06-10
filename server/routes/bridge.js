@@ -15,7 +15,7 @@ import { Router } from 'express';
 
 // Factory function: receives shared dependencies (TruvClient, logger) and returns a configured router.
 // Note: Bridge flow does not use the DB module because there is no persistent order to track.
-export default function bridgeRoutes({ truv, apiLogger }) {
+export default function bridgeRoutes({ truv, db, apiLogger }) {
   const router = Router();
 
   // POST /api/bridge-token: Create a Truv user and generate a bridge token for the frontend.
@@ -40,6 +40,8 @@ export default function bridgeRoutes({ truv, apiLogger }) {
       const userId = userResult.data?.id || null;
       apiLogger.logApiCall({ userId, method: 'POST', endpoint: '/v1/users/', requestBody: { product_type: pt }, responseBody: userResult.data, statusCode: userResult.statusCode, durationMs: userResult.durationMs });
       if (userResult.statusCode >= 400 || !userId) return res.status(userResult.statusCode || 500).json({ error: 'Failed to create user', details: userResult.data });
+      // Record ownership so this session can poll the user's webhooks/logs.
+      db?.recordSessionUser(req.session?.id, userId);
 
       // Step 2: Generate a bridge token for that user, passing product type and optional filters
       const tokenResult = await truvClient.createUserBridgeToken(userId, pt, { data_sources: ds, company_mapping_id: cmid, provider_id: pid });

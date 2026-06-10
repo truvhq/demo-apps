@@ -128,6 +128,10 @@ function processWebhookPayload(req) {
   // statements-created, etc.) and seed the lookup as a side-effect of ingestion.
   if (!userId && linkId) userId = db.findUserByLinkInEvents(linkId);
 
+  // The webhook arrived on this session's registered URL, so the session owns
+  // this user_id — record it to authorize the per-user polling endpoints.
+  if (userId) db.recordSessionUser(req.params.sessionId, userId);
+
   apiLogger.pushWebhookEvent({ userId, webhookId: payload.webhook_id, eventType: payload.event_type, status: payload.status, payload });
 }
 
@@ -159,9 +163,28 @@ if (config.localMode) {
 app.get('/api/tunnel-url', (_req, res) => res.json({ url: tunnelUrl }));
 
 // --- Polling endpoints ---
-// Frontend polls these to display real-time webhook events and API logs in the activity panel.
-app.get('/api/users/:userId/webhooks', (req, res) => res.json(db.getWebhookEventsByUserId(req.params.userId)));
-app.get('/api/users/:userId/logs', (req, res) => res.json(db.getApiLogsByUserId(req.params.userId, req.query.session_id)));
+// Frontend polls these to display real-time webhook events and API logs in the
+// activity panel. They read from the shared local DB by user_id, so in hosted
+// (multi-tenant) mode they MUST be authorized: only the session that owns the
+// user_id may read its activity. Local mode is single-tenant, so it stays open.
+function authorizeUser(req, res) {
+  if (config.localMode) return true;
+  if (!req.session) { res.status(401).json({ error: 'session_required' }); return false; }
+  if (!db.sessionOwnsUser(req.session.id, req.params.userId)) { res.status(403).json({ error: 'forbidden' }); return false; }
+  return true;
+}
+
+app.get('/api/users/:userId/webhooks', (req, res) => {
+  if (!authorizeUser(req, res)) return;
+  res.json(db.getWebhookEventsByUserId(req.params.userId));
+});
+app.get('/api/users/:userId/logs', (req, res) => {
+  if (!authorizeUser(req, res)) return;
+  // The ownership gate above protects the sensitive user-scoped logs. The
+  // session_id arg only widens the result to this session's pre-order search
+  // logs (public company/provider queries), which carry no user-level data.
+  res.json(db.getApiLogsByUserId(req.params.userId, req.query.session_id));
+});
 
 // --- Session routes ---
 // Per-visitor credentials: a visitor POSTs Truv keys to /api/session and gets
