@@ -15,7 +15,9 @@ import { v4 as uuidv4 } from 'uuid';
 export class TruvClient {
   // Constructor: stores API credentials and builds default headers for all requests.
   // Every outbound call to Truv includes X-Access-Client-Id and X-Access-Secret.
-  constructor({ clientId, secret, apiUrl = 'https://prod.truv.com/v1/' }) {
+  // Base URL resolves from TRUV_API_URL (per-env override), defaulting to prod.
+  // Must include the /v1/ path and a trailing slash (endpoints are appended raw).
+  constructor({ clientId, secret, apiUrl = process.env.TRUV_API_URL || 'https://prod.truv.com/v1/' }) {
     this.clientId = clientId;
     this.secret = secret;
     this.apiUrl = apiUrl;

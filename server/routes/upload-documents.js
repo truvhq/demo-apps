@@ -47,6 +47,9 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
   //       POST /v1/documents/collections/ -> store in SQLite -> return collection metadata.
   router.post('/api/collections', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
+      if (!truvClient) return res.status(401).json({ error: 'session_required' });
+
       const { external_user_id, use_test_docs, extra_documents, demo_id } = req.body;
       let { documents } = req.body;
 
@@ -62,7 +65,7 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
       // Create a Truv user (with optional external_user_id for tracking)
       let users;
       {
-        const userResult = await truv.createUser(external_user_id ? { external_user_id } : {});
+        const userResult = await truvClient.createUser(external_user_id ? { external_user_id } : {});
         if (userResult.statusCode >= 400 || !userResult.data?.id) return res.status(userResult.statusCode || 500).json({ error: 'Failed to create user', details: userResult.data });
         apiLogger.logApiCall({ userId: userResult.data.id, method: 'POST', endpoint: '/v1/users/', requestBody: userResult.requestBody, responseBody: userResult.data, statusCode: userResult.statusCode, durationMs: userResult.durationMs });
         users = [{ id: userResult.data.id }];
@@ -70,11 +73,13 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
 
       // Attach user_id to each document as required by the Truv documents API
       const userId = users[0].id;
+      // Record ownership so this session can poll the user's webhooks/logs.
+      db.recordSessionUser(req.session?.id, userId);
       const docsWithUser = documents.map(d => ({ ...d, user_id: userId }));
 
       // Create the document collection at Truv and persist in SQLite
       const collectionId = db.generateId();
-      const result = await truv.createDocumentCollection(docsWithUser);
+      const result = await truvClient.createDocumentCollection(docsWithUser);
       const truvData = result.data;
       if (result.statusCode >= 400) {
         console.error('Document collection creation failed:', JSON.stringify({ request: result.requestBody, response: truvData }));
@@ -91,10 +96,13 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
   // Flow: read from DB -> GET /v1/documents/collections/:truv_id/ -> update DB status -> return to frontend.
   router.get('/api/collections/:id', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
+      if (!truvClient) return res.status(401).json({ error: 'session_required' });
+
       const collection = db.getDocCollection(req.params.id);
       if (!collection) return res.status(404).json({ error: 'Collection not found' });
       if (collection.truv_collection_id) {
-        const result = await truv.getDocumentCollection(collection.truv_collection_id);
+        const result = await truvClient.getDocumentCollection(collection.truv_collection_id);
         const raw = collection.raw_response ? safeParse(collection.raw_response) : {};
         const uid = raw.uploaded_files?.[0]?.user_id || null;
         apiLogger.logApiCall({ userId: uid, method: 'GET', endpoint: `/v1/documents/collections/${collection.truv_collection_id}/`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
@@ -110,11 +118,14 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
   // Proxies the documents array to Truv's upload endpoint for the collection.
   router.post('/api/collections/:id/upload', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
+      if (!truvClient) return res.status(401).json({ error: 'session_required' });
+
       const collection = db.getDocCollection(req.params.id);
       if (!collection) return res.status(404).json({ error: 'Collection not found' });
       const { documents } = req.body;
       if (!documents?.length) return res.status(400).json({ error: 'documents array is required' });
-      const result = await truv.uploadToCollection(collection.truv_collection_id, documents);
+      const result = await truvClient.uploadToCollection(collection.truv_collection_id, documents);
       if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Truv API error', details: result.data });
       res.json(result.data);
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
@@ -125,11 +136,14 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
   // The frontend should poll GET /api/collections/:id/results to check progress.
   router.post('/api/collections/:id/finalize', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
+      if (!truvClient) return res.status(401).json({ error: 'session_required' });
+
       const collection = db.getDocCollection(req.params.id);
       if (!collection) return res.status(404).json({ error: 'Collection not found' });
       const raw = collection.raw_response ? safeParse(collection.raw_response) : {};
       const uid = raw.uploaded_files?.[0]?.user_id || null;
-      const result = await truv.finalizeCollection(collection.truv_collection_id);
+      const result = await truvClient.finalizeCollection(collection.truv_collection_id);
       if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Truv API error', details: result.data });
       db.updateDocCollection(collection.id, { status: 'finalizing' });
       apiLogger.logApiCall({ userId: uid, method: 'POST', endpoint: `/v1/documents/collections/${collection.truv_collection_id}/finalize/`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
@@ -141,9 +155,12 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
   // Updates the collection status in the DB as processing progresses.
   router.get('/api/collections/:id/results', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
+      if (!truvClient) return res.status(401).json({ error: 'session_required' });
+
       const collection = db.getDocCollection(req.params.id);
       if (!collection) return res.status(404).json({ error: 'Collection not found' });
-      const result = await truv.getFinalizationResults(collection.truv_collection_id);
+      const result = await truvClient.getFinalizationResults(collection.truv_collection_id);
       if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Truv API error', details: result.data });
       if (result.data.status) db.updateDocCollection(collection.id, { status: result.data.status, raw_response: result.data });
       res.json(result.data);
@@ -155,6 +172,9 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
   // Wraps the single link report in a { links: [...] } structure for OrderResults component compatibility.
   router.get('/api/collections/:id/report', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
+      if (!truvClient) return res.status(401).json({ error: 'session_required' });
+
       const collection = db.getDocCollection(req.params.id);
       if (!collection) return res.status(404).json({ error: 'Collection not found' });
 
@@ -165,7 +185,7 @@ export default function uploadDocumentsRoutes({ truv, db, apiLogger }) {
       const uid = raw.uploaded_files?.[0]?.user_id || null;
 
       // Fetch the income report for the specific link produced by document processing
-      const result = await truv.getLinkIncomeReport(linkId);
+      const result = await truvClient.getLinkIncomeReport(linkId);
       apiLogger.logApiCall({ userId: uid, method: 'GET', endpoint: `/v1/links/${linkId}/income/report/`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
 
       if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Report error', details: result.data });

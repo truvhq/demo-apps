@@ -8,13 +8,14 @@
 
 // Imports
 import { Icons } from './Icons.jsx';
+import { HeaderActions } from './HeaderActions.jsx';
 
 // Props:
 //   badge      : small label shown after the logo (e.g. "POS Application")
 //   breadcrumb : text shown after a chevron separator (e.g. industry name)
 //   sticky     : whether the header sticks to the top on scroll
 export function Header({ badge, breadcrumb, sticky }) {
-  // Rendering: sticky header bar with logo, breadcrumb, and badge
+  // Rendering: sticky header bar with logo, breadcrumb, badge, and actions
   return (
     <header class={`flex items-center justify-between h-12 px-6 bg-white/80 backdrop-blur-xl border-b border-border/40 ${sticky ? 'sticky top-0 z-10' : ''}`}>
       <div class="flex items-center gap-3">
@@ -32,6 +33,7 @@ export function Header({ badge, breadcrumb, sticky }) {
         {/* Optional badge label */}
         {badge && <div class="text-[11px] font-medium text-muted bg-surface-secondary px-2 py-0.5 rounded-md">{badge}</div>}
       </div>
+      <HeaderActions />
     </header>
   );
 }

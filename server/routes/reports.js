@@ -56,14 +56,14 @@ export default function reportsRoutes({ truv, db, apiLogger }) {
   // First checks the DB for an existing report. If not found, POSTs to Truv to create one.
   // If found but the response is missing, GETs the report from Truv to refresh.
   // All results are upserted into the DB for future cache hits.
-  async function fetchReport(orderId, userId, configKey) {
+  async function fetchReport(truvClient, orderId, userId, configKey) {
     const cfg = REPORT_CONFIG[configKey];
     if (!cfg) return null;
     let row = db.getReport(orderId, cfg.type);
 
     // No cached report: POST to create. The response contains the full report data.
     if (!row || !row.truv_report_id) {
-      const cr = await cfg.create(truv, userId);
+      const cr = await cfg.create(truvClient, userId);
       apiLogger.logApiCall({ userId, method: 'POST', endpoint: cfg.postPath(userId), requestBody: cr.requestBody, responseBody: cr.data, statusCode: cr.statusCode, durationMs: cr.durationMs });
       if (cr.statusCode >= 400 || !cr.data?.report_id) return null;
       db.upsertReport({ orderId, reportType: cfg.type, truvReportId: cr.data.report_id, status: 'ready', response: cr.data });
@@ -75,7 +75,7 @@ export default function reportsRoutes({ truv, db, apiLogger }) {
     if (stored) return stored;
 
     // Stored row exists but response is missing: GET from Truv to refresh
-    const gr = await cfg.get(truv, userId, row.truv_report_id);
+    const gr = await cfg.get(truvClient, userId, row.truv_report_id);
     apiLogger.logApiCall({ userId, method: 'GET', endpoint: cfg.getPath(userId, row.truv_report_id), requestBody: gr.requestBody, responseBody: gr.data, statusCode: gr.statusCode, durationMs: gr.durationMs });
     if (gr.statusCode < 400) {
       db.upsertReport({ orderId, reportType: cfg.type, truvReportId: row.truv_report_id, status: 'ready', response: gr.data });
@@ -90,6 +90,9 @@ export default function reportsRoutes({ truv, db, apiLogger }) {
   // Assets orders also fetch income_insights as a companion report.
   router.get('/api/orders/:id/report', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
+      if (!truvClient) return res.status(401).json({ error: 'session_required' });
+
       const order = db.getOrder(req.params.id);
       if (!order) return res.status(404).json({ error: 'Order not found' });
 
@@ -99,11 +102,11 @@ export default function reportsRoutes({ truv, db, apiLogger }) {
 
       // Fetch reports in parallel based on the order's product types
       const fetches = [];
-      if (productTypes.includes('income')) fetches.push(fetchReport(order.id, userId, 'income').then(r => { voie_report = r; }).catch(e => console.error('Income report error:', e.message)));
-      if (productTypes.includes('employment')) fetches.push(fetchReport(order.id, userId, 'employment').then(r => { voe_report = r; }).catch(e => console.error('Employment report error:', e.message)));
+      if (productTypes.includes('income')) fetches.push(fetchReport(truvClient, order.id, userId, 'income').then(r => { voie_report = r; }).catch(e => console.error('Income report error:', e.message)));
+      if (productTypes.includes('employment')) fetches.push(fetchReport(truvClient, order.id, userId, 'employment').then(r => { voe_report = r; }).catch(e => console.error('Employment report error:', e.message)));
       if (productTypes.includes('assets')) {
-        fetches.push(fetchReport(order.id, userId, 'assets').then(r => { voa_report = r; }).catch(e => console.error('Assets report error:', e.message)));
-        fetches.push(fetchReport(order.id, userId, 'income_insights').then(r => { income_insights_report = r; }).catch(e => console.error('Income insights error:', e.message)));
+        fetches.push(fetchReport(truvClient, order.id, userId, 'assets').then(r => { voa_report = r; }).catch(e => console.error('Assets report error:', e.message)));
+        fetches.push(fetchReport(truvClient, order.id, userId, 'income_insights').then(r => { income_insights_report = r; }).catch(e => console.error('Income insights error:', e.message)));
       }
       await Promise.all(fetches);
 

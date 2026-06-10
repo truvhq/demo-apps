@@ -63,13 +63,16 @@ export default function userReportsRoutes({ truv, apiLogger }) {
   // For deposit_switch: single GET (no create step).
   router.get('/api/users/:userId/reports/:reportType', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
+      if (!truvClient) return res.status(401).json({ error: 'session_required' });
+
       const { userId, reportType } = req.params;
       const cfg = REPORT_CONFIG[reportType];
       if (!cfg) return res.status(400).json({ error: `Unknown report type: ${reportType}` });
 
       // Deposit switch is a single GET (no create step)
       if (!cfg.create) {
-        const result = await cfg.retrieve(truv, userId);
+        const result = await cfg.retrieve(truvClient, userId);
         apiLogger.logApiCall({
           userId,
           method: 'GET',
@@ -85,7 +88,7 @@ export default function userReportsRoutes({ truv, apiLogger }) {
       }
 
       // Step 1: POST to create the report at Truv
-      const createResult = await cfg.create(truv, userId);
+      const createResult = await cfg.create(truvClient, userId);
       apiLogger.logApiCall({
         userId,
         method: 'POST',
@@ -110,7 +113,7 @@ export default function userReportsRoutes({ truv, apiLogger }) {
       let getResult;
       for (let attempt = 0; attempt < REPORT_RETRIEVE_DELAYS_MS.length; attempt++) {
         if (REPORT_RETRIEVE_DELAYS_MS[attempt]) await new Promise(r => setTimeout(r, REPORT_RETRIEVE_DELAYS_MS[attempt]));
-        getResult = await cfg.retrieve(truv, userId, reportId);
+        getResult = await cfg.retrieve(truvClient, userId, reportId);
         apiLogger.logApiCall({
           userId,
           method: 'GET',

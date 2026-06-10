@@ -10,9 +10,12 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@auth0/auth0-spa-js": "^2.19.3",
     "better-sqlite3": "^11.0.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "express-rate-limit": "^8.5.2",
     "express": "^4.22.2",
     "mermaid": "^11.15.0",
     "node-fetch": "^3.3.2",

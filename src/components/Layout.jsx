@@ -22,9 +22,10 @@
  * panel entirely regardless of user preference.
  */
 
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { Panel, TabButton } from './Panel.jsx';
 import { Icons } from './Icons.jsx';
+import { HeaderActions } from './HeaderActions.jsx';
 import { DeviceToggle, ShowPanelButton, HidePanelButton } from './DeviceFrame.jsx';
 import { useHasDeviceFrame } from '../hooks/deviceFramePresence.jsx';
 import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
@@ -39,7 +40,19 @@ import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
 export function Layout({ badge, steps, panel, flush, hidePanel, children }) {
   const [activeTab, setActiveTab] = useState('guide');
   const hasDeviceFrame = useHasDeviceFrame();
-  const [panelVisible] = usePanelVisibility();
+  const [panelVisible, setPanelVisible] = usePanelVisibility();
+
+  // Every demo opens with the dev panel showing on wide screens, even if a
+  // prior session left it closed. The in-session toggle still works; this only
+  // sets the starting state when a demo mounts. Narrow screens keep the overlay
+  // closed by default (opening it there is a transient inspection action).
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia?.('(min-width: 1024px)').matches) {
+      setPanelVisible(true);
+    }
+    // Run once on mount (i.e. once per demo entry).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const apiLogs = panel?.apiLogs || [];
   const bridgeEvents = panel?.bridgeEvents || [];
   const webhooks = panel?.webhooks || [];
@@ -61,6 +74,10 @@ export function Layout({ badge, steps, panel, flush, hidePanel, children }) {
             <Icons.truvLogo height={16} className="text-text" />
           </a>
           {badge && <div class="text-[11px] font-medium text-muted bg-surface-secondary px-2 py-0.5 rounded-md whitespace-nowrap">{badge}</div>}
+        </div>
+        {/* Shared header actions (GitHub, Dashboard, Contact sales) */}
+        <div class="pr-5 shrink-0">
+          <HeaderActions />
         </div>
         {!hidePanel && (
           <>
