@@ -31,6 +31,7 @@ import reportsRoutes from './routes/reports.js';
 import bridgeRoutes from './routes/bridge.js';
 import uploadDocumentsRoutes from './routes/upload-documents.js';
 import userReportsRoutes from './routes/user-reports.js';
+import voiePllRoutes from './routes/voie-pll.js';
 import coverageAnalysisRoutes from './routes/coverage-analysis.js';
 
 // Local mode keeps one TruvClient built from your .env keys and uses it for
@@ -232,6 +233,7 @@ app.use(reportsRoutes(deps));
 app.use(bridgeRoutes(deps));
 app.use(uploadDocumentsRoutes(deps));
 app.use(userReportsRoutes(deps));
+app.use(voiePllRoutes(deps));
 app.use(coverageAnalysisRoutes(deps));
 
 // --- Health check ---
