@@ -274,6 +274,118 @@ describe('webhook events', () => {
     expect(events[0].event_type).toBe('first');
     expect(events[1].event_type).toBe('second');
   });
+
+  // --- Dedup of redelivered webhooks (IMP-180) ---
+  // Truv re-delivers events on retry and when stale duplicate subscriptions point
+  // at the same tunnel URL. The same delivery must only ever produce one row.
+
+  it('inserting the same webhook payload twice results in one row', () => {
+    const params = {
+      userId: 'u_dup',
+      webhookId: 'wh_dup',
+      eventType: 'task-status-updated',
+      status: 'done',
+      payload: { link_id: 'lnk_dup', task_id: 'task_1' },
+    };
+
+    const first = insertWebhookEvent(params);
+    const second = insertWebhookEvent(params);
+
+    // The duplicate insert is ignored and the original row is returned
+    expect(second.id).toBe(first.id);
+    expect(second).toEqual(first);
+    expect(getWebhookEventsByUserId('u_dup')).toHaveLength(1);
+  });
+
+  it('redelivery dedupes even when user_id resolution differs between attempts', () => {
+    // First delivery arrives before user_id can be resolved from link_id; the
+    // retry arrives after resolution. Identity excludes user_id, so still one row.
+    const base = { webhookId: 'wh_res', eventType: 'task-status-updated', status: 'done', payload: { link_id: 'lnk_res' } };
+    const first = insertWebhookEvent({ ...base, userId: null });
+    const second = insertWebhookEvent({ ...base, userId: 'u_resolved_later' });
+
+    expect(second.id).toBe(first.id);
+    const count = memDb.prepare("SELECT COUNT(*) as cnt FROM webhook_events WHERE webhook_id = 'wh_res'").get();
+    expect(count.cnt).toBe(1);
+  });
+
+  it('different payloads create separate rows', () => {
+    insertWebhookEvent({ userId: 'u_diff', webhookId: 'wh_d', eventType: 'task-status-updated', status: 'done', payload: { task_id: 'task_1' } });
+    insertWebhookEvent({ userId: 'u_diff', webhookId: 'wh_d', eventType: 'task-status-updated', status: 'done', payload: { task_id: 'task_2' } });
+
+    expect(getWebhookEventsByUserId('u_diff')).toHaveLength(2);
+  });
+
+  it('events with null payload still insert, deduped on the remaining fields', () => {
+    // No payload: identity falls back to the {webhook_id, event_type, status} tuple
+    const first = insertWebhookEvent({ userId: 'u_np', webhookId: 'wh_np', eventType: 'link-connected', status: 'ok', payload: null });
+    const dupe = insertWebhookEvent({ userId: 'u_np', webhookId: 'wh_np', eventType: 'link-connected', status: 'ok', payload: null });
+    insertWebhookEvent({ userId: 'u_np', webhookId: 'wh_np', eventType: 'link-deleted', status: 'ok', payload: null });
+
+    expect(first.id).toBeTruthy();
+    expect(dupe.id).toBe(first.id);
+    expect(getWebhookEventsByUserId('u_np')).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// initDb migration: webhook_events dedup (IMP-180)
+//
+// A database created before the payload_hash column existed may already contain
+// duplicate rows from redelivered webhooks. initDb must backfill hashes, delete
+// the duplicates (keeping the earliest row), and create the unique index — all
+// without throwing.
+// ---------------------------------------------------------------------------
+describe('initDb webhook_events dedup migration', () => {
+  it('dedupes pre-existing duplicate rows on initDb without throwing', () => {
+    // Build a legacy database: webhook_events without payload_hash, with dupes
+    const legacyDb = new Database(':memory:');
+    legacyDb.exec(`
+      CREATE TABLE webhook_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT,
+        webhook_id TEXT,
+        event_type TEXT,
+        status TEXT,
+        payload TEXT,
+        received_at TEXT DEFAULT (datetime('now'))
+      );
+    `);
+    const insert = legacyDb.prepare(
+      'INSERT INTO webhook_events (user_id, webhook_id, event_type, status, payload) VALUES (?, ?, ?, ?, ?)'
+    );
+    // Same delivery stored twice (the IMP-180 symptom), plus a distinct event
+    insert.run('u_mig', 'wh_mig', 'task-status-updated', 'done', JSON.stringify({ task_id: 't1' }));
+    insert.run('u_mig', 'wh_mig', 'task-status-updated', 'done', JSON.stringify({ task_id: 't1' }));
+    insert.run('u_mig', 'wh_mig', 'task-status-updated', 'done', JSON.stringify({ task_id: 't2' }));
+    // Legacy row with NULL payload, also duplicated
+    insert.run('u_mig', 'wh_mig', 'link-connected', 'ok', null);
+    insert.run('u_mig', 'wh_mig', 'link-connected', 'ok', null);
+
+    _setTestDb(legacyDb);
+    try {
+      expect(() => initDb()).not.toThrow();
+
+      // Duplicates removed, earliest row kept per identity
+      const rows = legacyDb.prepare('SELECT * FROM webhook_events ORDER BY id ASC').all();
+      expect(rows).toHaveLength(3);
+      expect(rows.map(r => r.id)).toEqual([1, 3, 4]);
+      // Backfilled hashes are present on every surviving row
+      expect(rows.every(r => typeof r.payload_hash === 'string' && r.payload_hash.length === 64)).toBe(true);
+
+      // The unique index now blocks re-inserting the same delivery
+      const again = insertWebhookEvent({ userId: 'u_mig', webhookId: 'wh_mig', eventType: 'task-status-updated', status: 'done', payload: { task_id: 't1' } });
+      expect(again.id).toBe(1);
+      expect(legacyDb.prepare('SELECT COUNT(*) as cnt FROM webhook_events').get().cnt).toBe(3);
+
+      // initDb is idempotent: running it again over the migrated DB is safe
+      expect(() => initDb()).not.toThrow();
+    } finally {
+      // Restore the shared in-memory DB for the remaining test files/suites
+      _setTestDb(memDb);
+      legacyDb.close();
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

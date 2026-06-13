@@ -51,10 +51,17 @@ const WEBHOOK_EVENTS = [
 // the server stays usable even when webhook registration fails (e.g., duplicate URL
 // from a previous run that was registered under a different name).
 export async function registerWebhook(truvClient, webhookUrl, { env = envType } = {}) {
-  // Clean up old demo-apps webhooks to avoid duplicate registrations
+  // Clean up old demo-apps webhooks to avoid duplicate registrations. Truv may
+  // return the webhook list either as a paginated object ({ results: [...] }) or
+  // as a plain array — handle both shapes so stale subscriptions never survive
+  // cleanup. Leftover subscriptions point at the same tunnel URL and cause every
+  // event to be delivered (and shown in the activity feed) twice (IMP-180).
   const listResult = await truvClient.listWebhooks();
-  if (listResult.statusCode === 200 && listResult.data.results) {
-    for (const wh of listResult.data.results) {
+  if (listResult.statusCode === 200) {
+    const existing = Array.isArray(listResult.data)
+      ? listResult.data
+      : (listResult.data?.results || []);
+    for (const wh of existing) {
       if (wh.name === WEBHOOK_NAME && wh.env_type === env) {
         await truvClient.deleteWebhook(wh.id);
         console.log(`Deleted old ${WEBHOOK_NAME} webhook ${wh.id}`);

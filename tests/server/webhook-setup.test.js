@@ -59,6 +59,42 @@ describe('registerWebhook', () => {
     expect(truv.deleteWebhook).not.toHaveBeenCalledWith('wh-keep');
   });
 
+  it('deletes stale subscriptions when the list response is a plain array (IMP-180)', async () => {
+    // Truv may return the webhook list as a plain array instead of a paginated
+    // { results: [...] } object. Cleanup must handle both, otherwise stale
+    // demo-apps subscriptions survive and every webhook is delivered twice.
+    const truv = makeTruvClient();
+    truv.listWebhooks.mockResolvedValueOnce({
+      statusCode: 200,
+      data: [
+        { id: 'wh-stale-a', name: 'demo-apps', env_type: 'sandbox' },
+        { id: 'wh-stale-b', name: 'demo-apps', env_type: 'sandbox' },
+        { id: 'wh-keep', name: 'someone-else', env_type: 'sandbox' }, // different name: keep
+      ],
+    });
+    truv.createWebhook.mockResolvedValueOnce({ statusCode: 201, data: { id: 'wh-new' } });
+
+    const result = await registerWebhook(truv, 'https://tunnel.example/api/webhooks/truv');
+
+    expect(truv.deleteWebhook).toHaveBeenCalledTimes(2);
+    expect(truv.deleteWebhook).toHaveBeenCalledWith('wh-stale-a');
+    expect(truv.deleteWebhook).toHaveBeenCalledWith('wh-stale-b');
+    expect(truv.deleteWebhook).not.toHaveBeenCalledWith('wh-keep');
+    expect(result).toEqual({ webhookId: 'wh-new', error: null });
+  });
+
+  it('handles a 200 list response with neither results nor an array without throwing', async () => {
+    // Defensive: an unexpected-but-successful list body must not break registration
+    const truv = makeTruvClient();
+    truv.listWebhooks.mockResolvedValueOnce({ statusCode: 200, data: { count: 0 } });
+    truv.createWebhook.mockResolvedValueOnce({ statusCode: 201, data: { id: 'wh-new' } });
+
+    const result = await registerWebhook(truv, 'https://tunnel.example/api/webhooks/truv');
+
+    expect(truv.deleteWebhook).not.toHaveBeenCalled();
+    expect(result).toEqual({ webhookId: 'wh-new', error: null });
+  });
+
   it('returns the Truv error as-is when the URL is already registered for this env', async () => {
     // Simulates the case where a prior run registered the same ngrok URL under a
     // different name (e.g., the old "quickstart") and cleanup didn't touch it.

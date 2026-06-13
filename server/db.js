@@ -8,9 +8,10 @@
  * JSON serialization is handled automatically so callers pass plain objects.
  */
 
-// Imports: better-sqlite3 for synchronous SQLite, crypto for ID generation
+// Imports: better-sqlite3 for synchronous SQLite, crypto for ID generation and
+// webhook payload hashing (dedup of redelivered events)
 import Database from 'better-sqlite3';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -106,6 +107,61 @@ export function initDb() {
   try { conn.exec('ALTER TABLE api_logs ADD COLUMN user_id TEXT'); } catch {}
   try { conn.exec('ALTER TABLE orders ADD COLUMN product_type TEXT'); } catch {}
   try { conn.exec('ALTER TABLE document_collections ADD COLUMN user_id TEXT'); } catch {}
+
+  // Migrate: dedup support for webhook events (IMP-180). Truv re-delivers events
+  // (delivery retries, stale duplicate subscriptions pointing at the same tunnel
+  // URL), and every delivery used to insert a fresh row — so the activity feed
+  // showed each event twice. A SHA-256 hash of the delivery identity is stored in
+  // payload_hash and enforced UNIQUE so redeliveries become no-ops at the DB layer.
+  try { conn.exec('ALTER TABLE webhook_events ADD COLUMN payload_hash TEXT'); } catch {}
+  try {
+    // Backfill payload_hash for rows created before the column existed. SQLite has
+    // no built-in SHA-256, so hashes are computed in JS with the same function used
+    // by insertWebhookEvent to keep old and new rows comparable.
+    const missing = conn.prepare(
+      'SELECT id, webhook_id, event_type, status, payload FROM webhook_events WHERE payload_hash IS NULL'
+    ).all();
+    if (missing.length > 0) {
+      const update = conn.prepare('UPDATE webhook_events SET payload_hash = ? WHERE id = ?');
+      for (const row of missing) {
+        update.run(webhookEventHash({
+          webhookId: row.webhook_id,
+          eventType: row.event_type,
+          status: row.status,
+          payload: row.payload ? JSON.parse(row.payload) : null,
+        }), row.id);
+      }
+    }
+
+    // Remove pre-existing duplicates (keep the earliest row per hash) BEFORE
+    // creating the unique index — creating a UNIQUE index over duplicate rows throws.
+    conn.exec('DELETE FROM webhook_events WHERE id NOT IN (SELECT MIN(id) FROM webhook_events GROUP BY payload_hash)');
+    conn.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_webhook_events_payload_hash ON webhook_events(payload_hash)');
+  } catch (err) {
+    // Migration is best-effort: a malformed legacy payload or index conflict must
+    // not prevent server startup. Without the unique index, inserts still work
+    // (INSERT OR IGNORE simply never ignores), matching pre-migration behavior.
+    console.error('webhook_events dedup migration skipped:', err.message);
+  }
+}
+
+// Computes the stable identity hash for an inbound webhook delivery. Two deliveries
+// with the same webhook_id, event_type, status, and payload are the same event.
+// Truv payloads carry distinguishing fields (link_id, task_id, timestamps), so two
+// DIFFERENT legitimate events colliding on an identical payload is not expected in
+// practice. Note: the test fixtures in tests/server use minimal payloads without
+// timestamps/ids — real Truv payloads are richer, which makes collisions even less
+// likely. user_id is intentionally EXCLUDED: it may be resolved from link_id after
+// the fact (see findUserByLinkInEvents), and a redelivery must dedupe even when
+// resolution succeeded on one attempt but not the other.
+function webhookEventHash({ webhookId, eventType, status, payload }) {
+  const identity = JSON.stringify({
+    webhook_id: webhookId || null,
+    event_type: eventType || null,
+    status: status || null,
+    payload: payload ?? null,
+  });
+  return createHash('sha256').update(identity).digest('hex');
 }
 
 // Generates a short random ID for local records (not sent to Truv)
@@ -187,12 +243,20 @@ export function getApiLogsByUserId(userId, sessionId) {
 // --- Webhook Events ---
 // Stores inbound webhook events so the frontend can poll for them.
 
-// Inserts a webhook event and returns the created record.
+// Inserts a webhook event and returns the created record. Idempotent (IMP-180):
+// redelivered events (same identity hash) are ignored via INSERT OR IGNORE and the
+// existing row is returned instead, so callers always get a row back either way.
 export function insertWebhookEvent({ userId, webhookId, eventType, status, payload }) {
   const conn = getDb();
+  const payloadHash = webhookEventHash({ webhookId, eventType, status, payload });
   const info = conn.prepare(
-    'INSERT INTO webhook_events (user_id, webhook_id, event_type, status, payload) VALUES (?, ?, ?, ?, ?)'
-  ).run(userId || null, webhookId || null, eventType || null, status || null, payload ? JSON.stringify(payload) : null);
+    'INSERT OR IGNORE INTO webhook_events (user_id, webhook_id, event_type, status, payload, payload_hash) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(userId || null, webhookId || null, eventType || null, status || null, payload ? JSON.stringify(payload) : null, payloadHash);
+  if (info.changes === 0) {
+    // Duplicate delivery: the unique index on payload_hash rejected the insert.
+    // Return the already-stored row so the caller's contract is unchanged.
+    return conn.prepare('SELECT * FROM webhook_events WHERE payload_hash = ?').get(payloadHash);
+  }
   return conn.prepare('SELECT * FROM webhook_events WHERE id = ?').get(info.lastInsertRowid);
 }
 
