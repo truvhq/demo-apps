@@ -131,9 +131,11 @@ export function DirectDepositSwitchDemo() {
           />
         )}
 
-        {/* Application form: collects customer PII and employer */}
+        {/* Application form: collects customer PII and employer. requireEmployer because
+            deposit_switch deeplinks Bridge via company_mapping_id with a sandbox account
+            (see server/truv.js) — without an employer selection the flow cannot proceed. */}
         {screen === 'select' && showForm && (
-          <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="deposit_switch" />
+          <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="deposit_switch" requireEmployer />
         )}
 
         {/* Waiting screen: webhook polling spinner until task completes */}

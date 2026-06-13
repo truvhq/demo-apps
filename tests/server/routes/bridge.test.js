@@ -275,6 +275,76 @@ describe('POST /api/bridge-token', () => {
     });
   });
 
+  // ─── PLL employer requirement (IMP-183) ─────────────────────────────────
+  //
+  // PLL token creation requires an employer context (company_mapping_id).
+  // Forwarding the request without one made Truv reject it with an opaque
+  // error that surfaced to users as "Internal server error". The route now
+  // fails fast with a clear 400 before any Truv call is made.
+
+  describe('when product_type is pll without company_mapping_id', () => {
+    let ctx;
+    let res;
+
+    beforeAll(async () => {
+      ctx = await startTestServer({
+        createUser: { statusCode: 200, data: { id: userId }, durationMs: 5 },
+        createUserBridgeToken: {
+          statusCode: 200,
+          data: { bridge_token: bridgeToken },
+          durationMs: 5,
+        },
+      });
+
+      res = await fetch(`${ctx.baseUrl}/api/bridge-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_type: 'pll', first_name: 'Ada', last_name: 'Lovelace' }),
+      });
+    });
+
+    afterAll(async () => {
+      await closeServer(ctx.server);
+    });
+
+    it('returns 400 with a clear employer-required error', async () => {
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toBe('Employer selection is required for paycheck-linked loans');
+    });
+
+    it('does not call Truv at all (no user, no token)', () => {
+      expect(ctx.truv.createUser).not.toHaveBeenCalled();
+      expect(ctx.truv.createUserBridgeToken).not.toHaveBeenCalled();
+    });
+
+    it('still succeeds for pll once company_mapping_id is provided', async () => {
+      const okRes = await fetch(`${ctx.baseUrl}/api/bridge-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_type: 'pll', company_mapping_id: 'cmp_42' }),
+      });
+      expect(okRes.status).toBe(200);
+      expect(await okRes.json()).toEqual({ bridge_token: bridgeToken, user_id: userId });
+      expect(ctx.truv.createUserBridgeToken).toHaveBeenCalledWith(
+        userId,
+        'pll',
+        expect.objectContaining({ company_mapping_id: 'cmp_42' }),
+      );
+    });
+
+    it('does not enforce company_mapping_id for non-pll products', async () => {
+      const okRes = await fetch(`${ctx.baseUrl}/api/bridge-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_type: 'deposit_switch' }),
+      });
+      // Bridge's own employer search can cover other products, so the route
+      // still forwards the request to Truv.
+      expect(okRes.status).toBe(200);
+    });
+  });
+
   describe('when createUserBridgeToken returns 400', () => {
     let ctx;
     let res;

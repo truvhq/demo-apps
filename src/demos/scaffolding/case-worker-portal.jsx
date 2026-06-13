@@ -40,6 +40,19 @@ export const INTRO_FEATURES = [
   { name: 'Fetch reports on completion', desc: 'Pull VOIE, VOE, or VOA reports once the user completes Bridge' },
 ];
 
+// --- Helper: form validation for AddApplicantForm ---
+// Truv only genuinely requires first/last name to create an order. Email and phone are
+// each optional on the backend (server/routes/orders.js) — Truv sends the verification
+// link via email OR SMS — so the form only needs AT LEAST ONE contact method, not both.
+// Exported for direct unit testing (tests/demos/case-worker-portal.test.js).
+export function canSubmitApplicant({ firstName, lastName, email, phone }) {
+  return Boolean(
+    firstName.trim()
+    && lastName.trim()
+    && (email.trim() || phone.trim()),
+  );
+}
+
 // --- Component: AddApplicantForm. Collects applicant PII for order creation. ---
 export function AddApplicantForm({ onSubmit }) {
   // Form state: applicant name, contact info, and product selection
@@ -49,10 +62,11 @@ export function AddApplicantForm({ onSubmit }) {
   const [phone, setPhone] = useState('');
   const [product, setProduct] = useState('income');
 
-  // Handler: validate and submit form data to parent
+  // Handler: validate and submit form data to parent.
+  // Requires first/last name plus at least one contact method (email or phone).
   function handleSubmit(e) {
     e.preventDefault();
-    if (!firstName.trim() || !lastName.trim()) return;
+    if (!canSubmitApplicant({ firstName, lastName, email, phone })) return;
     onSubmit({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
@@ -83,16 +97,17 @@ export function AddApplicantForm({ onSubmit }) {
               <input value={lastName} onInput={e => setLastName(e.target.value)} class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
             </div>
           </div>
+          {/* Contact methods: email and phone are each optional — only one is needed,
+              since Truv can deliver the verification link by either email or SMS. */}
           <div class="mb-3">
-            <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Email <span class="text-red-400">*</span></label>
-            <input type="email" value={email} onInput={e => setEmail(e.target.value)} placeholder="john@example.com" required class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
-            <p class="text-[11px] text-[#8E8E93] mt-1">Truv sends the verification link to this email</p>
+            <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Email</label>
+            <input type="email" value={email} onInput={e => setEmail(e.target.value)} placeholder="john@example.com" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
           </div>
-          <div class="mb-3">
-            <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Phone <span class="text-red-400">*</span></label>
-            <input type="tel" value={phone} onInput={e => setPhone(e.target.value)} placeholder="+14155551234" required class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
-            <p class="text-[11px] text-[#8E8E93] mt-1">Truv sends the verification link via SMS</p>
+          <div class="mb-1">
+            <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Phone</label>
+            <input type="tel" value={phone} onInput={e => setPhone(e.target.value)} placeholder="+14155551234" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
           </div>
+          <p class="text-[11px] text-[#8E8E93] mb-3">Provide at least one contact method — Truv sends the verification link by email or SMS.</p>
           <div class="mb-5">
             <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Product</label>
             <select value={product} onChange={e => setProduct(e.target.value)} class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm bg-white focus:border-primary focus:outline-none">
@@ -101,7 +116,7 @@ export function AddApplicantForm({ onSubmit }) {
               <option value="assets">Self-employment income</option>
             </select>
           </div>
-          <button type="submit" disabled={!firstName.trim() || !lastName.trim() || !email.trim() || !phone.trim()} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
+          <button type="submit" disabled={!canSubmitApplicant({ firstName, lastName, email, phone })} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
             Continue
           </button>
         </form>

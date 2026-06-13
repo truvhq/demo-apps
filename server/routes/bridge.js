@@ -29,6 +29,15 @@ export default function bridgeRoutes({ truv, apiLogger }) {
       const cmid = data.company_mapping_id;
       const pid = data.provider_id;
 
+      // Validation: PLL token creation requires an employer context (company_mapping_id).
+      // Without it Truv rejects the token request with an opaque error, which previously
+      // surfaced to users as "Internal server error" (IMP-183). Fail fast with a clear
+      // message instead. Only enforced for 'pll' — other products can rely on Bridge's
+      // own employer search inside the widget.
+      if (pt === 'pll' && !cmid) {
+        return res.status(400).json({ error: 'Employer selection is required for paycheck-linked loans' });
+      }
+
       // Step 1: Create a Truv user (forward name fields from the form if provided)
       const userResult = await truv.createUser({
         ...(data.first_name && { first_name: data.first_name }),
