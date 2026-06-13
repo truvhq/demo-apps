@@ -16,9 +16,10 @@ export { OrderResults } from './OrderResults.jsx';
 // Webhook feed and waiting UI
 export { WebhookFeed, WaitingScreen, parsePayload } from './WebhookFeed.jsx';
 
-// Hooks: polling and report fetching
+// Hooks: polling, report fetching, and results-screen session restoration
 export { usePanel, API_BASE } from './hooks.js';
 export { useReportFetch } from './useReportFetch.js';
+export { useOrderRestore } from './useOrderRestore.js';
 
 // Intro and diagram components
 export { IntroSlide } from './IntroSlide.jsx';

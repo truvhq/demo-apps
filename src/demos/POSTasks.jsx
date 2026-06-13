@@ -26,7 +26,7 @@
 import { useState, useRef, useEffect, useMemo } from 'preact/hooks';
 
 // --- Imports: shared layout, hooks, and API base URL ---
-import { Layout, usePanel, API_BASE, useReportFetch } from '../components/index.js';
+import { Layout, usePanel, API_BASE, useReportFetch, useOrderRestore } from '../components/index.js';
 
 // --- Imports: reusable screen components for Bridge and waiting ---
 import { BridgeScreen, OrderWaitingScreen } from '../components/screens/index.js';
@@ -45,10 +45,13 @@ export function POSTasksDemo({ screen, param }) {
   const [taskOrders, setTaskOrders] = useState(null);
   const [initializing, setInitializing] = useState(false);
   const [taskStatus, setTaskStatus] = useState({});
+  // Restored task info: rebuilt from the backend when the user re-enters a results
+  // URL after a remount (taskOrders state is gone, so activeTaskInfo can't resolve)
+  const [restoredTaskInfo, setRestoredTaskInfo] = useState(null);
   const activeTaskRef = useRef(null);
 
   // Panel hook: sidebar state, webhook polling, bridge events
-  const { panel, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
+  const { panel, setCurrentStep, startPolling, stopPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
   // Derived: find the active task's order and product list from the orderId in the URL
   const activeTaskInfo = useMemo(() => {
@@ -60,13 +63,33 @@ export function POSTasksDemo({ screen, param }) {
     return null;
   }, [taskOrders, param]);
 
+  // Task info for the report screens: in-memory state, or the restored fallback
+  const taskInfo = activeTaskInfo || restoredTaskInfo;
+
   // Report fetching: watches webhooks for the active task's order completion
   const { reports, loading: reportLoading, error: reportError, reset: resetReports } = useReportFetch({
-    userId: activeTaskInfo?.order?.user_id,
-    products: activeTaskInfo?.task?.products || [],
+    userId: taskInfo?.order?.user_id,
+    products: taskInfo?.task?.products || [],
     webhooks: panel.webhooks,
     pollOnceAndStop,
     webhookEvent: 'order',
+  });
+
+  // Session restore: when the user re-enters the results URL (refresh/back-forward)
+  // the component remounts with no taskOrders, so the results screen would spin
+  // forever. Restore user/products from GET /api/orders/:id/info and restart polling
+  // so the persisted completion webhook re-triggers the report fetch. The stored
+  // product_type (comma-joined) is mapped back to the matching TASKS entry.
+  useOrderRestore({
+    active: screen === 'results',
+    orderId: param,
+    userId: taskInfo?.order?.user_id,
+    startPolling,
+    onRestore: ({ userId: restoredUserId, products }) => {
+      const task = TASKS.find(t => t.products.join(',') === products.join(','))
+        || { id: 'restored', name: 'Verification', products };
+      setRestoredTaskInfo({ task, order: { order_id: param, user_id: restoredUserId } });
+    },
   });
 
   // Step sync: update sidebar step indicator when URL-driven screen changes
@@ -112,7 +135,10 @@ export function POSTasksDemo({ screen, param }) {
   // --- Render: screen routing ---
   return (
     <Layout badge="POS Tasks" steps={STEPS} panel={panel} flush={isBridge} hidePanel={isIntro}>
-      {/* Bridge screen: inline TruvBridge widget for the active task */}
+      {/* Bridge screen: inline TruvBridge widget for the active task.
+          onAbort: on a genuine user close, stop polling the abandoned order and
+          clear the active task marker so a later webhook from the abandoned
+          attempt can't hijack a restarted task, then return to the task list. */}
       {screen === 'bridge' && (
         <BridgeScreen
           orderId={param}
@@ -122,6 +148,7 @@ export function POSTasksDemo({ screen, param }) {
           onCompleted={() => {
             if (activeTaskRef.current) setTaskStatus(prev => ({ ...prev, [activeTaskRef.current]: 'completed' }));
           }}
+          onAbort={() => { stopPolling(); activeTaskRef.current = null; navigate('mortgage/pos-tasks'); }}
         />
       )}
       {/* Waiting screen: webhook polling spinner for the active task */}
@@ -134,8 +161,8 @@ export function POSTasksDemo({ screen, param }) {
           reportData={reports}
           reportLoading={reportLoading}
           reportError={reportError}
-          taskInfo={activeTaskInfo}
-          onBack={() => { reset(); resetReports(); navigate('mortgage/pos-tasks'); }}
+          taskInfo={taskInfo}
+          onBack={() => { reset(); resetReports(); setRestoredTaskInfo(null); navigate('mortgage/pos-tasks'); }}
           backLabel="Back to Tasks"
         />
       )}

@@ -7,6 +7,14 @@
  * widget (TruvBridge) inside an inline container. Bridge SDK callbacks (onLoad, onEvent,
  * onSuccess, onClose) are forwarded to the Panel sidebar via addBridgeEvent. On completion,
  * navigates to the waiting screen or calls onCompleted.
+ *
+ * CLOSE-RACE HANDLING: the TruvBridge SDK fires onClose for programmatic closes too
+ * (e.g., our unmount cleanup calling b.close()). Without guards, the unmount triggered
+ * right after COMPLETED navigates to the waiting screen would fire onClose and navigate
+ * BACK to the demo root, interrupting a successfully progressing session. The guards
+ * object tracks completion and programmatic-close state so onClose only reacts to a
+ * genuine user-initiated close, which calls onAbort (if provided) so the parent demo
+ * can stop polling and clear stale state before navigating back.
  */
 
 // Preact hooks and app-level navigation/API utilities
@@ -14,9 +22,51 @@ import { useState, useRef, useEffect } from 'preact/hooks';
 import { navigate } from '../../App.jsx';
 import { API_BASE } from '../hooks.js';
 
+// Helper (exported for tests): builds the TruvBridge SDK callback set with
+// close-race guards. Returned `guards` flags:
+//   guards.completed - set when COMPLETED fires; onClose after completion is ignored
+//   guards.closing   - set by the unmount cleanup before b.close(); programmatic
+//                      closes are ignored so they never navigate
+// On a genuine user close, onAbort is called (parent stops polling / clears stale
+// state and navigates); without onAbort, falls back to navigating to the demo root.
+export function createBridgeCallbacks({ orderId, demoPath, addBridgeEvent, onCompleted, onAbort, navigateFn = navigate }) {
+  const guards = { completed: false, closing: false };
+  return {
+    guards,
+    // onLoad: fired when the Bridge widget iframe is ready
+    onLoad: () => addBridgeEvent('onLoad()', null),
+    // onEvent: fired for each verification step. On COMPLETED from order source,
+    // mark the guard (before navigating, so a racing onClose is ignored) and
+    // navigate to the waiting screen to watch for webhooks.
+    onEvent: (type, payload, source) => {
+      const payloadStr = payload ? 'payload' : 'undefined';
+
+      addBridgeEvent(`onEvent("${type}", ${payloadStr}, "${source}")`, payload ? [{ label: 'payload', value: payload }] : null);
+      if (type === 'COMPLETED' && source === 'order') {
+        guards.completed = true;
+        if (onCompleted) onCompleted();
+        navigateFn(`${demoPath}/waiting/${orderId}`);
+      }
+    },
+    // onSuccess: fired when user completes verification successfully
+    onSuccess: () => addBridgeEvent('onSuccess()', null),
+    // onClose: fired when the widget closes, for BOTH user-initiated and
+    // programmatic closes. Ignore post-completion and programmatic closes;
+    // for a genuine user close, let the parent abort cleanly (or fall back
+    // to navigating to the demo root).
+    onClose: () => {
+      addBridgeEvent('onClose()', null);
+      if (guards.completed || guards.closing) return;
+      if (onAbort) onAbort();
+      else navigateFn(`${demoPath}`);
+    },
+  };
+}
+
 // Props: orderId (created order), demoPath (route prefix), companyMappingId (pre-selected employer),
-// addBridgeEvent (logs SDK events to Panel), startPolling (begins webhook/API log polling), onCompleted
-export function BridgeScreen({ orderId, demoPath, companyMappingId, addBridgeEvent, startPolling, onCompleted }) {
+// addBridgeEvent (logs SDK events to Panel), startPolling (begins webhook/API log polling),
+// onCompleted (fired on COMPLETED), onAbort (fired on genuine user-initiated close)
+export function BridgeScreen({ orderId, demoPath, companyMappingId, addBridgeEvent, startPolling, onCompleted, onAbort }) {
   // State: bridge_token from backend, error message if fetch fails
   const [bridgeToken, setBridgeToken] = useState(null);
   const [error, setError] = useState(null);
@@ -52,32 +102,20 @@ export function BridgeScreen({ orderId, demoPath, companyMappingId, addBridgeEve
       position: { type: 'inline', container: containerRef.current },
     };
     if (companyMappingId) bridgeOpts.companyMappingId = companyMappingId;
+    // Build the guarded SDK callbacks (see createBridgeCallbacks above)
+    const callbacks = createBridgeCallbacks({ orderId, demoPath, addBridgeEvent, onCompleted, onAbort });
     const b = window.TruvBridge.init({
       ...bridgeOpts,
-      // onLoad: fired when the Bridge widget iframe is ready
-      onLoad: () => addBridgeEvent('onLoad()', null),
-      // onEvent: fired for each verification step. On COMPLETED from order source,
-      // navigate to the waiting screen to watch for webhooks.
-      onEvent: (type, payload, source) => {
-        const payloadStr = payload ? 'payload' : 'undefined';
-
-        addBridgeEvent(`onEvent("${type}", ${payloadStr}, "${source}")`, payload ? [{ label: 'payload', value: payload }] : null);
-        if (type === 'COMPLETED' && source === 'order') {
-          if (onCompleted) onCompleted();
-          navigate(`${demoPath}/waiting/${orderId}`);
-        }
-      },
-      // onSuccess: fired when user completes verification successfully
-      onSuccess: () => addBridgeEvent('onSuccess()', null),
-      // onClose: fired when user closes the widget. Navigate back to demo start.
-      onClose: () => {
-        addBridgeEvent('onClose()', null);
-        navigate(`${demoPath}`);
-      },
+      onLoad: callbacks.onLoad,
+      onEvent: callbacks.onEvent,
+      onSuccess: callbacks.onSuccess,
+      onClose: callbacks.onClose,
     });
     // Open the Bridge widget in the inline container
     b.open();
-    return () => { try { b.close(); } catch {} };
+    // Cleanup: mark the close as programmatic BEFORE calling b.close() so the
+    // SDK-fired onClose does not navigate (prevents the post-COMPLETED race).
+    return () => { callbacks.guards.closing = true; try { b.close(); } catch {} };
   }, [bridgeToken]);
 
   // Error state: show error message

@@ -4,8 +4,9 @@
  * INTEGRATION PATTERN: Both Orders and Bridge flows converge here. Both produce a user_id, which is all this route needs.
  *
  * Creates a report at Truv (POST), then polls with retry delays until the report
- * is ready (GET). Deposit switch is an exception: it uses a single GET with no
- * create step. This is the primary report-fetching path for the frontend.
+ * is ready (GET). Deposit switch is an exception: it has no create step, but its
+ * GET is retried with the same delays because the report can briefly 404 right
+ * after the task-done webhook. This is the primary report-fetching path for the frontend.
  */
 
 // Express router factory
@@ -54,30 +55,47 @@ const REPORT_CONFIG = {
   },
 };
 
+// Helper: retrieve a report with retry polling.
+// Truv generates reports asynchronously, so the GET may 404/error briefly. This loop
+// retries with REPORT_RETRIEVE_DELAYS_MS backoff and logs every attempt via apiLogger.
+// Used by both the two-step (create + retrieve) path and the no-create (deposit_switch) path.
+async function retrieveWithRetries({ cfg, truv, apiLogger, userId, reportType, reportId }) {
+  let getResult;
+  for (let attempt = 0; attempt < REPORT_RETRIEVE_DELAYS_MS.length; attempt++) {
+    if (REPORT_RETRIEVE_DELAYS_MS[attempt]) await new Promise(r => setTimeout(r, REPORT_RETRIEVE_DELAYS_MS[attempt]));
+    getResult = await cfg.retrieve(truv, userId, reportId);
+    apiLogger.logApiCall({
+      userId,
+      method: 'GET',
+      endpoint: cfg.retrieveEndpoint(userId, reportId),
+      responseBody: getResult.data,
+      statusCode: getResult.statusCode,
+      durationMs: getResult.durationMs,
+    });
+    if (getResult.statusCode < 400) break;
+    if (attempt < REPORT_RETRIEVE_DELAYS_MS.length - 1) console.log(`Report ${reportType} not ready (${getResult.statusCode}), retrying...`);
+  }
+  return getResult;
+}
+
 // Factory function: receives shared dependencies (TruvClient, logger) and returns a configured router
 export default function userReportsRoutes({ truv, apiLogger }) {
   const router = Router();
 
   // GET /api/users/:userId/reports/:reportType: Create and retrieve a verification report.
   // For most report types: POST to create, then GET with retry polling until ready.
-  // For deposit_switch: single GET (no create step).
+  // For deposit_switch: GET only (no create step), with the same retry polling.
   router.get('/api/users/:userId/reports/:reportType', async (req, res) => {
     try {
       const { userId, reportType } = req.params;
       const cfg = REPORT_CONFIG[reportType];
       if (!cfg) return res.status(400).json({ error: `Unknown report type: ${reportType}` });
 
-      // Deposit switch is a single GET (no create step)
+      // Deposit switch has no create step: retrieve directly, retrying with the
+      // same delays as the two-step path (the report can 404 briefly after the
+      // task-done webhook arrives).
       if (!cfg.create) {
-        const result = await cfg.retrieve(truv, userId);
-        apiLogger.logApiCall({
-          userId,
-          method: 'GET',
-          endpoint: cfg.retrieveEndpoint(userId),
-          responseBody: result.data,
-          statusCode: result.statusCode,
-          durationMs: result.durationMs,
-        });
+        const result = await retrieveWithRetries({ cfg, truv, apiLogger, userId, reportType });
         if (result.statusCode >= 400) {
           return res.status(result.statusCode).json({ error: 'Failed to fetch report', details: result.data });
         }
@@ -107,21 +125,7 @@ export default function userReportsRoutes({ truv, apiLogger }) {
 
       // Step 2: GET to retrieve the report by report_id.
       // Retry up to 3 times with backoff while the report is being generated.
-      let getResult;
-      for (let attempt = 0; attempt < REPORT_RETRIEVE_DELAYS_MS.length; attempt++) {
-        if (REPORT_RETRIEVE_DELAYS_MS[attempt]) await new Promise(r => setTimeout(r, REPORT_RETRIEVE_DELAYS_MS[attempt]));
-        getResult = await cfg.retrieve(truv, userId, reportId);
-        apiLogger.logApiCall({
-          userId,
-          method: 'GET',
-          endpoint: cfg.retrieveEndpoint(userId, reportId),
-          responseBody: getResult.data,
-          statusCode: getResult.statusCode,
-          durationMs: getResult.durationMs,
-        });
-        if (getResult.statusCode < 400) break;
-        if (attempt < REPORT_RETRIEVE_DELAYS_MS.length - 1) console.log(`Report ${reportType} not ready (${getResult.statusCode}), retrying...`);
-      }
+      const getResult = await retrieveWithRetries({ cfg, truv, apiLogger, userId, reportType, reportId });
 
       // Return error if the report was still not ready after all retries
       if (getResult.statusCode >= 400) {
