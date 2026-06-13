@@ -73,7 +73,7 @@ export function AddApplicantForm({ onSubmit }) {
         </div>
 
         <form onSubmit={handleSubmit} class="animate-slideUp delay-1 text-left">
-          <div class="grid grid-cols-2 gap-3 mb-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
             <div>
               <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">First name</label>
               <input value={firstName} onInput={e => setFirstName(e.target.value)} class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
