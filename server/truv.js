@@ -37,7 +37,17 @@ export class TruvClient {
     const opts = { method, headers: this.headers };
     if (json) opts.body = JSON.stringify(json);
 
-    const response = await fetch(url, opts);
+    let response;
+    try {
+      response = await fetch(url, opts);
+    } catch (err) {
+      // Network-level failure (DNS, TLS, blocked egress, connection reset). Return a
+      // structured result instead of throwing so route handlers surface a readable
+      // "Failed to …" error rather than an opaque 500 "Internal server error".
+      const durationMs = Math.round((performance.now() - start) * 10) / 10;
+      console.error(`TRUV: ${method.toUpperCase()} ${url} — network error after ${durationMs}ms: ${err.message}`);
+      return { statusCode: 502, data: { error: 'network_error', message: err.message }, durationMs, requestBody: json || null, retryAfter: null };
+    }
     const durationMs = Math.round((performance.now() - start) * 10) / 10;
 
     let data;

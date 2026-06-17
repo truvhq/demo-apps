@@ -93,14 +93,13 @@ export function IncomePLLChainedDemo() {
     setCurrentStep(stepByScreen[screen] ?? 0);
   }, [screen]);
 
-  // Start polling as soon as the user opens the form so pre-order calls
-  // (employer search, coverage pre-check) appear in the API panel in real time.
-  // Uses a sentinel userId — the SQL fallback `user_id IS NULL AND session_id = ?`
-  // returns session-scoped logs even though the sentinel never matches a real row.
-  // startPolling gets called again later with the real userId once VOIE creates one.
-  useEffect(() => {
-    if (showForm) startPolling('_pre_order_');
-  }, [showForm]);
+  // NOTE: We intentionally do NOT poll before a real Truv user exists. Polling hits
+  // /api/users/:userId/{logs,webhooks}; the hosted environment authorizes those paths
+  // only for a userId owned by the current session, so a sentinel like "_pre_order_"
+  // returns 401/403 (a flood of them, since polling runs every 3s). Polling starts in
+  // startVoieOrder() with the real user_id — matching every other demo. The pre-order
+  // coverage call still shows up then, because getApiLogsByUserId() also returns
+  // session-scoped rows (user_id IS NULL AND session_id = ?).
 
   // Effect: when task-status-updated:done arrives during voie-waiting, fetch the
   // decision payload and either advance to the decision screen or to manual route.
