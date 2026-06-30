@@ -183,9 +183,11 @@ export function PaycheckLinkedLoansDemo() {
           />
         )}
 
-        {/* Application form: collects applicant PII and employer */}
+        {/* Application form: collects applicant PII and employer. requireEmployer because
+            PLL token creation deeplinks Bridge via company_mapping_id — without an employer
+            selection Truv rejects the request (see server/truv.js sandbox account setup). */}
         {screen === 'select' && showForm && (
-          <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="pll" />
+          <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="pll" requireEmployer />
         )}
 
         {/* Waiting screen: webhook polling spinner until task completes */}

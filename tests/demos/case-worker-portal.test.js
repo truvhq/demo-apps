@@ -13,6 +13,7 @@ vi.mock('../../src/components/WebhookFeed.jsx', () => ({
 }));
 
 import { getReportTypes } from '../../src/components/useReportFetch.js';
+import { canSubmitApplicant } from '../../src/demos/scaffolding/case-worker-portal.jsx';
 
 // ---------------------------------------------------------------------------
 // CaseWorkerPortal.jsx behavioral contracts
@@ -96,5 +97,52 @@ describe('CaseWorkerPortal demo contracts', () => {
 
   it('employment product: getReportTypes returns ["employment"]', () => {
     expect(getReportTypes(['employment'])).toEqual(['employment']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AddApplicantForm validation
+//
+// Email and phone are both optional: the backend (server/routes/orders.js) treats
+// them as optional and Truv delivers the verification link via email OR SMS when
+// present, otherwise the case worker shares the dashboard share_url manually. So
+// missing contact info must NOT disable submit — only first/last name gate it
+// (mirrors the Customer Portal's ApplicationForm, which doesn't validate contacts).
+//
+// canSubmitApplicant() is the exact predicate used for both the submit button's
+// disabled state and the handleSubmit guard.
+// ---------------------------------------------------------------------------
+
+describe('AddApplicantForm canSubmitApplicant', () => {
+  // ---- Contact info is optional -------------------------------------------
+
+  it('enables submit with name + email only (no phone)', () => {
+    expect(canSubmitApplicant({ firstName: 'John', lastName: 'Doe', email: 'john@example.com', phone: '' })).toBe(true);
+  });
+
+  it('enables submit with name + phone only (no email)', () => {
+    expect(canSubmitApplicant({ firstName: 'John', lastName: 'Doe', email: '', phone: '+14155551234' })).toBe(true);
+  });
+
+  it('enables submit with both contact methods provided', () => {
+    expect(canSubmitApplicant({ firstName: 'John', lastName: 'Doe', email: 'john@example.com', phone: '+14155551234' })).toBe(true);
+  });
+
+  it('enables submit with neither email nor phone', () => {
+    expect(canSubmitApplicant({ firstName: 'John', lastName: 'Doe', email: '', phone: '' })).toBe(true);
+  });
+
+  // ---- Names still gate submit --------------------------------------------
+
+  it('disables submit when first name is missing', () => {
+    expect(canSubmitApplicant({ firstName: '', lastName: 'Doe' })).toBe(false);
+  });
+
+  it('disables submit when last name is missing', () => {
+    expect(canSubmitApplicant({ firstName: 'John', lastName: ' ' })).toBe(false);
+  });
+
+  it('treats whitespace-only names as empty', () => {
+    expect(canSubmitApplicant({ firstName: '  ', lastName: '  ' })).toBe(false);
   });
 });
