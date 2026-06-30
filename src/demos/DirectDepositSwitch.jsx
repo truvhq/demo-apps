@@ -119,7 +119,7 @@ export function DirectDepositSwitchDemo() {
   // --- Render: state-driven screen routing ---
   return (
     <Layout badge="Retail Banking . Deposit Switch" steps={STEPS} panel={panel} hidePanel={isIntro}>
-      <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
+      <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-4 py-6 sm:px-8 sm:py-10'}>
         {/* Intro slide: architecture diagram */}
         {screen === 'select' && !showForm && (
           <IntroSlide

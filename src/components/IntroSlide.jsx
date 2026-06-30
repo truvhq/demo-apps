@@ -19,15 +19,15 @@ import { MermaidDiagram } from './MermaidDiagram.jsx';
 //   actions  : bottom action buttons
 export function IntroSlide({ label, title, subtitle, diagram, children, actions }) {
   return (
-    <div class="flex flex-1 min-h-0">
+    <div class="flex flex-col lg:flex-row flex-1 min-h-0 overflow-y-auto lg:overflow-visible">
       {/* Left panel: text content and actions */}
-      <div class="w-1/2 overflow-y-auto bg-white">
+      <div class="w-full lg:w-1/2 lg:overflow-y-auto bg-white">
         <div class="min-h-full flex items-center justify-center">
-          <div class="px-12 py-14 w-full max-w-[640px]">
+          <div class="px-6 py-8 lg:px-12 lg:py-14 w-full max-w-[640px]">
             {/* Header block: label, title, subtitle */}
             <div class="animate-slideUp">
               <div class="text-[12px] font-bold uppercase tracking-[0.1em] text-primary mb-5">{label}</div>
-              <h2 class="text-[40px] font-extrabold tracking-[-0.035em] leading-[1.05] text-[#171717] mb-5">{title}</h2>
+              <h2 class="text-[28px] sm:text-[40px] font-extrabold tracking-[-0.035em] leading-[1.05] text-[#171717] mb-5">{title}</h2>
               <p class="text-[16px] text-[#4b5563] leading-[1.7] mb-10">{subtitle}</p>
             </div>
             {/* Optional children slot (selection cards, form inputs, etc.) */}
@@ -37,11 +37,11 @@ export function IntroSlide({ label, title, subtitle, diagram, children, actions 
           </div>
         </div>
       </div>
-      {/* Right panel: architecture diagram */}
-      <div class="w-1/2 bg-[#f7f8fc] border-l border-[#ebebf0] overflow-y-auto">
+      {/* Right panel: architecture diagram (stacks below the copy on small screens) */}
+      <div class="w-full lg:w-1/2 bg-[#f7f8fc] border-t lg:border-t-0 lg:border-l border-[#ebebf0] lg:overflow-y-auto">
         <div class="min-h-full flex items-center justify-center">
           {diagram && (
-            <div class="w-full px-10 py-14 animate-slideUp delay-2">
+            <div class="w-full px-6 py-8 lg:px-10 lg:py-14 animate-slideUp delay-2">
               <MermaidDiagram definition={diagram} />
             </div>
           )}

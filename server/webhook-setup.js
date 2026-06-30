@@ -8,16 +8,19 @@
  * status updates, task completions, and other async events. Cleans up on shutdown.
  */
 
-// Module-level state for the current webhook registration.
-// Note: this is per-process, so each demo server manages its own webhook.
+// Module-level state for the legacy startup-mode webhook registration. The
+// BYO-credentials flow ignores this and tracks webhook ids per-session in the
+// session store.
 let webhookId = null;
 
 // Environment type determines which Truv environment sends webhooks (sandbox/production)
 const envType = process.env.TRUV_ENV_TYPE || 'sandbox';
 
-// The webhook name used for registration. Also the lookup key during cleanup so old
-// registrations from previous runs are removed before creating a new one.
-const WEBHOOK_NAME = 'demo-apps';
+// Default webhook name. The per-session flow passes a unique name per session
+// (e.g., demo-<sid8>) so each customer's account ends up with one webhook for
+// that session, distinct from any other concurrent demo session on the same
+// account.
+export const DEFAULT_WEBHOOK_NAME = 'demo-apps';
 
 // Event types the demos subscribe to.
 const WEBHOOK_EVENTS = [
@@ -40,30 +43,31 @@ const WEBHOOK_EVENTS = [
   'bank-accounts-updated',
 ];
 
-// Registers a webhook URL with Truv. First deletes any existing demo-apps webhooks
-// for this environment to avoid duplicates, then creates a new registration subscribing
-// to all relevant event types.
+// Registers a webhook URL with Truv. First deletes any existing webhooks with
+// the same name in the target env to avoid duplicates, then creates a new
+// registration subscribing to all relevant event types.
 //
 // Returns { webhookId, error }:
 //   - On success: { webhookId: <id>, error: null }
 //   - On failure: { webhookId: null, error: <Truv error body as-is> }
-// The Truv error is not swallowed or retried. Callers log it and continue startup so
-// the server stays usable even when webhook registration fails (e.g., duplicate URL
-// from a previous run that was registered under a different name).
-export async function registerWebhook(truvClient, webhookUrl, { env = envType } = {}) {
-  // Clean up old demo-apps webhooks to avoid duplicate registrations
+//
+// Per-session callers (BYO credentials flow) pass a unique name like
+// `demo-<sid8>` and a per-session webhook URL. The legacy startup path uses
+// the default name and a shared URL.
+export async function registerWebhook(truvClient, webhookUrl, { env = envType, name = DEFAULT_WEBHOOK_NAME } = {}) {
+  // Clean up prior webhooks with the same name+env to avoid duplicates
   const listResult = await truvClient.listWebhooks();
   if (listResult.statusCode === 200 && listResult.data.results) {
     for (const wh of listResult.data.results) {
-      if (wh.name === WEBHOOK_NAME && wh.env_type === env) {
+      if (wh.name === name && wh.env_type === env) {
         await truvClient.deleteWebhook(wh.id);
-        console.log(`Deleted old ${WEBHOOK_NAME} webhook ${wh.id}`);
+        console.log(`Deleted old ${name} webhook ${wh.id}`);
       }
     }
   }
 
   const createResult = await truvClient.createWebhook({
-    name: WEBHOOK_NAME,
+    name,
     webhook_url: webhookUrl,
     env_type: env,
     events: WEBHOOK_EVENTS,
@@ -78,6 +82,20 @@ export async function registerWebhook(truvClient, webhookUrl, { env = envType } 
   // registered") is visible in logs instead of being truncated to [Array].
   console.error('Failed to register webhook:', JSON.stringify(createResult.data, null, 2));
   return { webhookId: null, error: createResult.data };
+}
+
+// Best-effort delete. Returns { ok: boolean, error? }. Never throws.
+export async function unregisterWebhook(truvClient, id) {
+  if (!id) return { ok: true };
+  try {
+    const result = await truvClient.deleteWebhook(id);
+    if (result.statusCode >= 200 && result.statusCode < 300) {
+      return { ok: true };
+    }
+    return { ok: false, error: result.data };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 }
 
 // Entry point called at server startup. Reads NGROK_URL from .env and registers

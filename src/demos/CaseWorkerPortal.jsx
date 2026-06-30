@@ -128,12 +128,12 @@ export function CaseWorkerPortalDemo({ screen, param }) {
 
       {/* Dashboard table: applicant list with order status, share URL, webhooks, and report */}
       {showTable && (
-        <div class="max-w-4xl mx-auto px-8 py-10">
+        <div class="max-w-4xl mx-auto px-4 py-6 sm:px-8 sm:py-10">
           <h2 class="text-xl font-semibold tracking-tight mb-1 text-[#171717]">Applicants</h2>
           <p class="text-[13px] text-[#8E8E93] mb-5">Completed applicants shown for reference. Your test applicant will receive a verification link.</p>
 
-          <div class="border border-[#d2d2d7] rounded-xl overflow-hidden bg-white mb-6">
-            <table class="w-full text-sm">
+          <div class="border border-[#d2d2d7] rounded-xl overflow-hidden overflow-x-auto bg-white mb-6">
+            <table class="w-full min-w-[640px] text-sm">
               <thead>
                 <tr class="border-b border-[#d2d2d7] bg-[#f5f5f7] text-[#8E8E93] text-[12px] font-medium uppercase tracking-wide">
                   <th class="text-left px-4 py-3">Name</th>

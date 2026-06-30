@@ -79,7 +79,7 @@ export function ApplicationForm({ onSubmit, submitting, productType, showEmploye
     <form onSubmit={handleSubmit}>
       <h2 class="text-2xl font-bold tracking-tight mb-7">Tell us about yourself</h2>
       {/* Name fields: first and last name in a 2-column grid */}
-      <div class="grid grid-cols-2 gap-4 mb-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div><label class="text-sm font-medium mb-1.5 block">First name <span class="text-red-400">*</span></label><input name="first_name" defaultValue="John" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
         <div><label class="text-sm font-medium mb-1.5 block">Last name <span class="text-red-400">*</span></label><input name="last_name" defaultValue="Doe" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
       </div>
@@ -95,7 +95,7 @@ export function ApplicationForm({ onSubmit, submitting, productType, showEmploye
       )}
       {/* Contact fields: email, phone, and SSN */}
       <div class="mb-4"><label class="text-sm font-medium mb-1.5 block">Email</label><input name="email" type="email" placeholder="joe@example.com" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
-      <div class="grid grid-cols-2 gap-4 mb-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div><label class="text-sm font-medium mb-1.5 block">Phone</label><input name="phone" type="tel" placeholder="123456789" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
         <div><label class="text-sm font-medium mb-1.5 block">SSN (last 4)</label><input name="ssn" placeholder="6789" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
       </div>
