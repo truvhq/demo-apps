@@ -42,6 +42,7 @@ export const Icons = {
   arrowLeft: (p) => I(<><line x1="19" x2="5" y1="12" y2="12" /><polyline points="12 19 5 12 12 5" /></>, p),
   sparkles: (p) => I(<><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /><path d="M5 3v4" /><path d="M19 17v4" /><path d="M3 5h4" /><path d="M17 19h4" /></>, p),
   zap: (p) => I(<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />, p),
+  link2: (p) => I(<><path d="M9 17H7A5 5 0 0 1 7 7h2" /><path d="M15 7h2a5 5 0 1 1 0 10h-2" /><line x1="8" x2="16" y1="12" y2="12" /></>, p),
 
   // Truv wordmark logo: filled paths, not stroked. Custom viewBox (69x25).
   truvLogo: ({ height = 18, className = '' } = {}) => {

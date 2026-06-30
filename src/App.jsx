@@ -25,6 +25,9 @@
 import { useState, useEffect } from 'preact/hooks';
 import { Home } from './Home.jsx';
 import { IndustryPage } from './IndustryPage.jsx';
+import { ConfigureScreen } from './components/ConfigureScreen.jsx';
+import { useSession } from './hooks/useSession.js';
+import { hasCallbackParams, handleCallback, getIdToken } from './auth/auth0Client.js';
 import { POSApplicationDemo } from './demos/POSApplication.jsx';
 import { POSTasksDemo } from './demos/POSTasks.jsx';
 import { CaseWorkerPortalDemo } from './demos/CaseWorkerPortal.jsx';
@@ -36,6 +39,7 @@ import { SmartRoutingDemo } from './demos/SmartRouting.jsx';
 import { BankIncomeDemo } from './demos/BankIncome.jsx';
 import { PayrollIncomeDemo } from './demos/PayrollIncome.jsx';
 import { PaycheckLinkedLoansDemo } from './demos/PaycheckLinkedLoans.jsx';
+import { IncomePLLChainedDemo } from './demos/IncomePLLChained.jsx';
 import { DirectDepositSwitchDemo } from './demos/DirectDepositSwitch.jsx';
 import { PayrollCoverageDemo } from './demos/PayrollCoverage.jsx';
 import { BankCoverageDemo } from './demos/BankCoverage.jsx';
@@ -74,6 +78,7 @@ export const INDUSTRIES = [
       { id: 'bank-income', name: 'Bank Income', component: BankIncomeDemo, desc: 'Verify applicant income from bank transactions when payroll data isn\'t available.', tags: ['financial_accounts', 'Bridge', 'Income Insights'] },
       { id: 'payroll-income', name: 'Payroll Income', component: PayrollIncomeDemo, desc: 'Verify income and employment directly from payroll data for fast lending decisions.', tags: ['payroll', 'Bridge', 'VOIE Report'] },
       { id: 'pll', name: 'Paycheck-Linked Loans', component: PaycheckLinkedLoansDemo, desc: 'Set up automatic loan repayment through payroll deductions. Verify income and configure the deduction in one flow.', tags: ['pll', 'Bridge', 'Payroll Deductions'] },
+      { id: 'income-pll', name: 'Income + PLL', component: IncomePLLChainedDemo, desc: 'Chained Orders pattern that maximizes PLL conversion: pre-check coverage and DDS support, run an income order so the borrower authenticates with payroll once, then create a linked PLL order that reuses the same session — they confirm the deduction without re-authenticating.', tags: ['Orders', 'Coverage', 'is_dds_supported', 'PLL Report'] },
     ],
   },
   {
@@ -116,6 +121,9 @@ export function navigate(path) {
 export function App() {
   // Route state: re-parsed on every hashchange event.
   const [route, setRoute] = useState(parseHash);
+  const session = useSession();
+  const [ssoError, setSsoError] = useState(null);
+  const [ssoCallbackBusy, setSsoCallbackBusy] = useState(hasCallbackParams);
 
   // Effect: subscribe to hashchange so navigation triggers re-renders.
   useEffect(() => {
@@ -123,6 +131,42 @@ export function App() {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
+
+  // Effect: if the URL has ?code=&state=, complete the Auth0 callback and
+  // exchange the access token for a demo session.
+  useEffect(() => {
+    if (!hasCallbackParams()) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await handleCallback();
+        const token = await getIdToken();
+        const result = await session.submitSso(token);
+        if (cancelled) return;
+        if (!result.ok) setSsoError(result);
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Auth callback failed:', err.message);
+          setSsoError({ error: 'sso_callback_failed' });
+        }
+      } finally {
+        if (!cancelled) setSsoCallbackBusy(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // session.submitSso is stable across renders via useCallback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Dev affordance: `?configure` forces the Configure screen even in local
+  // mode (where the session is auto-authenticated), so it can be viewed and
+  // styled locally. Harmless in production — it only renders the entry screen.
+  const forceConfigure = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).has('configure');
+
+  // Gate: BYO credentials must be configured before any demo can be reached.
+  if (session.loading || ssoCallbackBusy) return null;
+  if (forceConfigure || !session.authenticated) return <ConfigureScreen onSubmit={session.submit} ssoError={ssoError} />;
 
   // Routing logic: progressively resolve industry, then demo, then screen.
   // At each level, fall back to the parent view if no match is found.

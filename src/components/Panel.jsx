@@ -12,6 +12,7 @@
 // Preact state hook
 import { useState } from 'preact/hooks';
 import { HidePanelButton } from './DeviceFrame.jsx';
+import { DASHBOARD_WEBHOOKS_URL } from '../config.js';
 
 // TabButton: individual tab selector. Shared between Panel (the sidebar content
 // area) and Layout (the unified top bar). Exported so Layout can render the same
@@ -184,7 +185,7 @@ function WebhooksTab({ webhooks, tunnelUrl }) {
       )}
       {/* Link to Truv dashboard for webhook configuration */}
       <div class="mb-3 text-xs">
-        <a href="https://dashboard.truv.com/app/development/webhooks" target="_blank" rel="noopener noreferrer" class="text-primary font-medium">See webhook config</a>
+        <a href={DASHBOARD_WEBHOOKS_URL} target="_blank" rel="noopener noreferrer" class="text-primary font-medium">See webhook config</a>
       </div>
       {/* Webhook event list in reverse chronological order */}
       {!webhooks.length ? (

@@ -96,9 +96,20 @@ export function initDb() {
       created_at TEXT DEFAULT (datetime('now'))
     );
 
+    -- Maps which session minted/owns a given Truv user_id. Used to authorize
+    -- the per-user polling endpoints (webhooks/logs) in hosted mode so one
+    -- visitor cannot read another visitor's activity by guessing a user_id.
+    CREATE TABLE IF NOT EXISTS session_users (
+      session_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (session_id, user_id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_webhook_events_user_id ON webhook_events(user_id);
     CREATE INDEX IF NOT EXISTS idx_api_logs_user_id ON api_logs(user_id);
     CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+    CREATE INDEX IF NOT EXISTS idx_session_users_user_id ON session_users(user_id);
   `);
 
   // Migrate: add columns to existing tables if missing
@@ -199,6 +210,21 @@ export function insertWebhookEvent({ userId, webhookId, eventType, status, paylo
 // Returns all webhook events for a user, ordered chronologically.
 export function getWebhookEventsByUserId(userId) {
   return getDb().prepare('SELECT * FROM webhook_events WHERE user_id = ? ORDER BY id ASC').all(userId);
+}
+
+// --- Session ownership ---
+// Records that a session minted/owns a Truv user_id so the per-user polling
+// endpoints can authorize reads. No-op if either id is missing (e.g. local mode
+// has no session). Idempotent.
+export function recordSessionUser(sessionId, userId) {
+  if (!sessionId || !userId) return;
+  getDb().prepare('INSERT OR IGNORE INTO session_users (session_id, user_id) VALUES (?, ?)').run(sessionId, userId);
+}
+
+// True if the given session owns the given user_id.
+export function sessionOwnsUser(sessionId, userId) {
+  if (!sessionId || !userId) return false;
+  return !!getDb().prepare('SELECT 1 FROM session_users WHERE session_id = ? AND user_id = ?').get(sessionId, userId);
 }
 
 // Resolves user_id for an inbound webhook that lacks one in its payload, by
