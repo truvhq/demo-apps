@@ -101,7 +101,7 @@ export function InitScreen({ applicationId, onApplicationIdChange, onInitialize,
         </div>
       }
     >
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {FOLLOWUP_TASKS_INFO.map(t => (
           <div key={t.name} class="rounded-xl border border-[#e8e8ed] px-5 py-4">
             <div class="flex items-start justify-between mb-1">

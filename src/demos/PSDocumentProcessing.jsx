@@ -179,7 +179,7 @@ export function PSDocumentProcessingDemo() {
           diagram={DOC_DIAGRAM}
           actions={<button onClick={() => setScreen('upload')} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
         >
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {FEATURE_CARDS.map(d => (
               <div key={d.name} class="rounded-xl border border-[#e8e8ed] px-5 py-4">
                 <h3 class="text-[14px] font-semibold text-[#171717] mb-1">{d.name}</h3>
@@ -203,7 +203,7 @@ export function PSDocumentProcessingDemo() {
         />
       )}
       {/* Processing and review screens: hidden during intro/upload */}
-      <div class={isIntro ? 'hidden' : 'max-w-xl mx-auto px-8 py-10'}>
+      <div class={isIntro ? 'hidden' : 'max-w-xl mx-auto px-4 py-6 sm:px-8 sm:py-10'}>
         {/* Processing screen: spinner with webhook feed while polling collection status */}
         {screen === 'processing' && (
           <div class="text-center py-16">

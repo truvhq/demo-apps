@@ -153,7 +153,7 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
   }, { high: 0, low: 0, unsupported: 0, missing: 0 });
 
   return (
-    <div class="px-8 py-10 max-w-[1100px] w-full mx-auto">
+    <div class="px-4 py-6 sm:px-8 sm:py-10 max-w-[1100px] w-full mx-auto">
       <div class="mb-8">
         <h2 class="text-2xl font-bold text-[#171717]">{kind === 'payroll' ? 'Payroll Coverage Analysis' : 'Financial Accounts Coverage Analysis'}</h2>
         <p class="text-sm text-[#6b7280] mt-1">Upload up to 10,000 {kind === 'payroll' ? 'employers' : 'financial institutions'} and we will look up each one against the Truv {kind === 'payroll' ? 'company-mappings-search' : 'providers'} endpoint.</p>
@@ -235,7 +235,7 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
             />
           )}
 
-          <div class="flex gap-2 mb-4 text-xs">
+          <div class="flex flex-wrap gap-2 mb-4 text-xs">
             <FilterPill active={filter === 'all'} onClick={() => setFilter('all')} label={`All (${rows.length})`} />
             <FilterPill active={filter === 'found'} onClick={() => setFilter('found')} label={`Found (${counts.found || 0})`} color="green" />
             <FilterPill active={filter === 'not_found'} onClick={() => setFilter('not_found')} label={`Not found (${counts.not_found || 0})`} color="gray" />
@@ -243,8 +243,8 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
           </div>
 
           <div class="border border-[#e5e7eb] rounded-md overflow-hidden">
-            <div class="max-h-[60vh] overflow-y-auto">
-              <table class="w-full text-sm">
+            <div class="max-h-[60vh] overflow-y-auto overflow-x-auto">
+              <table class="w-full min-w-[640px] text-sm">
                 <thead class="bg-[#f9fafb] sticky top-0">
                   <tr class="text-left text-[11px] font-semibold uppercase tracking-wide text-[#6b7280]">
                     <th class="px-3 py-2">Input</th>
@@ -317,7 +317,7 @@ function SummaryPanel({ total, found, notFound, errors, breakdown, entityLabel }
 
       <div class="text-xs font-semibold uppercase tracking-wide text-[#6b7280] mb-1">Success rate</div>
       <div class="text-xs text-[#6b7280] mb-2">Percentages below are of <strong>found {entityLabel}</strong> ({found}), not of total uploaded.</div>
-      <div class="grid grid-cols-4 gap-3">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <SummaryStat label="High" value={breakdown.high} pct={pctOfFound(breakdown.high)} color="green" />
         <SummaryStat label="Low" value={breakdown.low} pct={pctOfFound(breakdown.low)} color="orange" />
         <SummaryStat label="Unsupported" value={breakdown.unsupported} pct={pctOfFound(breakdown.unsupported)} color="red" />
