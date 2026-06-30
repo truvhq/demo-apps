@@ -1,6 +1,9 @@
+import { useState } from 'preact/hooks';
 import { INDUSTRIES } from './App.jsx';
 import { Icons } from './components/Icons.jsx';
 import { Header } from './components/Header.jsx';
+import { OverrideKeyDialog } from './components/OverrideKeyDialog.jsx';
+import { useSession } from './hooks/useSession.js';
 
 const INDUSTRY_ICONS = {
   'mortgage': Icons.building,
@@ -39,16 +42,28 @@ function IndustryCard({ industry, index }) {
 }
 
 export function Home() {
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const { override } = useSession();
+
   return (
     <div class="min-h-screen flex flex-col bg-white">
       <Header badge="Demo Apps" sticky />
+      <OverrideKeyDialog open={overrideOpen} onClose={() => setOverrideOpen(false)} onSubmit={override} />
       <main class="flex-1 flex items-start justify-center pt-16 pb-20 px-6">
         <div class="max-w-[640px] w-full">
           <div class="animate-slideUp mb-12">
-            <h1 class="text-[40px] font-semibold tracking-[-0.03em] text-[#171717] leading-[1.1] mb-3">Truv Demo Apps</h1>
+            <h1 class="text-[28px] sm:text-[40px] font-semibold tracking-[-0.03em] text-[#171717] leading-[1.1] mb-3">Truv Demo Apps</h1>
             <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[480px]">
               See how Truv helps verify income, employment, and assets across mortgage, consumer lending, government, and banking.
             </p>
+            {/* Home-only action: swap the API keys in use without leaving the page. */}
+            <button
+              type="button"
+              onClick={() => setOverrideOpen(true)}
+              class="mt-5 text-[13px] font-medium text-[#171717] bg-white border border-[#e8e8ed] rounded-md px-3 py-1.5 hover:bg-[#f5f5f7] hover:border-[#d1d1d6] transition-colors"
+            >
+              Update API keys
+            </button>
           </div>
           <div class="-mx-6">
             {INDUSTRIES.filter(i => i.demos.length > 0).map((ind, i) => (

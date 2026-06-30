@@ -52,6 +52,61 @@
 .delay-4 { animation-delay: 400ms; }
 .delay-5 { animation-delay: 500ms; }
 
+/* --- Configure screen polish (animated gradient ring + drifting blooms) --- */
+
+/* Animated conic gradient border. The ::before is masked to the padding band
+   so only the ring shows; content sits untouched above it. */
+@property --ring-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes ringSpin { to { --ring-angle: 360deg; } }
+.gradient-ring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--ring-angle),
+    rgba(44, 100, 227, 0) 0deg,
+    rgba(44, 100, 227, 0.55) 70deg,
+    rgba(94, 92, 230, 0.7) 110deg,
+    rgba(44, 100, 227, 0) 180deg,
+    rgba(44, 100, 227, 0) 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+  animation: ringSpin 7s linear infinite;
+}
+
+/* Soft drifting background blooms behind the card. */
+@keyframes bloomDriftA {
+  0%, 100% { transform: translate(-50%, 0) scale(1); }
+  50%      { transform: translate(-50%, 18px) scale(1.06); }
+}
+@keyframes bloomDriftB {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(-22px, -14px) scale(1.07); }
+}
+.config-bloom-a { animation: bloomDriftA 16s ease-in-out infinite; }
+.config-bloom-b { animation: bloomDriftB 20s ease-in-out infinite; }
+
+/* Staggered chip entrance for the "what you'll see" row. */
+@keyframes chipIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.animate-chipIn { animation: chipIn 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gradient-ring::before,
+  .animate-chipIn { animation: none; }
+  /* Keep the blooms still but preserve their resting position/centering. */
+  .config-bloom-a { animation: none; transform: translate(-50%, 0); }
+  .config-bloom-b { animation: none; }
+}
+
 /* Full-bleed background for form screens (AddApplicant, Upload) */
 .intro-slide {
   display: flex;

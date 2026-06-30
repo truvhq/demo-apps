@@ -22,9 +22,10 @@
  * panel entirely regardless of user preference.
  */
 
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { Panel, TabButton } from './Panel.jsx';
 import { Icons } from './Icons.jsx';
+import { HeaderActions } from './HeaderActions.jsx';
 import { DeviceToggle, ShowPanelButton, HidePanelButton } from './DeviceFrame.jsx';
 import { useHasDeviceFrame } from '../hooks/deviceFramePresence.jsx';
 import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
@@ -39,7 +40,19 @@ import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
 export function Layout({ badge, steps, panel, flush, hidePanel, children }) {
   const [activeTab, setActiveTab] = useState('guide');
   const hasDeviceFrame = useHasDeviceFrame();
-  const [panelVisible] = usePanelVisibility();
+  const [panelVisible, setPanelVisible] = usePanelVisibility();
+
+  // Every demo opens with the dev panel showing on wide screens, even if a
+  // prior session left it closed. The in-session toggle still works; this only
+  // sets the starting state when a demo mounts. Narrow screens keep the overlay
+  // closed by default (opening it there is a transient inspection action).
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia?.('(min-width: 1024px)').matches) {
+      setPanelVisible(true);
+    }
+    // Run once on mount (i.e. once per demo entry).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const apiLogs = panel?.apiLogs || [];
   const bridgeEvents = panel?.bridgeEvents || [];
   const webhooks = panel?.webhooks || [];
@@ -56,11 +69,15 @@ export function Layout({ badge, steps, panel, flush, hidePanel, children }) {
     <div class="h-screen flex flex-col">
       {/* Unified top bar: logo+badge | device toggle | panel toggle | panel tabs */}
       <header class="flex items-center h-12 bg-white/80 backdrop-blur-xl border-b border-border/40">
-        <div class="flex items-center gap-3 px-6 flex-1 min-w-0">
-          <a href="/" aria-label="Go to home" class="flex items-center hover:opacity-80 transition-opacity">
+        <div class="flex items-center gap-3 px-3 sm:px-6 flex-1 min-w-0">
+          <a href="/" aria-label="Go to home" class="flex items-center shrink-0 hover:opacity-80 transition-opacity">
             <Icons.truvLogo height={16} className="text-text" />
           </a>
-          {badge && <div class="text-[11px] font-medium text-muted bg-surface-secondary px-2 py-0.5 rounded-md whitespace-nowrap">{badge}</div>}
+          {badge && <div class="text-[11px] font-medium text-muted bg-surface-secondary px-2 py-0.5 rounded-md whitespace-nowrap truncate">{badge}</div>}
+        </div>
+        {/* Shared header actions (GitHub, Dashboard, Contact sales) */}
+        <div class="pr-5 shrink-0">
+          <HeaderActions />
         </div>
         {!hidePanel && (
           <>
@@ -95,7 +112,7 @@ export function Layout({ badge, steps, panel, flush, hidePanel, children }) {
         )}
       </header>
       <div class="relative flex flex-1 min-h-0">
-        <main class={`flex-1 min-w-0 ${flush || hidePanel ? 'flex flex-col' : 'flex flex-col overflow-y-auto px-8 py-6'}`}>
+        <main class={`flex-1 min-w-0 ${flush || hidePanel ? 'flex flex-col' : 'flex flex-col overflow-y-auto px-4 py-4 sm:px-8 sm:py-6'}`}>
           {children}
         </main>
         {showPanel && (

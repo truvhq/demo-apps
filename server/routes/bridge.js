@@ -15,7 +15,7 @@ import { Router } from 'express';
 
 // Factory function: receives shared dependencies (TruvClient, logger) and returns a configured router.
 // Note: Bridge flow does not use the DB module because there is no persistent order to track.
-export default function bridgeRoutes({ truv, apiLogger }) {
+export default function bridgeRoutes({ truv, db, apiLogger }) {
   const router = Router();
 
   // POST /api/bridge-token: Create a Truv user and generate a bridge token for the frontend.
@@ -23,23 +23,37 @@ export default function bridgeRoutes({ truv, apiLogger }) {
   // The bridge token is what the frontend passes to TruvBridge.init() to open the verification popup.
   router.post('/api/bridge-token', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
+      if (!truvClient) return res.status(401).json({ error: 'session_required' });
+
       const data = req.body || {};
       const pt = data.product_type || 'income';
       const ds = data.data_sources;
       const cmid = data.company_mapping_id;
       const pid = data.provider_id;
 
+      // Validation: PLL token creation requires an employer context (company_mapping_id).
+      // Without it Truv rejects the token request with an opaque error, which previously
+      // surfaced to users as "Internal server error" (IMP-183). Fail fast with a clear
+      // message instead. Only enforced for 'pll' — other products can rely on Bridge's
+      // own employer search inside the widget.
+      if (pt === 'pll' && !cmid) {
+        return res.status(400).json({ error: 'Employer selection is required for paycheck-linked loans' });
+      }
+
       // Step 1: Create a Truv user (forward name fields from the form if provided)
-      const userResult = await truv.createUser({
+      const userResult = await truvClient.createUser({
         ...(data.first_name && { first_name: data.first_name }),
         ...(data.last_name && { last_name: data.last_name }),
       });
       const userId = userResult.data?.id || null;
       apiLogger.logApiCall({ userId, method: 'POST', endpoint: '/v1/users/', requestBody: { product_type: pt }, responseBody: userResult.data, statusCode: userResult.statusCode, durationMs: userResult.durationMs });
       if (userResult.statusCode >= 400 || !userId) return res.status(userResult.statusCode || 500).json({ error: 'Failed to create user', details: userResult.data });
+      // Record ownership so this session can poll the user's webhooks/logs.
+      db?.recordSessionUser(req.session?.id, userId);
 
       // Step 2: Generate a bridge token for that user, passing product type and optional filters
-      const tokenResult = await truv.createUserBridgeToken(userId, pt, { data_sources: ds, company_mapping_id: cmid, provider_id: pid });
+      const tokenResult = await truvClient.createUserBridgeToken(userId, pt, { data_sources: ds, company_mapping_id: cmid, provider_id: pid });
       apiLogger.logApiCall({ userId, method: 'POST', endpoint: `/v1/users/${userId}/tokens/`, requestBody: { product_type: pt, data_sources: ds, company_mapping_id: cmid, provider_id: pid }, responseBody: tokenResult.data, statusCode: tokenResult.statusCode, durationMs: tokenResult.durationMs });
       if (tokenResult.statusCode >= 400 || !tokenResult.data?.bridge_token) return res.status(tokenResult.statusCode || 500).json({ error: 'Failed to create bridge token', details: tokenResult.data });
 
@@ -53,17 +67,20 @@ export default function bridgeRoutes({ truv, apiLogger }) {
   // Called by the frontend after Bridge's onSuccess callback provides the public_token.
   router.get('/api/link-report/:publicToken/:reportType', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
+      if (!truvClient) return res.status(401).json({ error: 'session_required' });
+
       const { publicToken, reportType } = req.params;
       const userId = req.query.user_id || null;
 
       // Step 1: Exchange the public_token for a link_id via Truv's link-access-tokens endpoint
-      const accessResult = await truv.getAccessToken(publicToken);
+      const accessResult = await truvClient.getAccessToken(publicToken);
       apiLogger.logApiCall({ userId, method: 'POST', endpoint: '/v1/link-access-tokens/', requestBody: { public_token: publicToken }, responseBody: accessResult.data, statusCode: accessResult.statusCode, durationMs: accessResult.durationMs });
       if (accessResult.statusCode >= 400 || !accessResult.data?.link_id) return res.status(accessResult.statusCode || 500).json({ error: 'Failed to exchange token', details: accessResult.data });
 
       // Step 2: Fetch the verification report using the link_id and requested report type
       const linkId = accessResult.data.link_id;
-      const reportResult = await truv.getLinkReport(linkId, reportType);
+      const reportResult = await truvClient.getLinkReport(linkId, reportType);
       apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/links/${linkId}/${reportType}/report/`, responseBody: reportResult.data, statusCode: reportResult.statusCode, durationMs: reportResult.durationMs });
       if (reportResult.statusCode >= 400) return res.status(reportResult.statusCode).json({ error: 'Failed to fetch report', details: reportResult.data });
 
@@ -79,12 +96,15 @@ export default function bridgeRoutes({ truv, apiLogger }) {
   const ALLOWED_LINK_REPORT_TYPES = new Set(['income', 'pll']);
   router.get('/api/links/:linkId/:reportType', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
+      if (!truvClient) return res.status(401).json({ error: 'session_required' });
+
       const { linkId, reportType } = req.params;
       if (!ALLOWED_LINK_REPORT_TYPES.has(reportType)) {
         return res.status(400).json({ error: `Unsupported link report type: ${reportType}` });
       }
       const userId = req.query.user_id || null;
-      const result = await truv.getLinkReport(linkId, reportType);
+      const result = await truvClient.getLinkReport(linkId, reportType);
       apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/links/${linkId}/${reportType}/report/`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
       if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Failed to fetch link report', details: result.data });
       res.json(result.data);

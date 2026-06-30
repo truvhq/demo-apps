@@ -171,7 +171,7 @@ export function PaycheckLinkedLoansDemo() {
   // --- Render: state-driven screen routing ---
   return (
     <Layout badge="Paycheck-Linked Loans" steps={STEPS} panel={panel} hidePanel={isIntro}>
-      <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
+      <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-4 py-6 sm:px-8 sm:py-10'}>
         {/* Intro slide: architecture diagram */}
         {screen === 'select' && !showForm && (
           <IntroSlide
@@ -183,9 +183,11 @@ export function PaycheckLinkedLoansDemo() {
           />
         )}
 
-        {/* Application form: collects applicant PII and employer */}
+        {/* Application form: collects applicant PII and employer. requireEmployer because
+            PLL token creation deeplinks Bridge via company_mapping_id — without an employer
+            selection Truv rejects the request (see server/truv.js sandbox account setup). */}
         {screen === 'select' && showForm && (
-          <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="pll" />
+          <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="pll" requireEmployer />
         )}
 
         {/* Waiting screen: webhook polling spinner until task completes */}

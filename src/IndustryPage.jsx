@@ -12,6 +12,7 @@ const DEMO_ICONS = {
   'bank-income': Icons.bankBuilding,
   'payroll-income': Icons.briefcase,
   'pll': Icons.repeat,
+  'income-pll': Icons.link2,
   'deposit-switch': Icons.arrowRightLeft,
   'payroll-coverage': Icons.barChart,
   'bank-coverage': Icons.search,
@@ -59,7 +60,7 @@ export function IndustryPage({ industry }) {
               <Icons.arrowLeft size={14} />
               All Industries
             </a>
-            <h1 class="text-[40px] font-semibold tracking-[-0.03em] text-[#171717] leading-[1.1] mb-3">{industry.name}</h1>
+            <h1 class="text-[28px] sm:text-[40px] font-semibold tracking-[-0.03em] text-[#171717] leading-[1.1] mb-3">{industry.name}</h1>
             <p class="text-[17px] text-[#8E8E93] leading-[1.5] max-w-[480px]">{industry.desc}</p>
           </div>
           <div class="-mx-6">

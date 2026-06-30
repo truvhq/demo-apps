@@ -33,6 +33,7 @@ Demos are organized by industry. Each starts with a split intro screen (business
 | **Bank Income** | Verify applicant income from bank transactions when payroll data isn't available |
 | **Payroll Income** | Verify income and employment directly from payroll data |
 | **Paycheck-Linked Loans** | Set up automatic loan repayment through payroll deductions |
+| **Income + PLL** | Chained Orders flow with coverage and DDS pre-checks: VOIE first, then a linked PLL order that reuses the borrower's payroll session |
 
 ### Retail Banking
 
@@ -102,10 +103,12 @@ Best for consumer-facing flows. The server creates a user, generates a bridge to
 
 ## Quick start
 
+Run everything locally against your own Truv sandbox. Two processes: the
+Express backend (port 3000) and the Vite frontend (port 5173).
+
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) 20.19+
-- [ngrok](https://ngrok.com/) (free tier) for receiving webhooks locally
 - A [Truv sandbox account](https://dashboard.truv.com/app/development/keys) (free)
 
 ### 1. Clone and install
@@ -114,59 +117,33 @@ Best for consumer-facing flows. The server creates a user, generates a bridge to
 git clone https://github.com/truvhq/demo-apps.git
 cd demo-apps
 npm install
-```
-
-### 2. Configure
-
-```sh
 cp .env.example .env
 ```
 
-Add your Truv API credentials to `.env`:
+### 2. Add your sandbox keys
+
+Put your Truv sandbox credentials in `.env`:
 
 ```
 API_CLIENT_ID=your_client_id
 API_SECRET=your_secret
 ```
 
-### 3. Start ngrok and configure NGROK_URL
+That's all the config you need.
 
-Webhooks need a public URL. In a terminal, run:
-
-```sh
-# Terminal 1 — ngrok
-ngrok http 3000
-```
-
-Copy the forwarding URL into `.env`:
-
-```
-NGROK_URL=https://your-tunnel.ngrok-free.dev
-```
-
-### 4. Run
-
-Keep ngrok terminal opened, open two new terminals and run following commands:
+### 3. Run
 
 ```sh
 npm start      # Backend (Express, port 3000)
 npm run dev    # Frontend (Vite, port 5173)
 ```
 
-Open **http://localhost:5173** and pick an industry.
-
-### Run with Docker
-
-Build and run everything in a single container:
-
-```sh
-docker build -t truv-demo-app .
-docker run -p 3000:3000 --env-file .env truv-demo-app
-```
-
-Open **http://localhost:3000** and pick an industry.
+Open **http://localhost:5173** and pick an industry — the demos use your `.env`
+keys directly, no Configure screen.
 
 ### Sandbox credentials
+
+When a demo launches Bridge, connect a provider with the sandbox login:
 
 | Field | Value |
 |-------|-------|
@@ -174,16 +151,38 @@ Open **http://localhost:3000** and pick an industry.
 | Login | `goodlogin` |
 | Password | `goodpassword` |
 
+### Receiving webhooks (optional)
+
+The demos run end-to-end for outbound API calls without any extra setup. To
+also receive inbound webhooks on `localhost`, point a tunnel at port 3000 and
+set `NGROK_URL` in `.env`:
+
+```sh
+ngrok http 3000          # copy the forwarding URL
+```
+
+```
+NGROK_URL=https://your-tunnel.ngrok-free.dev
+```
+
+### Deploying
+
+Hosting this as a public, multi-tenant demo (per-visitor keys, SSO, Docker) is
+covered separately in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). You don't need
+any of it for local development.
+
 ## Project structure
 
 ```
 server/
   index.js               Express entry point, webhooks, company/provider search
+  config.js              All settings & run mode (local by default; deployment knobs live here)
+  serve-static.js        Production static-file serving (no-op locally)
   truv.js                Truv API client with all v1 endpoint wrappers
   db.js                  SQLite (local, ephemeral) for orders, logs, webhooks
   api-logger.js          API call logging with PII redaction
   webhooks.js            HMAC-SHA256 webhook signature verification
-  webhook-setup.js       Auto-registers ngrok webhook on startup
+  webhook-setup.js       Registers the shared webhook on startup (local mode)
   routes/
     orders.js            Orders API (Mortgage, Public Sector demos)
     user-reports.js      Unified report fetching by userId and reportType

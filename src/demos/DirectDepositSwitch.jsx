@@ -122,7 +122,7 @@ export function DirectDepositSwitchDemo() {
   // --- Render: state-driven screen routing ---
   return (
     <Layout badge="Retail Banking . Deposit Switch" steps={STEPS} panel={panel} hidePanel={isIntro}>
-      <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-8 py-10'}>
+      <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-4 py-6 sm:px-8 sm:py-10'}>
         {/* Intro slide: architecture diagram */}
         {screen === 'select' && !showForm && (
           <IntroSlide
@@ -134,9 +134,11 @@ export function DirectDepositSwitchDemo() {
           />
         )}
 
-        {/* Application form: collects customer PII and employer */}
+        {/* Application form: collects customer PII and employer. requireEmployer because
+            deposit_switch deeplinks Bridge via company_mapping_id with a sandbox account
+            (see server/truv.js) — without an employer selection the flow cannot proceed. */}
         {screen === 'select' && showForm && (
-          <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="deposit_switch" />
+          <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="deposit_switch" requireEmployer />
         )}
 
         {/* Waiting screen: webhook polling spinner until task completes */}

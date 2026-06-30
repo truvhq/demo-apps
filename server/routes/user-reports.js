@@ -87,6 +87,9 @@ export default function userReportsRoutes({ truv, apiLogger }) {
   // For deposit_switch: GET only (no create step), with the same retry polling.
   router.get('/api/users/:userId/reports/:reportType', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
+      if (!truvClient) return res.status(401).json({ error: 'session_required' });
+
       const { userId, reportType } = req.params;
       const cfg = REPORT_CONFIG[reportType];
       if (!cfg) return res.status(400).json({ error: `Unknown report type: ${reportType}` });
@@ -95,7 +98,7 @@ export default function userReportsRoutes({ truv, apiLogger }) {
       // same delays as the two-step path (the report can 404 briefly after the
       // task-done webhook arrives).
       if (!cfg.create) {
-        const result = await retrieveWithRetries({ cfg, truv, apiLogger, userId, reportType });
+        const result = await retrieveWithRetries({ cfg, truv: truvClient, apiLogger, userId, reportType });
         if (result.statusCode >= 400) {
           return res.status(result.statusCode).json({ error: 'Failed to fetch report', details: result.data });
         }
@@ -103,7 +106,7 @@ export default function userReportsRoutes({ truv, apiLogger }) {
       }
 
       // Step 1: POST to create the report at Truv
-      const createResult = await cfg.create(truv, userId);
+      const createResult = await cfg.create(truvClient, userId);
       apiLogger.logApiCall({
         userId,
         method: 'POST',
@@ -125,7 +128,7 @@ export default function userReportsRoutes({ truv, apiLogger }) {
 
       // Step 2: GET to retrieve the report by report_id.
       // Retry up to 3 times with backoff while the report is being generated.
-      const getResult = await retrieveWithRetries({ cfg, truv, apiLogger, userId, reportType, reportId });
+      const getResult = await retrieveWithRetries({ cfg, truv: truvClient, apiLogger, userId, reportType, reportId });
 
       // Return error if the report was still not ready after all retries
       if (getResult.statusCode >= 400) {

@@ -54,8 +54,11 @@ export default function ordersRoutes({ truv, db, apiLogger }) {
         data_sources: data.data_sources,
       };
 
+      const truvClient = req.truv || truv;
+      if (!truvClient) return res.status(401).json({ error: 'session_required' });
+
       // Proxy the order creation to Truv API
-      const result = await truv.createOrder(params);
+      const result = await truvClient.createOrder(params);
       const truvData = result.data;
       if (result.statusCode >= 400) {
         console.error('Order creation failed:', JSON.stringify({ request: result.requestBody, response: truvData }));
@@ -65,6 +68,8 @@ export default function ordersRoutes({ truv, db, apiLogger }) {
       // Persist the order in SQLite and log the API call
       const userId = truvData.user_id;
       db.createOrder({ orderId, truvOrderId: truvData.id, userId, demoId: data.demo_id || 'default', bridgeToken: truvData.bridge_token, shareUrl: truvData.share_url, status: truvData.status || 'created', rawResponse: truvData });
+      // Record ownership so this session can poll the user's webhooks/logs.
+      db.recordSessionUser(req.session?.id, userId);
       db.updateOrder(orderId, { product_type: data.products ? data.products.join(',') : pt });
       apiLogger.logApiCall({ userId, method: 'POST', endpoint: '/v1/orders/', requestBody: result.requestBody, responseBody: truvData, statusCode: result.statusCode, durationMs: result.durationMs });
 
@@ -92,7 +97,9 @@ export default function ordersRoutes({ truv, db, apiLogger }) {
 
       // If the order has a Truv ID, fetch the latest state from the Truv API and update the DB
       if (order.truv_order_id) {
-        const result = await truv.getOrder(order.truv_order_id);
+        const truvClient = req.truv || truv;
+        if (!truvClient) return res.status(401).json({ error: 'session_required' });
+        const result = await truvClient.getOrder(order.truv_order_id);
         apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/orders/${order.truv_order_id}/`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
         if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Truv API error', details: result.data });
         db.updateOrder(order.id, { status: result.data.status || order.status, raw_response: result.data });

@@ -12,14 +12,34 @@
 import { useState } from 'preact/hooks';
 import { CompanySearch } from './CompanySearch.jsx';
 
+// Helper: returns the inline validation message when an employer selection is required
+// but missing, or null when the form may submit. Some products (pll, deposit_switch)
+// deeplink Bridge into a specific employer via company_mapping_id, so submitting without
+// one makes Truv reject the token request with an opaque error (see server/truv.js).
+// Exported for direct unit testing (tests/components/application-form.test.js).
+export function getEmployerError(requireEmployer, employer) {
+  if (!requireEmployer) return null;
+  if (employer?.id) return null;
+  return 'Please select an employer from the list — this product requires one.';
+}
+
 // Props: onSubmit (callback), submitting (loading state), productType (Truv product type),
-// showEmployer (toggle search field), employerLabel (custom label), dataSource, sessionId
-export function ApplicationForm({ onSubmit, submitting, productType, showEmployer = true, employerLabel, dataSource, sessionId }) {
-  // Form state: terms agreement checkbox and selected employer/institution
+// showEmployer (toggle search field), employerLabel (custom label), dataSource, sessionId,
+// requireEmployer (block submit until an employer/institution is selected from the search list)
+export function ApplicationForm({ onSubmit, submitting, productType, showEmployer = true, employerLabel, dataSource, sessionId, requireEmployer = false }) {
+  // Form state: terms agreement checkbox, selected employer/institution, and inline employer error
   const [agree, setAgree] = useState(true);
   const [employer, setEmployer] = useState({ name: '', id: null });
+  const [employerError, setEmployerError] = useState(null);
   const isAssets = productType === 'assets';
   const label = employerLabel || (isAssets ? 'Financial institution' : 'Employer');
+
+  // Handler: employer selection from CompanySearch. Clears any inline validation error
+  // so the message disappears as soon as the user picks an employer.
+  const handleEmployerChange = (value) => {
+    setEmployer(value);
+    if (value?.id) setEmployerError(null);
+  };
 
   // Form submission handler: collects all fields from FormData, attaches the correct
   // ID type (company_mapping_id vs provider_id) based on whether this is a bank or payroll flow,
@@ -27,6 +47,10 @@ export function ApplicationForm({ onSubmit, submitting, productType, showEmploye
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!agree) return;
+    // Employer-required products (pll, deposit_switch): block submit with an inline
+    // error instead of letting the backend/Truv fail with an opaque 500.
+    const err = getEmployerError(requireEmployer && showEmployer, employer);
+    if (err) { setEmployerError(err); return; }
     const fd = new FormData(e.target);
     const isBank = isAssets || dataSource === 'financial_accounts';
     const formResult = {
@@ -55,20 +79,23 @@ export function ApplicationForm({ onSubmit, submitting, productType, showEmploye
     <form onSubmit={handleSubmit}>
       <h2 class="text-2xl font-bold tracking-tight mb-7">Tell us about yourself</h2>
       {/* Name fields: first and last name in a 2-column grid */}
-      <div class="grid grid-cols-2 gap-4 mb-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div><label class="text-sm font-medium mb-1.5 block">First name <span class="text-red-400">*</span></label><input name="first_name" defaultValue="John" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
         <div><label class="text-sm font-medium mb-1.5 block">Last name <span class="text-red-400">*</span></label><input name="last_name" defaultValue="Doe" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
       </div>
-      {/* Employer/institution search: rendered conditionally via showEmployer prop */}
+      {/* Employer/institution search: rendered conditionally via showEmployer prop.
+          When requireEmployer is set, the label gets the red-asterisk required marker
+          and a missing selection surfaces an inline error on submit. */}
       {showEmployer && (
         <div class="mb-4">
-          <label class="text-sm font-medium mb-1.5 block">{label}</label>
-          <CompanySearch value={employer.name} onChange={setEmployer} productType={productType} dataSource={isAssets ? 'financial_accounts' : dataSource} placeholder={`Search for ${label.toLowerCase()}...`} sessionId={sessionId} />
+          <label class="text-sm font-medium mb-1.5 block">{label}{requireEmployer && <span class="text-red-400"> *</span>}</label>
+          <CompanySearch value={employer.name} onChange={handleEmployerChange} productType={productType} dataSource={isAssets ? 'financial_accounts' : dataSource} placeholder={`Search for ${label.toLowerCase()}...`} sessionId={sessionId} />
+          {employerError && <p class="text-sm text-red-500 mt-1.5">{employerError}</p>}
         </div>
       )}
       {/* Contact fields: email, phone, and SSN */}
       <div class="mb-4"><label class="text-sm font-medium mb-1.5 block">Email</label><input name="email" type="email" placeholder="joe@example.com" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
-      <div class="grid grid-cols-2 gap-4 mb-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div><label class="text-sm font-medium mb-1.5 block">Phone</label><input name="phone" type="tel" placeholder="123456789" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
         <div><label class="text-sm font-medium mb-1.5 block">SSN (last 4)</label><input name="ssn" placeholder="6789" class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none" /></div>
       </div>

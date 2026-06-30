@@ -16,6 +16,8 @@ import {
   insertWebhookEvent,
   insertApiLog,
   getApiLogsByUserId,
+  recordSessionUser,
+  sessionOwnsUser,
 } from '../../../server/db.js';
 
 const TEST_SECRET = 'test-api-secret';
@@ -25,7 +27,7 @@ const TEST_SECRET = 'test-api-secret';
  * wired to the provided mock dependencies. This avoids importing the full
  * server/index.js which connects to the real DB and calls process.exit.
  */
-function buildApp({ truv, apiLogger, db }) {
+function buildApp({ truv, apiLogger, db, localMode = true }) {
   const app = express();
 
   // Mirror the body parser from index.js: capture rawBody for HMAC verification.
@@ -35,6 +37,23 @@ function buildApp({ truv, apiLogger, db }) {
       req.rawBody = buf.toString('utf-8');
     },
   }));
+
+  // Test session shim: a request carrying x-test-session is treated as that
+  // session (mirrors the cookie-derived req.session in production).
+  app.use((req, _res, next) => {
+    const sid = req.headers['x-test-session'];
+    req.session = sid ? { id: sid } : null;
+    next();
+  });
+
+  // Mirror the authorizeUser gate from index.js: hosted mode requires a session
+  // that owns the requested user_id; local mode is single-tenant and open.
+  function authorizeUser(req, res) {
+    if (localMode) return true;
+    if (!req.session) { res.status(401).json({ error: 'session_required' }); return false; }
+    if (!db.sessionOwnsUser(req.session.id, req.params.userId)) { res.status(403).json({ error: 'forbidden' }); return false; }
+    return true;
+  }
 
   // --- Company search ---
   app.get('/api/companies', async (req, res) => {
@@ -100,12 +119,14 @@ function buildApp({ truv, apiLogger, db }) {
     res.status(200).end();
   });
 
-  // --- Polling endpoints ---
+  // --- Polling endpoints (authorized in hosted mode) ---
   app.get('/api/users/:userId/webhooks', (req, res) => {
+    if (!authorizeUser(req, res)) return;
     res.json(db.getWebhookEventsByUserId(req.params.userId));
   });
 
   app.get('/api/users/:userId/logs', (req, res) => {
+    if (!authorizeUser(req, res)) return;
     res.json(db.getApiLogsByUserId(req.params.userId, req.query.session_id));
   });
 
@@ -116,10 +137,10 @@ function buildApp({ truv, apiLogger, db }) {
 // Test helpers
 // ---------------------------------------------------------------------------
 
-function startTestServer({ truvOverrides = {}, dbModule } = {}) {
+function startTestServer({ truvOverrides = {}, dbModule, localMode = true } = {}) {
   const truv = createMockTruv(truvOverrides);
   const apiLogger = createMockApiLogger();
-  const app = buildApp({ truv, apiLogger, db: dbModule });
+  const app = buildApp({ truv, apiLogger, db: dbModule, localMode });
 
   return new Promise((resolve, reject) => {
     const server = http.createServer(app);
@@ -164,6 +185,7 @@ beforeEach(() => {
   memDb.prepare('DELETE FROM orders').run();
   memDb.prepare('DELETE FROM api_logs').run();
   memDb.prepare('DELETE FROM webhook_events').run();
+  memDb.prepare('DELETE FROM session_users').run();
 });
 
 // The db module reference used by the test server (real functions from db.js,
@@ -173,6 +195,8 @@ const dbModule = {
   updateOrder: (await import('../../../server/db.js')).updateOrder,
   getWebhookEventsByUserId,
   getApiLogsByUserId,
+  recordSessionUser,
+  sessionOwnsUser,
 };
 
 // ===========================================================================
@@ -638,5 +662,104 @@ describe('GET /api/users/:id/logs', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toEqual([]);
+  });
+});
+
+// ===========================================================================
+// Authorization for per-user polling endpoints (hosted / multi-tenant mode)
+// ===========================================================================
+
+describe('authorization for /api/users/:id/{webhooks,logs} (hosted mode)', () => {
+  let ctx;
+
+  beforeAll(async () => {
+    ctx = await startTestServer({ dbModule, localMode: false });
+  });
+
+  afterAll(async () => {
+    await closeServer(ctx.server);
+  });
+
+  it('rejects unauthenticated requests with 401', async () => {
+    insertWebhookEvent({ userId: 'u_owned', webhookId: 'wh', eventType: 'x', status: 'done', payload: {} });
+
+    const wh = await fetch(`${ctx.baseUrl}/api/users/u_owned/webhooks`);
+    expect(wh.status).toBe(401);
+    const logs = await fetch(`${ctx.baseUrl}/api/users/u_owned/logs`);
+    expect(logs.status).toBe(401);
+  });
+
+  it('lets the owning session read its own user activity', async () => {
+    recordSessionUser('sess_owner', 'u_owned');
+    insertWebhookEvent({ userId: 'u_owned', webhookId: 'wh', eventType: 'task-status-updated', status: 'done', payload: {} });
+    insertApiLog({ userId: 'u_owned', sessionId: 'sess_owner', method: 'POST', endpoint: '/v1/users/' });
+
+    const wh = await fetch(`${ctx.baseUrl}/api/users/u_owned/webhooks`, { headers: { 'x-test-session': 'sess_owner' } });
+    expect(wh.status).toBe(200);
+    expect(await wh.json()).toHaveLength(1);
+
+    const logs = await fetch(`${ctx.baseUrl}/api/users/u_owned/logs`, { headers: { 'x-test-session': 'sess_owner' } });
+    expect(logs.status).toBe(200);
+    expect(await logs.json()).toHaveLength(1);
+  });
+
+  it('forbids a different session from reading another user (BOLA/IDOR)', async () => {
+    recordSessionUser('sess_owner', 'u_owned');
+    insertWebhookEvent({ userId: 'u_owned', webhookId: 'wh', eventType: 'x', status: 'done', payload: { secret: 'leak' } });
+
+    // Attacker has a valid session of their own but does not own u_owned.
+    const wh = await fetch(`${ctx.baseUrl}/api/users/u_owned/webhooks`, { headers: { 'x-test-session': 'sess_attacker' } });
+    expect(wh.status).toBe(403);
+    const logs = await fetch(`${ctx.baseUrl}/api/users/u_owned/logs`, { headers: { 'x-test-session': 'sess_attacker' } });
+    expect(logs.status).toBe(403);
+  });
+});
+
+describe('local mode leaves the polling endpoints open', () => {
+  let ctx;
+
+  beforeAll(async () => {
+    ctx = await startTestServer({ dbModule, localMode: true });
+  });
+
+  afterAll(async () => {
+    await closeServer(ctx.server);
+  });
+
+  it('serves user activity without a session', async () => {
+    insertWebhookEvent({ userId: 'local_u', webhookId: 'wh', eventType: 'x', status: 'done', payload: {} });
+    const res = await fetch(`${ctx.baseUrl}/api/users/local_u/webhooks`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toHaveLength(1);
+  });
+});
+
+// ===========================================================================
+// db: session ownership helpers
+// ===========================================================================
+
+describe('db: session ownership', () => {
+  it('records ownership and reports it back', () => {
+    recordSessionUser('s1', 'user_a');
+    expect(sessionOwnsUser('s1', 'user_a')).toBe(true);
+  });
+
+  it('isolates ownership between sessions', () => {
+    recordSessionUser('s1', 'user_a');
+    expect(sessionOwnsUser('s2', 'user_a')).toBe(false);
+  });
+
+  it('is idempotent (no error on duplicate record)', () => {
+    recordSessionUser('s1', 'user_a');
+    recordSessionUser('s1', 'user_a');
+    expect(sessionOwnsUser('s1', 'user_a')).toBe(true);
+  });
+
+  it('is a no-op and denies when ids are missing', () => {
+    recordSessionUser(null, 'user_a');
+    recordSessionUser('s1', null);
+    expect(sessionOwnsUser(null, 'user_a')).toBe(false);
+    expect(sessionOwnsUser('s1', null)).toBe(false);
+    expect(sessionOwnsUser(undefined, undefined)).toBe(false);
   });
 });
