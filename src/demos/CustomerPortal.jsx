@@ -26,7 +26,7 @@
 import { useState, useEffect } from 'preact/hooks';
 
 // --- Imports: shared layout, hooks, and API base URL ---
-import { Layout, usePanel, API_BASE, useReportFetch } from '../components/index.js';
+import { Layout, usePanel, API_BASE, useReportFetch, useOrderRestore } from '../components/index.js';
 
 // --- Imports: reusable form and screen components ---
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
@@ -41,16 +41,21 @@ import { STEPS, CP_PRODUCTS, CPIntroScreen, CPReportResults } from './scaffoldin
 
 // --- Component: CustomerPortalDemo ---
 export function CustomerPortalDemo({ screen, param }) {
-  // Component state: selected product bundle, Truv user ID, form submission flag
+  // Component state: selected product bundle, Truv user ID, form submission flag,
+  // and restored products (raw product list recovered on results-URL re-entry)
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [restoredProducts, setRestoredProducts] = useState(null);
   const [userId, setUserId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Panel hook: sidebar state, session tracking, webhook polling, bridge events
-  const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
+  const { panel, sessionId, setCurrentStep, startPolling, stopPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
-  // Derived: resolve product bundle ID to actual product array for the order
-  const products = selectedProduct ? (CP_PRODUCTS.find(p => p.id === selectedProduct)?.products || [selectedProduct]) : [];
+  // Derived: resolve product bundle ID to actual product array for the order.
+  // Falls back to restoredProducts when the session was restored from a results URL.
+  const products = selectedProduct
+    ? (CP_PRODUCTS.find(p => p.id === selectedProduct)?.products || [selectedProduct])
+    : (restoredProducts || []);
   const productType = products[0] || null;
 
   // Report fetching: watches webhooks for order completion, then fetches reports
@@ -60,6 +65,24 @@ export function CustomerPortalDemo({ screen, param }) {
     webhooks: panel.webhooks,
     pollOnceAndStop,
     webhookEvent: 'order',
+  });
+
+  // Session restore: when the user re-enters the results URL (refresh/back-forward)
+  // the component remounts with no userId/selectedProduct, so the results screen would
+  // spin forever. Restore both from GET /api/orders/:id/info and restart polling so
+  // the persisted completion webhook re-triggers the report fetch. The stored
+  // product_type is comma-joined, so map it back to a CP_PRODUCTS bundle when possible.
+  useOrderRestore({
+    active: screen === 'results',
+    orderId: param,
+    userId,
+    startPolling,
+    onRestore: ({ userId: restoredUserId, products: restored }) => {
+      setUserId(restoredUserId);
+      const bundle = CP_PRODUCTS.find(p => p.products.join(',') === restored.join(','));
+      if (bundle) setSelectedProduct(bundle.id);
+      else setRestoredProducts(restored);
+    },
   });
 
   // Step sync: update sidebar step indicator when URL-driven screen changes
@@ -94,9 +117,18 @@ export function CustomerPortalDemo({ screen, param }) {
   // --- Render: screen routing ---
   return (
     <Layout badge="Public Sector · Customer Portal" steps={STEPS} panel={panel} flush={isBridge} hidePanel={isIntro}>
-      {/* Bridge screen: inline TruvBridge widget for order verification */}
+      {/* Bridge screen: inline TruvBridge widget for order verification.
+          onAbort: on a genuine user close, stop polling the abandoned order and
+          clear the stale userId so a later webhook can't hijack a restarted flow. */}
       {screen === 'bridge' && (
-        <BridgeScreen orderId={orderId} demoPath="public-sector/customer-portal" companyMappingId={companyMappingId} addBridgeEvent={addBridgeEvent} startPolling={startPolling} />
+        <BridgeScreen
+          orderId={orderId}
+          demoPath="public-sector/customer-portal"
+          companyMappingId={companyMappingId}
+          addBridgeEvent={addBridgeEvent}
+          startPolling={startPolling}
+          onAbort={() => { stopPolling(); setUserId(null); navigate('public-sector/customer-portal'); }}
+        />
       )}
       {/* Waiting screen: webhook polling spinner until order completes */}
       {screen === 'waiting' && (
@@ -109,7 +141,7 @@ export function CustomerPortalDemo({ screen, param }) {
           reportLoading={reportLoading}
           reportError={reportError}
           productType={selectedProduct}
-          onBack={() => { reset(); resetReports(); setSelectedProduct(null); setUserId(null); navigate('public-sector/customer-portal'); }}
+          onBack={() => { reset(); resetReports(); setSelectedProduct(null); setRestoredProducts(null); setUserId(null); navigate('public-sector/customer-portal'); }}
           backLabel="Customer Portal"
         />
       )}

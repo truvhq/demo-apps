@@ -59,7 +59,9 @@ export function checkWebhookDone(webhooks, webhookEvent) {
 }
 
 // Main hook: accepts userId, products, webhooks (from usePanel), pollOnceAndStop,
-// webhookEvent type, and an optional onComplete callback for demo-specific side effects.
+// webhookEvent type, and optional onComplete/onError callbacks for demo-specific
+// side effects (e.g., advancing to the review screen on success OR failure so the
+// waiting screen never hangs after a completion webhook).
 export function useReportFetch({
   userId,
   products,
@@ -67,6 +69,7 @@ export function useReportFetch({
   pollOnceAndStop,
   webhookEvent = 'task',
   onComplete,
+  onError,
 }) {
   // State: fetched reports map, loading flag, and error message
   const [reports, setReports] = useState(null);
@@ -78,6 +81,8 @@ export function useReportFetch({
   const prevUserIdRef = useRef(userId);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
   const pollOnceAndStopRef = useRef(pollOnceAndStop);
   pollOnceAndStopRef.current = pollOnceAndStop;
 
@@ -145,9 +150,10 @@ export function useReportFetch({
           if (gen !== generationRef.current) return;
         }
 
-        // Deliver results or set error
+        // Deliver results, or set error and notify onError (mirrors onComplete)
         if (Object.keys(results).length === 0) {
           setError('Failed to load report');
+          if (onErrorRef.current) onErrorRef.current('Failed to load report');
         } else {
           setReports(results);
           if (onCompleteRef.current) onCompleteRef.current(results);
@@ -156,6 +162,7 @@ export function useReportFetch({
         if (gen !== generationRef.current) return;
         console.error(e);
         setError('Failed to load report');
+        if (onErrorRef.current) onErrorRef.current('Failed to load report');
       }
       // Final step: one last poll to capture the report-fetch API logs, then stop polling
       pollOnceAndStopRef.current();

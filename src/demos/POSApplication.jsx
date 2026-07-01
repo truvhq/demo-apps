@@ -26,7 +26,7 @@
 import { useState, useEffect } from 'preact/hooks';
 
 // --- Imports: shared layout, hooks, and API base URL ---
-import { Layout, usePanel, API_BASE, useReportFetch } from '../components/index.js';
+import { Layout, usePanel, API_BASE, useReportFetch, useOrderRestore } from '../components/index.js';
 
 // --- Imports: reusable form and screen components ---
 import { ApplicationForm } from '../components/ApplicationForm.jsx';
@@ -47,7 +47,7 @@ export function POSApplicationDemo({ screen, param }) {
   const [submitting, setSubmitting] = useState(false);
 
   // Panel hook: sidebar state, session tracking, webhook polling, bridge events
-  const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
+  const { panel, sessionId, setCurrentStep, startPolling, stopPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
   // Report fetching: watches webhooks for order completion, then fetches reports
   const { reports, loading: reportLoading, error: reportError, reset: resetReports } = useReportFetch({
@@ -56,6 +56,21 @@ export function POSApplicationDemo({ screen, param }) {
     webhooks: panel.webhooks,
     pollOnceAndStop,
     webhookEvent: 'order',
+  });
+
+  // Session restore: when the user re-enters the results URL (refresh/back-forward)
+  // the component remounts with no userId/productType, so the results screen would
+  // spin forever. Restore both from GET /api/orders/:id/info and restart polling so
+  // the persisted completion webhook re-triggers the report fetch.
+  useOrderRestore({
+    active: screen === 'results',
+    orderId: param,
+    userId,
+    startPolling,
+    onRestore: ({ userId: restoredUserId, products }) => {
+      setUserId(restoredUserId);
+      if (products[0]) setProductType(products[0]);
+    },
   });
 
   // Step sync: update sidebar step indicator when URL-driven screen changes
@@ -90,9 +105,18 @@ export function POSApplicationDemo({ screen, param }) {
   // --- Render: screen routing ---
   return (
     <Layout badge="POS Application" steps={STEPS} panel={panel} flush={isBridge} hidePanel={isIntro}>
-      {/* Bridge screen: inline TruvBridge widget for order verification */}
+      {/* Bridge screen: inline TruvBridge widget for order verification.
+          onAbort: on a genuine user close, stop polling the abandoned order and
+          clear the stale userId so a later webhook can't hijack a restarted flow. */}
       {screen === 'bridge' && (
-        <BridgeScreen orderId={orderId} demoPath="mortgage/pos-application" companyMappingId={companyMappingId} addBridgeEvent={addBridgeEvent} startPolling={startPolling} />
+        <BridgeScreen
+          orderId={orderId}
+          demoPath="mortgage/pos-application"
+          companyMappingId={companyMappingId}
+          addBridgeEvent={addBridgeEvent}
+          startPolling={startPolling}
+          onAbort={() => { stopPolling(); setUserId(null); navigate('mortgage/pos-application'); }}
+        />
       )}
       {/* Waiting screen: webhook polling spinner until order completes */}
       {screen === 'waiting' && (

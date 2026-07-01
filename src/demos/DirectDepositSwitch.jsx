@@ -51,14 +51,17 @@ export function DirectDepositSwitchDemo() {
   // Panel hook: sidebar state, session tracking, webhook polling, bridge events
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
-  // Report fetching: watches webhooks for task completion, fetches deposit_switch report
-  const { reports, loading: reportLoading, reset: resetReports } = useReportFetch({
+  // Report fetching: watches webhooks for task completion, fetches deposit_switch report.
+  // onError also advances to the review screen so the waiting screen never hangs
+  // when the report fetch fails after the task-done webhook.
+  const { reports, loading: reportLoading, error: reportError, reset: resetReports } = useReportFetch({
     userId,
     products: ['deposit_switch'],
     webhooks: panel.webhooks,
     pollOnceAndStop,
     webhookEvent: 'task',
     onComplete: () => { setCurrentStep(3); setScreen('review'); },
+    onError: () => { setCurrentStep(3); setScreen('review'); },
   });
 
   // Handler: create bridge token via POST /api/bridge-token (deposit_switch) and open TruvBridge.
@@ -89,7 +92,11 @@ export function DirectDepositSwitchDemo() {
               { label: 'meta', value: meta },
             ]);
             setCurrentStep(2);
-            setScreen('waiting');
+            // Guard: Bridge's onSuccess can fire after the "done" webhook, so useReportFetch
+            // may have already transitioned the screen to 'review'. Don't clobber it back to
+            // 'waiting' — deposit_switch has no create step so its report resolves fast,
+            // making this race the common case (matches PaycheckLinkedLoans).
+            setScreen(curr => curr === 'review' ? curr : 'waiting');
           },
           onEvent: (type, payload) => {
             const payloadStr = payload ? 'payload' : 'undefined';
@@ -141,7 +148,9 @@ export function DirectDepositSwitchDemo() {
         {/* Waiting screen: webhook polling spinner until task completes */}
         {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}
 
-        {/* Review screen: deposit switch confirmation report */}
+        {/* Review screen: deposit switch confirmation report, or an error message
+            with Start Over when the report fetch failed (matches SmartRouting's
+            docsError pattern) */}
         {screen === 'review' && (
           <div>
             <h2 class="text-2xl font-bold tracking-tight mb-1.5">{REPORT_HEADER.title}</h2>
@@ -149,6 +158,13 @@ export function DirectDepositSwitchDemo() {
             {reports?.deposit_switch && !reportLoading ? (
               <div>
                 <DDSReport report={reports.deposit_switch} />
+                <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
+                  <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
+                </div>
+              </div>
+            ) : reportError ? (
+              <div>
+                <p class="text-sm text-red-500 mb-4">Deposit switch report unavailable. Try starting over.</p>
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
                   <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
                 </div>

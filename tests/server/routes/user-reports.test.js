@@ -355,10 +355,45 @@ describe('GET /api/users/:userId/reports/:reportType', () => {
   });
 
   // -------------------------------------------------------------------
-  // Error: deposit_switch GET fails -> returns error
+  // Retry: deposit_switch GET 404s briefly, then succeeds (IMP-184)
+  // -------------------------------------------------------------------
+  describe('deposit_switch retries on transient failure', () => {
+    it('retries the GET after a 404 and returns the report on the second attempt', async () => {
+      // First attempt: report not indexed yet (common right after the task-done webhook)
+      truv.getDepositSwitchReport
+        .mockResolvedValueOnce({
+          statusCode: 404,
+          data: { message: 'report not found' },
+          durationMs: 5,
+          requestBody: null,
+        })
+        .mockResolvedValueOnce({
+          statusCode: 200,
+          data: { deposit_switch: 'done' },
+          durationMs: 8,
+          requestBody: null,
+        });
+
+      const app = buildApp(truv, apiLogger);
+      const { status, body } = await request(app, `/api/users/${userId}/reports/deposit_switch`);
+
+      expect(status).toBe(200);
+      expect(body).toEqual({ deposit_switch: 'done' });
+
+      // Two GET attempts were made and both were logged
+      expect(truv.getDepositSwitchReport).toHaveBeenCalledTimes(2);
+      expect(apiLogger.logApiCall).toHaveBeenCalledTimes(2);
+      expect(apiLogger.logApiCall.mock.calls[0][0].statusCode).toBe(404);
+      expect(apiLogger.logApiCall.mock.calls[1][0].statusCode).toBe(200);
+      expect(apiLogger.logApiCall.mock.calls[1][0].endpoint).toBe(`/v1/users/${userId}/deposit_switch/report/`);
+    }, 15000);
+  });
+
+  // -------------------------------------------------------------------
+  // Error: deposit_switch GET fails on every attempt -> returns error
   // -------------------------------------------------------------------
   describe('deposit_switch GET fails', () => {
-    it('returns error status and logs the GET call', async () => {
+    it('returns error status after retries and logs every GET attempt', async () => {
       truv.getDepositSwitchReport.mockResolvedValue({
         statusCode: 500,
         data: { message: 'internal error' },
@@ -375,8 +410,10 @@ describe('GET /api/users/:userId/reports/:reportType', () => {
         details: { message: 'internal error' },
       });
 
-      expect(apiLogger.logApiCall).toHaveBeenCalledTimes(1);
-      expect(apiLogger.logApiCall.mock.calls[0][0].method).toBe('GET');
-    });
+      // Same retry behavior as the two-step path: 3 GET attempts, all logged
+      expect(truv.getDepositSwitchReport).toHaveBeenCalledTimes(3);
+      expect(apiLogger.logApiCall).toHaveBeenCalledTimes(3);
+      expect(apiLogger.logApiCall.mock.calls.every(c => c[0].method === 'GET')).toBe(true);
+    }, 15000);
   });
 });
