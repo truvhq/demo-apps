@@ -92,7 +92,11 @@ export function DirectDepositSwitchDemo() {
               { label: 'meta', value: meta },
             ]);
             setCurrentStep(2);
-            setScreen('waiting');
+            // Guard: Bridge's onSuccess can fire after the "done" webhook, so useReportFetch
+            // may have already transitioned the screen to 'review'. Don't clobber it back to
+            // 'waiting' — deposit_switch has no create step so its report resolves fast,
+            // making this race the common case (matches PaycheckLinkedLoans).
+            setScreen(curr => curr === 'review' ? curr : 'waiting');
           },
           onEvent: (type, payload) => {
             const payloadStr = payload ? 'payload' : 'undefined';

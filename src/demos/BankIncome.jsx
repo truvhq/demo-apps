@@ -92,7 +92,10 @@ export function BankIncomeDemo() {
               { label: 'meta', value: meta },
             ]);
             setCurrentStep(2);
-            setScreen('waiting');
+            // Guard: Bridge's onSuccess can fire after the "done" webhook, so useReportFetch
+            // may have already transitioned the screen to 'review'. Don't clobber it back to
+            // 'waiting' (matches PaycheckLinkedLoans).
+            setScreen(curr => curr === 'review' ? curr : 'waiting');
           },
           onEvent: (type, payload) => {
             const payloadStr = payload ? 'payload' : 'undefined';
