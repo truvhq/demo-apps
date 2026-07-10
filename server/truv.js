@@ -92,7 +92,7 @@ export class TruvClient {
     // The Truv API uses different field names:
     //   - Payroll providers: company_mapping_id (from GET /v1/company-mappings-search/)
     //   - Financial institutions: provider_id (from GET /v1/providers/)
-    // See: https://docs.truv.com/reference/users_tokens
+    // See: https://docs.truv.com/api-reference/bridge-token/users_tokens
     if (company_mapping_id) payload.company_mapping_id = company_mapping_id;
     if (provider_id) payload.provider_id = provider_id;
 
@@ -188,7 +188,7 @@ export class TruvClient {
     // The Truv Orders API uses different arrays for payroll vs bank:
     //   - Payroll products: employers: [{ company_mapping_id }]
     //   - Bank/assets products: financial_institutions: [{ id, name }]
-    // See: https://docs.truv.com/reference/orders_create
+    // See: https://docs.truv.com/api-reference/orders/orders_create
     // Sandbox credentials: goodlogin / goodpassword
     if (productType === 'assets' || (params.data_sources && params.data_sources.includes('financial_accounts'))) {
       if (params.provider_id || params.employer) {
@@ -358,7 +358,7 @@ export class TruvClient {
   }
 
   // Deposit switch report: retrieves the report for a user's deposit switch request.
-  // See: https://docs.truv.com/reference/dds-report-retrieve
+  // See: https://docs.truv.com/api-reference/dds-reports/dds-report-retrieve
   async getDepositSwitchReport(userId) {
     return this._request('GET', `users/${userId}/deposit_switch/report/`);
   }

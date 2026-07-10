@@ -20,7 +20,7 @@ export const STEPS = [
 ];
 
 // --- Config: test documents stored in server/test-docs/ (from Truv S3) ---
-// See: https://docs.truv.com/docs/testing#document-processing-testing
+// See: https://docs.truv.com/developers/testing/test-documents
 export const SAMPLE_DOCS = [
   { name: 'most-recent-paystub.pdf', type: 'Pay Stub (Most Recent)', icon: '📄' },
   { name: 'next-recent-paystub.pdf', type: 'Pay Stub (Next Recent)', icon: '📄' },
@@ -62,7 +62,7 @@ export function UploadScreen({ files, onAddFiles, onRemoveFile, userId, onUserId
           <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#171717] mb-2">Upload Documents</h2>
           <p class="text-[15px] text-[#8E8E93] leading-[1.5] mb-6">
             Upload your own pay stubs, W-2s, or tax returns, or use the pre-loaded test documents.
-            <a href="https://docs.truv.com/docs/testing#document-processing-testing" target="_blank" class="text-primary ml-1 hover:underline">Download test files</a>
+            <a href="https://docs.truv.com/developers/testing/test-documents" target="_blank" class="text-primary ml-1 hover:underline">Download test files</a>
           </p>
         </div>
 
