@@ -110,13 +110,13 @@ export function CaseWorkerPortalDemo({ screen, param }) {
           title="Verify without the applicant present"
           subtitle="A case worker creates verification orders using applicant data on file and sends verification links via email or SMS. Track completion from a dashboard."
           diagram={VERIFIER_DIAGRAM}
-          actions={<button onClick={() => setIntroSeen(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
+          actions={<button onClick={() => setIntroSeen(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors text-center">Get started</button>}
         >
           <div class="grid gap-3">
             {INTRO_FEATURES.map(item => (
               <div key={item.name} class="rounded-xl border border-[#e8e8ed] px-5 py-4">
-                <h3 class="text-[14px] font-semibold text-[#171717] mb-1">{item.name}</h3>
-                <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{item.desc}</p>
+                <h3 class="text-[14px] font-semibold text-[#000000] mb-1">{item.name}</h3>
+                <p class="text-[13px] text-[#808080] leading-[1.4]">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -129,13 +129,13 @@ export function CaseWorkerPortalDemo({ screen, param }) {
       {/* Dashboard table: applicant list with order status, share URL, webhooks, and report */}
       {showTable && (
         <div class="max-w-4xl mx-auto px-4 py-6 sm:px-8 sm:py-10">
-          <h2 class="text-xl font-semibold tracking-tight mb-1 text-[#171717]">Applicants</h2>
-          <p class="text-[13px] text-[#8E8E93] mb-5">Completed applicants shown for reference. Your test applicant will receive a verification link.</p>
+          <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2">Applicants</h2>
+          <p class="text-[15px] text-[#808080] leading-[1.5] mb-5">Completed applicants shown for reference. Your test applicant will receive a verification link.</p>
 
           <div class="border border-[#d2d2d7] rounded-xl overflow-hidden overflow-x-auto bg-white mb-6">
-            <table class="w-full min-w-[640px] text-sm">
+            <table class="w-full min-w-[640px] text-[13px]">
               <thead>
-                <tr class="border-b border-[#d2d2d7] bg-[#f5f5f7] text-[#8E8E93] text-[12px] font-medium uppercase tracking-wide">
+                <tr class="border-b border-[#d2d2d7] bg-[#f5f5f7] text-[#808080] text-[13px] font-medium uppercase tracking-wide">
                   <th class="text-left px-4 py-3">Name</th>
                   <th class="text-left px-4 py-3">Email</th>
                   <th class="text-left px-4 py-3">Phone</th>
@@ -147,37 +147,37 @@ export function CaseWorkerPortalDemo({ screen, param }) {
               <tbody>
                 {COMPLETED_APPLICANTS.map((app, i) => (
                   <tr key={i} class="border-b border-[#f5f5f7]">
-                    <td class="px-4 py-3 text-[#8E8E93]">{app.firstName} {app.lastName}</td>
-                    <td class="px-4 py-3 text-[#8E8E93] font-mono text-[12px]">{app.email}</td>
-                    <td class="px-4 py-3 text-[#8E8E93] font-mono text-[12px]">{app.phone}</td>
-                    <td class="px-4 py-3">{app.products.map(p => <span key={p} class="inline-block text-[11px] font-medium bg-[#f5f5f7] text-[#8E8E93] px-2 py-0.5 rounded mr-1">{p}</span>)}</td>
-                    <td class="px-4 py-3"><span class="text-[11px] font-semibold text-[#34c759] bg-green-50 px-2 py-0.5 rounded">completed</span></td>
-                    <td class="px-4 py-3 text-right text-[12px] text-[#8E8E93]">{'\u2014'}</td>
+                    <td class="px-4 py-3 text-[#000000]">{app.firstName} {app.lastName}</td>
+                    <td class="px-4 py-3 text-[#000000] font-mono text-[13px]">{app.email}</td>
+                    <td class="px-4 py-3 text-[#000000] font-mono text-[13px]">{app.phone}</td>
+                    <td class="px-4 py-3">{app.products.map(p => <span key={p} class="inline-block text-[13px] font-medium bg-[#f5f5f7] text-[#808080] px-2 py-0.5 rounded mr-1">{p}</span>)}</td>
+                    <td class="px-4 py-3"><span class="text-[13px] font-semibold text-[#1C8F60] bg-green-50 px-2 py-0.5 rounded">completed</span></td>
+                    <td class="px-4 py-3 text-right text-[13px] text-[#808080]">{'\u2014'}</td>
                   </tr>
                 ))}
 
                 {/* Test applicant */}
                 <tr class="bg-[#fafafa]">
-                  <td class="px-4 py-3 font-medium text-[#171717]">{testApplicant.firstName} {testApplicant.lastName}</td>
-                  <td class="px-4 py-3 text-[#8E8E93] font-mono text-[12px]">{testApplicant.email || '\u2014'}</td>
-                  <td class="px-4 py-3 text-[#8E8E93] font-mono text-[12px]">{testApplicant.phone || '\u2014'}</td>
-                  <td class="px-4 py-3">{testApplicant.products.map(p => <span key={p} class="inline-block text-[11px] font-medium bg-primary-light text-primary px-2 py-0.5 rounded mr-1">{p}</span>)}</td>
+                  <td class="px-4 py-3 font-medium text-[#000000]">{testApplicant.firstName} {testApplicant.lastName}</td>
+                  <td class="px-4 py-3 text-[#000000] font-mono text-[13px]">{testApplicant.email || '\u2014'}</td>
+                  <td class="px-4 py-3 text-[#000000] font-mono text-[13px]">{testApplicant.phone || '\u2014'}</td>
+                  <td class="px-4 py-3">{testApplicant.products.map(p => <span key={p} class="inline-block text-[13px] font-medium bg-primary-light text-primary px-2 py-0.5 rounded mr-1">{p}</span>)}</td>
                   <td class="px-4 py-3">
-                    <span class={`text-[11px] font-semibold px-2 py-0.5 rounded ${order?.status === 'completed' ? 'text-[#34c759] bg-green-50' : order ? 'text-[#ff9f0a] bg-amber-50' : 'text-[#8E8E93] bg-[#f5f5f7]'}`}>
+                    <span class={`text-[13px] font-semibold px-2 py-0.5 rounded ${order?.status === 'completed' ? 'text-[#1C8F60] bg-green-50' : order ? 'text-[#C18D10] bg-amber-50' : 'text-[#808080] bg-[#f5f5f7]'}`}>
                       {order?.status || 'pending'}
                     </span>
                   </td>
                   <td class="px-4 py-3 text-right">
                     {!order && (
-                      <button class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-full hover:bg-primary-hover disabled:opacity-40" disabled={creating} onClick={handleRequest}>
+                      <button class="px-3 py-1.5 text-[13px] font-medium bg-primary text-white rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors disabled:opacity-40" disabled={creating} onClick={handleRequest}>
                         {creating ? <span class="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Send Verification'}
                       </button>
                     )}
                     {order && order.status !== 'completed' && (
-                      <span class="text-[11px] text-[#8E8E93]">Waiting for user...</span>
+                      <span class="text-[13px] text-[#808080]">Waiting for user...</span>
                     )}
                     {order?.status === 'completed' && (
-                      <span class="text-[11px] text-[#34c759] font-medium">Done</span>
+                      <span class="text-[13px] text-[#1C8F60] font-medium">Done</span>
                     )}
                   </td>
                 </tr>
@@ -188,7 +188,7 @@ export function CaseWorkerPortalDemo({ screen, param }) {
           {/* Share URL display */}
           {order?.share_url && (
             <div class="border border-[#d2d2d7] rounded-xl p-4 mb-6 bg-[#f5f5f7]">
-              <div class="text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-2">Share URL (sent to applicant)</div>
+              <div class="text-[13px] font-semibold text-[#808080] uppercase tracking-wide mb-2">Share URL (sent to applicant)</div>
               <a href={order.share_url} target="_blank" rel="noopener noreferrer" class="text-[13px] text-primary font-mono break-all hover:underline">{order.share_url}</a>
             </div>
           )}
@@ -196,7 +196,7 @@ export function CaseWorkerPortalDemo({ screen, param }) {
           {/* Webhook feed while waiting */}
           {order && order.status !== 'completed' && (
             <div class="mb-6">
-              <div class="text-[13px] font-medium text-[#171717] mb-3">Waiting for verification...</div>
+              <div class="text-[13px] font-medium text-[#000000] mb-3">Waiting for verification...</div>
               <WebhookFeed webhooks={panel.webhooks} />
             </div>
           )}
@@ -204,7 +204,7 @@ export function CaseWorkerPortalDemo({ screen, param }) {
           {/* Report when completed */}
           {reports && (
             <div class="border border-[#d2d2d7] rounded-xl p-6 bg-white">
-              <h3 class="text-lg font-semibold text-[#171717] mb-4">Verification Report</h3>
+              <h3 class="text-lg font-semibold text-[#000000] mb-4">Verification Report</h3>
               {reports.income && <VoieReport report={reports.income} />}
               {reports.employment && <VoieReport report={reports.employment} />}
               {reports.assets && <AssetsReport report={reports.assets} />}
@@ -213,7 +213,7 @@ export function CaseWorkerPortalDemo({ screen, param }) {
           )}
 
           <div class="mt-6 pt-5 border-t border-[#d2d2d7]">
-            <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
+            <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors" onClick={resetDemo}>Start Over</button>
           </div>
         </div>
       )}

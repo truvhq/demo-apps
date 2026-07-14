@@ -26,9 +26,9 @@ export function IntroSlide({ label, title, subtitle, diagram, children, actions 
           <div class="px-6 py-8 lg:px-12 lg:py-14 w-full max-w-[640px]">
             {/* Header block: label, title, subtitle */}
             <div class="animate-slideUp">
-              <div class="text-[12px] font-bold uppercase tracking-[0.1em] text-primary mb-5">{label}</div>
-              <h2 class="text-[28px] sm:text-[40px] font-extrabold tracking-[-0.035em] leading-[1.05] text-[#171717] mb-5">{title}</h2>
-              <p class="text-[16px] text-[#4b5563] leading-[1.7] mb-10">{subtitle}</p>
+              <div class="text-[13px] font-bold uppercase tracking-[0.1em] text-primary mb-5">{label}</div>
+              <h2 class="text-[28px] sm:text-[40px] font-extrabold tracking-[-0.035em] leading-[1.05] text-[#000000] mb-5">{title}</h2>
+              <p class="text-[16px] text-[#808080] leading-[1.7] mb-10">{subtitle}</p>
             </div>
             {/* Optional children slot (selection cards, form inputs, etc.) */}
             {children && <div class="animate-slideUp delay-1 mb-10">{children}</div>}

@@ -44,7 +44,7 @@ export function WebhookFeed({ webhooks }) {
           <div key={i} class="flex items-center gap-2.5 px-3.5 py-2.5 bg-gray-100 rounded-lg mb-2 text-sm animate-fadeIn">
             <div class={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} />
             <span class="flex-1 font-medium">{eventType.replace(/-/g, ' ')}</span>
-            <span class="text-xs text-gray-400">{timeStr}</span>
+            <span class="text-[13px] text-gray-400">{timeStr}</span>
           </div>
         );
       })}
@@ -61,8 +61,8 @@ export function WaitingScreen({ webhooks }) {
       <div class="w-[4.5rem] h-[4.5rem] mb-7">
         <div class="w-[4.5rem] h-[4.5rem] border-[3px] border-border border-t-primary rounded-full animate-spin" />
       </div>
-      <h2 class="text-2xl font-bold tracking-tight mb-2">Waiting for webhooks</h2>
-      <p class="text-sm text-gray-500 leading-relaxed max-w-sm mb-9">
+      <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2">Waiting for webhooks</h2>
+      <p class="text-[15px] text-[#808080] leading-[1.5] max-w-sm mb-9">
         Truv sends webhook events as the verification progresses. Watch them arrive in real time.
       </p>
       {/* Live webhook event feed */}

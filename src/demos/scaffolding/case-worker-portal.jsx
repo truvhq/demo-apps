@@ -76,10 +76,10 @@ export function AddApplicantForm({ onSubmit }) {
 
   return (
     <div class="intro-slide" style="justify-content: flex-start; padding-top: 3rem;">
-      <div class="w-full max-w-md mx-auto px-4">
-        <div class="animate-slideUp text-center mb-8">
-          <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#171717] mb-2">Add Test Applicant</h2>
-          <p class="text-[15px] text-[#8E8E93] leading-[1.5]">
+      <div class="w-full max-w-lg mx-auto px-4 sm:px-8">
+        <div class="animate-slideUp text-left mb-8">
+          <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2">Add Test Applicant</h2>
+          <p class="text-[15px] text-[#808080] leading-[1.5]">
             Enter applicant details. Truv will send the verification link via email and/or SMS.
           </p>
         </div>
@@ -87,11 +87,11 @@ export function AddApplicantForm({ onSubmit }) {
         <form onSubmit={handleSubmit} class="animate-slideUp delay-1 text-left">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
             <div>
-              <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">First name</label>
+              <label class="text-[13px] font-medium text-[#000000] mb-1.5 block">First name</label>
               <input value={firstName} onInput={e => setFirstName(e.target.value)} class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
             </div>
             <div>
-              <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Last name</label>
+              <label class="text-[13px] font-medium text-[#000000] mb-1.5 block">Last name</label>
               <input value={lastName} onInput={e => setLastName(e.target.value)} class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
             </div>
           </div>
@@ -99,23 +99,23 @@ export function AddApplicantForm({ onSubmit }) {
               delivers the verification link by email or SMS; otherwise the case worker
               shares the share_url shown in the dashboard. Neither gates the submit button. */}
           <div class="mb-3">
-            <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Email</label>
+            <label class="text-[13px] font-medium text-[#000000] mb-1.5 block">Email</label>
             <input type="email" value={email} onInput={e => setEmail(e.target.value)} placeholder="john@example.com" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
           </div>
           <div class="mb-1">
-            <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Phone</label>
+            <label class="text-[13px] font-medium text-[#000000] mb-1.5 block">Phone</label>
             <input type="tel" value={phone} onInput={e => setPhone(e.target.value)} placeholder="+14155551234" class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none" />
           </div>
-          <p class="text-[11px] text-[#8E8E93] mb-3">Optional — when provided, Truv sends the verification link by email or SMS.</p>
+          <p class="text-[13px] text-[#808080] mb-3">Optional — when provided, Truv sends the verification link by email or SMS.</p>
           <div class="mb-5">
-            <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Product</label>
-            <select value={product} onChange={e => setProduct(e.target.value)} class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm bg-white focus:border-primary focus:outline-none">
+            <label class="text-[13px] font-medium text-[#000000] mb-1.5 block">Product</label>
+            <select value={product} onChange={e => setProduct(e.target.value)} class="appearance-none w-full pl-3.5 pr-10 py-2.5 border border-[#d2d2d7] rounded-lg text-sm bg-white bg-no-repeat cursor-pointer focus:border-primary focus:outline-none" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23808080' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`, backgroundPosition: 'right 0.75rem center', backgroundSize: '12px' }}>
               <option value="income">Income and employment verification</option>
               <option value="income_assets">Income + Expenses</option>
               <option value="assets">Self-employment income</option>
             </select>
           </div>
-          <button type="submit" disabled={!canSubmitApplicant({ firstName, lastName })} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
+          <button type="submit" disabled={!canSubmitApplicant({ firstName, lastName })} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors disabled:opacity-40">
             Continue
           </button>
         </form>

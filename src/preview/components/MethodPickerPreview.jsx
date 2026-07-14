@@ -10,8 +10,8 @@ import { postEvent } from '../protocol.js';
 export function MethodPickerPreview({ recommended, loading = false }) {
   return (
     <div>
-      <h2 class="text-2xl font-bold tracking-tight mb-1.5">Choose verification method</h2>
-      <p class="text-sm text-gray-500 leading-relaxed mb-7">
+      <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-1.5">Choose verification method</h2>
+      <p class="text-[15px] text-[#808080] leading-[1.5] mb-7">
         Based on employer coverage, we recommend a method. You can pick any.
       </p>
       <MethodPicker
@@ -23,7 +23,7 @@ export function MethodPickerPreview({ recommended, loading = false }) {
       <button
         type="button"
         onClick={() => postEvent('nav:back', [])}
-        class="mt-6 text-sm text-[#8E8E93] hover:text-primary"
+        class="mt-6 text-sm text-[#808080] hover:text-primary"
       >
         &larr; Back to application
       </button>

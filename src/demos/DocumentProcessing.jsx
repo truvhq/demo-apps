@@ -177,13 +177,13 @@ export function DocumentProcessingDemo() {
           title={INTRO_SLIDE_CONFIG.title}
           subtitle={INTRO_SLIDE_CONFIG.subtitle}
           diagram={DOC_DIAGRAM}
-          actions={<button onClick={() => setScreen('upload')} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
+          actions={<button onClick={() => setScreen('upload')} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors text-center">Get started</button>}
         >
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {FEATURE_CARDS.map(d => (
               <div key={d.name} class="rounded-xl border border-[#e8e8ed] px-5 py-4">
-                <h3 class="text-[14px] font-semibold text-[#171717] mb-1">{d.name}</h3>
-                <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{d.desc}</p>
+                <h3 class="text-[14px] font-semibold text-[#000000] mb-1">{d.name}</h3>
+                <p class="text-[13px] text-[#808080] leading-[1.4]">{d.desc}</p>
               </div>
             ))}
           </div>
@@ -208,22 +208,22 @@ export function DocumentProcessingDemo() {
         {screen === 'processing' && (
           <div class="text-center py-16">
             <div class="w-12 h-12 border-[3px] border-[#d2d2d7] border-t-primary rounded-full animate-spin mx-auto mb-6" />
-            <h2 class="text-2xl font-semibold tracking-tight mb-2">Processing Documents</h2>
-            <p class="text-[15px] text-[#8E8E93] mb-8">Waiting for Truv to process and extract data...</p>
+            <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2">Processing Documents</h2>
+            <p class="text-[15px] text-[#808080] leading-[1.5] mb-8">Waiting for Truv to process and extract data...</p>
             <WebhookFeed webhooks={panel.webhooks} />
           </div>
         )}
         {/* Review screen: extracted income data from the collection report */}
         {screen === 'review' && (
           <div>
-            <h2 class="text-2xl font-semibold tracking-tight mb-1.5">Verification Results</h2>
-            <p class="text-[15px] text-[#8E8E93] mb-7">Documents processed via Document Collections API</p>
+            <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-1.5">Verification Results</h2>
+            <p class="text-[15px] text-[#808080] leading-[1.5] mb-7">Documents processed via Document Collections API</p>
             <FileProcessingErrors files={failedFiles} />
             {orderData
               ? <OrderResults data={orderData} />
-              : failedFiles.length === 0 && <p class="text-[#8E8E93]">No report data available yet.</p>}
+              : failedFiles.length === 0 && <p class="text-[#808080]">No report data available yet.</p>}
             <div class="flex gap-3 mt-6 pt-5 border-t border-[#d2d2d7]">
-              <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Process More</button>
+              <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors" onClick={resetDemo}>Process More</button>
             </div>
           </div>
         )}

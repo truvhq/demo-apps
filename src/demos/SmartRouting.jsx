@@ -296,7 +296,7 @@ export function SmartRoutingDemo() {
             subtitle={INTRO_SLIDE_CONFIG.subtitle}
             diagram={DIAGRAM}
             actions={
-              <button onClick={() => setShowForm(true)} class="w-full block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover">
+              <button onClick={() => setShowForm(true)} class="w-full block py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors">
                 Get started
               </button>
             }
@@ -322,7 +322,7 @@ export function SmartRoutingDemo() {
 
       {/* Waiting screen: webhook polling spinner until task completes */}
       {screen === 'waiting' && (
-        <div class="max-w-lg mx-auto w-full">
+        <div class="sm:max-w-lg sm:mx-auto w-full">
           <WaitingScreen webhooks={panel.webhooks} />
         </div>
       )}
@@ -330,9 +330,9 @@ export function SmartRoutingDemo() {
       {/* Review screen: displays income or income_insights report based on method.
           Documents method renders the link-based VoieReport from docsReport state. */}
       {screen === 'review' && (
-        <div class="max-w-lg mx-auto w-full">
-          <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Report</h2>
-          <p class="text-sm text-gray-500 mb-7">{selectedMethod?.name} verification</p>
+        <div class="sm:max-w-lg sm:mx-auto w-full">
+          <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-1.5">Verification Report</h2>
+          <p class="text-[15px] text-[#808080] leading-[1.5] mb-7">{selectedMethod?.name} verification</p>
           {isDocumentsMethod ? (
             docsLoading ? (
               <div class="text-center py-10"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>
@@ -341,7 +341,7 @@ export function SmartRoutingDemo() {
                 {docsReport && <VoieReport report={docsReport} />}
                 {docsError && <p class="text-sm text-red-500 mb-4">Income report unavailable. Try starting over.</p>}
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-                  <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
+                  <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors" onClick={resetDemo}>Start Over</button>
                 </div>
               </div>
             )
@@ -350,7 +350,7 @@ export function SmartRoutingDemo() {
               {reports.income_insights && <IncomeInsightsReport report={reports.income_insights} />}
               {reports.income && <VoieReport report={reports.income} />}
               <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-                <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
+                <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors" onClick={resetDemo}>Start Over</button>
               </div>
             </div>
           ) : (

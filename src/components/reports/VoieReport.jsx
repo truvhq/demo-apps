@@ -35,8 +35,8 @@ function PayStatement({ st }) {
           {/* Earnings breakdown table */}
           {st.earnings?.length > 0 && (
             <>
-              <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide my-2">Earnings</div>
-              <table class="w-full text-xs"><tbody>
+              <div class="text-[13px] font-semibold text-gray-500 uppercase tracking-wide my-2">Earnings</div>
+              <table class="w-full text-[13px]"><tbody>
                 {st.earnings.map((e, i) => <tr key={i} class="border-b border-border-light"><td class="py-1 px-2">{e.name}</td><td class="py-1 px-2 text-right font-medium">{$(e.amount)}</td></tr>)}
               </tbody></table>
             </>
@@ -44,14 +44,14 @@ function PayStatement({ st }) {
           {/* Deductions breakdown table */}
           {st.deductions?.length > 0 && (
             <>
-              <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide my-2">Deductions</div>
-              <table class="w-full text-xs"><tbody>
+              <div class="text-[13px] font-semibold text-gray-500 uppercase tracking-wide my-2">Deductions</div>
+              <table class="w-full text-[13px]"><tbody>
                 {st.deductions.map((d, i) => <tr key={i} class="border-b border-border-light"><td class="py-1 px-2">{d.name}</td><td class="py-1 px-2 text-right font-medium text-error">-{$(d.amount)}</td></tr>)}
               </tbody></table>
             </>
           )}
           {/* PDF download link */}
-          {st.file && <a href={st.file} target="_blank" rel="noopener noreferrer" class="inline-block mt-2.5 text-xs text-primary font-medium">Download PDF</a>}
+          {st.file && <a href={st.file} target="_blank" rel="noopener noreferrer" class="inline-block mt-2.5 text-[13px] text-primary font-medium">Download PDF</a>}
         </div>
       )}
     </div>
@@ -87,8 +87,8 @@ export function VoieReport({ report }) {
           {/* Suspicious activity indicator */}
           {suspicious !== undefined && (
             <div class={`flex items-center gap-2 px-4 py-3 rounded-lg mb-5 ${suspicious ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
-              <span class={`text-sm font-semibold ${suspicious ? 'text-error' : 'text-success'}`}>{suspicious ? 'Suspicious Activity Detected' : 'No Suspicious Activity'}</span>
-              <span class={`text-xs ${suspicious ? 'text-red-400' : 'text-green-500'}`}>is_suspicious: {String(suspicious)}</span>
+              <span class={`text-sm font-semibold ${suspicious ? 'text-error' : 'text-[#1C8F60]'}`}>{suspicious ? 'Suspicious Activity Detected' : 'No Suspicious Activity'}</span>
+              <span class={`text-[13px] ${suspicious ? 'text-red-400' : 'text-green-500'}`}>is_suspicious: {String(suspicious)}</span>
             </div>
           )}
 
@@ -123,7 +123,7 @@ export function VoieReport({ report }) {
           {/* Annual income summary table */}
           {annualSummary.length > 0 && (
             <Section title="Annual Income Summary">
-              <table class="w-full text-sm border-collapse">
+              <table class="w-full text-[13px] border-collapse">
                 <thead><tr class="border-b-2 border-border">
                   {['Year', 'Gross Pay', 'Net Pay', 'Regular', 'Overtime', 'Other'].map(h => <th key={h} class="text-left px-3 py-2 font-semibold text-gray-500">{h}</th>)}
                 </tr></thead>
@@ -147,14 +147,14 @@ export function VoieReport({ report }) {
           {stmts.length > 0 && (
             <Section title={`Pay Statements (${stmts.length})`}>
               {stmts.slice(0, 3).map((st, i) => <PayStatement key={i} st={st} />)}
-              {stmts.length > 3 && <p class="text-xs text-gray-400">+ {stmts.length - 3} more</p>}
+              {stmts.length > 3 && <p class="text-[13px] text-gray-400">+ {stmts.length - 3} more</p>}
             </Section>
           )}
 
           {/* W-2 forms table with PDF download links */}
           {w2s.length > 0 && (
             <Section title="W-2 Forms">
-              <table class="w-full text-sm border-collapse">
+              <table class="w-full text-[13px] border-collapse">
                 <thead><tr class="border-b-2 border-border">
                   {['Year', 'Wages', 'Federal Tax', 'SS Tax', 'Medicare Tax', ''].map(h => <th key={h} class="text-left px-3 py-2 font-semibold text-gray-500">{h}</th>)}
                 </tr></thead>
@@ -166,7 +166,7 @@ export function VoieReport({ report }) {
                       <td class="px-3 py-2">{w.federal_tax ? $(w.federal_tax) : '-'}</td>
                       <td class="px-3 py-2">{w.social_security_tax ? $(w.social_security_tax) : '-'}</td>
                       <td class="px-3 py-2">{w.medicare_tax ? $(w.medicare_tax) : '-'}</td>
-                      <td class="px-3 py-2">{w.file && <a href={w.file} target="_blank" rel="noopener noreferrer" class="text-primary font-medium text-xs">PDF</a>}</td>
+                      <td class="px-3 py-2">{w.file && <a href={w.file} target="_blank" rel="noopener noreferrer" class="text-primary font-medium text-[13px]">PDF</a>}</td>
                     </tr>
                   ))}
                 </tbody>

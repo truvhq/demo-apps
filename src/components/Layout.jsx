@@ -24,20 +24,22 @@
 
 import { useState, useEffect } from 'preact/hooks';
 import { Panel, TabButton } from './Panel.jsx';
-import { Icons } from './Icons.jsx';
+import { Breadcrumb } from './Header.jsx';
 import { HeaderActions } from './HeaderActions.jsx';
+import { getBreadcrumbTrail } from '../App.jsx';
 import { DeviceToggle, ShowPanelButton, HidePanelButton } from './DeviceFrame.jsx';
 import { useHasDeviceFrame } from '../hooks/deviceFramePresence.jsx';
 import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
 
 // Props:
-//   badge       : label shown next to the logo (e.g. "Smart Routing")
 //   steps       : step list passed to Panel sidebar
 //   panel       : extra content passed to Panel sidebar (apiLogs, bridgeEvents, webhooks, ...)
 //   flush       : if true, main area uses flex layout without padding
 //   hidePanel   : if true, hides the sidebar entirely (and the tab nav + toggles)
 //   children    : main content area
-export function Layout({ badge, steps, panel, flush, hidePanel, children }) {
+// The breadcrumb (industry > demo) is derived from the current route, so demos
+// no longer pass a badge — any `badge` prop still passed by callers is ignored.
+export function Layout({ steps, panel, flush, hidePanel, children }) {
   const [activeTab, setActiveTab] = useState('guide');
   const hasDeviceFrame = useHasDeviceFrame();
   const [panelVisible, setPanelVisible] = usePanelVisibility();
@@ -70,31 +72,33 @@ export function Layout({ badge, steps, panel, flush, hidePanel, children }) {
       {/* Unified top bar: logo+badge | device toggle | panel toggle | panel tabs */}
       <header class="flex items-center h-12 bg-white/80 backdrop-blur-xl border-b border-border/40">
         <div class="flex items-center gap-3 px-3 sm:px-6 flex-1 min-w-0">
-          <a href="/" aria-label="Go to home" class="flex items-center shrink-0 hover:opacity-80 transition-opacity">
-            <Icons.truvLogo height={16} className="text-text" />
-          </a>
-          {badge && <div class="text-[11px] font-medium text-muted bg-surface-secondary px-2 py-0.5 rounded-md whitespace-nowrap truncate">{badge}</div>}
+          <Breadcrumb trail={getBreadcrumbTrail()} />
         </div>
-        {/* Shared header actions (GitHub, Dashboard, Contact sales) */}
+        {/* Shared header actions (GitHub, Dashboard, Contact sales). In compact
+            mode the GitHub link hides on mobile since the "Dev" panel toggle also
+            occupies the right edge here. */}
         <div class="pr-5 shrink-0">
-          <HeaderActions />
+          <HeaderActions compact={!hidePanel} />
         </div>
         {!hidePanel && (
           <>
             {/* Device toggle: only shown when a DeviceFrame is currently mounted
                 somewhere in the tree (auto-detected via deviceFramePresence). */}
             {hasDeviceFrame && (
-              <div class="pl-4 pr-2">
+              <div class={`pl-4 ${showPanel ? 'pr-6' : 'pr-2'}`}>
                 <DeviceToggle />
               </div>
             )}
             {/* ShowPanelButton: lives in the main toolbar at the right edge of the
-                header. Self-gated to render only when the panel is hidden. When the
-                panel is shown the symmetric HidePanelButton inside the tab strip
-                takes over the same physical slot. */}
-            <div class={`pr-5 ${hasDeviceFrame ? '' : 'pl-4'}`}>
-              <ShowPanelButton />
-            </div>
+                header. Only rendered while the panel is hidden — when the panel is
+                shown the symmetric HidePanelButton inside the tab strip takes over
+                the same physical slot, so this padded wrapper must not linger (it
+                would inflate the gap between Contact sales and the tab-strip divider). */}
+            {!showPanel && (
+              <div class={`pr-5 ${hasDeviceFrame ? '' : 'pl-4'}`}>
+                <ShowPanelButton />
+              </div>
+            )}
             {/* Top-bar tab nav (lg+ only). Renders only when the panel is visible.
                 Tabs flex-fill the strip and HidePanelButton anchors at the right
                 edge — the same pixel column that the ShowPanelButton occupied. */}

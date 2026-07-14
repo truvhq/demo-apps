@@ -73,10 +73,10 @@ export function OverrideKeyDialog({ open, onClose, onSubmit }) {
       onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose?.(); }}
     >
       <div class="w-full max-w-[420px] bg-white border border-[#e8e8ed] rounded-[16px] shadow-[0_8px_32px_rgba(16,24,40,0.16)] px-7 py-6 animate-slideUp">
-        <div class="flex items-start justify-between gap-4 mb-3">
+        <div class="flex items-start justify-between gap-4 mb-7">
           <div>
-            <h2 class="text-[17px] font-semibold tracking-[-0.015em] text-[#171717]">Use a different API key</h2>
-            <p class="text-[12.5px] text-[#6e6e73] leading-[1.5] mt-1">
+            <h2 class="text-[24px] font-semibold tracking-[-0.015em] text-[#000000]">Use a different API key</h2>
+            <p class="text-[13px] text-[#808080] leading-[1.5] mt-1">
               Swap in keys from a different Truv account without losing your demo session.
             </p>
           </div>
@@ -85,7 +85,7 @@ export function OverrideKeyDialog({ open, onClose, onSubmit }) {
             onClick={onClose}
             disabled={busy}
             aria-label="Close"
-            class="text-[#8E8E93] hover:text-[#171717] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            class="text-[#808080] hover:text-[#000000] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -96,7 +96,7 @@ export function OverrideKeyDialog({ open, onClose, onSubmit }) {
 
         <form onSubmit={handleSubmit} class="space-y-3">
           <label class="block">
-            <span class="block text-[12px] font-medium text-[#171717] mb-1.5">API client ID</span>
+            <span class="block text-[15px] font-medium text-[#000000] mb-1.5">API client ID</span>
             <input
               type="password"
               autoComplete="off"
@@ -108,12 +108,12 @@ export function OverrideKeyDialog({ open, onClose, onSubmit }) {
               onInput={(e) => setClientId(e.currentTarget.value)}
               placeholder="cid_..."
               disabled={busy}
-              class="w-full px-3 py-2 text-[14px] border border-[#e8e8ed] rounded-[10px] bg-white focus:outline-none focus:border-primary focus:ring-[3px] focus:ring-primary/12 font-mono disabled:bg-[#fafafa]"
+              class="w-full px-3 py-2 text-[14px] border border-[#d2d2d7] rounded-[10px] bg-white focus:outline-none focus:border-primary focus:ring-[3px] focus:ring-primary/12 font-mono disabled:bg-[#fafafa]"
             />
           </label>
 
           <label class="block">
-            <span class="block text-[12px] font-medium text-[#171717] mb-1.5">API secret</span>
+            <span class="block text-[15px] font-medium text-[#000000] mb-1.5">API secret</span>
             <input
               type="password"
               autoComplete="off"
@@ -125,7 +125,7 @@ export function OverrideKeyDialog({ open, onClose, onSubmit }) {
               onInput={(e) => setSecret(e.currentTarget.value)}
               placeholder="sec_..."
               disabled={busy}
-              class="w-full px-3 py-2 text-[14px] border border-[#e8e8ed] rounded-[10px] bg-white focus:outline-none focus:border-primary focus:ring-[3px] focus:ring-primary/12 font-mono disabled:bg-[#fafafa]"
+              class="w-full px-3 py-2 text-[14px] border border-[#d2d2d7] rounded-[10px] bg-white focus:outline-none focus:border-primary focus:ring-[3px] focus:ring-primary/12 font-mono disabled:bg-[#fafafa]"
             />
           </label>
 
@@ -135,19 +135,19 @@ export function OverrideKeyDialog({ open, onClose, onSubmit }) {
             </div>
           )}
 
-          <div class="flex items-center justify-end gap-2 pt-2">
+          <div class="flex items-center justify-end gap-2 pt-4">
             <button
               type="button"
               onClick={onClose}
               disabled={busy}
-              class="px-3 py-2 text-[13px] font-medium text-[#6e6e73] hover:text-[#171717] transition-colors disabled:opacity-50"
+              class="px-3 py-2 text-[13px] font-medium text-[#808080] hover:text-[#000000] transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={busy || !clientId || !secret}
-              class="px-4 py-2 text-[13px] font-medium text-white bg-primary rounded-md hover:bg-primary/90 disabled:bg-[#c7c7cc] disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1.5"
+              class="px-4 py-2 text-[13px] font-medium text-white bg-primary rounded-lg hover:bg-primary-hover active:bg-primary-active disabled:bg-[#c7c7cc] disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1.5"
             >
               {busy && <span class="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
               {busy ? 'Saving…' : 'Save keys'}

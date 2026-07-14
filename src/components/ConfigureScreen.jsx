@@ -34,7 +34,7 @@ function SecretInput({ label, value, onInput, placeholder, disabled }) {
   const [revealed, setRevealed] = useState(false);
   return (
     <label class="block">
-      <span class="block text-[12px] font-medium text-[#171717] mb-1.5 tracking-[-0.005em]">{label}</span>
+      <span class="block text-[13px] font-medium text-[#000000] mb-1.5 tracking-[-0.005em]">{label}</span>
       <div class="relative group">
         <input
           type={revealed ? 'text' : 'password'}
@@ -45,7 +45,7 @@ function SecretInput({ label, value, onInput, placeholder, disabled }) {
           maxLength={256}
           value={value}
           onInput={onInput}
-          class="w-full px-3.5 py-2.5 pr-11 text-[14px] border border-[#e8e8ed] rounded-[10px] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)] placeholder:text-[#c7c7cc] focus:outline-none focus:border-primary focus:ring-[3px] focus:ring-primary/12 hover:border-[#d1d1d6] transition-all font-mono disabled:bg-[#fafafa] disabled:cursor-not-allowed"
+          class="w-full px-3.5 py-2.5 pr-11 text-[14px] border border-[#d2d2d7] rounded-[10px] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)] placeholder:text-[#c7c7cc] focus:outline-none focus:border-primary focus:ring-[3px] focus:ring-primary/12 hover:border-[#d1d1d6] transition-all font-mono disabled:bg-[#fafafa] disabled:cursor-not-allowed"
           placeholder={placeholder}
           disabled={disabled}
         />
@@ -54,7 +54,7 @@ function SecretInput({ label, value, onInput, placeholder, disabled }) {
           onClick={() => setRevealed(r => !r)}
           aria-label={revealed ? `Hide ${label}` : `Show ${label}`}
           tabIndex={-1}
-          class="absolute inset-y-0 right-0 px-3 flex items-center text-[#a0a0a8] hover:text-[#171717] transition-colors"
+          class="absolute inset-y-0 right-0 px-3 flex items-center text-[#808080] hover:text-[#000000] transition-colors"
         >
           <EyeIcon open={revealed} />
         </button>
@@ -85,7 +85,7 @@ function describeError(status, error, retryAfter) {
 function NoKeysState({ dashboardUrl, onPasteInstead }) {
   return (
     <div class="space-y-4 text-center">
-      <div class="flex items-center justify-center w-11 h-11 rounded-full bg-[#fffbeb] border border-[#fde68a] mx-auto">
+      <div class="flex items-center justify-center w-11 h-11 rounded-full bg-[#fffbeb] mx-auto">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M12 9v4" />
           <path d="M12 17h.01" />
@@ -93,8 +93,8 @@ function NoKeysState({ dashboardUrl, onPasteInstead }) {
         </svg>
       </div>
       <div>
-        <h2 class="text-[16px] font-semibold tracking-[-0.015em] text-[#171717]">You don't have any API keys yet</h2>
-        <p class="text-[13px] text-[#6e6e73] leading-[1.55] mt-1">
+        <h2 class="text-[16px] font-semibold tracking-[-0.015em] text-[#000000]">You don't have any API keys yet</h2>
+        <p class="text-[13px] text-[#808080] leading-[1.55] mt-1">
           Create one in the Truv dashboard to start running the demos with your account.
         </p>
       </div>
@@ -103,14 +103,14 @@ function NoKeysState({ dashboardUrl, onPasteInstead }) {
           href={dashboardUrl || DASHBOARD_KEYS_URL}
           target="_blank"
           rel="noreferrer"
-          class="block w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-[10px] hover:bg-primary/90 transition-colors"
+          class="block w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors"
         >
           Create your first API key
         </a>
         <button
           type="button"
           onClick={onPasteInstead}
-          class="block w-full py-2 text-[13px] font-medium text-[#6e6e73] hover:text-[#171717] transition-colors"
+          class="block w-full py-2 text-[13px] font-medium text-[#808080] hover:text-[#000000] transition-colors"
         >
           Or paste a key now
         </button>
@@ -180,7 +180,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
         href="https://truv.com/contact-sales"
         target="_blank"
         rel="noreferrer"
-        class="absolute top-5 right-6 z-10 text-[13px] font-medium text-white bg-primary rounded-md px-3.5 py-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.06)] hover:bg-primary/90 hover:shadow-[0_2px_6px_rgba(94,92,230,0.25)] transition-all"
+        class="absolute top-5 right-6 z-10 text-[13px] font-medium text-white bg-primary rounded-lg px-3.5 py-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.06)] hover:bg-primary-hover active:bg-primary-active hover:shadow-[0_2px_6px_rgba(94,92,230,0.25)] transition-all"
       >
         Contact sales
       </a>
@@ -189,9 +189,9 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
         <div class="gradient-ring relative bg-white border border-[#e8e8ed]/80 rounded-[20px] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_12px_40px_rgba(16,24,40,0.10),0_2px_8px_rgba(94,92,230,0.05)] px-8 py-9">
           {/* Header */}
           <div class="flex flex-col items-center gap-3 mb-6">
-            <Icons.truvLogo height={22} className="text-text" />
-            <h1 class="text-[22px] font-semibold tracking-[-0.025em] text-[#171717]">Personalize your demo</h1>
-            <p class="text-[13.5px] text-[#6e6e73] text-center leading-[1.55] max-w-[340px]">
+            <Icons.truvLogo height={29} className="text-text" />
+            <h1 class="text-[22px] font-semibold tracking-[-0.025em] text-[#000000]">Personalize your demo</h1>
+            <p class="text-[13px] text-[#808080] text-center leading-[1.55] max-w-[340px]">
               Add your Truv keys to run the demos on your own account. Real users, real API calls, live reports in your dashboard.
             </p>
           </div>
@@ -210,7 +210,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
                 type="button"
                 onClick={handleSsoClick}
                 disabled={ssoBusy}
-                class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-[10px] shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary/90 hover:-translate-y-px hover:shadow-[0_6px_16px_rgba(94,92,230,0.30)] active:translate-y-0 disabled:bg-[#d1d1d6] disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-150 inline-flex items-center justify-center gap-2"
+                class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-lg shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary-hover active:bg-primary-active hover:-translate-y-px hover:shadow-[0_6px_16px_rgba(94,92,230,0.30)] active:translate-y-0 disabled:bg-[#d1d1d6] disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-150 inline-flex items-center justify-center gap-2"
               >
                 {ssoBusy ? (
                   <>
@@ -225,7 +225,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
               <button
                 type="button"
                 onClick={() => { setError(null); setMode('paste'); }}
-                class="w-full py-2 text-[13px] font-medium text-[#6e6e73] hover:text-[#171717] transition-colors"
+                class="w-full py-2 text-[13px] font-medium text-[#808080] hover:text-[#000000] transition-colors"
               >
                 Use a key instead
               </button>
@@ -257,7 +257,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
                 <button
                   type="submit"
                   disabled={busy || !clientId || !secret}
-                  class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-[10px] shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary/90 hover:-translate-y-px hover:shadow-[0_6px_16px_rgba(94,92,230,0.30)] active:translate-y-0 disabled:bg-[#d1d1d6] disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-150"
+                  class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-lg shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary-hover active:bg-primary-active hover:-translate-y-px hover:shadow-[0_6px_16px_rgba(94,92,230,0.30)] active:translate-y-0 disabled:bg-[#d1d1d6] disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-150"
                 >
                   {busy ? (
                     <span class="inline-flex items-center gap-2">
@@ -271,7 +271,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
                   href={DASHBOARD_KEYS_URL}
                   target="_blank"
                   rel="noreferrer"
-                  class="w-full py-2.5 text-[14px] font-medium text-[#171717] bg-white border border-[#e8e8ed] rounded-[10px] hover:bg-[#f5f5f7] hover:border-[#d1d1d6] transition-colors flex items-center justify-center gap-1.5"
+                  class="w-full py-2.5 text-[14px] font-medium text-[#000000] bg-white border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors flex items-center justify-center gap-1.5"
                 >
                   Sign up to get API keys
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -285,7 +285,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
                   <button
                     type="button"
                     onClick={() => { setError(null); setMode('sso'); }}
-                    class="w-full py-2 text-[13px] font-medium text-[#6e6e73] hover:text-[#171717] transition-colors"
+                    class="w-full py-2 text-[13px] font-medium text-[#808080] hover:text-[#000000] transition-colors"
                   >
                     Back to Sign in with Truv
                   </button>
@@ -296,7 +296,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
         </div>
 
         {/* Trust footer below the card */}
-        <div class="flex items-center justify-center gap-1.5 mt-5 text-[12px] text-[#8E8E93] whitespace-nowrap">
+        <div class="flex items-center justify-center gap-1.5 mt-5 text-[13px] text-[#808080] whitespace-nowrap">
           <Icons.shieldCheck size={12} />
           <span>Kept in memory for this session. Never saved or logged.</span>
         </div>
@@ -310,7 +310,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
           ].map((chip, i) => (
             <span
               key={chip.label}
-              class={`animate-chipIn delay-${i + 1} inline-flex items-center gap-1.5 rounded-full bg-white/70 border border-[#e8e8ed] px-2.5 py-1 text-[11px] font-medium text-[#6e6e73] backdrop-blur-sm`}
+              class={`animate-chipIn delay-${i + 1} inline-flex items-center gap-1.5 rounded-full bg-white/70 border border-[#e8e8ed] px-2.5 py-1 text-[11px] font-medium text-[#808080] backdrop-blur-sm`}
             >
               <span class="w-1.5 h-1.5 rounded-full" style={{ background: chip.dot }} />
               {chip.label}

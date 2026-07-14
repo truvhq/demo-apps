@@ -34,7 +34,7 @@ export function FileProcessingErrors({ files }) {
         {files.map((f, i) => (
           <li key={i} class="text-sm text-error flex justify-between gap-3">
             <span class="font-medium truncate">{f.filename || 'Untitled file'}</span>
-            <span class="text-xs opacity-80 whitespace-nowrap">{describeStatus(f.status)}</span>
+            <span class="text-[13px] opacity-80 whitespace-nowrap">{describeStatus(f.status)}</span>
           </li>
         ))}
       </ul>

@@ -69,7 +69,7 @@ function renderBase(view) {
 function wrap(node) {
   return (
     <div class="min-h-full w-full overflow-y-auto">
-      <div class="max-w-lg mx-auto px-6 py-8">{node}</div>
+      <div class="sm:max-w-lg sm:mx-auto px-6 py-8">{node}</div>
     </div>
   );
 }

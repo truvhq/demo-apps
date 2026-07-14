@@ -171,7 +171,7 @@ export function PaycheckLinkedLoansDemo() {
   // --- Render: state-driven screen routing ---
   return (
     <Layout badge="Paycheck-Linked Loans" steps={STEPS} panel={panel} hidePanel={isIntro}>
-      <div class={isIntro ? 'flex-1 flex flex-col' : 'max-w-lg mx-auto px-4 py-6 sm:px-8 sm:py-10'}>
+      <div class={isIntro ? 'flex-1 flex flex-col' : 'w-full sm:max-w-lg sm:mx-auto px-4 py-6 sm:px-8 sm:py-10'}>
         {/* Intro slide: architecture diagram */}
         {screen === 'select' && !showForm && (
           <IntroSlide
@@ -179,7 +179,7 @@ export function PaycheckLinkedLoansDemo() {
             title={INTRO_SLIDE_CONFIG.title}
             subtitle={INTRO_SLIDE_CONFIG.subtitle}
             diagram={DIAGRAM}
-            actions={<button onClick={() => setShowForm(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
+            actions={<button onClick={() => setShowForm(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors text-center">Get started</button>}
           />
         )}
 
@@ -196,8 +196,8 @@ export function PaycheckLinkedLoansDemo() {
         {/* Review screen: PLL deposit allocation report */}
         {screen === 'review' && (
           <div>
-            <h2 class="text-2xl font-bold tracking-tight mb-1.5">{REPORT_HEADER.title}</h2>
-            <p class="text-sm text-gray-500 mb-7">{REPORT_HEADER.subtitle}</p>
+            <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-1.5">{REPORT_HEADER.title}</h2>
+            <p class="text-[15px] text-[#808080] leading-[1.5] mb-7">{REPORT_HEADER.subtitle}</p>
             {pllLoading ? (
               <div class="text-center py-10"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>
             ) : (
@@ -205,7 +205,7 @@ export function PaycheckLinkedLoansDemo() {
                 {pllReport && <PLLReport report={pllReport} />}
                 {pllError && <p class="text-sm text-red-500 mb-4">PLL report unavailable. Try starting over.</p>}
                 <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-                  <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={resetDemo}>Start Over</button>
+                  <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors" onClick={resetDemo}>Start Over</button>
                 </div>
               </div>
             )}
