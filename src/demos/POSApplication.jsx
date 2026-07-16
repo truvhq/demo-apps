@@ -57,6 +57,11 @@ export function POSApplicationDemo({ screen, param }) {
   // Set when Bridge fires COMPLETED (source: order) — a trailing onClose from the
   // SDK's auto-close-after-completion must not abort the successful session.
   const completedRef = useRef(false);
+  // Set when Bridge fires SUCCESS: the user finished verification, but the
+  // order-level COMPLETED event may lag behind (or never arrive before the
+  // widget closes). A CLOSE after SUCCESS is a completion, not an abort — the
+  // waiting screen's webhook watch confirms the order server-side.
+  const successRef = useRef(false);
 
   // Panel hook: sidebar state, session tracking, webhook polling, bridge events
   const { panel, sessionId, setCurrentStep, startPolling, stopPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
@@ -104,6 +109,7 @@ export function POSApplicationDemo({ screen, param }) {
     if (screen !== 'bridge' || !orderId) {
       setBridgeToken(null);
       completedRef.current = false;
+      successRef.current = false;
       return;
     }
     let cancelled = false;
@@ -148,20 +154,34 @@ export function POSApplicationDemo({ screen, param }) {
     'bridge:onEvent': (type, payload, source) => {
       const payloadStr = payload ? 'payload' : 'undefined';
       addBridgeEvent(`onEvent("${type}", ${payloadStr}, "${source}")`, payload ? [{ label: 'payload', value: payload }] : null);
+      if (type === 'SUCCESS') successRef.current = true;
       if (type === 'COMPLETED' && source === 'order') {
         completedRef.current = true;
         navigate(`mortgage/pos-application/waiting/${orderId}`);
       }
       // In the iframe's modal mode a user exit surfaces as onEvent CLOSE — the
-      // SDK's onClose callback does not fire — so the abort path lives here.
-      if (type === 'CLOSE' && !completedRef.current) abortBridge();
+      // SDK's onClose callback does not fire — so the close paths live here.
+      if (type === 'CLOSE') handleBridgeClose();
     },
     'bridge:onSuccess': () => addBridgeEvent('onSuccess()', null),
     'bridge:onClose': () => {
       addBridgeEvent('onClose()', null);
-      if (!completedRef.current) abortBridge();
+      handleBridgeClose();
     },
   });
+
+  // Close: already navigated on COMPLETED — ignore. Closed after SUCCESS — the
+  // verification finished but the order event lagged; go wait for the webhook.
+  // Closed with no success — a genuine abort.
+  function handleBridgeClose() {
+    if (completedRef.current) return;
+    if (successRef.current) {
+      completedRef.current = true;
+      navigate(`mortgage/pos-application/waiting/${orderId}`);
+      return;
+    }
+    abortBridge();
+  }
 
   // Abort: stop polling the abandoned order and clear the stale userId so a
   // later webhook can't hijack a restarted flow.
