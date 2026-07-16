@@ -266,13 +266,13 @@ The server verifies webhook signatures via HMAC-SHA256.
 ## Learn more
 
 - [Truv documentation](https://docs.truv.com)
-- [API reference](https://docs.truv.com/reference)
-- [Bridge overview](https://docs.truv.com/docs/truv-bridge)
-- [Webhooks guide](https://docs.truv.com/docs/webhooks)
-- [Company Search API](https://docs.truv.com/reference/company_autocomplete_search)
-- [Providers API](https://docs.truv.com/reference/list_providers)
-- [Bridge Tokens API](https://docs.truv.com/reference/users_tokens)
-- [User Reports API](https://docs.truv.com/reference/users_reports)
+- [API reference](https://docs.truv.com/api-reference/authentication)
+- [Bridge overview](https://docs.truv.com/developers/integration/bridge-widget/overview)
+- [Webhooks guide](https://docs.truv.com/api-reference/webhooks)
+- [Company Search API](https://docs.truv.com/api-reference/companies/company_autocomplete_search)
+- [Providers API](https://docs.truv.com/api-reference/data-providers/providers-list)
+- [Bridge Tokens API](https://docs.truv.com/api-reference/bridge-token/users_tokens)
+- [User Reports API](https://docs.truv.com/api-reference/user-income-and-employment-reports/users_reports)
 
 ## AI tools
 

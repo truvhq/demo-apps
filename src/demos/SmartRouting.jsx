@@ -151,7 +151,7 @@ export function SmartRoutingDemo() {
 
   // Handler: check employer payroll coverage via GET /api/companies to determine recommendation.
   // success_rate "high" recommends payroll, otherwise bank, no results falls back to documents.
-  // See: https://docs.truv.com/reference/company_autocomplete_search
+  // See: https://docs.truv.com/api-reference/companies/company_autocomplete_search
   async function handleFormSubmit(data) {
     setFormData(data);
     setLoading(true);
@@ -180,7 +180,7 @@ export function SmartRoutingDemo() {
   // Handler: create bridge token via POST /api/bridge-token and hand it to the
   // preview iframe to open the Bridge widget. data_sources restricts which
   // providers Bridge shows (payroll, financial_accounts, or docs).
-  // See: https://docs.truv.com/reference/users_tokens
+  // See: https://docs.truv.com/api-reference/bridge-token/users_tokens
   async function handleMethodSelect(method) {
     setSelectedMethod(method);
     setLoading(true);
