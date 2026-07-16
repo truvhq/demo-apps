@@ -34,12 +34,11 @@ import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
 // Props:
 //   steps       : step list passed to Panel sidebar
 //   panel       : extra content passed to Panel sidebar (apiLogs, bridgeEvents, webhooks, ...)
-//   flush       : if true, main area uses flex layout without padding
 //   hidePanel   : if true, hides the sidebar entirely (and the tab nav + toggles)
 //   children    : main content area
 // The breadcrumb (industry > demo) is derived from the current route, so demos
 // no longer pass a badge — any `badge` prop still passed by callers is ignored.
-export function Layout({ steps, panel, flush, hidePanel, children }) {
+export function Layout({ steps, panel, hidePanel, children }) {
   const [activeTab, setActiveTab] = useState('guide');
   const hasDeviceFrame = useHasDeviceFrame();
   const [panelVisible, setPanelVisible] = usePanelVisibility();
@@ -116,7 +115,7 @@ export function Layout({ steps, panel, flush, hidePanel, children }) {
         )}
       </header>
       <div class="relative flex flex-1 min-h-0">
-        <main class={`flex-1 min-w-0 ${flush || hidePanel ? 'flex flex-col' : 'flex flex-col overflow-y-auto px-4 py-4 sm:px-8 sm:py-6'}`}>
+        <main class={`flex-1 min-w-0 ${hidePanel ? 'flex flex-col' : 'flex flex-col overflow-y-auto px-4 py-4 sm:px-8 sm:py-6'}`}>
           {children}
         </main>
         {showPanel && (

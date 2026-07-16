@@ -137,7 +137,7 @@ function BridgeEvent({ evt }) {
 }
 
 // BridgeTab: lists all TruvBridge SDK events in reverse chronological order.
-// Events are logged by BridgeScreen's onLoad/onEvent/onSuccess/onClose callbacks.
+// Events are forwarded from the preview iframe's BridgePreview onLoad/onEvent/onSuccess/onClose callbacks.
 function BridgeTab({ events }) {
   if (!events.length) return <div class="flex items-center justify-center h-32 text-gray-400 text-sm">No Bridge events yet.</div>;
   return <div>{[...events].reverse().map((evt, i) => <BridgeEvent key={i} evt={evt} />)}</div>;

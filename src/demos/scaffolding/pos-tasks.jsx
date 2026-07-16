@@ -34,7 +34,7 @@ export const STEPS = [
   {
     title: 'Borrower completes verification',
     guide: '<p>The Bridge widget is initialized with:</p>'
-      + '<pre>TruvBridge.init({\n  bridgeToken: "...",\n  isOrder: true,\n  position: { type: "inline", container: el }\n})</pre>'
+      + '<pre>TruvBridge.init({\n  bridgeToken: "...",\n  isOrder: true\n})</pre>'
       + '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>'
       + '<p><a href="https://docs.truv.com/developers/integration/bridge-widget/overview" target="_blank" rel="noopener noreferrer">Bridge Docs →</a></p>',
   },
