@@ -9,11 +9,22 @@
  *   parent → iframe
  *     { type: 'preview:render', component: '<name>', props: {...} } render the named component with given props
  *
- * Event names used by SmartRouting:
+ * Render components (parent → iframe):
+ *   application-form  — ApplicationForm wrapper; props include productType,
+ *                       dataSource, employerLabel, showEmployer, requireEmployer
+ *   method-picker     — SmartRouting method picker, props: { recommended, loading }
+ *   task-list         — POSTasks task list, props: { applicationId, taskStates }
+ *                       where taskStates maps taskId → 'ready'|'completed'|'failed'
+ *   bridge            — TruvBridge modal overlay, props: { bridgeToken, isOrder, companyMappingId }
+ *   loading           — spinner, props: { label, subtitle }
+ *
+ * Event names (iframe → parent):
  *   form:submit       — ApplicationForm onSubmit, args: [formResult]
  *   method:select     — MethodPicker onSelect, args: [methodId]
+ *   task:start        — TaskList onStart, args: [taskId]
+ *   nav:back          — back link under the method picker, args: []
  *   bridge:onLoad     — TruvBridge onLoad, args: []
- *   bridge:onEvent    — TruvBridge onEvent, args: [type, payload]
+ *   bridge:onEvent    — TruvBridge onEvent, args: [type, payload, source]
  *   bridge:onSuccess  — TruvBridge onSuccess, args: [publicToken, meta]
  *   bridge:onClose    — TruvBridge onClose, args: []
  *
