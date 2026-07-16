@@ -94,7 +94,7 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
         decision: evaluateCoverage(successRate),
         raw: result.data,
       });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error', detail: err?.message }); }
   });
 
   // POST /api/voie-pll/voie-order: Step 2 — creates the VOIE (income) order.
@@ -152,7 +152,7 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
         share_url: truvData.share_url,
         order_number: orderNumber,
       });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error', detail: err?.message }); }
   });
 
   // GET /api/voie-pll/decision/:voieOrderId: Decision gates 2, 3, 4.
@@ -251,7 +251,7 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
         // Raw upstream payloads for debugging when fields don't render as expected.
         _raw: { order: orderResult.data, link_info: linkInfoData },
       });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error', detail: err?.message }); }
   });
 
   // POST /api/voie-pll/pll-order/:voieOrderId: Step 6 — creates the linked PLL order.
@@ -319,7 +319,7 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
         share_url: truvData.share_url,
         order_number: orderNumber,
       });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error', detail: err?.message }); }
   });
 
   // GET /api/voie-pll/pll-report/:pllOrderId: Step 9 — reads the PLL deposit-switch
@@ -355,7 +355,7 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
         status: orderResult.data?.status || pllOrder.status,
         pll_report: report,
       });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error', detail: err?.message }); }
   });
 
   // GET /api/voie-pll/tasks/:userId: Diagnostic endpoint for failed PLL orders.
@@ -368,7 +368,7 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
       apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/tasks/?user_id=${userId}`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
       if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Failed to fetch tasks', details: result.data });
       res.json(result.data);
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error', detail: err?.message }); }
   });
 
   return router;
