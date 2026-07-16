@@ -4,19 +4,23 @@
  *
  * DATA FLOW:
  *   1. POST /api/bridge-token              : create user + bridge token (pll)
- *   2. TruvBridge.init().open()            : Bridge popup for payroll + deduction
+ *   2. TruvBridge modal opens inside the preview iframe for payroll + deduction
  *   3. Webhook: task-status-updated (done) : carries link_id for the completed task
  *   4. GET /api/links/:linkId/pll          : fetch PLL report (deposit allocation + provider)
  *
  * Only the PLL link-level report is fetched. The VOIE income report is not applicable
  * to the PLL product, since PLL tasks do not produce payroll-backed income data.
  *
+ * The user-facing screens (application form, Bridge widget) render inside an
+ * isolated iframe (`/preview.html`) wrapped in DeviceFrame and driven over
+ * postMessage; waiting/review screens are the manager view and render bare.
+ *
  * Scaffolding: ./scaffolding/paycheck-linked-loans.jsx
  * Diagrams:    ../diagrams/paycheck-linked-loans.js
  *
  * WHAT TO COPY (for your own Truv integration):
  *   - handleFormSubmit()  : creates a bridge token via POST /api/bridge-token (product_type: pll)
- *   - TruvBridge.init()   : opens the Bridge widget for paycheck-linked loans
+ *   - TruvBridge.init()   : opens the Bridge widget (see preview/components/BridgePreview.jsx)
  *   - PLL report fetch    : extracts link_id from the task-status-updated webhook, fetches
  *                           GET /api/links/:linkId/pll
  */
@@ -27,11 +31,12 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 // --- Imports: shared layout, components, hooks, and API utilities ---
 import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, parsePayload } from '../components/index.js';
 
+// --- Imports: device-frame preview wrapper + iframe channel hook ---
+import { DeviceFrame } from '../components/DeviceFrame.jsx';
+import { usePreviewIframe } from '../hooks/usePreviewIframe.js';
+
 // --- Imports: report display component ---
 import { PLLReport } from '../components/reports/PLLReport.jsx';
-
-// --- Imports: reusable form component ---
-import { ApplicationForm } from '../components/ApplicationForm.jsx';
 
 // --- Imports: Mermaid diagram for intro slide ---
 import { DIAGRAM } from '../diagrams/paycheck-linked-loans.js';
@@ -47,6 +52,8 @@ export function PaycheckLinkedLoansDemo() {
   const [formData, setFormData] = useState(null);
   const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [bridgeToken, setBridgeToken] = useState(null);
+  const iframeRef = useRef(null);
 
   // PLL report state: fetched via link_id from the task-status-updated webhook
   const [pllReport, setPllReport] = useState(null);
@@ -107,8 +114,9 @@ export function PaycheckLinkedLoansDemo() {
       });
   }, [panel.webhooks, userId]);
 
-  // Handler: create bridge token via POST /api/bridge-token (product_type: pll) and open TruvBridge.
-  // Uses company_mapping_id for employer deeplinking.
+  // Handler: create bridge token via POST /api/bridge-token (product_type: pll); the
+  // Bridge widget itself opens inside the preview iframe once bridgeToken lands in
+  // state. Uses company_mapping_id for employer deeplinking.
   async function handleFormSubmit(data) {
     setFormData(data);
     setLoading(true);
@@ -123,33 +131,50 @@ export function PaycheckLinkedLoansDemo() {
       if (!resp.ok) { alert('Error: ' + (result.error || 'Unknown')); setLoading(false); return; }
       setUserId(result.user_id);
       startPolling(result.user_id);
-
-      // Open TruvBridge popup with callbacks for load, success, event, and close
-      if (window.TruvBridge) {
-        const opts = {
-          bridgeToken: result.bridge_token,
-          onLoad: () => addBridgeEvent('onLoad()', null),
-          onSuccess: (publicToken, meta) => {
-            addBridgeEvent('onSuccess(publicToken, meta)', [
-              { label: 'publicToken', value: publicToken },
-              { label: 'meta', value: meta },
-            ]);
-            setCurrentStep(2);
-            // Guard: Bridge's onSuccess can fire after the "done" webhook, so the PLL fetch
-            // may have already transitioned the screen to 'review'. Don't clobber it.
-            setScreen(curr => curr === 'review' ? curr : 'waiting');
-          },
-          onEvent: (type, payload) => {
-            const payloadStr = payload ? 'payload' : 'undefined';
-            addBridgeEvent(`onEvent("${type}", ${payloadStr})`, payload ? [{ label: 'payload', value: payload }] : null);
-          },
-          onClose: () => addBridgeEvent('onClose()', null),
-        };
-        window.TruvBridge.init(opts).open();
-      }
+      setBridgeToken(result.bridge_token);
     } catch (e) { console.error(e); }
     setLoading(false);
   }
+
+  // Preview iframe channel: maps user/SDK events from inside the iframe back to
+  // host state changes. The iframe never closes over host functions — events
+  // travel as plain { name, args } messages and the host re-binds them here.
+  const sendPreview = usePreviewIframe(iframeRef, {
+    'form:submit': (data) => handleFormSubmit(data),
+    'bridge:onLoad': () => addBridgeEvent('onLoad()', null),
+    'bridge:onEvent': (type, payload) => {
+      const payloadStr = payload ? 'payload' : 'undefined';
+      addBridgeEvent(`onEvent("${type}", ${payloadStr})`, payload ? [{ label: 'payload', value: payload }] : null);
+    },
+    'bridge:onSuccess': (publicToken, meta) => {
+      addBridgeEvent('onSuccess(publicToken, meta)', [
+        { label: 'publicToken', value: publicToken },
+        { label: 'meta', value: meta },
+      ]);
+      setCurrentStep(2);
+      // Guard: Bridge's onSuccess can fire after the "done" webhook, so the PLL fetch
+      // may have already transitioned the screen to 'review'. Don't clobber it.
+      setScreen(curr => curr === 'review' ? curr : 'waiting');
+    },
+    'bridge:onClose': () => {
+      addBridgeEvent('onClose()', null);
+      setBridgeToken(null);
+    },
+  });
+
+  // Drive the preview iframe from host state: form as the base view, Bridge modal
+  // layered on top once a token exists. requireEmployer because PLL token creation
+  // deeplinks Bridge via company_mapping_id — without an employer selection Truv
+  // rejects the request (see server/truv.js sandbox account setup).
+  useEffect(() => {
+    if (screen === 'select' && showForm) {
+      if (bridgeToken) {
+        sendPreview('bridge', { bridgeToken });
+      } else {
+        sendPreview('application-form', { sessionId, productType: 'pll', submitting: loading, requireEmployer: true });
+      }
+    }
+  }, [screen, showForm, bridgeToken, loading, sessionId, sendPreview]);
 
   // Handler: reset all state to start over
   function resetDemo() {
@@ -163,17 +188,19 @@ export function PaycheckLinkedLoansDemo() {
     setShowForm(false);
     setFormData(null);
     setUserId(null);
+    setBridgeToken(null);
   }
 
-  // Derived state: layout flag
+  // Derived state: layout flags
   const isIntro = screen === 'select' && !showForm;
+  const showDeviceFrame = screen === 'select' && showForm;
 
   // --- Render: state-driven screen routing ---
   return (
     <Layout badge="Paycheck-Linked Loans" steps={STEPS} panel={panel} hidePanel={isIntro}>
-      <div class={isIntro ? 'flex-1 flex flex-col' : 'w-full sm:max-w-lg sm:mx-auto px-4 py-6 sm:px-8 sm:py-10'}>
-        {/* Intro slide: architecture diagram */}
-        {screen === 'select' && !showForm && (
+      {/* Intro slide: architecture diagram */}
+      {screen === 'select' && !showForm && (
+        <div class="flex-1 flex flex-col">
           <IntroSlide
             label={INTRO_SLIDE_CONFIG.label}
             title={INTRO_SLIDE_CONFIG.title}
@@ -181,37 +208,47 @@ export function PaycheckLinkedLoansDemo() {
             diagram={DIAGRAM}
             actions={<button onClick={() => setShowForm(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors text-center">Get started</button>}
           />
-        )}
+        </div>
+      )}
 
-        {/* Application form: collects applicant PII and employer. requireEmployer because
-            PLL token creation deeplinks Bridge via company_mapping_id — without an employer
-            selection Truv rejects the request (see server/truv.js sandbox account setup). */}
-        {screen === 'select' && showForm && (
-          <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="pll" requireEmployer />
-        )}
+      {/* Application form + Bridge widget live inside the preview iframe (user view).
+          The host swaps the iframe's content via postMessage as state evolves. */}
+      {showDeviceFrame && (
+        <DeviceFrame url="paycheck-loans.example.com">
+          <iframe
+            ref={iframeRef}
+            src="/preview.html"
+            title="Demo preview"
+            class="w-full h-full block border-0 bg-white"
+          />
+        </DeviceFrame>
+      )}
 
-        {/* Waiting screen: webhook polling spinner until task completes */}
-        {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}
+      {/* Waiting screen: webhook polling spinner until task completes */}
+      {screen === 'waiting' && (
+        <div class="sm:max-w-lg sm:mx-auto w-full">
+          <WaitingScreen webhooks={panel.webhooks} />
+        </div>
+      )}
 
-        {/* Review screen: PLL deposit allocation report */}
-        {screen === 'review' && (
-          <div>
-            <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-1.5">{REPORT_HEADER.title}</h2>
-            <p class="text-[15px] text-[#808080] leading-[1.5] mb-7">{REPORT_HEADER.subtitle}</p>
-            {pllLoading ? (
-              <div class="text-center py-10"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>
-            ) : (
-              <div>
-                {pllReport && <PLLReport report={pllReport} />}
-                {pllError && <p class="text-sm text-red-500 mb-4">PLL report unavailable. Try starting over.</p>}
-                <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-                  <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors" onClick={resetDemo}>Start Over</button>
-                </div>
+      {/* Review screen: PLL deposit allocation report */}
+      {screen === 'review' && (
+        <div class="sm:max-w-lg sm:mx-auto w-full">
+          <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-1.5">{REPORT_HEADER.title}</h2>
+          <p class="text-[15px] text-[#808080] leading-[1.5] mb-7">{REPORT_HEADER.subtitle}</p>
+          {pllLoading ? (
+            <div class="text-center py-10"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>
+          ) : (
+            <div>
+              {pllReport && <PLLReport report={pllReport} />}
+              {pllError && <p class="text-sm text-red-500 mb-4">PLL report unavailable. Try starting over.</p>}
+              <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
+                <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors" onClick={resetDemo}>Start Over</button>
               </div>
-            )}
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
     </Layout>
   );
 }
