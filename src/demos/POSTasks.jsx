@@ -185,16 +185,24 @@ export function POSTasksDemo({ screen, param }) {
         if (activeTaskRef.current) setTaskStatus(prev => ({ ...prev, [activeTaskRef.current]: 'completed' }));
         navigate(`mortgage/pos-tasks/waiting/${param}`);
       }
+      // In the iframe's modal mode a user exit surfaces as onEvent CLOSE — the
+      // SDK's onClose callback does not fire — so the abort path lives here.
+      if (type === 'CLOSE' && !completedRef.current) abortBridge();
     },
     'bridge:onSuccess': () => addBridgeEvent('onSuccess()', null),
     'bridge:onClose': () => {
       addBridgeEvent('onClose()', null);
-      if (completedRef.current) return;
-      stopPolling();
-      activeTaskRef.current = null;
-      navigate('mortgage/pos-tasks');
+      if (!completedRef.current) abortBridge();
     },
   });
+
+  // Abort: stop polling the abandoned order and clear the active task marker so
+  // a later webhook from the abandoned attempt can't hijack a restarted task.
+  function abortBridge() {
+    stopPolling();
+    activeTaskRef.current = null;
+    navigate('mortgage/pos-tasks');
+  }
 
   // Drive the preview iframe from host state: the task list before a task is
   // started, Bridge modal (or a spinner while the token loads) on the bridge

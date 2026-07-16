@@ -164,16 +164,24 @@ export function CustomerPortalDemo({ screen, param }) {
         completedRef.current = true;
         navigate(`public-sector/customer-portal/waiting/${orderId}`);
       }
+      // In the iframe's modal mode a user exit surfaces as onEvent CLOSE — the
+      // SDK's onClose callback does not fire — so the abort path lives here.
+      if (type === 'CLOSE' && !completedRef.current) abortBridge();
     },
     'bridge:onSuccess': () => addBridgeEvent('onSuccess()', null),
     'bridge:onClose': () => {
       addBridgeEvent('onClose()', null);
-      if (completedRef.current) return;
-      stopPolling();
-      setUserId(null);
-      navigate('public-sector/customer-portal');
+      if (!completedRef.current) abortBridge();
     },
   });
+
+  // Abort: stop polling the abandoned order and clear the stale userId so a
+  // later webhook can't hijack a restarted flow.
+  function abortBridge() {
+    stopPolling();
+    setUserId(null);
+    navigate('public-sector/customer-portal');
+  }
 
   // Drive the preview iframe from host state: application form before an order
   // exists, Bridge modal (or a spinner while the token loads) on the bridge screen.

@@ -102,6 +102,10 @@ export function DirectDepositSwitchDemo() {
     'bridge:onEvent': (type, payload) => {
       const payloadStr = payload ? 'payload' : 'undefined';
       addBridgeEvent(`onEvent("${type}", ${payloadStr})`, payload ? [{ label: 'payload', value: payload }] : null);
+      // In the iframe's modal mode a user exit surfaces as onEvent CLOSE — the
+      // SDK's onClose callback does not fire — so drop the token here to fall
+      // back to the form as the base view.
+      if (type === 'CLOSE') setBridgeToken(null);
     },
     'bridge:onSuccess': (publicToken, meta) => {
       addBridgeEvent('onSuccess(publicToken, meta)', [
