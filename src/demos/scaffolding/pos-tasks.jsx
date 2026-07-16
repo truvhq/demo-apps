@@ -54,10 +54,10 @@ export const STEPS = [
 
 // --- Config: task definitions. Each task becomes a separate order via POST /api/orders. ---
 export const TASKS = [
-  { id: 'income', name: 'Verify Income', desc: 'Home Depot', products: ['income'], employer: 'Home Depot', Icon: Icons.dollarSign, iconBg: 'bg-green-50' },
-  { id: 'employment', name: 'Verify Employment', desc: 'Walmart', products: ['employment'], employer: 'Walmart', Icon: Icons.clipboard, iconBg: 'bg-blue-50' },
-  { id: 'assets', name: 'Verify Assets', desc: 'Bank accounts & transactions', products: ['assets'], employer: null, Icon: Icons.bankBuilding, iconBg: 'bg-amber-50' },
-  { id: 'assets-income', name: 'Assets + Income', desc: 'Combined order', products: ['income', 'assets'], employer: 'Home Depot', Icon: Icons.barChart, iconBg: 'bg-purple-50' },
+  { id: 'income', name: 'Verify Income', desc: 'Home Depot', products: ['income'], employer: 'Home Depot', Icon: Icons.dollarSign },
+  { id: 'employment', name: 'Verify Employment', desc: 'Walmart', products: ['employment'], employer: 'Walmart', Icon: Icons.clipboard },
+  { id: 'assets', name: 'Verify Assets', desc: 'Bank accounts & transactions', products: ['assets'], employer: null, Icon: Icons.bankBuilding },
+  { id: 'assets-income', name: 'Assets + Income', desc: 'Combined order', products: ['income', 'assets'], employer: 'Home Depot', Icon: Icons.barChart },
 ];
 
 // --- Config: task info cards shown on the intro screen ---
@@ -78,18 +78,18 @@ export function InitScreen({ applicationId, onApplicationIdChange, onInitialize,
       diagram={FOLLOWUP_DIAGRAM}
       actions={
         <div>
-          <label class="text-[13px] font-medium text-[#171717] mb-1.5 block">Application ID</label>
+          <label class="text-[13px] font-medium text-[#000000] mb-1.5 block">Application ID</label>
           <input
             value={applicationId}
             onInput={e => onApplicationIdChange(e.target.value)}
             placeholder="e.g. qs-1774626234913"
             class="w-full px-4 py-3 border border-[#d2d2d7] rounded-xl text-sm font-mono focus:border-primary focus:outline-none mb-3"
           />
-          <p class="text-[11px] text-[#8E8E93] mb-4">Sent as <code class="font-mono">external_user_id</code> so all orders share the same Truv user.</p>
+          <p class="text-[13px] text-[#808080] mb-4">Sent as <code class="font-mono">external_user_id</code> so all orders share the same Truv user.</p>
           <button
             onClick={onInitialize}
             disabled={initializing || !applicationId.trim()}
-            class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40"
+            class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors disabled:opacity-40"
           >
             {initializing ? (
               <span class="inline-flex items-center gap-2">
@@ -105,10 +105,10 @@ export function InitScreen({ applicationId, onApplicationIdChange, onInitialize,
         {FOLLOWUP_TASKS_INFO.map(t => (
           <div key={t.name} class="rounded-xl border border-[#e8e8ed] px-5 py-4">
             <div class="flex items-start justify-between mb-1">
-              <h3 class="text-[14px] font-semibold text-[#171717]">{t.name}</h3>
-              <span class="text-[11px] font-medium text-[#8E8E93] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{t.report}</span>
+              <h3 class="text-[14px] font-semibold text-[#000000]">{t.name}</h3>
+              <span class="text-[11px] font-medium text-[#808080] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{t.report}</span>
             </div>
-            <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{t.desc}</p>
+            <p class="text-[13px] text-[#808080] leading-[1.4]">{t.desc}</p>
           </div>
         ))}
       </div>
@@ -125,17 +125,17 @@ export function TaskList({ tasks, taskOrders, taskStatus, onStart }) {
         const order = taskOrders[task.id];
         return (
           <div key={task.id} class="flex items-center gap-4 rounded-xl border border-[#e8e8ed] px-5 py-4">
-            <div class={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border border-[#e8e8ed] ${task.iconBg}`}><task.Icon size={18} /></div>
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-[#f5f5f7] text-[#000000]"><task.Icon size={18} /></div>
             <div class="flex-1">
               <div class="text-sm font-semibold mb-0.5">{task.name}</div>
-              <div class="text-xs text-gray-500">{task.desc}</div>
+              <div class="text-[13px] text-gray-500">{task.desc}</div>
             </div>
             {completed ? (
-              <span class="text-xs font-semibold text-success bg-success-bg px-2 py-1 rounded uppercase">Completed</span>
+              <span class="text-xs font-semibold text-[#1C8F60] bg-success-bg px-2 py-1 rounded uppercase">Completed</span>
             ) : order ? (
-              <button class="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-full hover:bg-primary-hover" onClick={() => onStart(task)}>Start</button>
+              <button class="px-3 py-1.5 text-[13px] font-medium bg-primary text-white rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors" onClick={() => onStart(task)}>Start</button>
             ) : (
-              <span class="text-xs text-gray-400">Failed</span>
+              <span class="text-[13px] text-gray-400">Failed</span>
             )}
           </div>
         );
@@ -151,14 +151,14 @@ export function FollowUpReportResults({ reportData, reportLoading, reportError, 
 
   return (
     <div class={`${maxWidth} mx-auto`}>
-      <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Results</h2>
-      <p class="text-sm text-gray-500 mb-7">{taskInfo?.task?.name || 'Task'} verification</p>
+      <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-1.5">Verification Results</h2>
+      <p class="text-[15px] text-[#808080] leading-[1.5] mb-7">{taskInfo?.task?.name || 'Task'} verification</p>
       {reportData.income && <VoieReport report={reportData.income} />}
       {reportData.employment && <VoieReport report={reportData.employment} />}
       {reportData.assets && <AssetsReport report={reportData.assets} />}
       {reportData.income_insights && <IncomeInsightsReport report={reportData.income_insights} />}
       <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-        <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={onBack}>{backLabel}</button>
+        <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors" onClick={onBack}>{backLabel}</button>
       </div>
     </div>
   );

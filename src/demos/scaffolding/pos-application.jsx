@@ -69,7 +69,7 @@ export function IntroScreen({ onStart }) {
         <button
           onClick={() => selected && onStart(selected)}
           disabled={!selected}
-          class="w-full block py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40"
+          class="w-full block py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors disabled:opacity-40"
         >
           Get started
         </button>
@@ -87,11 +87,11 @@ export function IntroScreen({ onStart }) {
             }`}
           >
             <div class="flex items-start justify-between mb-1">
-              <h3 class="text-[15px] font-semibold text-[#171717]">{p.name}</h3>
-              <span class="text-[11px] font-medium text-[#8E8E93] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{p.report}</span>
+              <h3 class="text-[15px] font-semibold text-[#000000]">{p.name}</h3>
+              <span class="text-[11px] font-medium text-[#808080] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{p.report}</span>
             </div>
-            <p class="text-[14px] text-[#8E8E93] leading-[1.5] mb-2">{p.desc}</p>
-            <p class="text-[12px] text-[#8E8E93]">{p.useCase}</p>
+            <p class="text-[14px] text-[#808080] leading-[1.5] mb-2">{p.desc}</p>
+            <p class="text-[13px] text-[#808080]">{p.useCase}</p>
           </div>
         ))}
       </div>
@@ -106,14 +106,14 @@ export function ReportResults({ reportData, reportLoading, reportError, productT
 
   return (
     <div class={`${maxWidth} mx-auto`}>
-      <h2 class="text-2xl font-bold tracking-tight mb-1.5">Verification Results</h2>
-      <p class="text-sm text-gray-500 mb-7">{productType} verification</p>
+      <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-1.5">Verification Results</h2>
+      <p class="text-[15px] text-[#808080] leading-[1.5] mb-7">{productType} verification</p>
       {reportData.income && <VoieReport report={reportData.income} />}
       {reportData.employment && <VoieReport report={reportData.employment} />}
       {reportData.assets && <AssetsReport report={reportData.assets} />}
       {reportData.income_insights && <IncomeInsightsReport report={reportData.income_insights} />}
       <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-        <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={onBack}>{backLabel}</button>
+        <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors" onClick={onBack}>{backLabel}</button>
       </div>
     </div>
   );

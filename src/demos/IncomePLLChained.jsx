@@ -338,7 +338,7 @@ export function IncomePLLChainedDemo() {
             title={INTRO_SLIDE_CONFIG.title}
             subtitle={INTRO_SLIDE_CONFIG.subtitle}
             diagram={DIAGRAM}
-            actions={<button onClick={() => setShowForm(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
+            actions={<button onClick={() => setShowForm(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors text-center">Get started</button>}
           />
         </div>
       )}
@@ -361,7 +361,7 @@ export function IncomePLLChainedDemo() {
       {(screen === 'coverage' || screen === 'decision' || screen === 'review' || screen === 'manual'
         || (screen === 'voie-waiting' && !bridgeToken)
         || (screen === 'pll-waiting' && !bridgeToken)) && (
-        <div class="max-w-lg mx-auto px-8 py-10 w-full">
+        <div class="sm:max-w-lg sm:mx-auto px-8 py-10 w-full">
           {/* Coverage screen: pre-check result + button to proceed to VOIE order */}
           {screen === 'coverage' && (
             <CoverageScreen coverage={coverage} loading={loading} onContinue={startVoieOrder} />
@@ -381,8 +381,8 @@ export function IncomePLLChainedDemo() {
           {/* Review screen: PLL deposit allocation report */}
           {screen === 'review' && (
             <div>
-              <h2 class="text-2xl font-bold tracking-tight mb-1.5">{REPORT_HEADER.title}</h2>
-              <p class="text-sm text-gray-500 mb-7">{REPORT_HEADER.subtitle}</p>
+              <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-1.5">{REPORT_HEADER.title}</h2>
+              <p class="text-[15px] text-[#808080] leading-[1.5] mb-7">{REPORT_HEADER.subtitle}</p>
               <ReviewBody report={pllReport} error={pllError} userId={pllOrder?.user_id || voieOrder?.user_id} onReset={resetDemo} />
             </div>
           )}
@@ -399,8 +399,8 @@ export function IncomePLLChainedDemo() {
 
 function CoverageBadge({ coverage }) {
   const colors = {
-    high: 'bg-success-bg text-success',
-    medium: 'bg-warning-bg text-warning',
+    high: 'bg-success-bg text-[#1C8F60]',
+    medium: 'bg-warning-bg text-[#C18D10]',
     low: 'bg-red-50 text-red-500',
     unsupported: 'bg-red-50 text-red-500',
   };
@@ -411,8 +411,8 @@ function CoverageBadge({ coverage }) {
 function InternalCallout() {
   return (
     <div class="bg-[#f5f5f7] border border-[#e8e8ed] rounded-2xl p-4 mb-6 flex gap-3 items-start">
-      <svg class="w-4 h-4 text-[#86868b] flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-      <div class="text-xs text-gray-600 leading-relaxed">
+      <svg class="w-4 h-4 text-[#808080] flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+      <div class="text-[13px] text-gray-600 leading-relaxed">
         <span class="font-semibold text-gray-700">Internal-only step.</span> The borrower wouldn't see this in production — it represents the backend coverage pre-check that decides whether to create a Truv order or route to a manual path.
       </div>
     </div>
@@ -428,10 +428,10 @@ function CoverageScreen({ coverage, loading, onContinue }) {
   if (coverage.skipped) {
     return (
       <div>
-        <h2 class="text-2xl font-bold tracking-tight mb-1.5">No employer selected</h2>
-        <p class="text-sm text-gray-500 mb-7">The borrower will search for and pick their employer inside Bridge during the VOIE step. Coverage will be evaluated after they connect.</p>
+        <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-1.5">No employer selected</h2>
+        <p class="text-[15px] text-[#808080] leading-[1.5] mb-7">The borrower will search for and pick their employer inside Bridge during the VOIE step. Coverage will be evaluated after they connect.</p>
         <InternalCallout />
-        <button onClick={onContinue} disabled={loading} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
+        <button onClick={onContinue} disabled={loading} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors disabled:opacity-40">
           {loading ? <span class="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Create VOIE order & open Bridge'}
         </button>
       </div>
@@ -445,44 +445,44 @@ function CoverageScreen({ coverage, loading, onContinue }) {
 
   return (
     <div>
-      <h2 class="text-2xl font-bold tracking-tight mb-1.5">Coverage pre-check</h2>
-      <p class="text-sm text-gray-500 mb-5">Truv's PLL support for <strong>{coverage.name || 'this employer'}</strong>:</p>
+      <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-1.5">Coverage pre-check</h2>
+      <p class="text-[15px] text-[#808080] leading-[1.5] mb-5">Truv's PLL support for <strong>{coverage.name || 'this employer'}</strong>:</p>
 
       <InternalCallout />
 
       <div class="border border-gray-200 rounded-2xl p-5 mb-4 space-y-4">
         <div class="flex items-center justify-between">
-          <span class="text-xs text-gray-400 uppercase tracking-wide">Coverage</span>
+          <span class="text-[13px] text-gray-400 uppercase tracking-wide">Coverage</span>
           <CoverageBadge coverage={coverage.success_rate} />
         </div>
         <div class="flex items-center justify-between">
-          <span class="text-xs text-gray-400 uppercase tracking-wide">Deposit types</span>
+          <span class="text-[13px] text-gray-400 uppercase tracking-wide">Deposit types</span>
           <span class="text-sm font-mono text-gray-900">{depositTypes || '—'}</span>
         </div>
         <div class="flex items-center justify-between">
-          <span class="text-xs text-gray-400 uppercase tracking-wide">Amount precision</span>
+          <span class="text-[13px] text-gray-400 uppercase tracking-wide">Amount precision</span>
           <span class="text-sm font-mono text-gray-900">{coverage.amount_precision ?? '—'}</span>
         </div>
         <div class="flex items-center justify-between">
-          <span class="text-xs text-gray-400 uppercase tracking-wide">Percent precision</span>
+          <span class="text-[13px] text-gray-400 uppercase tracking-wide">Percent precision</span>
           <span class="text-sm font-mono text-gray-900">{coverage.percent_precision ?? '—'}</span>
         </div>
         <div class="flex items-center justify-between">
-          <span class="text-xs text-gray-400 uppercase tracking-wide">Max allocations</span>
+          <span class="text-[13px] text-gray-400 uppercase tracking-wide">Max allocations</span>
           <span class="text-sm font-mono text-gray-900">{coverage.max_number ?? '—'}</span>
         </div>
       </div>
 
       {isBadCoverage && (
         <div class="bg-warning-bg border border-warning/30 rounded-2xl p-4 mb-6">
-          <div class="text-sm font-semibold text-warning mb-1">Production would route to manual</div>
-          <div class="text-xs text-gray-600 leading-relaxed">
+          <div class="text-sm font-semibold text-[#C18D10] mb-1">Production would route to manual</div>
+          <div class="text-[13px] text-gray-600 leading-relaxed">
             Coverage came back as <code class="font-mono">{coverage.success_rate}</code>. In a live integration the recommendation is to send the borrower down a manual path here — but you can proceed for the sandbox demo.
           </div>
         </div>
       )}
 
-      <button onClick={onContinue} disabled={loading} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
+      <button onClick={onContinue} disabled={loading} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors disabled:opacity-40">
         {loading ? <span class="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (isBadCoverage ? 'Continue anyway' : 'Create VOIE order & open Bridge')}
       </button>
     </div>
@@ -494,20 +494,20 @@ function DecisionScreen({ decision, onContinue, loading }) {
     return <div class="text-center py-16"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /><p class="text-sm text-gray-500 mt-4">Reading bank accounts and link info...</p></div>;
   }
   const ddsLabel = decision.is_dds_supported === true ? 'true' : decision.is_dds_supported === false ? 'false' : 'null';
-  const ddsClass = decision.is_dds_supported === false ? 'text-red-500' : decision.is_dds_supported === true ? 'text-success' : 'text-gray-500';
+  const ddsClass = decision.is_dds_supported === false ? 'text-red-500' : decision.is_dds_supported === true ? 'text-[#1C8F60]' : 'text-gray-500';
   const wouldRouteManual = !decision.decision?.proceed;
 
   return (
     <div>
-      <h2 class="text-2xl font-bold tracking-tight mb-1.5">Income verification complete</h2>
-      <p class="text-sm text-gray-500 mb-5 leading-relaxed">
-        The borrower authenticated with their payroll provider. That session is now linked to <code class="font-mono text-xs bg-[#f5f5f7] px-1 py-0.5 rounded">order_number</code> — when you create the PLL order with the same value, they'll confirm the deduction without re-authenticating.
+      <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-1.5">Income verification complete</h2>
+      <p class="text-[15px] text-[#808080] leading-[1.5] mb-5">
+        The borrower authenticated with their payroll provider. That session is now linked to <code class="font-mono text-[13px] bg-[#f5f5f7] px-1 py-0.5 rounded">order_number</code> — when you create the PLL order with the same value, they'll confirm the deduction without re-authenticating.
       </p>
 
       {/* Two-path handoff callout — emphasizes integrator flexibility */}
       <div class="border border-primary/30 bg-[#f5f8ff] rounded-2xl p-5 mb-5">
-        <div class="text-[12px] font-bold uppercase tracking-[0.08em] text-primary mb-3">What's next is up to you</div>
-        <div class="space-y-3 text-sm text-[#1d1d1f] leading-relaxed">
+        <div class="text-[13px] font-bold uppercase tracking-[0.08em] text-primary mb-3">What's next is up to you</div>
+        <div class="space-y-3 text-sm text-[#000000] leading-relaxed">
           <div class="flex gap-2.5">
             <span class="text-primary font-bold mt-0.5">→</span>
             <div>
@@ -517,16 +517,16 @@ function DecisionScreen({ decision, onContinue, loading }) {
           <div class="flex gap-2.5">
             <span class="text-primary font-bold mt-0.5">→</span>
             <div>
-              <span class="font-semibold">Or pause here in your own UI.</span> Collect more borrower info, run underwriting, fetch the income report, send a notification — then create the PLL order whenever you're ready. Same <code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-[#e8e8ed]">order_number</code> + <code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-[#e8e8ed]">company_mapping_id</code> keep the payroll session linked.
+              <span class="font-semibold">Or pause here in your own UI.</span> Collect more borrower info, run underwriting, fetch the income report, send a notification — then create the PLL order whenever you're ready. Same <code class="font-mono text-[13px] bg-white px-1 py-0.5 rounded border border-[#e8e8ed]">order_number</code> + <code class="font-mono text-[13px] bg-white px-1 py-0.5 rounded border border-[#e8e8ed]">company_mapping_id</code> keep the payroll session linked.
             </div>
           </div>
         </div>
       </div>
 
       {/* Decision-gate data — supporting info, the backend's check before proceeding */}
-      <div class="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2 px-1">Decision-gate data (backend pre-check)</div>
+      <div class="text-[13px] font-semibold uppercase tracking-wide text-gray-400 mb-2 px-1">Decision-gate data (backend pre-check)</div>
       <div class="border border-gray-200 rounded-2xl p-5 mb-4">
-        <div class="text-xs text-gray-400 uppercase tracking-wide mb-3">Bank accounts on file</div>
+        <div class="text-[13px] text-gray-400 uppercase tracking-wide mb-3">Bank accounts on file</div>
         {decision.bank_accounts?.length ? (
           <div class="space-y-2">
             {decision.bank_accounts.map((a, i) => (
@@ -542,15 +542,15 @@ function DecisionScreen({ decision, onContinue, loading }) {
           <div class="text-sm text-gray-400">No allocations returned.</div>
         )}
         {typeof decision.max_number === 'number' && (
-          <div class="text-xs text-gray-400 mt-3">Provider max: {decision.max_number} allocations</div>
+          <div class="text-[13px] text-gray-400 mt-3">Provider max: {decision.max_number} allocations</div>
         )}
       </div>
 
       <div class="border border-gray-200 rounded-2xl p-5 mb-4">
         <div class="flex items-center justify-between">
           <div>
-            <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">is_dds_supported</div>
-            <div class="text-xs text-gray-500">Truv's verdict on this borrower + provider combo</div>
+            <div class="text-[13px] text-gray-400 uppercase tracking-wide mb-1">is_dds_supported</div>
+            <div class="text-[13px] text-gray-500">Truv's verdict on this borrower + provider combo</div>
           </div>
           <span class={`text-sm font-mono font-semibold ${ddsClass}`}>{ddsLabel}</span>
         </div>
@@ -558,8 +558,8 @@ function DecisionScreen({ decision, onContinue, loading }) {
 
       {wouldRouteManual && (
         <div class="bg-warning-bg border border-warning/30 rounded-2xl p-4 mb-6">
-          <div class="text-sm font-semibold text-warning mb-1">Production would route to manual</div>
-          <div class="text-xs text-gray-600 leading-relaxed">
+          <div class="text-sm font-semibold text-[#C18D10] mb-1">Production would route to manual</div>
+          <div class="text-[13px] text-gray-600 leading-relaxed">
             One of the gates flagged: <code class="font-mono">{(decision.decision?.reasons || []).filter(r => r && !r.endsWith('_ok') && !r.endsWith('_supported') && r !== 'dds_unknown').join(', ') || 'unknown'}</code>. In a live integration this is where you'd send the borrower down a manual path — proceed for the demo.
           </div>
         </div>
@@ -567,12 +567,12 @@ function DecisionScreen({ decision, onContinue, loading }) {
 
       {decision._raw?.order && (
         <details class="mb-6">
-          <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Raw GET /v1/orders/{`{id}`}/ response</summary>
-          <pre class="bg-gray-50 border border-gray-200 rounded-lg p-3 text-[11px] font-mono overflow-auto max-h-72 whitespace-pre-wrap mt-2">{JSON.stringify(decision._raw.order, null, 2)}</pre>
+          <summary class="text-[13px] text-gray-400 cursor-pointer hover:text-gray-600">Raw GET /v1/orders/{`{id}`}/ response</summary>
+          <pre class="bg-gray-50 border border-gray-200 rounded-lg p-3 text-[13px] font-mono overflow-auto max-h-72 whitespace-pre-wrap mt-2">{JSON.stringify(decision._raw.order, null, 2)}</pre>
         </details>
       )}
 
-      <button onClick={onContinue} disabled={loading} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover disabled:opacity-40">
+      <button onClick={onContinue} disabled={loading} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors disabled:opacity-40">
         {loading ? <span class="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (wouldRouteManual ? 'Continue to PLL anyway' : 'Continue to PLL')}
       </button>
     </div>
@@ -585,11 +585,11 @@ function ReviewBody({ report, error, userId, onReset }) {
       <div>
         <div class="bg-red-50 border border-red-200 rounded-2xl p-4">
           <div class="text-sm font-semibold text-red-500 mb-1">Couldn't load PLL report</div>
-          <div class="text-xs text-gray-600 mb-2">{error}</div>
-          {userId && <a href={`${API_BASE}/api/voie-pll/tasks/${userId}`} target="_blank" class="text-xs text-primary font-medium">View raw tasks →</a>}
+          <div class="text-[13px] text-gray-600 mb-2">{error}</div>
+          {userId && <a href={`${API_BASE}/api/voie-pll/tasks/${userId}`} target="_blank" class="text-[13px] text-primary font-medium">View raw tasks →</a>}
         </div>
         <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-          <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={onReset}>Start Over</button>
+          <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors" onClick={onReset}>Start Over</button>
         </div>
       </div>
     );
@@ -604,13 +604,13 @@ function ReviewBody({ report, error, userId, onReset }) {
       {failedTask && (
         <div class="bg-red-50 border border-red-200 rounded-2xl p-4 mt-4">
           <div class="text-sm font-semibold text-red-500 mb-1">Task failed: {failedTask.status}</div>
-          <div class="text-xs text-gray-500 mb-2">{failedTask.error_message || 'See task list for details.'}</div>
-          {userId && <a href={`${API_BASE}/api/voie-pll/tasks/${userId}`} target="_blank" class="text-xs text-primary font-medium">View raw tasks →</a>}
+          <div class="text-[13px] text-gray-500 mb-2">{failedTask.error_message || 'See task list for details.'}</div>
+          {userId && <a href={`${API_BASE}/api/voie-pll/tasks/${userId}`} target="_blank" class="text-[13px] text-primary font-medium">View raw tasks →</a>}
         </div>
       )}
       {!report.pll_report && !failedTask && <p class="text-sm text-gray-500 mt-4">PLL report unavailable. Try starting over.</p>}
       <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-        <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary" onClick={onReset}>Start Over</button>
+        <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors" onClick={onReset}>Start Over</button>
       </div>
     </div>
   );
@@ -620,17 +620,17 @@ function ManualRouteScreen({ reason, onReset }) {
   return (
     <div class="text-center py-12">
       <div class="w-12 h-12 mx-auto mb-5 rounded-full bg-warning-bg flex items-center justify-center">
-        <svg class="w-6 h-6 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" /></svg>
+        <svg class="w-6 h-6 text-[#C18D10]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" /></svg>
       </div>
-      <h2 class="text-2xl font-bold tracking-tight mb-2">Route to manual path</h2>
-      <p class="text-sm text-gray-500 max-w-md mx-auto mb-2">
+      <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2">Route to manual path</h2>
+      <p class="text-[15px] text-[#808080] leading-[1.5] max-w-md mx-auto mb-2">
         Truv either can't support this employer for PLL or the borrower's payroll config blocks an auto-deposit-switch.
       </p>
-      <p class="text-xs text-gray-400 font-mono mb-7">Reason: {reason || 'unknown'}</p>
-      <p class="text-xs text-gray-500 max-w-md mx-auto mb-8">
+      <p class="text-[13px] text-gray-400 font-mono mb-7">Reason: {reason || 'unknown'}</p>
+      <p class="text-[13px] text-gray-500 max-w-md mx-auto mb-8">
         Failing here (instead of in Bridge) is the whole point of the pre-checks — you don't strand the borrower mid-flow.
       </p>
-      <button onClick={onReset} class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-full hover:border-primary hover:text-primary">Start Over</button>
+      <button onClick={onReset} class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors">Start Over</button>
     </div>
   );
 }

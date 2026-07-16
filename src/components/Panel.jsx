@@ -21,8 +21,8 @@ export function TabButton({ active, label, count, onClick }) {
   return (
     <button
       onClick={onClick}
-      class={`px-3 py-1.5 text-[12px] font-medium rounded-lg transition-all ${
-        active ? 'text-primary bg-[#f5f5f7]' : 'text-[#8E8E93] hover:text-[#171717] hover:bg-[#f5f5f7]'
+      class={`px-3 py-1.5 text-[13px] font-medium rounded-lg transition-all ${
+        active ? 'text-primary bg-[#f5f5f7]' : 'text-[#808080] hover:text-[#000000] hover:bg-[#f5f5f7]'
       }`}
     >
       {label}{count > 0 ? ` (${count})` : ''}
@@ -44,11 +44,11 @@ function GuideTab({ steps, currentStep }) {
         if (isActive) {
           return (
             <div key={i} class="mb-3 p-4 bg-gray-100 rounded-lg">
-              <div class="text-sm font-semibold text-primary mb-2">{i + 1}. {step.title}</div>
+              <div class="text-sm font-semibold text-[#000000] mb-2">{i + 1}. {step.title}</div>
               {step.guide && (
                 // Developer-authored static guide content. Already sanitized at build time.
                 <div
-                  class="text-xs text-gray-500 leading-relaxed [&_p]:my-2 [&_pre]:bg-[#1a1a2e] [&_pre]:text-[#e2e8f0] [&_pre]:p-3 [&_pre]:rounded-md [&_pre]:text-[11px] [&_pre]:font-mono [&_pre]:overflow-x-auto [&_pre]:whitespace-pre [&_pre]:my-2 [&_pre]:leading-relaxed [&_code]:bg-black/5 [&_code]:px-1 [&_code]:rounded [&_code]:text-[11px] [&_code]:font-mono [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_ul]:my-2 [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:pl-5 [&_li]:my-1 [&_h5]:text-[11px] [&_h5]:font-bold [&_h5]:uppercase [&_h5]:tracking-wide [&_h5]:text-gray-900 [&_h5]:mt-3 [&_h5]:mb-1 [&_a]:text-primary [&_a]:font-medium"
+                  class="text-[13px] text-gray-500 leading-relaxed [&_p]:my-2 [&_pre]:bg-[#1a1a2e] [&_pre]:text-[#e2e8f0] [&_pre]:p-3 [&_pre]:rounded-md [&_pre]:text-[13px] [&_pre]:font-mono [&_pre]:overflow-x-auto [&_pre]:whitespace-pre [&_pre]:my-2 [&_pre]:leading-relaxed [&_code]:bg-black/5 [&_code]:px-1 [&_code]:rounded [&_code]:text-[13px] [&_code]:font-mono [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_ul]:my-2 [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:pl-5 [&_li]:my-1 [&_h5]:text-[13px] [&_h5]:font-bold [&_h5]:uppercase [&_h5]:tracking-wide [&_h5]:text-gray-900 [&_h5]:mt-3 [&_h5]:mb-1 [&_a]:text-primary [&_a]:font-medium"
                   dangerouslySetInnerHTML={{ __html: step.guide }}
                 />
               )}
@@ -58,7 +58,7 @@ function GuideTab({ steps, currentStep }) {
 
         // Completed or future step: single-line with checkmark or step number
         return (
-          <div key={i} class={`px-4 py-2.5 text-sm border-b border-border-light ${isDone ? 'text-success' : 'text-gray-400'}`}>
+          <div key={i} class={`px-4 py-2.5 text-sm border-b border-border-light ${isDone ? 'text-[#000000]' : 'text-gray-400'}`}>
             {isDone ? '✓ ' : `${i + 1}. `}{step.title}
           </div>
         );
@@ -72,29 +72,29 @@ function GuideTab({ steps, currentStep }) {
 // Expands to show request and response JSON bodies.
 function LogEntry({ method, endpoint, status, requestBody, responseBody }) {
   const [open, setOpen] = useState(false);
-  const badgeClass = method === 'POST' ? 'bg-success-bg text-success' : 'bg-primary-light text-primary';
+  const badgeClass = method === 'POST' ? 'bg-success-bg text-[#1C8F60]' : 'bg-primary-light text-primary';
 
   return (
     <div class="mb-2 border border-border-light rounded-lg overflow-hidden">
       {/* Collapsed header: method badge, endpoint, status */}
-      <div class="flex items-center gap-2 px-3 py-2.5 cursor-pointer text-xs hover:bg-gray-50" onClick={() => setOpen(!open)}>
+      <div class="flex items-center gap-2 px-3 py-2.5 cursor-pointer text-[13px] hover:bg-gray-50" onClick={() => setOpen(!open)}>
         <span class={`px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide ${badgeClass}`}>{method}</span>
         <span class="font-medium text-gray-900 flex-1 font-mono">{endpoint}</span>
-        <span class="text-[11px] text-gray-400">{status}</span>
+        <span class="text-[13px] text-gray-400">{status}</span>
       </div>
       {/* Expanded detail: formatted request and response bodies */}
       {open && (
         <div class="border-t border-border-light p-3 bg-gray-50">
           {requestBody && (
             <>
-              <h5 class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Request</h5>
-              <pre class="text-[11px] leading-relaxed whitespace-pre-wrap break-all text-gray-500 font-mono bg-gray-100 p-2.5 rounded-md max-h-[12.5rem] overflow-y-auto">{tryFormat(requestBody)}</pre>
+              <h5 class="text-[13px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Request</h5>
+              <pre class="text-[13px] leading-relaxed whitespace-pre-wrap break-all text-[#e5e5ea] font-mono bg-[#1c1c1e] p-2.5 rounded-md max-h-[12.5rem] overflow-y-auto">{tryFormat(requestBody)}</pre>
             </>
           )}
           {responseBody && (
             <>
-              <h5 class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1 mt-3">Response</h5>
-              <pre class="text-[11px] leading-relaxed whitespace-pre-wrap break-all text-gray-500 font-mono bg-gray-100 p-2.5 rounded-md max-h-[12.5rem] overflow-y-auto">{tryFormat(responseBody)}</pre>
+              <h5 class="text-[13px] font-semibold text-gray-400 uppercase tracking-wide mb-1 mt-3">Response</h5>
+              <pre class="text-[13px] leading-relaxed whitespace-pre-wrap break-all text-[#e5e5ea] font-mono bg-[#1c1c1e] p-2.5 rounded-md max-h-[12.5rem] overflow-y-auto">{tryFormat(responseBody)}</pre>
             </>
           )}
         </div>
@@ -118,16 +118,18 @@ function BridgeEvent({ evt }) {
   return (
     <div class="mb-2 border border-border-light rounded-lg overflow-hidden">
       {/* Event header: type name and timestamp */}
-      <div class={`flex items-center gap-2 px-3 py-2.5 text-xs ${hasData ? 'cursor-pointer hover:bg-gray-50' : ''}`} onClick={() => hasData && setOpen(!open)}>
+      <div class={`flex items-center gap-2 px-3 py-2.5 text-[13px] ${hasData ? 'cursor-pointer hover:bg-gray-50' : ''}`} onClick={() => hasData && setOpen(!open)}>
         <span class="font-medium text-gray-900">{evt.type}</span>
-        <span class="text-[11px] text-gray-400">{evt.timestamp ? new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}</span>
+        <span class="text-[13px] text-gray-400">{evt.timestamp ? new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}</span>
       </div>
       {/* Expanded payload data with label/value pairs */}
       {open && hasData && (
         <div class="border-t border-border-light p-3 bg-gray-50">
-          {evt.data.map(({ label, value }) => (
-            <pre class="text-[11px] leading-relaxed whitespace-pre-wrap break-all font-mono"><span class="text-gray-400">{label} = </span><span class="text-gray-500">{tryFormat(value)}</span></pre>
-          ))}
+          <div class="bg-[#1c1c1e] p-2.5 rounded-md">
+            {evt.data.map(({ label, value }) => (
+              <pre class="text-[13px] leading-relaxed whitespace-pre-wrap break-all font-mono"><span class="text-[#8e8e93]">{label} = </span><span class="text-[#e5e5ea]">{tryFormat(value)}</span></pre>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -147,8 +149,8 @@ function BridgeTab({ events }) {
 function WebhookEntry({ wh }) {
   const [open, setOpen] = useState(false);
   // Status color coding: green for completed/done, yellow for pending, red for failed, blue otherwise
-  const statusColor = wh.status === 'completed' || wh.status === 'done' ? 'text-success bg-success-bg'
-    : wh.status === 'pending' ? 'text-warning bg-warning-bg'
+  const statusColor = wh.status === 'completed' || wh.status === 'done' ? 'text-[#1C8F60] bg-success-bg'
+    : wh.status === 'pending' ? 'text-[#C18D10] bg-warning-bg'
     : wh.status === 'failed' ? 'text-error bg-red-50'
     : 'text-blue-500 bg-blue-50';
   const payload = wh.payload || wh;
@@ -156,15 +158,15 @@ function WebhookEntry({ wh }) {
   return (
     <div class="mb-2 border border-border-light rounded-lg overflow-hidden">
       {/* Webhook header: event type, status badge, timestamp */}
-      <div class="flex items-center gap-2 px-3 py-2.5 text-xs cursor-pointer hover:bg-gray-50" onClick={() => setOpen(!open)}>
+      <div class="flex items-center gap-2 px-3 py-2.5 text-[13px] cursor-pointer hover:bg-gray-50" onClick={() => setOpen(!open)}>
         <span class="font-medium text-gray-900 flex-1">{wh.event_type || ''}</span>
         {wh.status && <span class={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${statusColor}`}>{wh.status}</span>}
-        <span class="text-[11px] text-gray-400">{wh.created_at || wh.timestamp ? new Date(wh.created_at || wh.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}</span>
+        <span class="text-[13px] text-gray-400">{wh.created_at || wh.timestamp ? new Date(wh.created_at || wh.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}</span>
       </div>
       {/* Expanded: full formatted webhook payload */}
       {open && (
         <div class="border-t border-border-light p-3 bg-gray-50">
-          <pre class="text-[11px] leading-relaxed whitespace-pre-wrap break-all text-gray-500 font-mono">{tryFormat(payload)}</pre>
+          <pre class="text-[13px] leading-relaxed whitespace-pre-wrap break-all text-[#e5e5ea] font-mono bg-[#1c1c1e] p-2.5 rounded-md">{tryFormat(payload)}</pre>
         </div>
       )}
     </div>
@@ -178,13 +180,13 @@ function WebhooksTab({ webhooks, tunnelUrl }) {
     <div>
       {/* Tunnel URL display for local development webhook forwarding */}
       {tunnelUrl && (
-        <div class="bg-gray-50 rounded-lg px-3 py-2.5 mb-3 text-xs text-gray-500">
+        <div class="bg-gray-50 rounded-lg px-3 py-2.5 mb-3 text-[13px] text-gray-500">
           <span class="font-medium text-gray-400">Tunnel: </span>
           <a href={tunnelUrl} target="_blank" rel="noopener noreferrer" class="text-primary break-all hover:underline">{tunnelUrl}</a>
         </div>
       )}
       {/* Link to Truv dashboard for webhook configuration */}
-      <div class="mb-3 text-xs">
+      <div class="mb-3 text-[13px]">
         <a href={DASHBOARD_WEBHOOKS_URL} target="_blank" rel="noopener noreferrer" class="text-primary font-medium">See webhook config</a>
       </div>
       {/* Webhook event list in reverse chronological order */}

@@ -7,10 +7,10 @@
   --color-primary-active: #0e2968;
   --color-surface: #ffffff;
   --color-surface-secondary: #f5f5f7;
-  --color-text: #171717;
-  --color-text-secondary: #8E8E93;
-  --color-text-tertiary: #AEAEB2;
-  --color-muted: #8E8E93;
+  --color-text: #000000;
+  --color-text-secondary: #808080;
+  --color-text-tertiary: #808080;
+  --color-muted: #808080;
   --color-border: #d2d2d7;
   --color-border-light: #e8e8ed;
   --color-success: #34c759;
@@ -18,6 +18,39 @@
   --color-warning: #ff9f0a;
   --color-warning-bg: #fffbeb;
   --color-error: #ff3b30;
+
+  /* Palette normalization (visual cleanup): funnel the Tailwind gray/blue
+     shades used for TEXT into the unified black / grey / blue system.
+     Grey text -> #808080, black text -> #000000, solid blue -> #2C64E3.
+     Border & background gray shades (50-300) are intentionally left alone,
+     and pale blue tints (blue-50/100) stay as tints. */
+  --color-gray-400: #808080;
+  --color-gray-500: #808080;
+  --color-gray-600: #808080;
+  --color-gray-700: #808080;
+  --color-gray-800: #000000;
+  --color-gray-900: #000000;
+  --color-blue-500: #2C64E3;
+  --color-blue-800: #2C64E3;
+  /* Green TEXT shades funnel into the unified success green. Only the
+     text shades (500-800) are used for type; the pale green tints
+     (green-50/100/200) stay as-is for badge backgrounds/borders. */
+  --color-green-500: #1C8F60;
+  --color-green-600: #1C8F60;
+  --color-green-700: #1C8F60;
+  --color-green-800: #1C8F60;
+  /* Yellow/orange TEXT shades funnel into the unified warning gold. Only the
+     text shades (500-800) are used for type; the pale tints
+     (amber-50, yellow-100/400, orange-100) stay as-is for backgrounds. */
+  --color-yellow-500: #C18D10;
+  --color-yellow-600: #C18D10;
+  --color-yellow-700: #C18D10;
+  --color-yellow-800: #C18D10;
+  --color-orange-500: #C18D10;
+  --color-orange-600: #C18D10;
+  --color-orange-700: #C18D10;
+  --color-orange-800: #C18D10;
+
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', SFMono-Regular, Menlo, monospace;
 }
@@ -30,6 +63,17 @@
     -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.01em;
     line-height: 1.47059;
+  }
+
+  /* Tailwind v4's Preflight no longer sets cursor:pointer on buttons, so
+     restore it for all clickable elements (skipping disabled controls). */
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  a[href],
+  label[for],
+  summary,
+  select:not(:disabled) {
+    cursor: pointer;
   }
 }
 
@@ -127,11 +171,14 @@
   justify-content: center;
   flex-shrink: 0;
 }
-.icon-box-blue { background: #eff6ff; color: #3b82f6; border: 1px solid #dbeafe; }
-.icon-box-indigo { background: #eef2ff; color: #6366f1; border: 1px solid #e0e7ff; }
-.icon-box-emerald { background: #ecfdf5; color: #10b981; border: 1px solid #d1fae5; }
-.icon-box-amber { background: #fffbeb; color: #f59e0b; border: 1px solid #fef3c7; }
-.icon-box-rose { background: #fff1f2; color: #f43f5e; border: 1px solid #ffe4e6; }
-.icon-box-violet { background: #f5f3ff; color: #8b5cf6; border: 1px solid #ede9fe; }
-.icon-box-cyan { background: #ecfeff; color: #06b6d4; border: 1px solid #cffafe; }
-.icon-box-orange { background: #fff7ed; color: #f97316; border: 1px solid #ffedd5; }
+/* All icon boxes use a neutral grey background with a dark icon (matches the
+   category cards on Home/IndustryPage). The color-named variants are kept so
+   existing markup keeps working, but they all resolve to the same neutral look. */
+.icon-box-blue,
+.icon-box-indigo,
+.icon-box-emerald,
+.icon-box-amber,
+.icon-box-rose,
+.icon-box-violet,
+.icon-box-cyan,
+.icon-box-orange { background: #f5f5f7; color: #000000; }

@@ -78,7 +78,7 @@ export function CompanySearch({ value, onChange, productType, dataSource, placeh
         onInput={handleInput}
         onFocus={() => results.length > 0 && setOpen(true)}
         placeholder={placeholder || "Search for employer..."}
-        class="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-primary focus:outline-none"
+        class="w-full px-3.5 py-2.5 border border-[#d2d2d7] rounded-lg text-sm focus:border-primary focus:outline-none"
       />
       {/* Loading spinner shown during API fetch */}
       {loading && <div class="absolute right-3 top-3"><div class="w-4 h-4 border-2 border-gray-200 border-t-primary rounded-full animate-spin" /></div>}
@@ -93,7 +93,7 @@ export function CompanySearch({ value, onChange, productType, dataSource, placeh
               }
               <div class="flex-1 min-w-0">
                 <div class="text-sm font-medium truncate">{c.name}</div>
-                {c.domain && <div class="text-xs text-gray-400">{c.domain}</div>}
+                {c.domain && <div class="text-[13px] text-gray-400">{c.domain}</div>}
               </div>
             </div>
           ))}

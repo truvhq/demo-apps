@@ -34,7 +34,7 @@ export function BankCoverageDemo() {
             title={INTRO_SLIDE_CONFIG.title}
             subtitle={INTRO_SLIDE_CONFIG.subtitle}
             diagram={DIAGRAM}
-            actions={<button onClick={start} class="w-full py-3 bg-primary text-white font-semibold rounded-full hover:bg-primary-hover text-center">Get started</button>}
+            actions={<button onClick={start} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors text-center">Get started</button>}
           />
         ) : (
           <CoverageRunner

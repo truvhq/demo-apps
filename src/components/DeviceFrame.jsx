@@ -25,10 +25,10 @@ import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
 import { useRegisterDeviceFrame } from '../hooks/deviceFramePresence.jsx';
 
 // Shared classes for the segmented top-bar toggles (DeviceToggle, PanelToggle).
-const segBase = 'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium transition cursor-pointer';
+const segBase = 'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[13px] font-medium transition cursor-pointer';
 const segActive = 'bg-white shadow-sm text-gray-900';
 const segInactive = 'text-gray-500 hover:text-gray-700';
-const segGroup = 'flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-md';
+const segGroup = 'flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-lg';
 
 export function DeviceFrame({ children, url = 'demo.example.com' }) {
   const [mode] = useDeviceMode();
@@ -43,7 +43,7 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
   // (flex-1 min-h-0) so the phone bezel can scale down to fit short viewports
   // instead of pushing the page into a scroll.
   const outerClass = isMobile
-    ? 'flex flex-col items-center w-full pt-2 pb-6 flex-1 min-h-0'
+    ? 'flex flex-col items-center w-full pt-6 sm:pt-10 pb-6 flex-1 min-h-0'
     : 'flex w-full h-full';
   // Mobile: gray phone bezel with phone-shaped aspect ratio; height tries to
   // hit the original 804px but caps at 100% of outer (max-h-full) so it shrinks
@@ -98,7 +98,7 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
                   <span class="w-3 h-3 rounded-full bg-yellow-400" />
                   <span class="w-3 h-3 rounded-full bg-green-400" />
                 </div>
-                <div class="flex-1 mx-2 bg-white rounded-md px-3 py-1 text-xs text-gray-500 truncate font-mono">
+                <div class="flex-1 mx-2 bg-white rounded-md px-3 py-1 text-[13px] text-gray-500 truncate font-mono">
                   {url}
                 </div>
               </>
@@ -153,7 +153,7 @@ export function DeviceToggle() {
 // "collapse rightward" — so the affordance reads at a glance.
 // Each button self-gates on usePanelVisibility() so callers can drop both into
 // their respective layout slots without conditionals — only one ever renders.
-const panelBtnClass = 'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition cursor-pointer';
+const panelBtnClass = 'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[13px] font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition cursor-pointer';
 
 export function ShowPanelButton() {
   const [visible, setVisible] = usePanelVisibility();

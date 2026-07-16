@@ -155,15 +155,20 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
   return (
     <div class="px-4 py-6 sm:px-8 sm:py-10 max-w-[1100px] w-full mx-auto">
       <div class="mb-8">
-        <h2 class="text-2xl font-bold text-[#171717]">{kind === 'payroll' ? 'Payroll Coverage Analysis' : 'Financial Accounts Coverage Analysis'}</h2>
-        <p class="text-sm text-[#6b7280] mt-1">Upload up to 10,000 {kind === 'payroll' ? 'employers' : 'financial institutions'} and we will look up each one against the Truv {kind === 'payroll' ? 'company-mappings-search' : 'providers'} endpoint.</p>
+        <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000]">{kind === 'payroll' ? 'Payroll Coverage Analysis' : 'Financial Accounts Coverage Analysis'}</h2>
+        <p class="text-[15px] text-[#808080] leading-[1.5] mt-1">Upload up to 10,000 {kind === 'payroll' ? 'employers' : 'financial institutions'} and we will look up each one against the Truv {kind === 'payroll' ? 'company-mappings-search' : 'providers'} endpoint.</p>
       </div>
 
       <div class="flex flex-wrap items-end gap-4 mb-6 pb-6 border-b border-[#e5e7eb]">
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wide text-[#6b7280] mb-1">Product</label>
+          <label class="block text-[13px] font-semibold uppercase tracking-wide text-[#808080] mb-1">Product</label>
           <select
-            class="border border-[#d1d5db] rounded-md px-3 py-2 text-sm bg-white"
+            class="appearance-none border border-[#d2d2d7] rounded-md pl-3 pr-9 py-2 text-sm bg-white bg-no-repeat cursor-pointer focus:outline-none focus:border-primary"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23808080' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+              backgroundPosition: 'right 0.7rem center',
+              backgroundSize: '12px',
+            }}
             value={productType}
             onChange={e => setProductType(e.target.value)}
             disabled={status === 'running' || status === 'uploading'}
@@ -175,24 +180,24 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
         <a
           href={sampleUrl}
           download={sampleFilename}
-          class="px-4 py-2 text-sm font-medium text-primary bg-white border border-primary rounded-md hover:bg-[#f5f5f7]"
+          class="px-4 py-2 text-sm font-medium text-[#000000] bg-white border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors"
         >
           Download sample CSV
         </a>
 
-        <label class={`px-4 py-2 text-sm font-medium text-white bg-primary rounded-md cursor-pointer hover:opacity-90 ${status === 'running' || status === 'uploading' ? 'opacity-50 pointer-events-none' : ''}`}>
+        <label class={`px-4 py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-lg cursor-pointer hover:bg-primary-hover active:bg-primary-active transition-colors ${status === 'running' || status === 'uploading' ? 'opacity-50 pointer-events-none' : ''}`}>
           Upload CSV
           <input ref={fileInputRef} type="file" accept=".csv,text/csv" class="hidden" onChange={handleFile} />
         </label>
 
         {status === 'completed' && (
-          <button onClick={downloadCsv} class="px-4 py-2 text-sm font-medium text-white bg-[#16a34a] rounded-md hover:opacity-90">
+          <button onClick={downloadCsv} class="px-4 py-2 text-sm font-medium text-white bg-[#16a34a] rounded-lg hover:bg-[#15803d] active:bg-[#166534] transition-colors">
             Export results CSV
           </button>
         )}
 
         {(status === 'completed' || status === 'failed') && (
-          <button onClick={reset} class="px-4 py-2 text-sm font-medium text-[#374151] bg-white border border-[#d1d5db] rounded-md hover:bg-[#f5f5f7]">
+          <button onClick={reset} class="px-4 py-2 text-sm font-medium text-[#808080] bg-white border border-[#d1d5db] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors">
             Run another
           </button>
         )}
@@ -203,9 +208,9 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
       )}
 
       {status === 'idle' && !rows.length && (
-        <div class="px-6 py-12 text-center border-2 border-dashed border-[#d1d5db] rounded-lg text-[#6b7280]">
+        <div class="px-6 py-12 text-center border-2 border-dashed border-[#d1d5db] rounded-lg text-[#808080]">
           <p class="text-sm mb-2">Pick a product, then upload a CSV with a <code>name</code> column.</p>
-          <p class="text-xs">{kind === 'payroll' ? 'Optional columns: state, domain.' : 'Optional column: domain.'}</p>
+          <p class="text-[13px]">{kind === 'payroll' ? 'Optional columns: state, domain.' : 'Optional column: domain.'}</p>
         </div>
       )}
 
@@ -213,9 +218,9 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
         <>
           <div class="mb-4">
             <div class="flex items-center justify-between mb-1.5">
-              <div class="text-sm font-medium text-[#374151]">
+              <div class="text-sm font-medium text-[#808080]">
                 {status === 'running' ? 'Processing…' : status === 'completed' ? 'Completed' : 'Failed'}
-                <span class="text-[#6b7280] font-normal ml-2">{progress.processed} / {progress.total}</span>
+                <span class="text-[#808080] font-normal ml-2">{progress.processed} / {progress.total}</span>
               </div>
               <div class="text-sm font-semibold text-primary">{pct}%</div>
             </div>
@@ -235,7 +240,7 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
             />
           )}
 
-          <div class="flex flex-wrap gap-2 mb-4 text-xs">
+          <div class="flex flex-wrap gap-2 mb-4 text-[13px]">
             <FilterPill active={filter === 'all'} onClick={() => setFilter('all')} label={`All (${rows.length})`} />
             <FilterPill active={filter === 'found'} onClick={() => setFilter('found')} label={`Found (${counts.found || 0})`} color="green" />
             <FilterPill active={filter === 'not_found'} onClick={() => setFilter('not_found')} label={`Not found (${counts.not_found || 0})`} color="gray" />
@@ -244,9 +249,9 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
 
           <div class="border border-[#e5e7eb] rounded-md overflow-hidden">
             <div class="max-h-[60vh] overflow-y-auto overflow-x-auto">
-              <table class="w-full min-w-[640px] text-sm">
+              <table class="w-full min-w-[640px] text-[13px]">
                 <thead class="bg-[#f9fafb] sticky top-0">
-                  <tr class="text-left text-[11px] font-semibold uppercase tracking-wide text-[#6b7280]">
+                  <tr class="text-left text-[13px] font-semibold uppercase tracking-wide text-[#808080]">
                     <th class="px-3 py-2">Input</th>
                     <th class="px-3 py-2">Search Status</th>
                     <th class="px-3 py-2">Matched company</th>
@@ -258,16 +263,16 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
                 <tbody>
                   {visible.map(row => (
                     <tr key={row.index} class="border-t border-[#e5e7eb] align-top">
-                      <td class="px-3 py-2 text-[#171717]">
+                      <td class="px-3 py-2 text-[#000000]">
                         <div class="font-medium">{row.input_name}</div>
-                        <div class="text-xs text-[#6b7280]">
+                        <div class="text-[13px] text-[#808080]">
                           {kind === 'payroll' && row.input_state ? row.input_state : ''}
                           {kind === 'payroll' && row.input_state && row.input_domain ? ' · ' : ''}
                           {row.input_domain}
                         </div>
                       </td>
                       <td class="px-3 py-2"><StatusBadge status={row.status} /></td>
-                      <td class="px-3 py-2 text-[#374151]">
+                      <td class="px-3 py-2 text-[#808080]">
                         {row.match_name ? (
                           <div class="flex items-center gap-2.5">
                             {row.match_logo_url ? (
@@ -276,21 +281,21 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
                               <div class="w-8 h-8 rounded-md bg-[#f5f5f7] border border-[#e5e7eb]" />
                             )}
                             <div>
-                              <div class="font-medium text-[#171717]">{row.match_name}</div>
-                              {row.match_domain && <div class="text-xs text-[#6b7280]">{row.match_domain}</div>}
+                              <div class="font-medium text-[#000000]">{row.match_name}</div>
+                              {row.match_domain && <div class="text-[13px] text-[#808080]">{row.match_domain}</div>}
                             </div>
                           </div>
                         ) : row.error ? (
-                          <span class="text-xs text-red-600">{row.error}</span>
-                        ) : <span class="text-[#9ca3af]">—</span>}
+                          <span class="text-[13px] text-red-600">{row.error}</span>
+                        ) : <span class="text-[#808080]">—</span>}
                       </td>
-                      <td class="px-3 py-2 text-xs font-mono text-[#6b7280] break-all">{row.match_id || '—'}</td>
+                      <td class="px-3 py-2 text-[13px] font-mono text-[#808080] break-all">{row.match_id || '—'}</td>
                       <td class="px-3 py-2 text-right"><SuccessRateBadge value={row.success_rate} /></td>
                       {kind === 'payroll' && <td class="px-3 py-2"><MappingStatusBadge value={row.mapping_status} /></td>}
                     </tr>
                   ))}
                   {visible.length === 0 && (
-                    <tr><td colSpan={kind === 'payroll' ? 6 : 5} class="px-3 py-8 text-center text-[#9ca3af] text-sm">No rows for this filter.</td></tr>
+                    <tr><td colSpan={kind === 'payroll' ? 6 : 5} class="px-3 py-8 text-center text-[#808080] text-[13px]">No rows for this filter.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -308,15 +313,15 @@ function SummaryPanel({ total, found, notFound, errors, breakdown, entityLabel }
 
   return (
     <div class="mb-6 border border-[#e5e7eb] rounded-md bg-[#f9fafb] p-4">
-      <div class="text-xs font-semibold uppercase tracking-wide text-[#6b7280] mb-2">Search status</div>
+      <div class="text-[13px] font-semibold uppercase tracking-wide text-[#808080] mb-2">Search status</div>
       <div class="grid grid-cols-3 gap-3 mb-4">
         <SummaryStat label="Found" value={found} pct={pctOfTotal(found)} color="green" />
         <SummaryStat label="Not found" value={notFound} pct={pctOfTotal(notFound)} color="gray" />
         <SummaryStat label="Errors" value={errors} pct={pctOfTotal(errors)} color="red" />
       </div>
 
-      <div class="text-xs font-semibold uppercase tracking-wide text-[#6b7280] mb-1">Success rate</div>
-      <div class="text-xs text-[#6b7280] mb-2">Percentages below are of <strong>found {entityLabel}</strong> ({found}), not of total uploaded.</div>
+      <div class="text-[13px] font-semibold uppercase tracking-wide text-[#808080] mb-1">Success rate</div>
+      <div class="text-[13px] text-[#808080] mb-2">Percentages below are of <strong>found {entityLabel}</strong> ({found}), not of total uploaded.</div>
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <SummaryStat label="High" value={breakdown.high} pct={pctOfFound(breakdown.high)} color="green" />
         <SummaryStat label="Low" value={breakdown.low} pct={pctOfFound(breakdown.low)} color="orange" />
@@ -336,9 +341,9 @@ function SummaryStat({ label, value, pct, color }) {
   };
   return (
     <div class="bg-white border border-[#e5e7eb] rounded-md px-3 py-2">
-      <div class="text-[11px] font-medium uppercase tracking-wide text-[#6b7280]">{label}</div>
-      <div class={`text-lg font-semibold tabular-nums ${colorMap[color] || 'text-[#171717]'}`}>{value}</div>
-      <div class="text-xs text-[#6b7280] tabular-nums">{pct}%</div>
+      <div class="text-[13px] font-medium uppercase tracking-wide text-[#808080]">{label}</div>
+      <div class={`text-lg font-semibold tabular-nums ${colorMap[color] || 'text-[#000000]'}`}>{value}</div>
+      <div class="text-[13px] text-[#808080] tabular-nums">{pct}%</div>
     </div>
   );
 }
@@ -349,13 +354,13 @@ function FilterPill({ active, onClick, label, color }) {
     gray: active ? 'bg-gray-200 text-gray-800' : 'text-gray-700 hover:bg-gray-100',
     red: active ? 'bg-red-100 text-red-800' : 'text-red-700 hover:bg-red-50',
   };
-  const cls = color ? colorMap[color] : (active ? 'bg-[#f5f5f7] text-primary font-semibold' : 'text-[#6b7280] hover:bg-[#f5f5f7]');
-  return <button onClick={onClick} class={`px-2.5 py-1 rounded-full transition-colors ${cls}`}>{label}</button>;
+  const cls = color ? colorMap[color] : (active ? 'bg-[#f5f5f7] text-primary font-semibold' : 'text-[#808080] hover:bg-[#f5f5f7]');
+  return <button onClick={onClick} class={`px-2.5 py-1 rounded-lg transition-colors ${cls}`}>{label}</button>;
 }
 
 // success_rate is an enum string from Truv: "high" | "medium" | "low" | "unsupported" | null.
 function SuccessRateBadge({ value }) {
-  if (!value) return <span class="text-[#9ca3af]">—</span>;
+  if (!value) return <span class="text-[#808080]">—</span>;
   const v = String(value).toLowerCase();
   const colors = {
     high: 'bg-green-100 text-green-800',
@@ -376,7 +381,7 @@ function StatusBadge({ status }) {
 
 // mapping_status is an enum string from /v1/companies/: "verified" | "mapped" | "unmapped".
 function MappingStatusBadge({ value }) {
-  if (!value) return <span class="text-[#9ca3af]">—</span>;
+  if (!value) return <span class="text-[#808080]">—</span>;
   const v = String(value).toLowerCase();
   const colors = {
     verified: 'bg-green-100 text-green-800',

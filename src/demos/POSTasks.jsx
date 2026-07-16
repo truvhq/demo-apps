@@ -176,10 +176,10 @@ export function POSTasksDemo({ screen, param }) {
             initializing={initializing}
           />
         ) : (
-          <div class="max-w-2xl mx-auto px-4 py-6 sm:px-8 sm:py-10">
-            <h2 class="text-2xl font-bold tracking-tight mb-1.5">Complete Your Verifications</h2>
-            <p class="text-sm text-gray-500 leading-relaxed mb-2">Application: <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{applicationId}</code></p>
-            <p class="text-sm text-gray-500 leading-relaxed mb-7">Complete each verification by connecting through Bridge.</p>
+          <div class="w-full max-w-lg mx-auto px-4 py-6 sm:px-8 sm:py-10">
+            <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-1.5">Complete Your Verifications</h2>
+            <p class="text-[15px] text-[#808080] leading-[1.5] mb-2">Application: <code class="text-[13px] bg-gray-100 px-1.5 py-0.5 rounded">{applicationId}</code></p>
+            <p class="text-[15px] text-[#808080] leading-[1.5] mb-7">Complete each verification by connecting through Bridge.</p>
             <TaskList tasks={TASKS} taskOrders={taskOrders} taskStatus={taskStatus} onStart={handleStartTask} />
           </div>
         )

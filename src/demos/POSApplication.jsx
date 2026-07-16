@@ -136,7 +136,7 @@ export function POSApplicationDemo({ screen, param }) {
       {/* Default screen: product picker intro or application form */}
       {!screen && (
         productType ? (
-          <div class="max-w-lg mx-auto">
+          <div class="w-full sm:max-w-lg sm:mx-auto px-4 py-6 sm:px-8 sm:py-10">
             <ApplicationForm sessionId={sessionId} onSubmit={handleSubmit} submitting={submitting} productType={productType} />
           </div>
         ) : (

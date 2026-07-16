@@ -23,7 +23,7 @@ export function Row({ label, value }) {
 
 // Component: StatusBadge. Renders a colored pill for "completed" or other statuses.
 export function StatusBadge({ status }) {
-  const cls = status === 'completed' ? 'bg-success-bg text-success border border-green-200' : 'bg-warning-bg text-warning';
+  const cls = status === 'completed' ? 'bg-success-bg text-[#1C8F60] border border-green-200' : 'bg-warning-bg text-[#C18D10]';
   return <span class={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${cls}`}>{status}</span>;
 }
 

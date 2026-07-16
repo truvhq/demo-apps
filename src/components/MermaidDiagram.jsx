@@ -32,7 +32,7 @@ export function MermaidDiagram({ definition, id }) {
         theme: 'base',
         themeVariables: {
           primaryColor: '#eef2ff',
-          primaryTextColor: '#171717',
+          primaryTextColor: '#000000',
           primaryBorderColor: '#2C64E3',
           lineColor: '#94a3b8',
           secondaryColor: '#f0f2f5',
@@ -48,9 +48,9 @@ export function MermaidDiagram({ definition, id }) {
           noteTextColor: '#92400e',
           actorBkg: '#eef2ff',
           actorBorder: '#2C64E3',
-          actorTextColor: '#1e3a5f',
+          actorTextColor: '#000000',
           signalColor: '#334155',
-          signalTextColor: '#334155',
+          signalTextColor: '#808080',
         },
         flowchart: {
           htmlLabels: true,

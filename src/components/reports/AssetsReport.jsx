@@ -17,7 +17,7 @@ import { Section, Row, ProviderHeader } from './shared.jsx';
 function TransactionRow({ txn }) {
   const isCredit = txn.type === 'CREDIT';
   return (
-    <tr class="border-b border-border-light text-xs">
+    <tr class="border-b border-border-light text-[13px]">
       <td class="py-2 px-2 text-gray-500">{fmtDate(txn.posted_at)}</td>
       <td class="py-2 px-2">{txn.description}</td>
       <td class="py-2 px-2 text-gray-400">{(txn.categories || []).join(', ')}</td>
@@ -57,12 +57,12 @@ function AccountCard({ acct }) {
         {/* Expandable transaction table (capped at 20 visible rows) */}
         {txns.length > 0 && (
           <div class="mt-3">
-            <button class="text-xs text-primary font-medium" onClick={() => setShowTxns(!showTxns)}>
+            <button class="text-[13px] text-primary font-medium" onClick={() => setShowTxns(!showTxns)}>
               {showTxns ? 'Hide' : 'Show'} {txns.length} transactions
             </button>
             {showTxns && (
               <table class="w-full mt-2 border-collapse">
-                <thead><tr class="border-b-2 border-border text-xs text-gray-500">
+                <thead><tr class="border-b-2 border-border text-[13px] text-gray-500">
                   <th class="text-left px-2 py-1">Date</th>
                   <th class="text-left px-2 py-1">Description</th>
                   <th class="text-left px-2 py-1">Category</th>
@@ -70,7 +70,7 @@ function AccountCard({ acct }) {
                 </tr></thead>
                 <tbody>
                   {txns.slice(0, 20).map((t, ti) => <TransactionRow key={ti} txn={t} />)}
-                  {txns.length > 20 && <tr><td colSpan="4" class="text-xs text-gray-400 px-2 py-2">+ {txns.length - 20} more</td></tr>}
+                  {txns.length > 20 && <tr><td colSpan="4" class="text-[13px] text-gray-400 px-2 py-2">+ {txns.length - 20} more</td></tr>}
                 </tbody>
               </table>
             )}

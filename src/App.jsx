@@ -116,6 +116,21 @@ export function navigate(path) {
   window.location.hash = path;
 }
 
+// Build the breadcrumb trail for the current hash. Returns an ordered list of
+// { label, href } segments (industry, then demo) resolved against INDUSTRIES.
+// Callers render the final segment as the current page (not a link) and always
+// prepend the Truv logo as the implicit Home root.
+export function getBreadcrumbTrail() {
+  const { industry, demo } = parseHash();
+  const trail = [];
+  const ind = INDUSTRIES.find(i => i.id === industry);
+  if (!ind) return trail;
+  trail.push({ label: ind.name, href: `#${ind.id}` });
+  const dem = ind.demos.find(d => d.id === demo);
+  if (dem) trail.push({ label: dem.name, href: `#${ind.id}/${dem.id}` });
+  return trail;
+}
+
 // App component: top-level router. Listens for hashchange events, parses
 // the hash into route segments, and renders the matching view.
 export function App() {
@@ -124,12 +139,23 @@ export function App() {
   const session = useSession();
   const [ssoError, setSsoError] = useState(null);
   const [ssoCallbackBusy, setSsoCallbackBusy] = useState(hasCallbackParams);
+  // Bumped when the current breadcrumb segment is clicked. Folded into the view
+  // key below so the active view remounts (resetting its internal state) even
+  // when the target hash is unchanged — e.g. clicking "LOS" while inside LOS,
+  // whose whole flow lives at one hash, restarts it at its first screen.
+  const [restartNonce, setRestartNonce] = useState(0);
 
-  // Effect: subscribe to hashchange so navigation triggers re-renders.
+  // Effect: subscribe to hashchange so navigation triggers re-renders, and to
+  // the breadcrumb "restart current view" event.
   useEffect(() => {
     const onHash = () => setRoute(parseHash());
+    const onRestart = () => setRestartNonce(n => n + 1);
     window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
+    window.addEventListener('truv:restart-view', onRestart);
+    return () => {
+      window.removeEventListener('hashchange', onHash);
+      window.removeEventListener('truv:restart-view', onRestart);
+    };
   }, []);
 
   // Effect: if the URL has ?code=&state=, complete the Auth0 callback and
@@ -175,12 +201,12 @@ export function App() {
   const industry = INDUSTRIES.find(i => i.id === route.industry);
   if (!industry) return <Home />;
 
-  if (!route.demo) return <IndustryPage industry={industry} />;
+  if (!route.demo) return <IndustryPage key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
 
   const demoConfig = industry.demos.find(d => d.id === route.demo);
-  if (!demoConfig) return <IndustryPage industry={industry} />;
+  if (!demoConfig) return <IndustryPage key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
 
   // Render the matched demo component with screen and param props.
   const Component = demoConfig.component;
-  return <Component key={`${route.industry}/${route.demo}`} screen={route.screen} param={route.param} />;
+  return <Component key={`${route.industry}/${route.demo}/${restartNonce}`} screen={route.screen} param={route.param} />;
 }

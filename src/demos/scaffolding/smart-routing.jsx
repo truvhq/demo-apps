@@ -46,11 +46,8 @@ export function MethodCards() {
     <div class="grid gap-3 text-left">
       {METHODS.map(m => (
         <div key={m.id} class="rounded-xl border border-[#e8e8ed] px-5 py-4">
-          <div class="flex items-center gap-3 mb-1">
-            <div class={`icon-box ${m.color}`}><m.Icon size={18} /></div>
-            <h3 class="text-[14px] font-semibold text-[#171717]">{m.name}</h3>
-          </div>
-          <p class="text-[13px] text-[#8E8E93] leading-[1.4]">{m.desc}</p>
+          <h3 class="text-[14px] font-semibold text-[#000000] mb-1">{m.name}</h3>
+          <p class="text-[13px] text-[#808080] leading-[1.4]">{m.desc}</p>
         </div>
       ))}
     </div>
@@ -74,15 +71,15 @@ export function MethodPicker({ methods, recommended, onSelect, loading }) {
             }`}
           >
             <div class="flex items-center gap-3 mb-1">
-              <div class="w-9 h-9 rounded-lg bg-[#f5f5f7] border border-[#e8e8ed] flex items-center justify-center text-[#8E8E93] flex-shrink-0"><m.Icon size={18} /></div>
+              <div class="w-9 h-9 rounded-lg bg-[#f5f5f7] flex items-center justify-center text-[#000000] flex-shrink-0"><m.Icon size={18} /></div>
               <div class="min-w-0 flex-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-                <h3 class="text-[15px] font-semibold text-[#171717]">{m.name}</h3>
+                <h3 class="text-[15px] font-semibold text-[#000000]">{m.name}</h3>
                 {isRecommended && (
                   <span class="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full whitespace-nowrap">Recommended</span>
                 )}
               </div>
             </div>
-            <p class="text-[14px] text-[#8E8E93] leading-[1.5]">{m.desc}</p>
+            <p class="text-[14px] text-[#808080] leading-[1.5]">{m.desc}</p>
           </button>
         );
       })}
