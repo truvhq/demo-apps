@@ -23,18 +23,14 @@ function ExternalArrow() {
   );
 }
 
-// Props:
-//   compact : when true (demo shell, where the "Dev" panel toggle also sits on
-//             the right), the GitHub link is hidden below md to save space —
-//             the demo top bar also hosts the device toggle, so at sm widths
-//             (640–768px) everything together no longer fits.
-export function HeaderActions({ compact = false }) {
-  // In compact mode the GitHub and Dashboard links collapse on narrow screens
-  // (GitHub until md, Dashboard until sm); the base OUTLINE_BTN's own
-  // `inline-flex` is swapped for a responsive variant so only one display
-  // utility ever applies.
-  const githubClass = compact ? OUTLINE_BTN.replace('inline-flex', 'hidden md:inline-flex') : OUTLINE_BTN;
-  const dashboardClass = compact ? OUTLINE_BTN.replace('inline-flex', 'hidden sm:inline-flex') : OUTLINE_BTN;
+// One responsive behavior on every page: the GitHub link collapses below md
+// and Dashboard below sm (the demo top bar also hosts the device toggle and
+// Dev button, and the collapse must depend only on viewport width — never on
+// which screen is showing). The base OUTLINE_BTN's own `inline-flex` is
+// swapped for a responsive variant so only one display utility ever applies.
+export function HeaderActions() {
+  const githubClass = OUTLINE_BTN.replace('inline-flex', 'hidden md:inline-flex');
+  const dashboardClass = OUTLINE_BTN.replace('inline-flex', 'hidden sm:inline-flex');
   return (
     <div class="flex items-center gap-1 sm:gap-2">
       <a href={GITHUB_URL} target="_blank" rel="noreferrer" class={githubClass}>

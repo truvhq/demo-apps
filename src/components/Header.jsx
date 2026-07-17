@@ -62,19 +62,30 @@ export function Breadcrumb({ trail = [] }) {
   );
 }
 
+// The single top bar used by every page (Home, IndustryPage, demo Layout), so
+// the breadcrumb and action links behave identically everywhere: their
+// responsive collapse depends only on viewport width, never on which screen
+// is showing.
 // Props:
-//   trail  : breadcrumb segments [{ label, href }] (last = current page)
-//   badge  : small label pill shown after the breadcrumb (root pages only)
-//   sticky : whether the header sticks to the top on scroll
-export function Header({ trail, badge, sticky }) {
+//   trail    : breadcrumb segments [{ label, href }] (last = current page)
+//   badge    : small label pill shown after the breadcrumb (root pages only)
+//   sticky   : whether the header sticks to the top on scroll
+//   children : optional right-edge slot (demo Layout puts the device toggle
+//              and the Dev-panel button here)
+export function Header({ trail, badge, sticky, children }) {
   return (
-    <header class={`flex items-center justify-between h-12 px-3 sm:px-6 bg-white/80 backdrop-blur-xl border-b border-border/40 ${sticky ? 'sticky top-0 z-10' : ''}`}>
-      <div class="flex items-center gap-3 min-w-0">
+    <header class={`flex items-center h-12 bg-white/80 backdrop-blur-xl border-b border-border/40 ${sticky ? 'sticky top-0 z-10' : ''}`}>
+      {/* overflow-hidden: when the bar runs out of width the breadcrumb clips
+          instead of painting over the action buttons (the logo is shrink-0). */}
+      <div class="flex items-center gap-3 px-3 sm:px-6 flex-1 min-w-0 overflow-hidden">
         <Breadcrumb trail={trail} />
         {/* Optional badge label */}
         {badge && <div class="hidden sm:block text-[11px] font-medium text-muted bg-surface-secondary px-2 py-0.5 rounded-md truncate">{badge}</div>}
       </div>
-      <HeaderActions />
+      <div class="shrink-0 pr-3 sm:pr-5">
+        <HeaderActions />
+      </div>
+      {children}
     </header>
   );
 }
