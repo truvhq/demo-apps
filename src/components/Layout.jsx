@@ -70,7 +70,9 @@ export function Layout({ steps, panel, hidePanel, children }) {
     <div class="h-screen flex flex-col">
       {/* Unified top bar: logo+badge | device toggle | panel toggle | panel tabs */}
       <header class="flex items-center h-12 bg-white/80 backdrop-blur-xl border-b border-border/40">
-        <div class="flex items-center gap-3 px-3 sm:px-6 flex-1 min-w-0">
+        {/* overflow-hidden: when the bar runs out of width the breadcrumb clips
+            instead of painting over the action buttons (the logo is shrink-0). */}
+        <div class="flex items-center gap-3 px-3 sm:px-6 flex-1 min-w-0 overflow-hidden">
           <Breadcrumb trail={getBreadcrumbTrail()} />
         </div>
         {/* Shared header actions (GitHub, Dashboard, Contact sales). In compact
@@ -82,9 +84,11 @@ export function Layout({ steps, panel, hidePanel, children }) {
         {!hidePanel && (
           <>
             {/* Device toggle: only shown when a DeviceFrame is currently mounted
-                somewhere in the tree (auto-detected via deviceFramePresence). */}
+                somewhere in the tree (auto-detected via deviceFramePresence).
+                Hidden below sm — there the frame renders full-bleed with no
+                mockup, so the toggle would control nothing visible. */}
             {hasDeviceFrame && (
-              <div class={`pl-4 ${showPanel ? 'pr-6' : 'pr-2'}`}>
+              <div class={`hidden sm:block pl-4 ${showPanel ? 'pr-6' : 'pr-2'}`}>
                 <DeviceToggle />
               </div>
             )}

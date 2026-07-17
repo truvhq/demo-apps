@@ -42,28 +42,37 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
   // Mobile outer is itself a flex child that takes all available main height
   // (flex-1 min-h-0) so the phone bezel can scale down to fit short viewports
   // instead of pushing the page into a scroll.
+  //
+  // Below sm the mobile mockup is dropped entirely (responsive classes only, so
+  // the tree stays stable across resizes): the visitor's own device is the
+  // phone, and a bezel shrunk to a ~200px sliver is unusable. The preview
+  // renders as a plain full-height card instead.
   const outerClass = isMobile
-    ? 'flex flex-col items-center w-full pt-6 sm:pt-10 pb-6 flex-1 min-h-0'
+    ? 'flex flex-col items-center w-full flex-1 min-h-0 sm:pt-10 sm:pb-6'
     : 'flex w-full h-full';
-  // Mobile: gray phone bezel with phone-shaped aspect ratio; height tries to
-  // hit the original 804px but caps at 100% of outer (max-h-full) so it shrinks
-  // on short viewports. Width follows from aspect-ratio. Desktop: invisible
-  // flex passthrough so the inner "screen" fills the column.
+  // Mobile sm+: gray phone bezel with phone-shaped aspect ratio; height tries
+  // to hit the original 804px but caps at 100% of outer (max-h-full) so it
+  // shrinks on short viewports — and min-h keeps it from shrinking below a
+  // usable size (the host page scrolls instead: <main> is overflow-y-auto).
+  // Width follows from aspect-ratio. Desktop: invisible flex passthrough so
+  // the inner "screen" fills the column.
   const frameClass = isMobile
-    ? 'relative bg-gray-900 rounded-[2.75rem] p-3 shadow-2xl h-[804px] max-h-full max-w-full aspect-[414/804]'
+    ? 'relative w-full flex-1 min-h-0 max-w-full sm:w-auto sm:flex-none sm:bg-gray-900 sm:rounded-[2.75rem] sm:p-3 sm:shadow-2xl sm:h-[804px] sm:min-h-[480px] sm:max-h-full sm:aspect-[414/804]'
     : 'flex flex-1 w-full';
   const overlayTopClass = isMobile
-    ? 'absolute top-5 left-1/2 -translate-x-1/2 w-32 h-7 bg-black rounded-full z-10'
+    ? 'hidden sm:block absolute top-5 left-1/2 -translate-x-1/2 w-32 h-7 bg-black rounded-full z-10'
     : 'hidden';
-  // Mobile: white phone screen filling the bezel (size driven by frame above).
+  // Mobile: white phone screen filling the bezel (size driven by frame above);
+  // below sm it reads as a plain bordered card instead of a phone screen.
   // Desktop: browser window chrome — fills outer's height exactly so any scroll
   // happens inside the iframe rather than on the host page.
   const screenClass = isMobile
-    ? 'bg-white rounded-[2.25rem] overflow-hidden h-full w-full flex flex-col relative'
+    ? 'bg-white rounded-xl border border-gray-200 sm:rounded-[2.25rem] sm:border-0 overflow-hidden h-full w-full flex flex-col relative'
     : 'bg-gray-100 rounded-xl shadow-2xl overflow-hidden w-full border border-gray-200 flex flex-col flex-1 min-h-0';
-  // Mobile: empty status-bar reserve. Desktop: traffic lights + URL bar (rendered below).
+  // Mobile: empty status-bar reserve (only when the bezel chrome is shown).
+  // Desktop: traffic lights + URL bar (rendered below).
   const chromeBarClass = isMobile
-    ? 'h-12 flex-shrink-0'
+    ? 'h-0 sm:h-12 flex-shrink-0'
     : 'bg-gray-200 px-4 py-2.5 flex items-center gap-3 border-b border-gray-300 flex-shrink-0';
   // `content` is a flex column so the inner wrap (a flex item with flex-1)
   // gets a definite height — necessary for h-full on iframe children to resolve.
@@ -82,7 +91,7 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
   // iframe inside owns its own internal max-width for forms.
   const innerWrapClass = 'flex-1 w-full';
   const overlayBottomClass = isMobile
-    ? 'absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-black rounded-full'
+    ? 'hidden sm:block absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-black rounded-full'
     : 'hidden';
 
   return (

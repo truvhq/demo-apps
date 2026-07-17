@@ -34,8 +34,10 @@ export function Breadcrumb({ trail = [] }) {
       <a href="#" aria-label="Truv home" class="flex items-center shrink-0 hover:opacity-80 transition-opacity">
         <Icons.truvLogo height={21} className="text-text" />
       </a>
-      {/* Trail segments are hidden on mobile; the logo alone remains as the Home link */}
-      <span class="hidden sm:flex items-center gap-2 min-w-0">
+      {/* Trail segments are hidden below md (in the demo shell the top bar also
+          hosts the device toggle and panel buttons, so at sm widths the trail
+          would collide with them); the logo alone remains as the Home link */}
+      <span class="hidden md:flex items-center gap-2 min-w-0">
         {trail.map((seg, i) => {
           const isLast = i === trail.length - 1;
           return (
