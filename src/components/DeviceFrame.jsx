@@ -130,49 +130,49 @@ export function DeviceToggle() {
   const [mode, setMode] = useDeviceMode();
   return (
     <div class={segGroup} role="group" aria-label="Preview device mode">
+      {/* Labels collapse to icons below lg so the toggle keeps fitting in the
+          top bar without any header buttons having to disappear; aria-label
+          keeps the accessible name when the visual label is hidden. */}
       <button
         type="button"
         onClick={() => setMode('mobile')}
         class={`${segBase} ${mode === 'mobile' ? segActive : segInactive}`}
         aria-pressed={mode === 'mobile'}
+        aria-label="Mobile"
       >
-        <MobileIcon /> Mobile
+        <MobileIcon /> <span class="hidden lg:inline">Mobile</span>
       </button>
       <button
         type="button"
         onClick={() => setMode('desktop')}
         class={`${segBase} ${mode === 'desktop' ? segActive : segInactive}`}
         aria-pressed={mode === 'desktop'}
+        aria-label="Desktop"
       >
-        <DesktopIcon /> Desktop
+        <DesktopIcon /> <span class="hidden lg:inline">Desktop</span>
       </button>
     </div>
   );
 }
 
-// Show / Hide split into two labeled buttons that are placed in different
-// regions of the layout but visually anchored to the same physical spot:
-//   - ShowPanelButton lives in the main top-bar toolbar; visible only when the
-//     panel is hidden, so it occupies the right-edge slot.
-//   - HidePanelButton lives at the right end of the panel's tab strip (header
-//     strip on lg+, overlay strip below lg); visible only when the panel is
-//     shown, so it occupies the same right-edge slot from the panel's side.
-// The chevron sits on the side of the label that points where the panel will
-// move — left chevron + label for "expand leftward", label + right chevron for
-// "collapse rightward" — so the affordance reads at a glance.
-// Each button self-gates on usePanelVisibility() so callers can drop both into
-// their respective layout slots without conditionals — only one ever renders.
-const panelBtnClass = 'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[13px] font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition cursor-pointer';
+// Two panel controls:
+//   - PanelToggleButton lives in the main top bar and never disappears: it
+//     toggles the panel and reflects the current state via aria-pressed and
+//     an active background (so pressing it doesn't make it vanish).
+//   - HidePanelButton is the ✕ at the right end of the Panel's own tab row —
+//     a secondary close affordance next to the tabs; it self-gates on
+//     usePanelVisibility() and renders only while the panel is shown.
+const panelBtnClass = 'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[13px] font-medium transition cursor-pointer';
 
-export function ShowPanelButton() {
+export function PanelToggleButton() {
   const [visible, setVisible] = usePanelVisibility();
-  if (visible) return null;
   return (
     <button
       type="button"
-      onClick={() => setVisible(true)}
-      class={panelBtnClass}
-      aria-label="Show dev panel"
+      onClick={() => setVisible(!visible)}
+      class={`${panelBtnClass} ${visible ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}
+      aria-label="Toggle dev panel"
+      aria-pressed={visible}
     >
       <ConsoleIcon />
       <span>Dev</span>
@@ -187,7 +187,7 @@ export function HidePanelButton() {
     <button
       type="button"
       onClick={() => setVisible(false)}
-      class={panelBtnClass}
+      class={`${panelBtnClass} text-gray-500 hover:text-gray-700 hover:bg-gray-100`}
       aria-label="Close dev panel"
       title="Close dev panel"
     >

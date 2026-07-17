@@ -8,7 +8,6 @@
  */
 
 // Imports
-import { Fragment } from 'preact';
 import { Icons } from './Icons.jsx';
 import { HeaderActions } from './HeaderActions.jsx';
 
@@ -34,14 +33,19 @@ export function Breadcrumb({ trail = [] }) {
       <a href="#" aria-label="Truv home" class="flex items-center shrink-0 hover:opacity-80 transition-opacity">
         <Icons.truvLogo height={21} className="text-text" />
       </a>
-      {/* Trail segments are hidden below md (in the demo shell the top bar also
-          hosts the device toggle and panel buttons, so at sm widths the trail
-          would collide with them); the logo alone remains as the Home link */}
-      <span class="hidden md:flex items-center gap-2 min-w-0">
+      {/* Trail: hidden only on phones (<sm), where the row cannot physically
+          fit it; the logo alone remains as the Home link. From sm up the
+          CURRENT segment is always visible (truncating when space runs out);
+          intermediate segments collapse below md so the current one never gets
+          squeezed to zero width by the fixed-size buttons on the right. */}
+      <span class="hidden sm:flex items-center gap-2 min-w-0">
         {trail.map((seg, i) => {
           const isLast = i === trail.length - 1;
           return (
-            <Fragment key={seg.href || seg.label}>
+            <span
+              key={seg.href || seg.label}
+              class={`items-center gap-2 min-w-0 ${isLast ? 'flex' : 'hidden md:flex'}`}
+            >
               <Chevron />
               <a
                 href={seg.href}
@@ -50,11 +54,13 @@ export function Breadcrumb({ trail = [] }) {
                 // won't fire hashchange. Restart the active view instead (App
                 // remounts it) so the click resets the demo to its first screen.
                 onClick={isLast ? () => window.dispatchEvent(new CustomEvent('truv:restart-view')) : undefined}
-                class="text-[13px] font-medium text-muted hover:text-text transition-colors truncate"
+                // min-w on the current segment keeps it readable when the row is
+                // tight — without it flexbox can shrink the label to a bare "B…".
+                class={`text-[13px] font-medium text-muted hover:text-text transition-colors truncate ${isLast ? 'min-w-[5rem]' : ''}`}
               >
                 {seg.label}
               </a>
-            </Fragment>
+            </span>
           );
         })}
       </span>

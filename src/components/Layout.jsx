@@ -25,7 +25,7 @@ import { useState, useEffect } from 'preact/hooks';
 import { Panel } from './Panel.jsx';
 import { Header } from './Header.jsx';
 import { getBreadcrumbTrail } from '../App.jsx';
-import { DeviceToggle, ShowPanelButton } from './DeviceFrame.jsx';
+import { DeviceToggle, PanelToggleButton } from './DeviceFrame.jsx';
 import { useHasDeviceFrame } from '../hooks/deviceFramePresence.jsx';
 import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
 
@@ -81,14 +81,12 @@ export function Layout({ steps, panel, hidePanel, children }) {
                 <DeviceToggle />
               </div>
             )}
-            {/* ShowPanelButton: right edge of the header while the panel is
-                hidden — when the panel is shown the symmetric HidePanelButton
-                inside the Panel's tab row takes over. */}
-            {!showPanel && (
-              <div class="pr-3 sm:pr-5">
-                <ShowPanelButton />
-              </div>
-            )}
+            {/* PanelToggleButton: permanent right-edge control — toggles the
+                panel and shows its state instead of disappearing when pressed.
+                The ✕ in the Panel's tab row is a secondary close affordance. */}
+            <div class="pr-3 sm:pr-5">
+              <PanelToggleButton />
+            </div>
           </>
         )}
       </Header>
