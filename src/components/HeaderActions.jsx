@@ -32,9 +32,10 @@ function GitHubIcon() {
   );
 }
 
-// Icon-only GitHub link for the dev panel's tab row. Self-hides at lg+ where
-// the header shows the full GitHub link instead — the two placements are
-// mutually exclusive, so the link exists exactly once at any width.
+// GitHub link for the dev panel's tab row. Self-hides at lg+ where the header
+// shows the full GitHub link instead — the two placements are mutually
+// exclusive, so the link exists exactly once at any width. Keeps its text
+// label down to sm; only on phones (<640) it collapses to the bare icon.
 export function GitHubPanelLink() {
   return (
     <a
@@ -42,9 +43,10 @@ export function GitHubPanelLink() {
       target="_blank"
       rel="noreferrer"
       aria-label="GitHub"
-      class="lg:hidden flex items-center px-2 py-1 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition"
+      class="lg:hidden flex items-center gap-1.5 px-2 py-1 rounded-lg text-[13px] font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition"
     >
       <GitHubIcon />
+      <span class="hidden sm:inline">GitHub</span>
     </a>
   );
 }
