@@ -83,7 +83,7 @@ export function Layout({ steps, panel, hidePanel, children }) {
             )}
             {/* PanelToggleButton: permanent right-edge control — toggles the
                 panel and shows its state instead of disappearing when pressed.
-                The ✕ in the Panel's tab row is a secondary close affordance. */}
+                It is the only way to close the panel. */}
             <div class="pr-3 sm:pr-5">
               <PanelToggleButton />
             </div>

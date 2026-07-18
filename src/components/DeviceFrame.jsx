@@ -155,13 +155,10 @@ export function DeviceToggle() {
   );
 }
 
-// Two panel controls:
-//   - PanelToggleButton lives in the main top bar and never disappears: it
-//     toggles the panel and reflects the current state via aria-pressed and
-//     an active background (so pressing it doesn't make it vanish).
-//   - HidePanelButton is the ✕ at the right end of the Panel's own tab row —
-//     a secondary close affordance next to the tabs; it self-gates on
-//     usePanelVisibility() and renders only while the panel is shown.
+// The single panel control: PanelToggleButton lives in the main top bar and
+// never disappears — it toggles the panel and reflects the current state via
+// aria-pressed and an active background (so pressing it doesn't make it
+// vanish). The panel itself has no close button.
 const panelBtnClass = 'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[13px] font-medium transition cursor-pointer';
 
 export function PanelToggleButton() {
@@ -176,22 +173,6 @@ export function PanelToggleButton() {
     >
       <ConsoleIcon />
       <span>Dev</span>
-    </button>
-  );
-}
-
-export function HidePanelButton() {
-  const [visible, setVisible] = usePanelVisibility();
-  if (!visible) return null;
-  return (
-    <button
-      type="button"
-      onClick={() => setVisible(false)}
-      class={`${panelBtnClass} text-gray-500 hover:text-gray-700 hover:bg-gray-100`}
-      aria-label="Close dev panel"
-      title="Close dev panel"
-    >
-      <CloseIcon />
     </button>
   );
 }
@@ -225,11 +206,3 @@ function ConsoleIcon() {
   );
 }
 
-function CloseIcon() {
-  return (
-    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}

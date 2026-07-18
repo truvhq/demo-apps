@@ -11,7 +11,6 @@
 
 // Preact state hook
 import { useState } from 'preact/hooks';
-import { HidePanelButton } from './DeviceFrame.jsx';
 import { GitHubPanelLink } from './HeaderActions.jsx';
 import { DASHBOARD_WEBHOOKS_URL } from '../config.js';
 
@@ -210,9 +209,9 @@ function tryFormat(s) {
 //   <lg   : full-bleed overlay covering the parent content row (which is
 //           position:relative). Layered above <main> via z-30 so the iframe
 //           inside any DeviceFrame stays mounted underneath.
-// The tab-nav row is the Panel's own first line in both modes (with the close
-// button at its right edge), so the app header stays full width and never
-// shares its row with the tabs.
+// The tab-nav row is the Panel's own first line in both modes, so the app
+// header stays full width and never shares its row with the tabs. Closing the
+// panel is done with the header's Dev toggle — the row has no close button.
 export function Panel({ steps, panel, activeTab, tabs, onTabChange }) {
   // Destructure polled data from usePanel() with safe defaults
   const { currentStep = 0, apiLogs = [], bridgeEvents = [], webhooks = [], tunnelUrl = null } = panel || {};
@@ -229,7 +228,6 @@ export function Panel({ steps, panel, activeTab, tabs, onTabChange }) {
             ))}
           </div>
           <GitHubPanelLink />
-          <HidePanelButton />
         </div>
       )}
       <div class="flex-1 overflow-y-auto px-5 py-4">
