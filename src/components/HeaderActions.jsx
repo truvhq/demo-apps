@@ -32,7 +32,7 @@ function GitHubIcon() {
   );
 }
 
-// Icon-only GitHub link for the dev panel's tab row. Self-hides at xl+ where
+// Icon-only GitHub link for the dev panel's tab row. Self-hides at lg+ where
 // the header shows the full GitHub link instead — the two placements are
 // mutually exclusive, so the link exists exactly once at any width.
 export function GitHubPanelLink() {
@@ -42,7 +42,7 @@ export function GitHubPanelLink() {
       target="_blank"
       rel="noreferrer"
       aria-label="GitHub"
-      class="xl:hidden flex items-center px-2 py-1 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition"
+      class="lg:hidden flex items-center px-2 py-1 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition"
     >
       <GitHubIcon />
     </a>
@@ -50,13 +50,13 @@ export function GitHubPanelLink() {
 }
 
 // One responsive behavior on every page, and no button ever disappears from
-// the app: below xl the GitHub link moves from the header into the dev
+// the app: below lg the GitHub link moves from the header into the dev
 // panel's tab row (see GitHubPanelLink); the other links only shed decoration
 // (external arrows) on narrow screens, never the button itself.
 export function HeaderActions() {
   return (
     <div class="flex items-center gap-1 sm:gap-2">
-      <a href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label="GitHub" class={OUTLINE_BTN.replace('inline-flex', 'hidden xl:inline-flex')}>
+      <a href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label="GitHub" class={OUTLINE_BTN.replace('inline-flex', 'hidden lg:inline-flex')}>
         <GitHubIcon />
         GitHub
         <ExternalArrow />
