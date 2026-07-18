@@ -12,6 +12,7 @@
 // Preact state hook
 import { useState } from 'preact/hooks';
 import { HidePanelButton } from './DeviceFrame.jsx';
+import { GitHubPanelLink } from './HeaderActions.jsx';
 import { DASHBOARD_WEBHOOKS_URL } from '../config.js';
 
 // TabButton: individual tab selector pill for the Panel's tab-nav row.
@@ -227,6 +228,7 @@ export function Panel({ steps, panel, activeTab, tabs, onTabChange }) {
               <TabButton key={t.id} active={activeTab === t.id} label={t.label} count={t.count} onClick={() => onTabChange(t.id)} />
             ))}
           </div>
+          <GitHubPanelLink />
           <HidePanelButton />
         </div>
       )}
