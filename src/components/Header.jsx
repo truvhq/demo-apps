@@ -73,12 +73,15 @@ export function Breadcrumb({ trail = [] }) {
 // responsive collapse depends only on viewport width, never on which screen
 // is showing.
 // Props:
-//   trail    : breadcrumb segments [{ label, href }] (last = current page)
-//   badge    : small label pill shown after the breadcrumb (root pages only)
-//   sticky   : whether the header sticks to the top on scroll
-//   children : optional right-edge slot (demo Layout puts the device toggle
-//              and the Dev-panel button here)
-export function Header({ trail, badge, sticky, children }) {
+//   trail        : breadcrumb segments [{ label, href }] (last = current page)
+//   badge        : small label pill shown after the breadcrumb (root pages only)
+//   sticky       : whether the header sticks to the top on scroll
+//   githubInPanel: true when the dev panel's tab row hosts the GitHub link below
+//                  lg (demo Layout with the panel open) — the header then hides
+//                  its own GitHub link below lg to avoid duplication
+//   children     : optional right-edge slot (demo Layout puts the device toggle
+//                  and the Dev-panel button here)
+export function Header({ trail, badge, sticky, githubInPanel, children }) {
   return (
     <header class={`flex items-center h-12 bg-white/80 backdrop-blur-xl border-b border-border/40 ${sticky ? 'sticky top-0 z-10' : ''}`}>
       {/* overflow-hidden: when the bar runs out of width the breadcrumb clips
@@ -89,7 +92,7 @@ export function Header({ trail, badge, sticky, children }) {
         {badge && <div class="hidden sm:block text-[11px] font-medium text-muted bg-surface-secondary px-2 py-0.5 rounded-md truncate">{badge}</div>}
       </div>
       <div class="shrink-0 pr-3 sm:pr-5">
-        <HeaderActions />
+        <HeaderActions githubInPanel={githubInPanel} />
       </div>
       {children}
     </header>

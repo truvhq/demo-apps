@@ -12,10 +12,12 @@ const GITHUB_URL = 'https://github.com/truvhq/demo-apps/';
 // Shared button styling for the borderless (secondary) actions.
 const OUTLINE_BTN = 'text-[13px] font-medium text-[#000000] rounded-lg px-3 py-1.5 hover:bg-[#f5f5f7] active:bg-[#e8e8ed] transition-colors inline-flex items-center gap-1.5';
 
-// External-link arrow appended to outbound links. Hidden on mobile to save space.
-function ExternalArrow() {
+// External-link arrow appended to outbound links. Hidden on narrow screens to
+// save space; the caller passes the breakpoint that matches its own text label
+// so the arrow never shows next to a bare icon.
+function ExternalArrow({ class: cls = 'hidden sm:inline' }) {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="hidden sm:inline">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class={cls}>
       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
       <polyline points="15 3 21 3 21 9" />
       <line x1="10" y1="14" x2="21" y2="3" />
@@ -33,9 +35,10 @@ function GitHubIcon() {
 }
 
 // GitHub link for the dev panel's tab row. Self-hides at lg+ where the header
-// shows the full GitHub link instead — the two placements are mutually
-// exclusive, so the link exists exactly once at any width. Keeps its text
-// label down to sm; only on phones (<640) it collapses to the bare icon.
+// shows the link instead; below lg the header link self-hides in turn (Layout
+// passes githubInPanel while the panel is open), so exactly one placement is
+// ever visible. Keeps its text label down to sm; only on phones (<640) it
+// collapses to the bare icon.
 export function GitHubPanelLink() {
   return (
     <a
@@ -51,17 +54,25 @@ export function GitHubPanelLink() {
   );
 }
 
-// One responsive behavior on every page, and no button ever disappears from
-// the app: below lg the GitHub link moves from the header into the dev
-// panel's tab row (see GitHubPanelLink); the other links only shed decoration
-// (external arrows) on narrow screens, never the button itself.
-export function HeaderActions() {
+// GitHub placement, so the link is reachable at every width and never
+// duplicated:
+//   - >= lg          : always in the header (icon + label + arrow).
+//   - <  lg          : moves into the dev panel's tab row when that row exists
+//                      (demo pages with the panel open — see GitHubPanelLink),
+//                      otherwise stays in the header as a compact icon link.
+// `githubInPanel` (set by Layout to the panel's visibility) picks between the
+// two; it defaults to false so pages without a panel — Home, IndustryPage, demo
+// intro screens, a demo with the panel closed — always keep the header link.
+export function HeaderActions({ githubInPanel = false }) {
+  const githubClass = OUTLINE_BTN.replace('inline-flex', githubInPanel ? 'hidden lg:inline-flex' : 'inline-flex');
   return (
     <div class="flex items-center gap-1 sm:gap-2">
-      <a href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label="GitHub" class={OUTLINE_BTN.replace('inline-flex', 'hidden lg:inline-flex')}>
+      {/* Label and arrow appear from lg up; below lg the header link (when
+          shown) is icon-only so it stays compact and never reads as icon+arrow. */}
+      <a href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label="GitHub" class={githubClass}>
         <GitHubIcon />
-        GitHub
-        <ExternalArrow />
+        <span class="hidden lg:inline">GitHub</span>
+        <ExternalArrow class="hidden lg:inline" />
       </a>
       <a href={DASHBOARD_KEYS_URL} target="_blank" rel="noreferrer" class={OUTLINE_BTN}>
         Dashboard
