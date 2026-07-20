@@ -74,8 +74,9 @@ export function Layout({ steps, panel, hidePanel, children }) {
           <>
             {/* Device toggle: only shown when a DeviceFrame is currently mounted
                 somewhere in the tree (auto-detected via deviceFramePresence).
-                Hidden below sm — there the frame renders full-bleed with no
-                mockup, so the toggle would control nothing visible. */}
+                Hidden below sm — there the frame always renders the simplified
+                full-bleed mobile view (DeviceFrame ignores a persisted desktop
+                preference at that width), so the toggle would control nothing. */}
             {hasDeviceFrame && (
               <div class="hidden sm:block pr-2">
                 <DeviceToggle />

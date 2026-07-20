@@ -20,9 +20,27 @@
  * adding preact/compat aliasing just for visual chrome — not worth the weight.
  */
 
+import { useState, useEffect } from 'preact/hooks';
 import { useDeviceMode } from '../hooks/useDeviceMode.js';
 import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
 import { useRegisterDeviceFrame } from '../hooks/deviceFramePresence.jsx';
+
+// True below the sm breakpoint (640px). Phones get the simplified full-bleed
+// preview regardless of the persisted device mode, so this drives that fallback.
+function useIsNarrow() {
+  const query = '(min-width: 640px)';
+  const [narrow, setNarrow] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia ? !window.matchMedia(query).matches : false
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia(query);
+    const onChange = () => setNarrow(!mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return narrow;
+}
 
 // Shared classes for the segmented top-bar toggles (DeviceToggle, PanelToggle).
 const segBase = 'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[13px] font-medium transition cursor-pointer';
@@ -32,7 +50,12 @@ const segGroup = 'flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-lg';
 
 export function DeviceFrame({ children, url = 'demo.example.com' }) {
   const [mode] = useDeviceMode();
-  const isMobile = mode === 'mobile';
+  const isNarrow = useIsNarrow();
+  // Below sm there is no room for a phone bezel or a desktop browser window, and
+  // the toggle is hidden there (see Layout). Fall back to the simplified mobile
+  // view so a phone visitor who last picked Desktop on a wide screen is never
+  // stranded in the desktop chrome with no way out.
+  const isMobile = mode === 'mobile' || isNarrow;
   // Tell the layout that a frame is present so the mobile/desktop toggle in
   // the top bar appears only when it actually controls something on screen.
   useRegisterDeviceFrame();
