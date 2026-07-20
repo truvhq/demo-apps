@@ -192,17 +192,14 @@ export function POSTasksDemo({ screen, param }) {
       // Orders flow: the task's order (all its products, e.g. combined
       // income+assets) is done only on the order-level COMPLETED event — not a
       // per-link SUCCESS, which fires once per product and would advance a
-      // combined task after just income.
+      // combined task after just income. The widget closing (onClose / a CLOSE
+      // event) is deliberately NOT handled here: for an order the widget is just
+      // one view onto a server-side order, so closing it isn't a demo-level
+      // signal — the user stays on the order page and the order persists.
       if (type === 'COMPLETED' && source === 'order') completeTask();
-      // A user exit surfaces as onEvent CLOSE — the SDK's onClose callback does
-      // not always fire — so the close path lives here too.
-      if (type === 'CLOSE') handleBridgeClose();
     },
     'bridge:onSuccess': () => addBridgeEvent('onSuccess()', null),
-    'bridge:onClose': () => {
-      addBridgeEvent('onClose()', null);
-      handleBridgeClose();
-    },
+    'bridge:onClose': () => addBridgeEvent('onClose()', null),
   });
 
   // Completion: mark the active task and move to the waiting screen.
@@ -212,15 +209,8 @@ export function POSTasksDemo({ screen, param }) {
     navigate(`mortgage/pos-tasks/waiting/${param}`);
   }
 
-  // Close: after COMPLETED it's the SDK's post-completion close — ignore.
-  // Otherwise the user abandoned the order before it finished — abort.
-  function handleBridgeClose() {
-    if (completedRef.current) return;
-    abortBridge();
-  }
-
-  // Abort: stop polling the abandoned order and clear the active task marker so
-  // a later webhook from the abandoned attempt can't hijack a restarted task.
+  // Abort: only for a failure to load the order (see the bridge-token effect) —
+  // stop polling and clear the active task marker, then return to the task list.
   function abortBridge() {
     stopPolling();
     activeTaskRef.current = null;

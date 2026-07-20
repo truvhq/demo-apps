@@ -171,31 +171,21 @@ export function CustomerPortalDemo({ screen, param }) {
       addBridgeEvent(`onEvent("${type}", ${payloadStr}, "${source}")`, payload ? [{ label: 'payload', value: payload }] : null);
       // Orders flow: the whole order (all products) is done only on the
       // order-level COMPLETED event — not a per-link SUCCESS, which fires once
-      // per product and would advance a multi-product order too early.
+      // per product and would advance a multi-product order too early. The
+      // widget closing (onClose / a CLOSE event) is deliberately NOT handled:
+      // for an order the widget is just one view onto a server-side order, so
+      // closing it isn't a demo-level signal — the user stays on the order page.
       if (type === 'COMPLETED' && source === 'order') {
         completedRef.current = true;
         navigate(`public-sector/customer-portal/waiting/${orderId}`);
       }
-      // A user exit surfaces as onEvent CLOSE — the SDK's onClose callback does
-      // not always fire — so the close path lives here too.
-      if (type === 'CLOSE') handleBridgeClose();
     },
     'bridge:onSuccess': () => addBridgeEvent('onSuccess()', null),
-    'bridge:onClose': () => {
-      addBridgeEvent('onClose()', null);
-      handleBridgeClose();
-    },
+    'bridge:onClose': () => addBridgeEvent('onClose()', null),
   });
 
-  // Close: after COMPLETED it's the SDK's post-completion close — ignore.
-  // Otherwise the user abandoned the order before it finished — abort.
-  function handleBridgeClose() {
-    if (completedRef.current) return;
-    abortBridge();
-  }
-
-  // Abort: stop polling the abandoned order and clear the stale userId so a
-  // later webhook can't hijack a restarted flow.
+  // Abort: only for a failure to load the order (see the bridge-token effect) —
+  // stop polling and clear the stale userId, then return to the product picker.
   function abortBridge() {
     stopPolling();
     setUserId(null);
