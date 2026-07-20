@@ -11,13 +11,12 @@ import { postEvent } from '../protocol.js';
 
 export function TaskListPreview({ applicationId, taskStates = {} }) {
   // TaskList reads taskOrders[id] truthiness and taskStatus[id] === 'completed';
-  // rebuild both maps from the serializable taskStates prop. Include failed
-  // tasks in taskOrders so they remain visible for inspection or retry.
+  // rebuild both maps from the serializable taskStates prop.
   const taskOrders = {};
   const taskStatus = {};
   for (const task of TASKS) {
     const state = taskStates[task.id];
-    if (state === 'ready' || state === 'completed' || state === 'failed') taskOrders[task.id] = true;
+    if (state === 'ready' || state === 'completed') taskOrders[task.id] = true;
     if (state === 'completed') taskStatus[task.id] = 'completed';
   }
 

@@ -120,10 +120,6 @@ export function PayrollIncomeDemo() {
     },
     'bridge:onClose': () => {
       addBridgeEvent('onClose()', null);
-      // Cancel in-progress work: stop polling and reset to the form to prevent
-      // stale polls from incorrectly transitioning to success after user abort.
-      pollOnceAndStop();
-      setScreen('select');
       setBridgeToken(null);
     },
   });
