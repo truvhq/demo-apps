@@ -162,6 +162,12 @@ export function PaycheckLinkedLoansDemo() {
     },
     'bridge:onClose': () => {
       addBridgeEvent('onClose()', null);
+      // Cancel in-progress work: stop polling and reset PLL fetch state to prevent
+      // stale polls from incorrectly transitioning to success after user abort.
+      pollOnceAndStop();
+      pllFetchedRef.current = false;
+      pllRetryRef.current = 0;
+      setScreen('select');
       setBridgeToken(null);
     },
   });

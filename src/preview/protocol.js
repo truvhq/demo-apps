@@ -23,10 +23,10 @@
  *   method:select     — MethodPicker onSelect, args: [methodId]
  *   task:start        — TaskList onStart, args: [taskId]
  *   nav:back          — back link under the method picker, args: []
- *   bridge:onLoad     — TruvBridge onLoad, args: []
- *   bridge:onEvent    — TruvBridge onEvent, args: [type, payload, source]
- *   bridge:onSuccess  — TruvBridge onSuccess, args: [publicToken, meta]
- *   bridge:onClose    — TruvBridge onClose, args: []
+ *   bridge:onLoad     — BridgePreview onLoad, args: []
+ *   bridge:onEvent    — BridgePreview onEvent, args: [type, payload, source]
+ *   bridge:onSuccess  — BridgePreview onSuccess, args: [publicToken, meta]
+ *   bridge:onClose    — BridgePreview onClose, args: []
  *
  * Same-origin only — both sides use window.location.origin as targetOrigin.
  */

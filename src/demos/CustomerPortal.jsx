@@ -128,12 +128,21 @@ export function CustomerPortalDemo({ screen, param }) {
     (async () => {
       try {
         const resp = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(orderId)}/info`);
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({ error: 'Unknown' }));
+          if (cancelled) return;
+          alert('Error: ' + (data.error || 'Unknown'));
+          abortBridge();
+          return;
+        }
         const data = await resp.json();
         if (cancelled) return;
-        if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); return; }
         setBridgeToken(data.bridge_token);
         startPolling(data.user_id);
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) abortBridge();
+      }
     })();
     return () => { cancelled = true; };
   }, [screen, orderId]);
@@ -175,7 +184,10 @@ export function CustomerPortalDemo({ screen, param }) {
       // SDK's onClose callback does not fire — so the close paths live here.
       if (type === 'CLOSE') handleBridgeClose();
     },
-    'bridge:onSuccess': () => addBridgeEvent('onSuccess()', null),
+    'bridge:onSuccess': () => {
+      successRef.current = true;
+      addBridgeEvent('onSuccess()', null);
+    },
     'bridge:onClose': () => {
       addBridgeEvent('onClose()', null);
       handleBridgeClose();
