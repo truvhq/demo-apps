@@ -54,14 +54,9 @@ export function POSApplicationDemo({ screen, param }) {
   const [submitting, setSubmitting] = useState(false);
   const [bridgeToken, setBridgeToken] = useState(null);
   const iframeRef = useRef(null);
-  // Set when Bridge fires COMPLETED (source: order) — a trailing onClose from the
+  // Set when Bridge fires COMPLETED (source: order) — a trailing close from the
   // SDK's auto-close-after-completion must not abort the successful session.
   const completedRef = useRef(false);
-  // Set when Bridge fires SUCCESS: the user finished verification, but the
-  // order-level COMPLETED event may lag behind (or never arrive before the
-  // widget closes). A CLOSE after SUCCESS is a completion, not an abort — the
-  // waiting screen's webhook watch confirms the order server-side.
-  const successRef = useRef(false);
 
   // Panel hook: sidebar state, session tracking, webhook polling, bridge events
   const { panel, sessionId, setCurrentStep, startPolling, stopPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
@@ -109,7 +104,6 @@ export function POSApplicationDemo({ screen, param }) {
     if (screen !== 'bridge' || !orderId) {
       setBridgeToken(null);
       completedRef.current = false;
-      successRef.current = false;
       return;
     }
     let cancelled = false;
@@ -163,35 +157,28 @@ export function POSApplicationDemo({ screen, param }) {
     'bridge:onEvent': (type, payload, source) => {
       const payloadStr = payload ? 'payload' : 'undefined';
       addBridgeEvent(`onEvent("${type}", ${payloadStr}, "${source}")`, payload ? [{ label: 'payload', value: payload }] : null);
-      if (type === 'SUCCESS') successRef.current = true;
+      // Orders flow: the whole order (all products) is done only on the
+      // order-level COMPLETED event — not a per-link SUCCESS, which fires once
+      // per product and would advance a multi-product order too early.
       if (type === 'COMPLETED' && source === 'order') {
         completedRef.current = true;
         navigate(`mortgage/pos-application/waiting/${orderId}`);
       }
-      // In the iframe's modal mode a user exit surfaces as onEvent CLOSE — the
-      // SDK's onClose callback does not fire — so the close paths live here.
+      // A user exit surfaces as onEvent CLOSE — the SDK's onClose callback does
+      // not always fire — so the close path lives here too.
       if (type === 'CLOSE') handleBridgeClose();
     },
-    'bridge:onSuccess': () => {
-      successRef.current = true;
-      addBridgeEvent('onSuccess()', null);
-    },
+    'bridge:onSuccess': () => addBridgeEvent('onSuccess()', null),
     'bridge:onClose': () => {
       addBridgeEvent('onClose()', null);
       handleBridgeClose();
     },
   });
 
-  // Close: already navigated on COMPLETED — ignore. Closed after SUCCESS — the
-  // verification finished but the order event lagged; go wait for the webhook.
-  // Closed with no success — a genuine abort.
+  // Close: after COMPLETED it's the SDK's post-completion close — ignore.
+  // Otherwise the user abandoned the order before it finished — abort.
   function handleBridgeClose() {
     if (completedRef.current) return;
-    if (successRef.current) {
-      completedRef.current = true;
-      navigate(`mortgage/pos-application/waiting/${orderId}`);
-      return;
-    }
     abortBridge();
   }
 
