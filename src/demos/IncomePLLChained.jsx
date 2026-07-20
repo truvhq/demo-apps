@@ -153,9 +153,9 @@ export function IncomePLLChainedDemo() {
   }
 
   // Step 2 + 3: create the VOIE order, then hand the bridge_token to the preview
-  // iframe so Bridge renders inline inside the DeviceFrame. Bridge's onSuccess
-  // event (routed back via postMessage) drives the transition to the decision
-  // screen; the webhook-based useEffect remains as a backup.
+  // iframe so Bridge renders inline inside the DeviceFrame. Bridge's order-level
+  // COMPLETED event (routed back via postMessage) drives the transition to the
+  // decision screen; the webhook-based useEffect remains as a backup.
   async function startVoieOrder() {
     setLoading(true);
     setCurrentStep(1);
@@ -259,25 +259,28 @@ export function IncomePLLChainedDemo() {
   const sendPreview = usePreviewIframe(iframeRef, {
     'form:submit': (data) => checkCoverage(data),
     'bridge:onLoad': () => addBridgeEvent('onLoad()', null),
-    'bridge:onEvent': (type, payload) => {
+    'bridge:onEvent': (type, payload, source) => {
       const payloadStr = payload ? 'payload' : 'undefined';
-      addBridgeEvent(`onEvent("${type}", ${payloadStr})`, payload ? [{ label: 'payload', value: payload }] : null);
+      addBridgeEvent(`onEvent("${type}", ${payloadStr}, "${source}")`, payload ? [{ label: 'payload', value: payload }] : null);
+      // Orders flow: advance the chain on the order-level COMPLETED event (not a
+      // per-link SUCCESS). fetchDecision/fetchPllReport retry on a not-yet-ready
+      // link_id, so no artificial delay is needed. The webhook effects above are
+      // the backup path in case the client event doesn't arrive.
+      if (type === 'COMPLETED' && source === 'order') {
+        if (screen === 'voie-waiting' && voieOrder?.order_id) {
+          decisionFetchedRef.current = true;
+          fetchDecision(voieOrder.order_id);
+        } else if (screen === 'pll-waiting' && pllOrder?.order_id) {
+          reportFetchedRef.current = true;
+          fetchPllReport(pllOrder.order_id);
+        }
+      }
     },
     'bridge:onSuccess': (publicToken, meta) => {
       addBridgeEvent('onSuccess(publicToken, meta)', [
         { label: 'publicToken', value: publicToken },
         { label: 'meta', value: meta },
       ]);
-      // Drive the next step directly off the SDK callback so the flow doesn't
-      // depend on webhook delivery. The 1500ms delay gives Truv time to populate
-      // link_id + bank_accounts on the VOIE order (and the PLL report on PLL).
-      if (screen === 'voie-waiting' && voieOrder?.order_id) {
-        decisionFetchedRef.current = true;
-        setTimeout(() => fetchDecision(voieOrder.order_id), 1500);
-      } else if (screen === 'pll-waiting' && pllOrder?.order_id) {
-        reportFetchedRef.current = true;
-        setTimeout(() => fetchPllReport(pllOrder.order_id), 1500);
-      }
     },
     'bridge:onClose': () => {
       addBridgeEvent('onClose()', null);
