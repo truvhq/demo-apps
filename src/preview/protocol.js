@@ -15,7 +15,8 @@
  *   method-picker     — SmartRouting method picker, props: { recommended, loading }
  *   task-list         — POSTasks task list, props: { applicationId, taskStates }
  *                       where taskStates maps taskId → 'ready'|'completed'|'failed'
- *   bridge            — TruvBridge modal overlay, props: { bridgeToken, isOrder, companyMappingId }
+ *   bridge            — TruvBridge widget, props: { bridgeToken, isOrder, companyMappingId, inline }
+ *                       (inline embeds the widget in a container; otherwise it's a modal)
  *   loading           — spinner, props: { label, subtitle }
  *
  * Event names (iframe → parent):

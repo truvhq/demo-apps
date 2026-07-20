@@ -1,19 +1,30 @@
 /**
- * Initializes the TruvBridge widget inside the preview iframe. Critically: NO
- * position: 'inline' — Bridge renders as its default modal that fills the
- * iframe's viewport. SDK callbacks are forwarded to the host as preview:event
- * messages so the Panel sidebar gets the same Bridge log it had pre-refactor.
+ * Initializes the TruvBridge widget inside the preview iframe in one of two
+ * integration modes:
+ *   - default (modal)  — Bridge renders its own modal that fills the iframe's
+ *     viewport (Bridge flow: bank/payroll income, PLL, deposit switch).
+ *   - inline           — Bridge is embedded into our own container so it sits in
+ *     the page like an embedded merchant experience, matching the original
+ *     BridgeScreen integration (Orders flow: POS Application/Tasks, Customer
+ *     Portal). Pass `inline` for these.
+ * SDK callbacks are forwarded to the host as preview:event messages so the Panel
+ * sidebar gets the same Bridge log either way.
  */
 
-import { useEffect } from 'preact/hooks';
+import { useEffect, useRef } from 'preact/hooks';
 import { postEvent } from '../protocol.js';
 
-export function BridgePreview({ bridgeToken, isOrder, companyMappingId }) {
+export function BridgePreview({ bridgeToken, isOrder, companyMappingId, inline }) {
+  const containerRef = useRef(null);
+
   useEffect(() => {
     if (!bridgeToken || !window.TruvBridge) return;
     const opts = { bridgeToken };
     if (isOrder) opts.isOrder = true;
     if (companyMappingId) opts.companyMappingId = companyMappingId;
+    // Inline embed mounts the widget into our container; without a position the
+    // SDK draws its own modal.
+    if (inline && containerRef.current) opts.position = { type: 'inline', container: containerRef.current };
     const b = window.TruvBridge.init({
       ...opts,
       onLoad: () => postEvent('bridge:onLoad', []),
@@ -23,10 +34,12 @@ export function BridgePreview({ bridgeToken, isOrder, companyMappingId }) {
     });
     b.open();
     return () => { try { b.close(); } catch {} };
-  }, [bridgeToken, isOrder, companyMappingId]);
+  }, [bridgeToken, isOrder, companyMappingId, inline]);
 
-  // Side-effect-only component: TruvBridge.init() injects its own DOM at the
-  // iframe document level. Rendering nothing here lets the underlying base
-  // view stay visible behind the modal's backdrop.
-  return null;
+  // Modal mode: side-effect only — the SDK injects its own overlay at the iframe
+  // document level, and rendering nothing keeps the base view mounted behind the
+  // backdrop. Inline mode: provide the full-viewport container the widget mounts
+  // into (opaque, so it covers the base view like a dedicated screen).
+  if (!inline) return null;
+  return <div ref={containerRef} class="fixed inset-0 bg-white overflow-hidden [&_iframe]:w-full [&_iframe]:!h-full [&_iframe]:border-none" />;
 }

@@ -210,7 +210,7 @@ export function POSApplicationDemo({ screen, param }) {
       sendPreview('application-form', { sessionId, productType, submitting });
     } else if (screen === 'bridge') {
       if (bridgeToken) {
-        sendPreview('bridge', { bridgeToken, isOrder: true, companyMappingId });
+        sendPreview('bridge', { bridgeToken, isOrder: true, companyMappingId, inline: true });
       } else {
         sendPreview('loading', { label: 'Preparing verification…' });
       }

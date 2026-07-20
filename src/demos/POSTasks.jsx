@@ -248,7 +248,7 @@ export function POSTasksDemo({ screen, param }) {
       sendPreview('task-list', { applicationId, taskStates });
     } else if (screen === 'bridge') {
       if (bridgeToken) {
-        sendPreview('bridge', { bridgeToken, isOrder: true });
+        sendPreview('bridge', { bridgeToken, isOrder: true, inline: true });
       } else {
         sendPreview('loading', { label: 'Preparing verification…' });
       }
