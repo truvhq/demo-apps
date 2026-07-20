@@ -54,10 +54,6 @@ export function PaycheckLinkedLoansDemo() {
   const [loading, setLoading] = useState(false);
   const [bridgeToken, setBridgeToken] = useState(null);
   const iframeRef = useRef(null);
-  // Set when Bridge fires onSuccess — the verification succeeded, but we keep the
-  // widget on screen until the user dismisses it (onClose), so they see the
-  // widget's own success screen and press Done before we advance.
-  const succeededRef = useRef(false);
 
   // PLL report state: fetched via link_id from the task-status-updated webhook
   const [pllReport, setPllReport] = useState(null);
@@ -85,10 +81,6 @@ export function PaycheckLinkedLoansDemo() {
     if (!linkId) return;
     pllFetchedRef.current = true;
     setPllLoading(true);
-    // Fetch and store the report in the background. Do NOT advance the screen
-    // here — the transition to the report happens on onClose (Done) or, if the
-    // widget was already dismissed, via the waiting→review effect below — so the
-    // widget's success screen is never torn down before the user presses Done.
     fetch(`${API_BASE}/api/links/${encodeURIComponent(linkId)}/pll?user_id=${encodeURIComponent(userId)}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
@@ -96,6 +88,7 @@ export function PaycheckLinkedLoansDemo() {
           setPllReport(data);
           setPllLoading(false);
           setCurrentStep(3);
+          setScreen('review');
           pollOnceAndStop();
         } else if (++pllRetryRef.current < 3) {
           pllFetchedRef.current = false;
@@ -103,6 +96,7 @@ export function PaycheckLinkedLoansDemo() {
           setPllError(true);
           setPllLoading(false);
           setCurrentStep(3);
+          setScreen('review');
           pollOnceAndStop();
         }
       })
@@ -114,16 +108,11 @@ export function PaycheckLinkedLoansDemo() {
           setPllError(true);
           setPllLoading(false);
           setCurrentStep(3);
+          setScreen('review');
           pollOnceAndStop();
         }
       });
   }, [panel.webhooks, userId]);
-
-  // Once the user has dismissed the widget onto the waiting screen, move to the
-  // report as soon as it (or an error) is ready.
-  useEffect(() => {
-    if (screen === 'waiting' && (pllReport || pllError)) setScreen('review');
-  }, [screen, pllReport, pllError]);
 
   // Handler: create bridge token via POST /api/bridge-token (product_type: pll); the
   // Bridge widget itself opens inside the preview iframe once bridgeToken lands in
@@ -142,7 +131,6 @@ export function PaycheckLinkedLoansDemo() {
       if (!resp.ok) { alert('Error: ' + (result.error || 'Unknown')); setLoading(false); return; }
       setUserId(result.user_id);
       startPolling(result.user_id);
-      succeededRef.current = false;
       setBridgeToken(result.bridge_token);
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -164,20 +152,13 @@ export function PaycheckLinkedLoansDemo() {
         { label: 'meta', value: meta },
       ]);
       setCurrentStep(2);
-      // Verification succeeded, but keep the widget up so the user sees its
-      // success screen and presses Done — the screen advances on onClose.
-      succeededRef.current = true;
+      // Guard: Bridge's onSuccess can fire after the "done" webhook, so the PLL fetch
+      // may have already transitioned the screen to 'review'. Don't clobber it.
+      setScreen(curr => curr === 'review' ? curr : 'waiting');
     },
     'bridge:onClose': () => {
       addBridgeEvent('onClose()', null);
-      // Done pressed. If verification succeeded, advance to the report (or the
-      // waiting spinner until it arrives); otherwise the user bailed — drop the
-      // token to fall back to the form.
-      if (succeededRef.current) {
-        setScreen(pllReport || pllError ? 'review' : 'waiting');
-      } else {
-        setBridgeToken(null);
-      }
+      setBridgeToken(null);
     },
   });
 
@@ -198,7 +179,6 @@ export function PaycheckLinkedLoansDemo() {
   // Handler: reset all state to start over
   function resetDemo() {
     reset();
-    succeededRef.current = false;
     pllFetchedRef.current = false;
     pllRetryRef.current = 0;
     setPllReport(null);

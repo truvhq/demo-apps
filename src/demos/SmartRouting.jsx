@@ -45,6 +45,11 @@ import { DIAGRAM } from '../diagrams/smart-routing.js';
 // --- Imports: scaffolding (steps, method definitions, intro config, picker components) ---
 import { STEPS, METHODS, INTRO_SLIDE_CONFIG, MethodCards } from './scaffolding/smart-routing.jsx';
 
+// Screens form a forward-only flow: never roll back from a later phase to an earlier one.
+const SCREEN_FLOW = ['select', 'choose', 'waiting', 'review'];
+const atLeastScreen = (current, target) =>
+  SCREEN_FLOW.indexOf(current) >= SCREEN_FLOW.indexOf(target) ? current : target;
+
 // --- Component: SmartRoutingDemo ---
 export function SmartRoutingDemo() {
   // Component state: screen phase, form visibility, form data, routing recommendation
@@ -69,10 +74,6 @@ export function SmartRoutingDemo() {
   const [docsLoading, setDocsLoading] = useState(false);
   const docsFetchedRef = useRef(false);
   const docsRetryRef = useRef(0);
-  // Set when Bridge fires onSuccess — verification succeeded, but we keep the
-  // widget on screen until the user dismisses it (onClose), so they see the
-  // widget's own success screen and press Done before we advance.
-  const succeededRef = useRef(false);
 
   // Panel hook: sidebar state, session tracking, webhook polling, bridge events
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
@@ -88,17 +89,8 @@ export function SmartRoutingDemo() {
     webhooks: panel.webhooks,
     pollOnceAndStop,
     webhookEvent: 'task',
+    onComplete: () => setScreen('review'),
   });
-
-  // Report readiness for the currently selected method (docs vs payroll/bank).
-  const reportReady = isDocumentsMethod ? (docsReport || docsError) : reports != null;
-
-  // Once the user has dismissed the widget onto the waiting screen, move to the
-  // report as soon as it's ready. The report is fetched in the background while
-  // the widget is still up, so its success screen is never torn down early.
-  useEffect(() => {
-    if (screen === 'waiting' && reportReady) setScreen('review');
-  }, [screen, reportReady]);
 
   // Derive sidebar Guide step from screen + userId so step never desyncs from the actual
   // phase. 'choose' covers two steps because Bridge opens over that screen:
@@ -133,12 +125,14 @@ export function SmartRoutingDemo() {
           // response used by payroll/bank methods.
           setDocsReport({ links: [data] });
           setDocsLoading(false);
+          setScreen('review');
           pollOnceAndStop();
         } else if (++docsRetryRef.current < 3) {
           docsFetchedRef.current = false;
         } else {
           setDocsError(true);
           setDocsLoading(false);
+          setScreen('review');
           pollOnceAndStop();
         }
       })
@@ -149,6 +143,7 @@ export function SmartRoutingDemo() {
         } else {
           setDocsError(true);
           setDocsLoading(false);
+          setScreen('review');
           pollOnceAndStop();
         }
       });
@@ -208,7 +203,6 @@ export function SmartRoutingDemo() {
 
       setUserId(data.user_id);
       startPolling(data.user_id);
-      succeededRef.current = false;
       setBridgeToken(data.bridge_token);
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -239,20 +233,13 @@ export function SmartRoutingDemo() {
         { label: 'publicToken', value: publicToken },
         { label: 'meta', value: meta },
       ]);
-      // Verification succeeded, but keep the widget up so the user sees its
-      // success screen and presses Done — the screen advances on onClose.
-      succeededRef.current = true;
+      // Bridge's onSuccess can race with the docs webhook handler that already advanced
+      // the flow to 'review' — keep the latest phase instead of rolling back.
+      setScreen(prev => atLeastScreen(prev, 'waiting'));
     },
     'bridge:onClose': () => {
       addBridgeEvent('onClose()', null);
-      // Done pressed. If verification succeeded, advance to the report (or the
-      // waiting spinner until it arrives); otherwise the user bailed — drop the
-      // token to fall back to the method picker.
-      if (succeededRef.current) {
-        setScreen(reportReady ? 'review' : 'waiting');
-      } else {
-        setBridgeToken(null);
-      }
+      setBridgeToken(null);
     },
   });
 
@@ -279,7 +266,6 @@ export function SmartRoutingDemo() {
   function resetDemo() {
     reset();
     resetReports();
-    succeededRef.current = false;
     docsFetchedRef.current = false;
     docsRetryRef.current = 0;
     setDocsReport(null);
