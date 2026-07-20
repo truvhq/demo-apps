@@ -54,22 +54,33 @@ export function PayrollIncomeDemo() {
   const [loading, setLoading] = useState(false);
   const [bridgeToken, setBridgeToken] = useState(null);
   const iframeRef = useRef(null);
+  // Set when Bridge fires onSuccess — verification succeeded, but we keep the
+  // widget on screen until the user dismisses it (onClose), so they see the
+  // widget's own success screen and press Done before we advance.
+  const succeededRef = useRef(false);
 
   // Panel hook: sidebar state, session tracking, webhook polling, bridge events
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
   // Report fetching: watches webhooks for task completion, fetches VOIE income report.
-  // onError also advances to the review screen so the waiting screen never hangs
-  // when the report fetch fails after the task-done webhook.
+  // The report is fetched in the background; the screen only advances to it once
+  // the user has dismissed the widget (see onClose + the waiting→review effect),
+  // so the widget's success screen is never torn down before the user presses Done.
   const { reports, loading: reportLoading, error: reportError, reset: resetReports } = useReportFetch({
     userId,
     products: ['income'],
     webhooks: panel.webhooks,
     pollOnceAndStop,
     webhookEvent: 'task',
-    onComplete: () => { setCurrentStep(3); setScreen('review'); },
-    onError: () => { setCurrentStep(3); setScreen('review'); },
+    onComplete: () => setCurrentStep(3),
+    onError: () => setCurrentStep(3),
   });
+
+  // Once the user has dismissed the widget onto the waiting screen, move to the
+  // report as soon as it (or an error) is ready.
+  useEffect(() => {
+    if (screen === 'waiting' && (reports?.income || reportError)) setScreen('review');
+  }, [screen, reports, reportError]);
 
   // Handler: create bridge token via POST /api/bridge-token; the Bridge widget
   // itself opens inside the preview iframe once bridgeToken lands in state.
@@ -88,6 +99,7 @@ export function PayrollIncomeDemo() {
       if (!resp.ok) { alert('Error: ' + (result.error || 'Unknown')); setLoading(false); return; }
       setUserId(result.user_id);
       startPolling(result.user_id);
+      succeededRef.current = false;
       setBridgeToken(result.bridge_token);
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -109,14 +121,20 @@ export function PayrollIncomeDemo() {
         { label: 'meta', value: meta },
       ]);
       setCurrentStep(2);
-      // Guard: Bridge's onSuccess can fire after the "done" webhook, so useReportFetch
-      // may have already transitioned the screen to 'review'. Don't clobber it back to
-      // 'waiting' (matches PaycheckLinkedLoans).
-      setScreen(curr => curr === 'review' ? curr : 'waiting');
+      // Verification succeeded, but keep the widget up so the user sees its
+      // success screen and presses Done — the screen advances on onClose.
+      succeededRef.current = true;
     },
     'bridge:onClose': () => {
       addBridgeEvent('onClose()', null);
-      setBridgeToken(null);
+      // Done pressed. If verification succeeded, advance to the report (or the
+      // waiting spinner until it arrives); otherwise the user bailed — drop the
+      // token to fall back to the form.
+      if (succeededRef.current) {
+        setScreen(reports?.income || reportError ? 'review' : 'waiting');
+      } else {
+        setBridgeToken(null);
+      }
     },
   });
 
@@ -136,6 +154,7 @@ export function PayrollIncomeDemo() {
   function resetDemo() {
     reset();
     resetReports();
+    succeededRef.current = false;
     setScreen('select');
     setShowForm(false);
     setFormData(null);
