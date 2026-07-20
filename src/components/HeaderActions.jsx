@@ -35,10 +35,10 @@ function GitHubIcon() {
 }
 
 // GitHub link for the dev panel's tab row. Self-hides at lg+ where the header
-// shows the link instead; below lg the header link self-hides in turn (Layout
-// passes githubInPanel while the panel is open), so exactly one placement is
-// ever visible. Keeps its text label down to sm; only on phones (<640) it
-// collapses to the bare icon.
+// shows the link instead. Below lg it is the GitHub entry point on demo pages
+// (the ones with a Dev button): the header suppresses its own link there, and
+// this one is reached by opening the panel via Dev. Keeps its text label down
+// to sm; only on phones (<640) it collapses to the bare icon.
 export function GitHubPanelLink() {
   return (
     <a
@@ -57,12 +57,14 @@ export function GitHubPanelLink() {
 // GitHub placement, so the link is reachable at every width and never
 // duplicated:
 //   - >= lg          : always in the header (icon + label + arrow).
-//   - <  lg          : moves into the dev panel's tab row when that row exists
-//                      (demo pages with the panel open — see GitHubPanelLink),
-//                      otherwise stays in the header as a compact icon link.
-// `githubInPanel` (set by Layout to the panel's visibility) picks between the
-// two; it defaults to false so pages without a panel — Home, IndustryPage, demo
-// intro screens, a demo with the panel closed — always keep the header link.
+//   - <  lg          : on demo pages it lives in the dev panel's tab row,
+//                      reached via the Dev button (see GitHubPanelLink);
+//                      otherwise it stays in the header as a compact icon link.
+// `githubInPanel` (set by Layout to whether the shell has a Dev button) picks
+// between the two. It is tied to the Dev button's presence — not the panel's
+// open/closed state — so the link never jumps between header and panel as the
+// panel is toggled. Defaults to false, so pages without a Dev button — Home,
+// IndustryPage, demo intro screens — always keep the header link.
 export function HeaderActions({ githubInPanel = false }) {
   const githubClass = OUTLINE_BTN.replace('inline-flex', githubInPanel ? 'hidden lg:inline-flex' : 'inline-flex');
   return (

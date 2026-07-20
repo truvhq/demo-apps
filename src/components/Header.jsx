@@ -76,9 +76,9 @@ export function Breadcrumb({ trail = [] }) {
 //   trail        : breadcrumb segments [{ label, href }] (last = current page)
 //   badge        : small label pill shown after the breadcrumb (root pages only)
 //   sticky       : whether the header sticks to the top on scroll
-//   githubInPanel: true when the dev panel's tab row hosts the GitHub link below
-//                  lg (demo Layout with the panel open) — the header then hides
-//                  its own GitHub link below lg to avoid duplication
+//   githubInPanel: true when the shell has a Dev button that hosts the GitHub
+//                  link in the panel below lg (demo Layout) — the header then
+//                  hides its own GitHub link below lg to avoid duplication
 //   children     : optional right-edge slot (demo Layout puts the device toggle
 //                  and the Dev-panel button here)
 export function Header({ trail, badge, sticky, githubInPanel, children }) {

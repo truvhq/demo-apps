@@ -69,7 +69,7 @@ export function Layout({ steps, panel, hidePanel, children }) {
       {/* Shared top bar. The panel's tab nav lives inside the Panel itself, so
           the header is always full width and behaves the same on every page.
           Right-edge slot: device toggle + Dev-panel button (demo shell only). */}
-      <Header trail={getBreadcrumbTrail()} githubInPanel={showPanel}>
+      <Header trail={getBreadcrumbTrail()} githubInPanel={!hidePanel}>
         {!hidePanel && (
           <>
             {/* Device toggle: only shown when a DeviceFrame is currently mounted
