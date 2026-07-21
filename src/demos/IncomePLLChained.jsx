@@ -40,7 +40,7 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 
 // --- Imports: shared layout, components, hooks, and API utilities ---
-import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, parsePayload } from '../components/index.js';
+import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide } from '../components/index.js';
 
 // --- Imports: device-frame preview wrapper + iframe channel hook ---
 import { DeviceFrame } from '../components/DeviceFrame.jsx';
@@ -105,35 +105,13 @@ export function IncomePLLChainedDemo() {
   // coverage call still shows up then, because getApiLogsByUserId() also returns
   // session-scoped rows (user_id IS NULL AND session_id = ?).
 
-  // Effect: when task-status-updated:done arrives during voie-waiting, fetch the
-  // decision payload and either advance to the decision screen or to manual route.
-  useEffect(() => {
-    if (screen !== 'voie-waiting' || !voieOrder?.order_id || decisionFetchedRef.current) return;
-    const doneWh = panel.webhooks.find(w => {
-      const p = parsePayload(w.payload);
-      return (p.event_type === 'task-status-updated' && p.status === 'done')
-        || (w.event_type === 'task-status-updated' && w.status === 'done');
-    });
-    if (!doneWh) return;
-    decisionFetchedRef.current = true;
-    fetchDecision(voieOrder.order_id);
-  }, [panel.webhooks, screen, voieOrder]);
-
-  // Effect: when task-status-updated:done arrives during pll-waiting, fetch the
-  // final PLL report and advance to the review screen.
-  useEffect(() => {
-    if (screen !== 'pll-waiting' || !pllOrder?.order_id || reportFetchedRef.current) return;
-    // PLL completes with a *second* task-status-updated:done webhook for the new
-    // PLL link. Pick the latest one — earlier "done" entries belong to the VOIE task.
-    const doneEvents = panel.webhooks.filter(w => {
-      const p = parsePayload(w.payload);
-      return (p.event_type === 'task-status-updated' && p.status === 'done')
-        || (w.event_type === 'task-status-updated' && w.status === 'done');
-    });
-    if (doneEvents.length < 2) return;
-    reportFetchedRef.current = true;
-    fetchPllReport(pllOrder.order_id);
-  }, [panel.webhooks, screen, pllOrder]);
+  // NOTE: the chain advances off each Bridge handoff only on the order-level
+  // COMPLETED event (see the preview channel below) — i.e. when the borrower has
+  // actually finished the widget. We deliberately do NOT advance on the
+  // task-status-updated:done webhook: that fires when the task completes
+  // server-side, which can be *before* the borrower closes the widget, and would
+  // yank them off it early ("не ждётся закрытия"). This matches the Customer
+  // Portal / POS order demos, which key their transition off COMPLETED too.
 
   // Step 1: pre-check coverage. The result is advisory — the user can always
   // proceed. If no employer was selected on the form, skip the API call entirely
@@ -269,16 +247,20 @@ export function IncomePLLChainedDemo() {
       const payloadStr = payload ? 'payload' : 'undefined';
       addBridgeEvent(`onEvent("${type}", ${payloadStr}, "${source}")`, payload ? [{ label: 'payload', value: payload }] : null);
       // Orders flow: advance the chain on the order-level COMPLETED event (not a
-      // per-link SUCCESS). fetchDecision/fetchPllReport retry on a not-yet-ready
-      // link_id, so no artificial delay is needed. The webhook effects above are
-      // the backup path in case the client event doesn't arrive.
+      // per-link SUCCESS, and not the task-done webhook) — this is the signal that
+      // the borrower finished the widget. Drop the token so the frame closes to the
+      // waiting spinner while the decision/report fetch runs (they retry on a
+      // not-yet-ready link_id, so no artificial delay is needed). The *FetchedRef
+      // guards keep a repeated COMPLETED from firing a second fetch.
       if (type === 'COMPLETED' && source === 'order') {
         completedRef.current = true;
-        if (screen === 'voie-waiting' && voieOrder?.order_id) {
+        if (screen === 'voie-waiting' && voieOrder?.order_id && !decisionFetchedRef.current) {
           decisionFetchedRef.current = true;
+          setBridgeToken(null);
           fetchDecision(voieOrder.order_id);
-        } else if (screen === 'pll-waiting' && pllOrder?.order_id) {
+        } else if (screen === 'pll-waiting' && pllOrder?.order_id && !reportFetchedRef.current) {
           reportFetchedRef.current = true;
+          setBridgeToken(null);
           fetchPllReport(pllOrder.order_id);
         }
       }
