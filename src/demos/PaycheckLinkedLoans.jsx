@@ -88,7 +88,6 @@ export function PaycheckLinkedLoansDemo() {
           setPllReport(data);
           setPllLoading(false);
           setCurrentStep(3);
-          setScreen('review');
           pollOnceAndStop();
         } else if (++pllRetryRef.current < 3) {
           pllFetchedRef.current = false;
@@ -96,7 +95,6 @@ export function PaycheckLinkedLoansDemo() {
           setPllError(true);
           setPllLoading(false);
           setCurrentStep(3);
-          setScreen('review');
           pollOnceAndStop();
         }
       })
@@ -108,11 +106,19 @@ export function PaycheckLinkedLoansDemo() {
           setPllError(true);
           setPllLoading(false);
           setCurrentStep(3);
-          setScreen('review');
           pollOnceAndStop();
         }
       });
   }, [panel.webhooks, userId]);
+
+  // The PLL fetch above only fills report data in the background — it must NOT advance
+  // the screen, or results would appear before the user finishes the widget. The forward
+  // move off the widget is driven by Bridge's onSuccess (see the preview channel below);
+  // once past the widget (on 'waiting'), advance to the report as soon as it's ready.
+  const reportReady = pllReport != null || pllError;
+  useEffect(() => {
+    if (screen === 'waiting' && reportReady) setScreen('review');
+  }, [screen, reportReady]);
 
   // Handler: create bridge token via POST /api/bridge-token (product_type: pll); the
   // Bridge widget itself opens inside the preview iframe once bridgeToken lands in
@@ -152,8 +158,8 @@ export function PaycheckLinkedLoansDemo() {
         { label: 'meta', value: meta },
       ]);
       setCurrentStep(2);
-      // Guard: Bridge's onSuccess can fire after the "done" webhook, so the PLL fetch
-      // may have already transitioned the screen to 'review'. Don't clobber it.
+      // Single-bridge rule: onSuccess (widget completion) is what advances the flow.
+      // Forward-only guard in case the report already advanced us to 'review'.
       setScreen(curr => curr === 'review' ? curr : 'waiting');
     },
     'bridge:onClose': () => {

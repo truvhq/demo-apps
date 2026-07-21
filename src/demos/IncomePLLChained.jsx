@@ -83,6 +83,10 @@ export function IncomePLLChainedDemo() {
   // Refs: idempotency guards so webhook polling doesn't re-trigger fetches.
   const decisionFetchedRef = useRef(false);
   const reportFetchedRef = useRef(false);
+  // Set when Bridge fires COMPLETED (source: order) so a trailing onClose from
+  // the SDK's auto-close-after-completion isn't mistaken for the user abandoning.
+  // Reset to false each time a fresh Bridge session opens (startVoieOrder/startPllOrder).
+  const completedRef = useRef(false);
 
   // Panel hook: sidebar state, session tracking, webhook polling, bridge events
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
@@ -173,6 +177,7 @@ export function IncomePLLChainedDemo() {
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setLoading(false); return; }
       setVoieOrder(data);
       startPolling(data.user_id);
+      completedRef.current = false;
       setBridgeToken(data.bridge_token);
       setScreen('voie-waiting');
     } catch (e) { console.error(e); }
@@ -220,6 +225,7 @@ export function IncomePLLChainedDemo() {
       const data = await resp.json();
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setLoading(false); return; }
       setPllOrder(data);
+      completedRef.current = false;
       setBridgeToken(data.bridge_token);
       setScreen('pll-waiting');
     } catch (e) { console.error(e); }
@@ -267,6 +273,7 @@ export function IncomePLLChainedDemo() {
       // link_id, so no artificial delay is needed. The webhook effects above are
       // the backup path in case the client event doesn't arrive.
       if (type === 'COMPLETED' && source === 'order') {
+        completedRef.current = true;
         if (screen === 'voie-waiting' && voieOrder?.order_id) {
           decisionFetchedRef.current = true;
           fetchDecision(voieOrder.order_id);
@@ -284,7 +291,16 @@ export function IncomePLLChainedDemo() {
     },
     'bridge:onClose': () => {
       addBridgeEvent('onClose()', null);
+      // A completion auto-closes the widget (COMPLETED already fired) — let the
+      // chain advance instead of treating it as an abandon.
+      if (completedRef.current) return;
+      // User closed Bridge without finishing: drop the token and return to the
+      // screen they opened it from (coverage before VOIE, decision before PLL).
       setBridgeToken(null);
+      setScreen(prev =>
+        prev === 'voie-waiting' ? 'coverage'
+          : prev === 'pll-waiting' ? 'decision'
+            : prev);
     },
   });
 
@@ -306,6 +322,7 @@ export function IncomePLLChainedDemo() {
     reset();
     decisionFetchedRef.current = false;
     reportFetchedRef.current = false;
+    completedRef.current = false;
     setScreen('select');
     setShowForm(false);
     setFormData(null);

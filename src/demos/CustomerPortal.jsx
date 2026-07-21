@@ -115,9 +115,12 @@ export function CustomerPortalDemo({ screen, param }) {
   useEffect(() => {
     if (screen !== 'bridge' || !orderId) {
       setBridgeToken(null);
-      completedRef.current = false;
       return;
     }
+    // Fresh Bridge session: clear the completion marker so a later onClose counts
+    // as an abandon. A completed order sets it true just before navigating away,
+    // and it must stay true until the next Bridge opens (see onClose below).
+    completedRef.current = false;
     let cancelled = false;
     (async () => {
       try {
@@ -171,21 +174,25 @@ export function CustomerPortalDemo({ screen, param }) {
       addBridgeEvent(`onEvent("${type}", ${payloadStr}, "${source}")`, payload ? [{ label: 'payload', value: payload }] : null);
       // Orders flow: the whole order (all products) is done only on the
       // order-level COMPLETED event — not a per-link SUCCESS, which fires once
-      // per product and would advance a multi-product order too early. The
-      // widget closing (onClose / a CLOSE event) is deliberately NOT handled:
-      // for an order the widget is just one view onto a server-side order, so
-      // closing it isn't a demo-level signal — the user stays on the order page.
+      // per product and would advance a multi-product order too early.
       if (type === 'COMPLETED' && source === 'order') {
         completedRef.current = true;
         navigate(`public-sector/customer-portal/waiting/${orderId}`);
       }
     },
     'bridge:onSuccess': () => addBridgeEvent('onSuccess()', null),
-    'bridge:onClose': () => addBridgeEvent('onClose()', null),
+    // If the user closes Bridge without completing the order, send them back to
+    // the previous screen (the application form). completedRef skips this when
+    // the widget auto-closes right after a successful COMPLETED.
+    'bridge:onClose': () => {
+      addBridgeEvent('onClose()', null);
+      if (!completedRef.current) abortBridge();
+    },
   });
 
-  // Abort: only for a failure to load the order (see the bridge-token effect) —
-  // stop polling and clear the stale userId, then return to the product picker.
+  // Abort: on a failure to load the order (see the bridge-token effect), or when
+  // the user closes Bridge without completing — stop polling, clear the stale
+  // userId, and return to the previous screen (the application form).
   function abortBridge() {
     stopPolling();
     setUserId(null);

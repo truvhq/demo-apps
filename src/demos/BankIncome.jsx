@@ -59,17 +59,24 @@ export function BankIncomeDemo() {
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
   // Report fetching: watches webhooks for task completion, fetches income_insights report.
-  // onError also advances to the review screen so the waiting screen never hangs
-  // when the report fetch fails after the task-done webhook.
+  // The webhook only fills report data in the background — it must NOT advance the
+  // screen, or results would appear before the user finishes the widget. The forward
+  // move off the widget is driven by Bridge's onSuccess (see the preview channel below).
   const { reports, loading: reportLoading, error: reportError, reset: resetReports } = useReportFetch({
     userId,
     products: ['income_insights'],
     webhooks: panel.webhooks,
     pollOnceAndStop,
     webhookEvent: 'task',
-    onComplete: () => { setCurrentStep(3); setScreen('review'); },
-    onError: () => { setCurrentStep(3); setScreen('review'); },
+    onComplete: () => setCurrentStep(3),
+    onError: () => setCurrentStep(3),
   });
+
+  // Once past the widget (on 'waiting'), advance to the report as soon as it's ready.
+  const reportReady = reports != null || reportError != null;
+  useEffect(() => {
+    if (screen === 'waiting' && reportReady) setScreen('review');
+  }, [screen, reportReady]);
 
   // Handler: create bridge token via POST /api/bridge-token; the Bridge widget
   // itself opens inside the preview iframe once bridgeToken lands in state.
@@ -109,9 +116,8 @@ export function BankIncomeDemo() {
         { label: 'meta', value: meta },
       ]);
       setCurrentStep(2);
-      // Guard: Bridge's onSuccess can fire after the "done" webhook, so useReportFetch
-      // may have already transitioned the screen to 'review'. Don't clobber it back to
-      // 'waiting' (matches PaycheckLinkedLoans).
+      // Single-bridge rule: onSuccess (widget completion) is what advances the flow.
+      // Forward-only guard in case the report already advanced us to 'review'.
       setScreen(curr => curr === 'review' ? curr : 'waiting');
     },
     'bridge:onClose': () => {

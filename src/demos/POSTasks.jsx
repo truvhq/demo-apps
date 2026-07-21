@@ -119,9 +119,12 @@ export function POSTasksDemo({ screen, param }) {
   useEffect(() => {
     if (screen !== 'bridge' || !param) {
       setBridgeToken(null);
-      completedRef.current = false;
       return;
     }
+    // Fresh Bridge session: clear the completion marker so a later onClose counts
+    // as an abandon. A completed order sets it true just before navigating away,
+    // and it must stay true until the next Bridge opens (see onClose below).
+    completedRef.current = false;
     let cancelled = false;
     (async () => {
       try {
@@ -192,14 +195,17 @@ export function POSTasksDemo({ screen, param }) {
       // Orders flow: the task's order (all its products, e.g. combined
       // income+assets) is done only on the order-level COMPLETED event — not a
       // per-link SUCCESS, which fires once per product and would advance a
-      // combined task after just income. The widget closing (onClose / a CLOSE
-      // event) is deliberately NOT handled here: for an order the widget is just
-      // one view onto a server-side order, so closing it isn't a demo-level
-      // signal — the user stays on the order page and the order persists.
+      // combined task after just income.
       if (type === 'COMPLETED' && source === 'order') completeTask();
     },
     'bridge:onSuccess': () => addBridgeEvent('onSuccess()', null),
-    'bridge:onClose': () => addBridgeEvent('onClose()', null),
+    // If the user closes Bridge without completing the task, send them back to
+    // the previous screen (the task list). completedRef skips this when the
+    // widget auto-closes right after a successful COMPLETED.
+    'bridge:onClose': () => {
+      addBridgeEvent('onClose()', null);
+      if (!completedRef.current) abortBridge();
+    },
   });
 
   // Completion: mark the active task and move to the waiting screen.
@@ -209,8 +215,9 @@ export function POSTasksDemo({ screen, param }) {
     navigate(`mortgage/pos-tasks/waiting/${param}`);
   }
 
-  // Abort: only for a failure to load the order (see the bridge-token effect) —
-  // stop polling and clear the active task marker, then return to the task list.
+  // Abort: on a failure to load the order (see the bridge-token effect), or when
+  // the user closes Bridge without completing — stop polling, clear the active
+  // task marker, and return to the previous screen (the task list).
   function abortBridge() {
     stopPolling();
     activeTaskRef.current = null;
