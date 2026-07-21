@@ -20,9 +20,27 @@
  * adding preact/compat aliasing just for visual chrome — not worth the weight.
  */
 
+import { useState, useEffect } from 'preact/hooks';
 import { useDeviceMode } from '../hooks/useDeviceMode.js';
 import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
 import { useRegisterDeviceFrame } from '../hooks/deviceFramePresence.jsx';
+
+// True below the sm breakpoint (640px). Phones get the simplified full-bleed
+// preview regardless of the persisted device mode, so this drives that fallback.
+function useIsNarrow() {
+  const query = '(min-width: 640px)';
+  const [narrow, setNarrow] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia ? !window.matchMedia(query).matches : false
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia(query);
+    const onChange = () => setNarrow(!mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return narrow;
+}
 
 // Shared classes for the segmented top-bar toggles (DeviceToggle, PanelToggle).
 const segBase = 'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[13px] font-medium transition cursor-pointer';
@@ -32,7 +50,12 @@ const segGroup = 'flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-lg';
 
 export function DeviceFrame({ children, url = 'demo.example.com' }) {
   const [mode] = useDeviceMode();
-  const isMobile = mode === 'mobile';
+  const isNarrow = useIsNarrow();
+  // Below sm there is no room for a phone bezel or a desktop browser window, and
+  // the toggle is hidden there (see Layout). Fall back to the simplified mobile
+  // view so a phone visitor who last picked Desktop on a wide screen is never
+  // stranded in the desktop chrome with no way out.
+  const isMobile = mode === 'mobile' || isNarrow;
   // Tell the layout that a frame is present so the mobile/desktop toggle in
   // the top bar appears only when it actually controls something on screen.
   useRegisterDeviceFrame();
@@ -42,28 +65,37 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
   // Mobile outer is itself a flex child that takes all available main height
   // (flex-1 min-h-0) so the phone bezel can scale down to fit short viewports
   // instead of pushing the page into a scroll.
+  //
+  // Below sm the mobile mockup is dropped entirely (responsive classes only, so
+  // the tree stays stable across resizes): the visitor's own device is the
+  // phone, and a bezel shrunk to a ~200px sliver is unusable. The preview
+  // renders as a plain full-height card instead.
   const outerClass = isMobile
-    ? 'flex flex-col items-center w-full pt-6 sm:pt-10 pb-6 flex-1 min-h-0'
+    ? 'flex flex-col items-center w-full flex-1 min-h-0 sm:pt-10 sm:pb-6'
     : 'flex w-full h-full';
-  // Mobile: gray phone bezel with phone-shaped aspect ratio; height tries to
-  // hit the original 804px but caps at 100% of outer (max-h-full) so it shrinks
-  // on short viewports. Width follows from aspect-ratio. Desktop: invisible
-  // flex passthrough so the inner "screen" fills the column.
+  // Mobile sm+: gray phone bezel with phone-shaped aspect ratio; height tries
+  // to hit the original 804px but caps at 100% of outer (max-h-full) so it
+  // shrinks on short viewports — and min-h keeps it from shrinking below a
+  // usable size (the host page scrolls instead: <main> is overflow-y-auto).
+  // Width follows from aspect-ratio. Desktop: invisible flex passthrough so
+  // the inner "screen" fills the column.
   const frameClass = isMobile
-    ? 'relative bg-gray-900 rounded-[2.75rem] p-3 shadow-2xl h-[804px] max-h-full max-w-full aspect-[414/804]'
+    ? 'relative w-full flex-1 min-h-0 max-w-full sm:w-auto sm:flex-none sm:bg-gray-900 sm:rounded-[2.75rem] sm:p-3 sm:shadow-2xl sm:h-[804px] sm:min-h-[480px] sm:max-h-full sm:aspect-[414/804]'
     : 'flex flex-1 w-full';
   const overlayTopClass = isMobile
-    ? 'absolute top-5 left-1/2 -translate-x-1/2 w-32 h-7 bg-black rounded-full z-10'
+    ? 'hidden sm:block absolute top-5 left-1/2 -translate-x-1/2 w-32 h-7 bg-black rounded-full z-10'
     : 'hidden';
-  // Mobile: white phone screen filling the bezel (size driven by frame above).
+  // Mobile: white phone screen filling the bezel (size driven by frame above);
+  // below sm it reads as a plain bordered card instead of a phone screen.
   // Desktop: browser window chrome — fills outer's height exactly so any scroll
   // happens inside the iframe rather than on the host page.
   const screenClass = isMobile
-    ? 'bg-white rounded-[2.25rem] overflow-hidden h-full w-full flex flex-col relative'
+    ? 'bg-white rounded-xl border border-gray-200 sm:rounded-[2.25rem] sm:border-0 overflow-hidden h-full w-full flex flex-col relative'
     : 'bg-gray-100 rounded-xl shadow-2xl overflow-hidden w-full border border-gray-200 flex flex-col flex-1 min-h-0';
-  // Mobile: empty status-bar reserve. Desktop: traffic lights + URL bar (rendered below).
+  // Mobile: empty status-bar reserve (only when the bezel chrome is shown).
+  // Desktop: traffic lights + URL bar (rendered below).
   const chromeBarClass = isMobile
-    ? 'h-12 flex-shrink-0'
+    ? 'h-0 sm:h-12 flex-shrink-0'
     : 'bg-gray-200 px-4 py-2.5 flex items-center gap-3 border-b border-gray-300 flex-shrink-0';
   // `content` is a flex column so the inner wrap (a flex item with flex-1)
   // gets a definite height — necessary for h-full on iframe children to resolve.
@@ -82,7 +114,7 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
   // iframe inside owns its own internal max-width for forms.
   const innerWrapClass = 'flex-1 w-full';
   const overlayBottomClass = isMobile
-    ? 'absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-black rounded-full'
+    ? 'hidden sm:block absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-black rounded-full'
     : 'hidden';
 
   return (
@@ -121,68 +153,49 @@ export function DeviceToggle() {
   const [mode, setMode] = useDeviceMode();
   return (
     <div class={segGroup} role="group" aria-label="Preview device mode">
+      {/* Labels collapse to icons below lg so the toggle keeps fitting in the
+          top bar without any header buttons having to disappear; aria-label
+          keeps the accessible name when the visual label is hidden. */}
       <button
         type="button"
         onClick={() => setMode('mobile')}
         class={`${segBase} ${mode === 'mobile' ? segActive : segInactive}`}
         aria-pressed={mode === 'mobile'}
+        aria-label="Mobile"
       >
-        <MobileIcon /> Mobile
+        <MobileIcon /> <span class="hidden lg:inline">Mobile</span>
       </button>
       <button
         type="button"
         onClick={() => setMode('desktop')}
         class={`${segBase} ${mode === 'desktop' ? segActive : segInactive}`}
         aria-pressed={mode === 'desktop'}
+        aria-label="Desktop"
       >
-        <DesktopIcon /> Desktop
+        <DesktopIcon /> <span class="hidden lg:inline">Desktop</span>
       </button>
     </div>
   );
 }
 
-// Show / Hide split into two labeled buttons that are placed in different
-// regions of the layout but visually anchored to the same physical spot:
-//   - ShowPanelButton lives in the main top-bar toolbar; visible only when the
-//     panel is hidden, so it occupies the right-edge slot.
-//   - HidePanelButton lives at the right end of the panel's tab strip (header
-//     strip on lg+, overlay strip below lg); visible only when the panel is
-//     shown, so it occupies the same right-edge slot from the panel's side.
-// The chevron sits on the side of the label that points where the panel will
-// move — left chevron + label for "expand leftward", label + right chevron for
-// "collapse rightward" — so the affordance reads at a glance.
-// Each button self-gates on usePanelVisibility() so callers can drop both into
-// their respective layout slots without conditionals — only one ever renders.
-const panelBtnClass = 'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[13px] font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition cursor-pointer';
+// The single panel control: PanelToggleButton lives in the main top bar and
+// never disappears — it toggles the panel and reflects the current state via
+// aria-pressed and an active background (so pressing it doesn't make it
+// vanish). The panel itself has no close button.
+const panelBtnClass = 'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[13px] font-medium transition cursor-pointer';
 
-export function ShowPanelButton() {
+export function PanelToggleButton() {
   const [visible, setVisible] = usePanelVisibility();
-  if (visible) return null;
   return (
     <button
       type="button"
-      onClick={() => setVisible(true)}
-      class={panelBtnClass}
-      aria-label="Show dev panel"
+      onClick={() => setVisible(!visible)}
+      class={`${panelBtnClass} ${visible ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}
+      aria-label="Toggle dev panel"
+      aria-pressed={visible}
     >
       <ConsoleIcon />
       <span>Dev</span>
-    </button>
-  );
-}
-
-export function HidePanelButton() {
-  const [visible, setVisible] = usePanelVisibility();
-  if (!visible) return null;
-  return (
-    <button
-      type="button"
-      onClick={() => setVisible(false)}
-      class={panelBtnClass}
-      aria-label="Close dev panel"
-      title="Close dev panel"
-    >
-      <CloseIcon />
     </button>
   );
 }
@@ -216,11 +229,3 @@ function ConsoleIcon() {
   );
 }
 
-function CloseIcon() {
-  return (
-    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}

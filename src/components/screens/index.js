@@ -1,5 +1,5 @@
 /**
- * FILE SUMMARY: Re-exports screen components (BridgeScreen, OrderWaitingScreen)
+ * FILE SUMMARY: Re-exports screen components (OrderWaitingScreen)
  * DATA FLOW: Barrel file: no logic or backend communication
  *
  * Centralizes screen component exports so consumers can import from
@@ -7,5 +7,4 @@
  */
 
 // Screen component re-exports
-export { BridgeScreen } from './BridgeScreen.jsx';
 export { OrderWaitingScreen } from './OrderWaitingScreen.jsx';

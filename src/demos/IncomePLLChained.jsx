@@ -40,7 +40,7 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 
 // --- Imports: shared layout, components, hooks, and API utilities ---
-import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, parsePayload } from '../components/index.js';
+import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide } from '../components/index.js';
 
 // --- Imports: device-frame preview wrapper + iframe channel hook ---
 import { DeviceFrame } from '../components/DeviceFrame.jsx';
@@ -83,6 +83,10 @@ export function IncomePLLChainedDemo() {
   // Refs: idempotency guards so webhook polling doesn't re-trigger fetches.
   const decisionFetchedRef = useRef(false);
   const reportFetchedRef = useRef(false);
+  // Set when Bridge fires COMPLETED (source: order) so a trailing onClose from
+  // the SDK's auto-close-after-completion isn't mistaken for the user abandoning.
+  // Reset to false each time a fresh Bridge session opens (startVoieOrder/startPllOrder).
+  const completedRef = useRef(false);
 
   // Panel hook: sidebar state, session tracking, webhook polling, bridge events
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
@@ -101,35 +105,13 @@ export function IncomePLLChainedDemo() {
   // coverage call still shows up then, because getApiLogsByUserId() also returns
   // session-scoped rows (user_id IS NULL AND session_id = ?).
 
-  // Effect: when task-status-updated:done arrives during voie-waiting, fetch the
-  // decision payload and either advance to the decision screen or to manual route.
-  useEffect(() => {
-    if (screen !== 'voie-waiting' || !voieOrder?.order_id || decisionFetchedRef.current) return;
-    const doneWh = panel.webhooks.find(w => {
-      const p = parsePayload(w.payload);
-      return (p.event_type === 'task-status-updated' && p.status === 'done')
-        || (w.event_type === 'task-status-updated' && w.status === 'done');
-    });
-    if (!doneWh) return;
-    decisionFetchedRef.current = true;
-    fetchDecision(voieOrder.order_id);
-  }, [panel.webhooks, screen, voieOrder]);
-
-  // Effect: when task-status-updated:done arrives during pll-waiting, fetch the
-  // final PLL report and advance to the review screen.
-  useEffect(() => {
-    if (screen !== 'pll-waiting' || !pllOrder?.order_id || reportFetchedRef.current) return;
-    // PLL completes with a *second* task-status-updated:done webhook for the new
-    // PLL link. Pick the latest one — earlier "done" entries belong to the VOIE task.
-    const doneEvents = panel.webhooks.filter(w => {
-      const p = parsePayload(w.payload);
-      return (p.event_type === 'task-status-updated' && p.status === 'done')
-        || (w.event_type === 'task-status-updated' && w.status === 'done');
-    });
-    if (doneEvents.length < 2) return;
-    reportFetchedRef.current = true;
-    fetchPllReport(pllOrder.order_id);
-  }, [panel.webhooks, screen, pllOrder]);
+  // NOTE: the chain advances off each Bridge handoff only on the order-level
+  // COMPLETED event (see the preview channel below) — i.e. when the borrower has
+  // actually finished the widget. We deliberately do NOT advance on the
+  // task-status-updated:done webhook: that fires when the task completes
+  // server-side, which can be *before* the borrower closes the widget, and would
+  // yank them off it early ("не ждётся закрытия"). This matches the Customer
+  // Portal / POS order demos, which key their transition off COMPLETED too.
 
   // Step 1: pre-check coverage. The result is advisory — the user can always
   // proceed. If no employer was selected on the form, skip the API call entirely
@@ -153,9 +135,9 @@ export function IncomePLLChainedDemo() {
   }
 
   // Step 2 + 3: create the VOIE order, then hand the bridge_token to the preview
-  // iframe so Bridge renders inline inside the DeviceFrame. Bridge's onSuccess
-  // event (routed back via postMessage) drives the transition to the decision
-  // screen; the webhook-based useEffect remains as a backup.
+  // iframe so Bridge renders inline inside the DeviceFrame. Bridge's order-level
+  // COMPLETED event (routed back via postMessage) drives the transition to the
+  // decision screen; the webhook-based useEffect remains as a backup.
   async function startVoieOrder() {
     setLoading(true);
     setCurrentStep(1);
@@ -173,6 +155,7 @@ export function IncomePLLChainedDemo() {
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setLoading(false); return; }
       setVoieOrder(data);
       startPolling(data.user_id);
+      completedRef.current = false;
       setBridgeToken(data.bridge_token);
       setScreen('voie-waiting');
     } catch (e) { console.error(e); }
@@ -220,6 +203,7 @@ export function IncomePLLChainedDemo() {
       const data = await resp.json();
       if (!resp.ok) { alert('Error: ' + (data.error || 'Unknown')); setLoading(false); return; }
       setPllOrder(data);
+      completedRef.current = false;
       setBridgeToken(data.bridge_token);
       setScreen('pll-waiting');
     } catch (e) { console.error(e); }
@@ -259,29 +243,46 @@ export function IncomePLLChainedDemo() {
   const sendPreview = usePreviewIframe(iframeRef, {
     'form:submit': (data) => checkCoverage(data),
     'bridge:onLoad': () => addBridgeEvent('onLoad()', null),
-    'bridge:onEvent': (type, payload) => {
+    'bridge:onEvent': (type, payload, source) => {
       const payloadStr = payload ? 'payload' : 'undefined';
-      addBridgeEvent(`onEvent("${type}", ${payloadStr})`, payload ? [{ label: 'payload', value: payload }] : null);
+      addBridgeEvent(`onEvent("${type}", ${payloadStr}, "${source}")`, payload ? [{ label: 'payload', value: payload }] : null);
+      // Orders flow: advance the chain on the order-level COMPLETED event (not a
+      // per-link SUCCESS, and not the task-done webhook) — this is the signal that
+      // the borrower finished the widget. Drop the token so the frame closes to the
+      // waiting spinner while the decision/report fetch runs (they retry on a
+      // not-yet-ready link_id, so no artificial delay is needed). The *FetchedRef
+      // guards keep a repeated COMPLETED from firing a second fetch.
+      if (type === 'COMPLETED' && source === 'order') {
+        completedRef.current = true;
+        if (screen === 'voie-waiting' && voieOrder?.order_id && !decisionFetchedRef.current) {
+          decisionFetchedRef.current = true;
+          setBridgeToken(null);
+          fetchDecision(voieOrder.order_id);
+        } else if (screen === 'pll-waiting' && pllOrder?.order_id && !reportFetchedRef.current) {
+          reportFetchedRef.current = true;
+          setBridgeToken(null);
+          fetchPllReport(pllOrder.order_id);
+        }
+      }
     },
     'bridge:onSuccess': (publicToken, meta) => {
       addBridgeEvent('onSuccess(publicToken, meta)', [
         { label: 'publicToken', value: publicToken },
         { label: 'meta', value: meta },
       ]);
-      // Drive the next step directly off the SDK callback so the flow doesn't
-      // depend on webhook delivery. The 1500ms delay gives Truv time to populate
-      // link_id + bank_accounts on the VOIE order (and the PLL report on PLL).
-      if (screen === 'voie-waiting' && voieOrder?.order_id) {
-        decisionFetchedRef.current = true;
-        setTimeout(() => fetchDecision(voieOrder.order_id), 1500);
-      } else if (screen === 'pll-waiting' && pllOrder?.order_id) {
-        reportFetchedRef.current = true;
-        setTimeout(() => fetchPllReport(pllOrder.order_id), 1500);
-      }
     },
     'bridge:onClose': () => {
       addBridgeEvent('onClose()', null);
+      // A completion auto-closes the widget (COMPLETED already fired) — let the
+      // chain advance instead of treating it as an abandon.
+      if (completedRef.current) return;
+      // User closed Bridge without finishing: drop the token and return to the
+      // screen they opened it from (coverage before VOIE, decision before PLL).
       setBridgeToken(null);
+      setScreen(prev =>
+        prev === 'voie-waiting' ? 'coverage'
+          : prev === 'pll-waiting' ? 'decision'
+            : prev);
     },
   });
 
@@ -303,6 +304,7 @@ export function IncomePLLChainedDemo() {
     reset();
     decisionFetchedRef.current = false;
     reportFetchedRef.current = false;
+    completedRef.current = false;
     setScreen('select');
     setShowForm(false);
     setFormData(null);

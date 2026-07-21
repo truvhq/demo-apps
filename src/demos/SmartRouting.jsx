@@ -89,8 +89,18 @@ export function SmartRoutingDemo() {
     webhooks: panel.webhooks,
     pollOnceAndStop,
     webhookEvent: 'task',
-    onComplete: () => setScreen('review'),
   });
+
+  // Report readiness for the selected method (docs vs payroll/bank).
+  const reportReady = isDocumentsMethod ? (docsReport || docsError) : reports != null;
+
+  // The forward move off the Bridge widget is driven by Bridge's onSuccess (see
+  // the preview channel below), not by the report webhook — otherwise the demo
+  // would jump to results on its own before the user finishes. Once past the
+  // widget (on 'waiting'), advance to the report as soon as it's ready.
+  useEffect(() => {
+    if (screen === 'waiting' && reportReady) setScreen('review');
+  }, [screen, reportReady]);
 
   // Derive sidebar Guide step from screen + userId so step never desyncs from the actual
   // phase. 'choose' covers two steps because Bridge opens over that screen:
@@ -125,14 +135,12 @@ export function SmartRoutingDemo() {
           // response used by payroll/bank methods.
           setDocsReport({ links: [data] });
           setDocsLoading(false);
-          setScreen('review');
           pollOnceAndStop();
         } else if (++docsRetryRef.current < 3) {
           docsFetchedRef.current = false;
         } else {
           setDocsError(true);
           setDocsLoading(false);
-          setScreen('review');
           pollOnceAndStop();
         }
       })
@@ -143,7 +151,6 @@ export function SmartRoutingDemo() {
         } else {
           setDocsError(true);
           setDocsLoading(false);
-          setScreen('review');
           pollOnceAndStop();
         }
       });
