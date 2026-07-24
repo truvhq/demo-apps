@@ -4,7 +4,7 @@
  *
  * DATA FLOW:
  *   1. POST /api/bridge-token                : create user + bridge token (financial_accounts)
- *   2. TruvBridge.init().open()              : Bridge popup for bank login
+ *   2. TruvBridge modal opens inside the preview iframe for bank login
  *   3. Webhook: task-status-updated with status "done"
  *   4. GET /api/users/:userId/reports/income_insights : fetch income insights report
  *
@@ -12,26 +12,31 @@
  * Uses GET /v1/providers/ for financial institution search. Returns an income insights
  * report derived from bank transaction analysis.
  *
+ * The user-facing screens (application form, Bridge widget) render inside an
+ * isolated iframe (`/preview.html`) wrapped in DeviceFrame and driven over
+ * postMessage; waiting/review screens are the manager view and render bare.
+ *
  * Scaffolding: ./scaffolding/bank-income.jsx
  * Diagrams:    ../diagrams/bank-income.js
  *
  * WHAT TO COPY (for your own Truv integration):
  *   - handleFormSubmit()  : creates a bridge token via POST /api/bridge-token
- *   - TruvBridge.init()   : opens the Bridge widget (data_sources: financial_accounts)
+ *   - TruvBridge.init()   : opens the Bridge widget (see preview/components/BridgePreview.jsx)
  *   - useReportFetch()    : watches webhooks and fetches income_insights reports
  */
 
 // --- Imports: Preact hooks ---
-import { useState } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 
 // --- Imports: shared layout, components, hooks, and API base URL ---
 import { Layout, WaitingScreen, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
 
+// --- Imports: device-frame preview wrapper + iframe channel hook ---
+import { DeviceFrame } from '../components/DeviceFrame.jsx';
+import { usePreviewIframe } from '../hooks/usePreviewIframe.js';
+
 // --- Imports: report display component ---
 import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport.jsx';
-
-// --- Imports: reusable form component ---
-import { ApplicationForm } from '../components/ApplicationForm.jsx';
 
 // --- Imports: Mermaid diagram for intro slide ---
 import { DIAGRAM } from '../diagrams/bank-income.js';
@@ -47,24 +52,34 @@ export function BankIncomeDemo() {
   const [formData, setFormData] = useState(null);
   const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [bridgeToken, setBridgeToken] = useState(null);
+  const iframeRef = useRef(null);
 
   // Panel hook: sidebar state, session tracking, webhook polling, bridge events
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
 
   // Report fetching: watches webhooks for task completion, fetches income_insights report.
-  // onError also advances to the review screen so the waiting screen never hangs
-  // when the report fetch fails after the task-done webhook.
+  // The webhook only fills report data in the background — it must NOT advance the
+  // screen, or results would appear before the user finishes the widget. The forward
+  // move off the widget is driven by Bridge's onSuccess (see the preview channel below).
   const { reports, loading: reportLoading, error: reportError, reset: resetReports } = useReportFetch({
     userId,
     products: ['income_insights'],
     webhooks: panel.webhooks,
     pollOnceAndStop,
     webhookEvent: 'task',
-    onComplete: () => { setCurrentStep(3); setScreen('review'); },
-    onError: () => { setCurrentStep(3); setScreen('review'); },
+    onComplete: () => setCurrentStep(3),
+    onError: () => setCurrentStep(3),
   });
 
-  // Handler: create bridge token via POST /api/bridge-token and open TruvBridge popup.
+  // Once past the widget (on 'waiting'), advance to the report as soon as it's ready.
+  const reportReady = reports != null || reportError != null;
+  useEffect(() => {
+    if (screen === 'waiting' && reportReady) setScreen('review');
+  }, [screen, reportReady]);
+
+  // Handler: create bridge token via POST /api/bridge-token; the Bridge widget
+  // itself opens inside the preview iframe once bridgeToken lands in state.
   // Uses data_sources: ['financial_accounts'] and provider_id for bank deeplinking.
   async function handleFormSubmit(data) {
     setFormData(data);
@@ -80,34 +95,48 @@ export function BankIncomeDemo() {
       if (!resp.ok) { alert('Error: ' + (result.error || 'Unknown')); setLoading(false); return; }
       setUserId(result.user_id);
       startPolling(result.user_id);
-
-      // Open TruvBridge popup with callbacks for load, success, event, and close
-      if (window.TruvBridge) {
-        const opts = {
-          bridgeToken: result.bridge_token,
-          onLoad: () => addBridgeEvent('onLoad()', null),
-          onSuccess: (publicToken, meta) => {
-            addBridgeEvent('onSuccess(publicToken, meta)', [
-              { label: 'publicToken', value: publicToken },
-              { label: 'meta', value: meta },
-            ]);
-            setCurrentStep(2);
-            // Guard: Bridge's onSuccess can fire after the "done" webhook, so useReportFetch
-            // may have already transitioned the screen to 'review'. Don't clobber it back to
-            // 'waiting' (matches PaycheckLinkedLoans).
-            setScreen(curr => curr === 'review' ? curr : 'waiting');
-          },
-          onEvent: (type, payload) => {
-            const payloadStr = payload ? 'payload' : 'undefined';
-            addBridgeEvent(`onEvent("${type}", ${payloadStr})`, payload ? [{ label: 'payload', value: payload }] : null);
-          },
-          onClose: () => addBridgeEvent('onClose()', null),
-        };
-        window.TruvBridge.init(opts).open();
-      }
+      setBridgeToken(result.bridge_token);
     } catch (e) { console.error(e); }
     setLoading(false);
   }
+
+  // Preview iframe channel: maps user/SDK events from inside the iframe back to
+  // host state changes. The iframe never closes over host functions — events
+  // travel as plain { name, args } messages and the host re-binds them here.
+  const sendPreview = usePreviewIframe(iframeRef, {
+    'form:submit': (data) => handleFormSubmit(data),
+    'bridge:onLoad': () => addBridgeEvent('onLoad()', null),
+    'bridge:onEvent': (type, payload) => {
+      const payloadStr = payload ? 'payload' : 'undefined';
+      addBridgeEvent(`onEvent("${type}", ${payloadStr})`, payload ? [{ label: 'payload', value: payload }] : null);
+    },
+    'bridge:onSuccess': (publicToken, meta) => {
+      addBridgeEvent('onSuccess(publicToken, meta)', [
+        { label: 'publicToken', value: publicToken },
+        { label: 'meta', value: meta },
+      ]);
+      setCurrentStep(2);
+      // Single-bridge rule: onSuccess (widget completion) is what advances the flow.
+      // Forward-only guard in case the report already advanced us to 'review'.
+      setScreen(curr => curr === 'review' ? curr : 'waiting');
+    },
+    'bridge:onClose': () => {
+      addBridgeEvent('onClose()', null);
+      setBridgeToken(null);
+    },
+  });
+
+  // Drive the preview iframe from host state: form as the base view, Bridge modal
+  // layered on top once a token exists.
+  useEffect(() => {
+    if (screen === 'select' && showForm) {
+      if (bridgeToken) {
+        sendPreview('bridge', { bridgeToken });
+      } else {
+        sendPreview('application-form', { sessionId, productType: 'income', submitting: loading, employerLabel: 'Financial institution', dataSource: 'financial_accounts' });
+      }
+    }
+  }, [screen, showForm, bridgeToken, loading, sessionId, sendPreview]);
 
   // Handler: reset all state to start over
   function resetDemo() {
@@ -117,17 +146,19 @@ export function BankIncomeDemo() {
     setShowForm(false);
     setFormData(null);
     setUserId(null);
+    setBridgeToken(null);
   }
 
-  // Derived state: layout flag
+  // Derived state: layout flags
   const isIntro = screen === 'select' && !showForm;
+  const showDeviceFrame = screen === 'select' && showForm;
 
   // --- Render: state-driven screen routing ---
   return (
     <Layout badge="Bank Income" steps={STEPS} panel={panel} hidePanel={isIntro}>
-      <div class={isIntro ? 'flex-1 flex flex-col' : 'w-full sm:max-w-lg sm:mx-auto px-4 py-6 sm:px-8 sm:py-10'}>
-        {/* Intro slide: architecture diagram */}
-        {screen === 'select' && !showForm && (
+      {/* Intro slide: architecture diagram */}
+      {screen === 'select' && !showForm && (
+        <div class="flex-1 flex flex-col">
           <IntroSlide
             label={INTRO_SLIDE_CONFIG.label}
             title={INTRO_SLIDE_CONFIG.title}
@@ -135,43 +166,55 @@ export function BankIncomeDemo() {
             diagram={DIAGRAM}
             actions={<button onClick={() => setShowForm(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors text-center">Get started</button>}
           />
-        )}
+        </div>
+      )}
 
-        {/* Application form: collects applicant PII and financial institution */}
-        {screen === 'select' && showForm && (
-          <ApplicationForm sessionId={sessionId} onSubmit={handleFormSubmit} submitting={loading} productType="income" employerLabel="Financial institution" dataSource="financial_accounts" />
-        )}
+      {/* Application form + Bridge widget live inside the preview iframe (user view).
+          The host swaps the iframe's content via postMessage as state evolves. */}
+      {showDeviceFrame && (
+        <DeviceFrame url="bank-income.example.com">
+          <iframe
+            ref={iframeRef}
+            src="/preview.html"
+            title="Demo preview"
+            class="w-full h-full block border-0 bg-white"
+          />
+        </DeviceFrame>
+      )}
 
-        {/* Waiting screen: webhook polling spinner until task completes */}
-        {screen === 'waiting' && <WaitingScreen webhooks={panel.webhooks} />}
+      {/* Waiting screen: webhook polling spinner until task completes */}
+      {screen === 'waiting' && (
+        <div class="sm:max-w-lg sm:mx-auto w-full">
+          <WaitingScreen webhooks={panel.webhooks} />
+        </div>
+      )}
 
-        {/* Review screen: income insights report from bank transactions, or an error
-            message with Start Over when the report fetch failed (matches SmartRouting's
-            docsError pattern) */}
-        {screen === 'review' && (
-          <div>
-            <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-1.5">{REPORT_HEADER.title}</h2>
-            <p class="text-[15px] text-[#808080] leading-[1.5] mb-7">{REPORT_HEADER.subtitle}</p>
-            {reports?.income_insights && !reportLoading ? (
-              <div>
-                <IncomeInsightsReport report={reports.income_insights} />
-                <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-                  <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors" onClick={resetDemo}>Start Over</button>
-                </div>
+      {/* Review screen: income insights report from bank transactions, or an error
+          message with Start Over when the report fetch failed (matches SmartRouting's
+          docsError pattern) */}
+      {screen === 'review' && (
+        <div class="sm:max-w-lg sm:mx-auto w-full">
+          <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-1.5">{REPORT_HEADER.title}</h2>
+          <p class="text-[15px] text-[#808080] leading-[1.5] mb-7">{REPORT_HEADER.subtitle}</p>
+          {reports?.income_insights && !reportLoading ? (
+            <div>
+              <IncomeInsightsReport report={reports.income_insights} />
+              <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
+                <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors" onClick={resetDemo}>Start Over</button>
               </div>
-            ) : reportError ? (
-              <div>
-                <p class="text-sm text-red-500 mb-4">Income report unavailable. Try starting over.</p>
-                <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
-                  <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors" onClick={resetDemo}>Start Over</button>
-                </div>
+            </div>
+          ) : reportError ? (
+            <div>
+              <p class="text-sm text-red-500 mb-4">Income report unavailable. Try starting over.</p>
+              <div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
+                <button class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors" onClick={resetDemo}>Start Over</button>
               </div>
-            ) : (
-              <div class="text-center py-10"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>
-            )}
-          </div>
-        )}
-      </div>
+            </div>
+          ) : (
+            <div class="text-center py-10"><div class="w-10 h-10 border-[3px] border-gray-200 border-t-primary rounded-full animate-spin mx-auto" /></div>
+          )}
+        </div>
+      )}
     </Layout>
   );
 }

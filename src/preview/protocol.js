@@ -9,13 +9,25 @@
  *   parent → iframe
  *     { type: 'preview:render', component: '<name>', props: {...} } render the named component with given props
  *
- * Event names used by SmartRouting:
+ * Render components (parent → iframe):
+ *   application-form  — ApplicationForm wrapper; props include productType,
+ *                       dataSource, employerLabel, showEmployer, requireEmployer
+ *   method-picker     — SmartRouting method picker, props: { recommended, loading }
+ *   task-list         — POSTasks task list, props: { applicationId, taskStates }
+ *                       where taskStates maps taskId → 'ready'|'completed'|'failed'
+ *   bridge            — TruvBridge widget, props: { bridgeToken, isOrder, companyMappingId, inline }
+ *                       (inline embeds the widget in a container; otherwise it's a modal)
+ *   loading           — spinner, props: { label, subtitle }
+ *
+ * Event names (iframe → parent):
  *   form:submit       — ApplicationForm onSubmit, args: [formResult]
  *   method:select     — MethodPicker onSelect, args: [methodId]
- *   bridge:onLoad     — TruvBridge onLoad, args: []
- *   bridge:onEvent    — TruvBridge onEvent, args: [type, payload]
- *   bridge:onSuccess  — TruvBridge onSuccess, args: [publicToken, meta]
- *   bridge:onClose    — TruvBridge onClose, args: []
+ *   task:start        — TaskList onStart, args: [taskId]
+ *   nav:back          — back link under the method picker, args: []
+ *   bridge:onLoad     — BridgePreview onLoad, args: []
+ *   bridge:onEvent    — BridgePreview onEvent, args: [type, payload, source]
+ *   bridge:onSuccess  — BridgePreview onSuccess, args: [publicToken, meta]
+ *   bridge:onClose    — BridgePreview onClose, args: []
  *
  * Same-origin only — both sides use window.location.origin as targetOrigin.
  */

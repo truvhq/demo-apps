@@ -4,7 +4,7 @@
  *
  * DATA FLOW (per task):
  *   1. POST /api/orders           : create one order per task (all share external_user_id)
- *   2. BridgeScreen opens with the active task's order_id
+ *   2. GET /api/orders/:id/info   : fetch bridge_token; Bridge modal opens inside the preview iframe
  *   3. Webhook polling for order-status-updated with status "completed"
  *   4. POST /api/users/:userId/reports/ then GET /api/users/:userId/reports/:report_id
  *
@@ -12,13 +12,17 @@
  * single borrower via external_user_id. Each task independently goes through bridge,
  * waiting, and results screens. The task list tracks completion status per task.
  *
+ * The user-facing screens (task list, Bridge widget) render inside an isolated
+ * iframe (`/preview.html`) wrapped in DeviceFrame and driven over postMessage;
+ * init/waiting/results screens are the loan-processor view and render bare.
+ *
  * Scaffolding: ./scaffolding/pos-tasks.jsx
  * Diagrams:    ../diagrams/pos-tasks.js
  *
  * WHAT TO COPY (for your own Truv integration):
  *   - handleInitialize() : creates multiple orders via POST /api/orders with shared external_user_id
  *   - useReportFetch()   : watches webhooks and fetches reports per task
- *   - <BridgeScreen />   : opens Bridge with a per-task order_id
+ *   - TruvBridge.init()  : opens Bridge with a per-task bridge_token (see preview/components/BridgePreview.jsx)
  *   - handleStartTask()  : routes each task through its own bridge flow
  */
 
@@ -28,14 +32,18 @@ import { useState, useRef, useEffect, useMemo } from 'preact/hooks';
 // --- Imports: shared layout, hooks, and API base URL ---
 import { Layout, usePanel, API_BASE, useReportFetch, useOrderRestore } from '../components/index.js';
 
-// --- Imports: reusable screen components for Bridge and waiting ---
-import { BridgeScreen, OrderWaitingScreen } from '../components/screens/index.js';
+// --- Imports: device-frame preview wrapper + iframe channel hook ---
+import { DeviceFrame } from '../components/DeviceFrame.jsx';
+import { usePreviewIframe } from '../hooks/usePreviewIframe.js';
+
+// --- Imports: reusable screen components ---
+import { OrderWaitingScreen } from '../components/screens/index.js';
 
 // --- Imports: client-side navigation helper ---
 import { navigate } from '../App.jsx';
 
 // --- Imports: scaffolding (steps, task definitions, intro/results components) ---
-import { STEPS, TASKS, InitScreen, TaskList, FollowUpReportResults } from './scaffolding/pos-tasks.jsx';
+import { STEPS, TASKS, InitScreen, FollowUpReportResults } from './scaffolding/pos-tasks.jsx';
 
 
 // --- Component: POSTasksDemo ---
@@ -49,6 +57,11 @@ export function POSTasksDemo({ screen, param }) {
   // URL after a remount (taskOrders state is gone, so activeTaskInfo can't resolve)
   const [restoredTaskInfo, setRestoredTaskInfo] = useState(null);
   const activeTaskRef = useRef(null);
+  const [bridgeToken, setBridgeToken] = useState(null);
+  const iframeRef = useRef(null);
+  // Set when Bridge fires COMPLETED (source: order) — a trailing close from the
+  // SDK's auto-close-after-completion must not abort the successful session.
+  const completedRef = useRef(false);
 
   // Panel hook: sidebar state, webhook polling, bridge events
   const { panel, setCurrentStep, startPolling, stopPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
@@ -98,6 +111,43 @@ export function POSTasksDemo({ screen, param }) {
     setCurrentStep(stepMap[screen] ?? 0);
   }, [screen]);
 
+  // Effect: on the bridge screen, fetch order info to get bridge_token and user_id
+  // (also covers a refresh directly on /bridge/:orderId). The backend proxies
+  // GET /api/orders/:id/info to Truv's API. Once we have user_id, start polling
+  // for API logs and webhooks. Leaving the bridge screen clears the token so a
+  // remounted iframe never replays a stale 'bridge' command.
+  useEffect(() => {
+    if (screen !== 'bridge' || !param) {
+      setBridgeToken(null);
+      return;
+    }
+    // Fresh Bridge session: clear the completion marker so a later onClose counts
+    // as an abandon. A completed order sets it true just before navigating away,
+    // and it must stay true until the next Bridge opens (see onClose below).
+    completedRef.current = false;
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(param)}/info`);
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({ error: 'Unknown' }));
+          if (cancelled) return;
+          alert('Error: ' + (data.error || 'Unknown'));
+          abortBridge();
+          return;
+        }
+        const data = await resp.json();
+        if (cancelled) return;
+        setBridgeToken(data.bridge_token);
+        startPolling(data.user_id);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) abortBridge();
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [screen, param]);
+
   // Handler: create all task orders at once via POST /api/orders (shared external_user_id)
   async function handleInitialize() {
     if (!applicationId.trim()) return;
@@ -128,28 +178,93 @@ export function POSTasksDemo({ screen, param }) {
     navigate(`mortgage/pos-tasks/bridge/${order.order_id}`);
   }
 
-  // Derived state: layout flags
-  const isBridge = screen === 'bridge';
+  // Preview iframe channel: maps user/SDK events from inside the iframe back to
+  // host state changes. On COMPLETED (source: order) the active task is marked
+  // completed and the flow advances to the waiting screen; on a genuine user
+  // close, stop polling the abandoned order and clear the active task marker so
+  // a later webhook from the abandoned attempt can't hijack a restarted task.
+  const sendPreview = usePreviewIframe(iframeRef, {
+    'task:start': (taskId) => {
+      const task = TASKS.find(t => t.id === taskId);
+      if (task) handleStartTask(task);
+    },
+    'bridge:onLoad': () => addBridgeEvent('onLoad()', null),
+    'bridge:onEvent': (type, payload, source) => {
+      const payloadStr = payload ? 'payload' : 'undefined';
+      addBridgeEvent(`onEvent("${type}", ${payloadStr}, "${source}")`, payload ? [{ label: 'payload', value: payload }] : null);
+      // Orders flow: the task's order (all its products, e.g. combined
+      // income+assets) is done only on the order-level COMPLETED event — not a
+      // per-link SUCCESS, which fires once per product and would advance a
+      // combined task after just income.
+      if (type === 'COMPLETED' && source === 'order') completeTask();
+    },
+    'bridge:onSuccess': () => addBridgeEvent('onSuccess()', null),
+    // If the user closes Bridge without completing the task, send them back to
+    // the previous screen (the task list). completedRef skips this when the
+    // widget auto-closes right after a successful COMPLETED.
+    'bridge:onClose': () => {
+      addBridgeEvent('onClose()', null);
+      if (!completedRef.current) abortBridge();
+    },
+  });
+
+  // Completion: mark the active task and move to the waiting screen.
+  function completeTask() {
+    completedRef.current = true;
+    if (activeTaskRef.current) setTaskStatus(prev => ({ ...prev, [activeTaskRef.current]: 'completed' }));
+    navigate(`mortgage/pos-tasks/waiting/${param}`);
+  }
+
+  // Abort: on a failure to load the order (see the bridge-token effect), or when
+  // the user closes Bridge without completing — stop polling, clear the active
+  // task marker, and return to the previous screen (the task list).
+  function abortBridge() {
+    stopPolling();
+    activeTaskRef.current = null;
+    navigate('mortgage/pos-tasks');
+  }
+
+  // Drive the preview iframe from host state: the task list before a task is
+  // started, Bridge modal (or a spinner while the token loads) on the bridge
+  // screen. Task objects hold icon components, so only serializable per-task
+  // states cross the postMessage boundary.
+  useEffect(() => {
+    if (!screen && taskOrders) {
+      const taskStates = Object.fromEntries(TASKS.map(t => [
+        t.id,
+        taskStatus[t.id] === 'completed' ? 'completed' : taskOrders[t.id] ? 'ready' : 'failed',
+      ]));
+      sendPreview('task-list', { applicationId, taskStates });
+    } else if (screen === 'bridge') {
+      if (bridgeToken) {
+        sendPreview('bridge', { bridgeToken, isOrder: true, inline: true });
+      } else {
+        sendPreview('loading', { label: 'Preparing verification…' });
+      }
+    }
+  }, [screen, taskOrders, taskStatus, applicationId, bridgeToken, sendPreview]);
+
+  // Derived state: layout flags. The device frame spans the borrower-facing
+  // screens (task list + Bridge).
   const isIntro = !screen && !taskOrders;
+  const showDeviceFrame = (!screen && taskOrders) || screen === 'bridge';
 
   // --- Render: screen routing ---
   return (
-    <Layout badge="POS Tasks" steps={STEPS} panel={panel} flush={isBridge} hidePanel={isIntro}>
-      {/* Bridge screen: inline TruvBridge widget for the active task.
-          onAbort: on a genuine user close, stop polling the abandoned order and
-          clear the active task marker so a later webhook from the abandoned
-          attempt can't hijack a restarted task, then return to the task list. */}
-      {screen === 'bridge' && (
-        <BridgeScreen
-          orderId={param}
-          demoPath="mortgage/pos-tasks"
-          addBridgeEvent={addBridgeEvent}
-          startPolling={startPolling}
-          onCompleted={() => {
-            if (activeTaskRef.current) setTaskStatus(prev => ({ ...prev, [activeTaskRef.current]: 'completed' }));
-          }}
-          onAbort={() => { stopPolling(); activeTaskRef.current = null; navigate('mortgage/pos-tasks'); }}
-        />
+    <Layout badge="POS Tasks" steps={STEPS} panel={panel} hidePanel={isIntro}>
+      {/* Task list + Bridge widget live inside the preview iframe (user view).
+          A single iframe element persists across the task list → bridge hash
+          navigation; it remounts between tasks (waiting/results unmount it) and
+          the latest render command replays on preview:ready. */}
+      {showDeviceFrame && (
+        <DeviceFrame url="pos.example.com">
+          <iframe
+            ref={iframeRef}
+            src="/preview.html"
+            title="Demo preview"
+            class="w-full h-full block border-0 bg-white"
+          />
+        </DeviceFrame>
       )}
       {/* Waiting screen: webhook polling spinner for the active task */}
       {screen === 'waiting' && (
@@ -166,23 +281,15 @@ export function POSTasksDemo({ screen, param }) {
           backLabel="Back to Tasks"
         />
       )}
-      {/* Default screen: init screen (enter application ID) or task list */}
-      {!screen && (
-        !taskOrders ? (
-          <InitScreen
-            applicationId={applicationId}
-            onApplicationIdChange={setApplicationId}
-            onInitialize={handleInitialize}
-            initializing={initializing}
-          />
-        ) : (
-          <div class="w-full max-w-lg mx-auto px-4 py-6 sm:px-8 sm:py-10">
-            <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-1.5">Complete Your Verifications</h2>
-            <p class="text-[15px] text-[#808080] leading-[1.5] mb-2">Application: <code class="text-[13px] bg-gray-100 px-1.5 py-0.5 rounded">{applicationId}</code></p>
-            <p class="text-[15px] text-[#808080] leading-[1.5] mb-7">Complete each verification by connecting through Bridge.</p>
-            <TaskList tasks={TASKS} taskOrders={taskOrders} taskStatus={taskStatus} onStart={handleStartTask} />
-          </div>
-        )
+      {/* Default screen: init screen (enter application ID; the task list itself
+          renders inside the device frame above) */}
+      {!screen && !taskOrders && (
+        <InitScreen
+          applicationId={applicationId}
+          onApplicationIdChange={setApplicationId}
+          onInitialize={handleInitialize}
+          initializing={initializing}
+        />
       )}
     </Layout>
   );

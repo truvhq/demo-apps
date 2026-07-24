@@ -4,13 +4,17 @@
  *
  * DATA FLOW:
  *   1. POST /api/orders           : create order with borrower PII + selected product
- *   2. BridgeScreen opens with order_id (deeplinked via company_mapping_id)
+ *   2. GET /api/orders/:id/info   : fetch bridge_token; Bridge modal opens inside the preview iframe
  *   3. Webhook polling for order-status-updated with status "completed"
  *   4. POST /api/users/:userId/reports/ then GET /api/users/:userId/reports/:report_id
  *
  * Borrower fills out an application form, selects income or assets verification,
- * and completes Bridge inline. The backend creates an order at Truv, and once the
+ * and completes Bridge. The backend creates an order at Truv, and once the
  * webhook signals completion the frontend fetches and displays the report.
+ *
+ * The user-facing screens (application form, Bridge widget) render inside an
+ * isolated iframe (`/preview.html`) wrapped in DeviceFrame and driven over
+ * postMessage; intro/waiting/results screens are the manager view and render bare.
  *
  * Scaffolding: ./scaffolding/pos-application.jsx
  * Diagrams:    ../diagrams/pos-application.js
@@ -18,19 +22,22 @@
  * WHAT TO COPY (for your own Truv integration):
  *   - handleSubmit()     : creates an order via POST /api/orders
  *   - useReportFetch()   : watches webhooks and fetches reports by product type
- *   - <BridgeScreen />   : opens Bridge with an order_id
+ *   - TruvBridge.init()  : opens Bridge with an order's bridge_token (see preview/components/BridgePreview.jsx)
  *   - screen routing     : ties intro, bridge, waiting, results into a flow
  */
 
 // --- Imports: Preact hooks ---
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 
 // --- Imports: shared layout, hooks, and API base URL ---
 import { Layout, usePanel, API_BASE, useReportFetch, useOrderRestore } from '../components/index.js';
 
-// --- Imports: reusable form and screen components ---
-import { ApplicationForm } from '../components/ApplicationForm.jsx';
-import { BridgeScreen, OrderWaitingScreen } from '../components/screens/index.js';
+// --- Imports: device-frame preview wrapper + iframe channel hook ---
+import { DeviceFrame } from '../components/DeviceFrame.jsx';
+import { usePreviewIframe } from '../hooks/usePreviewIframe.js';
+
+// --- Imports: reusable screen components ---
+import { OrderWaitingScreen } from '../components/screens/index.js';
 
 // --- Imports: client-side navigation helper ---
 import { navigate } from '../App.jsx';
@@ -41,10 +48,15 @@ import { STEPS, IntroScreen, ReportResults } from './scaffolding/pos-application
 
 // --- Component: POSApplicationDemo ---
 export function POSApplicationDemo({ screen, param }) {
-  // Component state: selected product, Truv user ID, form submission flag
+  // Component state: selected product, Truv user ID, form submission flag, bridge token
   const [productType, setProductType] = useState(null);
   const [userId, setUserId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [bridgeToken, setBridgeToken] = useState(null);
+  const iframeRef = useRef(null);
+  // Set when Bridge fires COMPLETED (source: order) — a trailing close from the
+  // SDK's auto-close-after-completion must not abort the successful session.
+  const completedRef = useRef(false);
 
   // Panel hook: sidebar state, session tracking, webhook polling, bridge events
   const { panel, sessionId, setCurrentStep, startPolling, stopPolling, pollOnceAndStop, addBridgeEvent, reset } = usePanel();
@@ -79,6 +91,47 @@ export function POSApplicationDemo({ screen, param }) {
     setCurrentStep(stepMap[screen] ?? 0);
   }, [screen]);
 
+  // Derived state: URL param parsing and layout flags
+  const isIntro = !screen && !productType;
+  const [orderId, companyMappingId] = (param || '').split('/');
+
+  // Effect: on the bridge screen, fetch order info to get bridge_token and user_id
+  // (also covers a refresh directly on /bridge/:orderId). The backend proxies
+  // GET /api/orders/:id/info to Truv's API. Once we have user_id, start polling
+  // for API logs and webhooks. Leaving the bridge screen clears the token so a
+  // remounted iframe never replays a stale 'bridge' command.
+  useEffect(() => {
+    if (screen !== 'bridge' || !orderId) {
+      setBridgeToken(null);
+      return;
+    }
+    // Fresh Bridge session: clear the completion marker so a later onClose counts
+    // as an abandon. A completed order sets it true just before navigating away,
+    // and it must stay true until the next Bridge opens (see onClose below).
+    completedRef.current = false;
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(orderId)}/info`);
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({ error: 'Unknown' }));
+          if (cancelled) return;
+          alert('Error: ' + (data.error || 'Unknown'));
+          abortBridge();
+          return;
+        }
+        const data = await resp.json();
+        if (cancelled) return;
+        setBridgeToken(data.bridge_token);
+        startPolling(data.user_id);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) abortBridge();
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [screen, orderId]);
+
   // Handler: submit application form, POST /api/orders, then navigate to Bridge screen
   async function handleSubmit(formData) {
     setSubmitting(true);
@@ -97,26 +150,74 @@ export function POSApplicationDemo({ screen, param }) {
     setSubmitting(false);
   }
 
-  // Derived state: layout flags and URL param parsing
-  const isBridge = screen === 'bridge';
-  const isIntro = !screen && !productType;
-  const [orderId, companyMappingId] = (param || '').split('/');
+  // Preview iframe channel: maps user/SDK events from inside the iframe back to
+  // host state changes. On COMPLETED (source: order) the flow advances to the
+  // waiting screen; on a genuine user close, stop polling the abandoned order and
+  // clear the stale userId so a later webhook can't hijack a restarted flow.
+  const sendPreview = usePreviewIframe(iframeRef, {
+    'form:submit': (data) => handleSubmit(data),
+    'bridge:onLoad': () => addBridgeEvent('onLoad()', null),
+    'bridge:onEvent': (type, payload, source) => {
+      const payloadStr = payload ? 'payload' : 'undefined';
+      addBridgeEvent(`onEvent("${type}", ${payloadStr}, "${source}")`, payload ? [{ label: 'payload', value: payload }] : null);
+      // Orders flow: the whole order (all products) is done only on the
+      // order-level COMPLETED event — not a per-link SUCCESS, which fires once
+      // per product and would advance a multi-product order too early.
+      if (type === 'COMPLETED' && source === 'order') {
+        completedRef.current = true;
+        navigate(`mortgage/pos-application/waiting/${orderId}`);
+      }
+    },
+    'bridge:onSuccess': () => addBridgeEvent('onSuccess()', null),
+    // If the user closes Bridge without completing the order, send them back to
+    // the previous screen (the application form). completedRef skips this when
+    // the widget auto-closes right after a successful COMPLETED.
+    'bridge:onClose': () => {
+      addBridgeEvent('onClose()', null);
+      if (!completedRef.current) abortBridge();
+    },
+  });
+
+  // Abort: on a failure to load the order (see the bridge-token effect), or when
+  // the user closes Bridge without completing — stop polling, clear the stale
+  // userId, and return to the previous screen (the application form).
+  function abortBridge() {
+    stopPolling();
+    setUserId(null);
+    navigate('mortgage/pos-application');
+  }
+
+  // Drive the preview iframe from host state: application form before an order
+  // exists, Bridge modal (or a spinner while the token loads) on the bridge screen.
+  useEffect(() => {
+    if (!screen && productType) {
+      sendPreview('application-form', { sessionId, productType, submitting });
+    } else if (screen === 'bridge') {
+      if (bridgeToken) {
+        sendPreview('bridge', { bridgeToken, isOrder: true, companyMappingId, inline: true });
+      } else {
+        sendPreview('loading', { label: 'Preparing verification…' });
+      }
+    }
+  }, [screen, productType, submitting, bridgeToken, companyMappingId, sessionId, sendPreview]);
+
+  // Derived state: the device frame spans the borrower-facing screens (form + Bridge)
+  const showDeviceFrame = (!screen && productType) || screen === 'bridge';
 
   // --- Render: screen routing ---
   return (
-    <Layout badge="POS Application" steps={STEPS} panel={panel} flush={isBridge} hidePanel={isIntro}>
-      {/* Bridge screen: inline TruvBridge widget for order verification.
-          onAbort: on a genuine user close, stop polling the abandoned order and
-          clear the stale userId so a later webhook can't hijack a restarted flow. */}
-      {screen === 'bridge' && (
-        <BridgeScreen
-          orderId={orderId}
-          demoPath="mortgage/pos-application"
-          companyMappingId={companyMappingId}
-          addBridgeEvent={addBridgeEvent}
-          startPolling={startPolling}
-          onAbort={() => { stopPolling(); setUserId(null); navigate('mortgage/pos-application'); }}
-        />
+    <Layout badge="POS Application" steps={STEPS} panel={panel} hidePanel={isIntro}>
+      {/* Application form + Bridge widget live inside the preview iframe (user view).
+          A single iframe element persists across the form → bridge hash navigation. */}
+      {showDeviceFrame && (
+        <DeviceFrame url="pos.example.com">
+          <iframe
+            ref={iframeRef}
+            src="/preview.html"
+            title="Demo preview"
+            class="w-full h-full block border-0 bg-white"
+          />
+        </DeviceFrame>
       )}
       {/* Waiting screen: webhook polling spinner until order completes */}
       {screen === 'waiting' && (
@@ -133,16 +234,9 @@ export function POSApplicationDemo({ screen, param }) {
           backLabel="New Application"
         />
       )}
-      {/* Default screen: product picker intro or application form */}
-      {!screen && (
-        productType ? (
-          <div class="w-full sm:max-w-lg sm:mx-auto px-4 py-6 sm:px-8 sm:py-10">
-            <ApplicationForm sessionId={sessionId} onSubmit={handleSubmit} submitting={submitting} productType={productType} />
-          </div>
-        ) : (
-          <IntroScreen onStart={setProductType} />
-        )
-      )}
+      {/* Default screen: product picker intro (the application form itself renders
+          inside the device frame above) */}
+      {!screen && !productType && <IntroScreen onStart={setProductType} />}
     </Layout>
   );
 }

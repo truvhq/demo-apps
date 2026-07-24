@@ -11,13 +11,11 @@
 
 // Preact state hook
 import { useState } from 'preact/hooks';
-import { HidePanelButton } from './DeviceFrame.jsx';
+import { GitHubPanelLink } from './HeaderActions.jsx';
 import { DASHBOARD_WEBHOOKS_URL } from '../config.js';
 
-// TabButton: individual tab selector. Shared between Panel (the sidebar content
-// area) and Layout (the unified top bar). Exported so Layout can render the same
-// pill in its top bar.
-export function TabButton({ active, label, count, onClick }) {
+// TabButton: individual tab selector pill for the Panel's tab-nav row.
+function TabButton({ active, label, count, onClick }) {
   return (
     <button
       onClick={onClick}
@@ -137,7 +135,7 @@ function BridgeEvent({ evt }) {
 }
 
 // BridgeTab: lists all TruvBridge SDK events in reverse chronological order.
-// Events are logged by BridgeScreen's onLoad/onEvent/onSuccess/onClose callbacks.
+// Events are forwarded from the preview iframe's BridgePreview onLoad/onEvent/onSuccess/onClose callbacks.
 function BridgeTab({ events }) {
   if (!events.length) return <div class="flex items-center justify-center h-32 text-gray-400 text-sm">No Bridge events yet.</div>;
   return <div>{[...events].reverse().map((evt, i) => <BridgeEvent key={i} evt={evt} />)}</div>;
@@ -207,14 +205,13 @@ function tryFormat(s) {
 }
 
 // Panel: viewport-responsive content area.
-//   lg+   : right-side sidebar (w-1/3, static positioning, bordered). The tab
-//           navigation lives in Layout's top bar aligned with this column.
+//   lg+   : right-side sidebar (w-1/3, static positioning, bordered).
 //   <lg   : full-bleed overlay covering the parent content row (which is
 //           position:relative). Layered above <main> via z-30 so the iframe
-//           inside any DeviceFrame stays mounted underneath. The tab strip
-//           renders inside the overlay since the top-bar strip is hidden below lg.
-// Tabs are always passed in but only one strip is visible per breakpoint thanks
-// to mirrored `hidden lg:flex` / `flex lg:hidden` modifiers in the two locations.
+//           inside any DeviceFrame stays mounted underneath.
+// The tab-nav row is the Panel's own first line in both modes, so the app
+// header stays full width and never shares its row with the tabs. Closing the
+// panel is done with the header's Dev toggle — the row has no close button.
 export function Panel({ steps, panel, activeTab, tabs, onTabChange }) {
   // Destructure polled data from usePanel() with safe defaults
   const { currentStep = 0, apiLogs = [], bridgeEvents = [], webhooks = [], tunnelUrl = null } = panel || {};
@@ -224,13 +221,13 @@ export function Panel({ steps, panel, activeTab, tabs, onTabChange }) {
   return (
     <aside class={asideClass}>
       {tabs && onTabChange && (
-        <div class="flex lg:hidden items-center gap-0.5 px-5 h-12 border-b border-border/40 flex-shrink-0">
+        <div class="flex items-center gap-0.5 px-5 h-12 border-b border-border/40 flex-shrink-0">
           <div class="flex items-center gap-0.5 flex-1 min-w-0 overflow-x-auto">
             {tabs.map(t => (
               <TabButton key={t.id} active={activeTab === t.id} label={t.label} count={t.count} onClick={() => onTabChange(t.id)} />
             ))}
           </div>
-          <HidePanelButton />
+          <GitHubPanelLink />
         </div>
       )}
       <div class="flex-1 overflow-y-auto px-5 py-4">

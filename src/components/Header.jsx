@@ -34,7 +34,17 @@ export function Breadcrumb({ trail = [] }) {
       <a href="#" aria-label="Truv home" class="flex items-center shrink-0 hover:opacity-80 transition-opacity">
         <Icons.truvLogo height={21} className="text-text" />
       </a>
-      {/* Trail segments are hidden on mobile; the logo alone remains as the Home link */}
+      {/* Trail: hidden only on phones (<sm), where the row cannot physically
+          fit it; the logo alone remains as the Home link. From sm up the FULL
+          trail is always shown — segments truncate rather than disappear, so the
+          breadcrumb never collapses to a single element.
+          Flat layout (chevrons and links are direct flex children, not per-segment
+          sub-flex spans) so a squeezed link can never overflow its wrapper and
+          overlap the next one. Truncation is prioritized via flex-shrink: leading
+          segments collapse FIRST — down to a bare "…" in the tightest case (huge
+          shrink + a floor just wide enough for the ellipsis) — and only once they
+          are collapsed does the current segment start truncating (default shrink +
+          a wider readable floor). */}
       <span class="hidden sm:flex items-center gap-2 min-w-0">
         {trail.map((seg, i) => {
           const isLast = i === trail.length - 1;
@@ -48,7 +58,13 @@ export function Breadcrumb({ trail = [] }) {
                 // won't fire hashchange. Restart the active view instead (App
                 // remounts it) so the click resets the demo to its first screen.
                 onClick={isLast ? () => window.dispatchEvent(new CustomEvent('truv:restart-view')) : undefined}
-                class="text-[13px] font-medium text-muted hover:text-text transition-colors truncate"
+                // Leading segments carry a huge flex-shrink + a floor wide enough
+                // for a COMPLETE ellipsis ("C…", never a clipped "C."), so they
+                // collapse to that ellipsis FIRST. The current segment has min-w-0
+                // (no rigid floor) so that, once the leading crumbs are ellipses,
+                // it truncates cleanly with its own "…" instead of being
+                // hard-clipped by the container edge.
+                class={`text-[13px] font-medium text-muted hover:text-text transition-colors truncate ${isLast ? 'min-w-0' : 'shrink-[9999] min-w-[1.5rem]'}`}
               >
                 {seg.label}
               </a>
@@ -60,19 +76,33 @@ export function Breadcrumb({ trail = [] }) {
   );
 }
 
+// The single top bar used by every page (Home, IndustryPage, demo Layout), so
+// the breadcrumb and action links behave identically everywhere: their
+// responsive collapse depends only on viewport width, never on which screen
+// is showing.
 // Props:
-//   trail  : breadcrumb segments [{ label, href }] (last = current page)
-//   badge  : small label pill shown after the breadcrumb (root pages only)
-//   sticky : whether the header sticks to the top on scroll
-export function Header({ trail, badge, sticky }) {
+//   trail        : breadcrumb segments [{ label, href }] (last = current page)
+//   badge        : small label pill shown after the breadcrumb (root pages only)
+//   sticky       : whether the header sticks to the top on scroll
+//   githubInPanel: true when the shell has a Dev button that hosts the GitHub
+//                  link in the panel below lg (demo Layout) — the header then
+//                  hides its own GitHub link below lg to avoid duplication
+//   children     : optional right-edge slot (demo Layout puts the device toggle
+//                  and the Dev-panel button here)
+export function Header({ trail, badge, sticky, githubInPanel, children }) {
   return (
-    <header class={`flex items-center justify-between h-12 px-3 sm:px-6 bg-white/80 backdrop-blur-xl border-b border-border/40 ${sticky ? 'sticky top-0 z-10' : ''}`}>
-      <div class="flex items-center gap-3 min-w-0">
+    <header class={`flex items-center h-12 bg-white/80 backdrop-blur-xl border-b border-border/40 ${sticky ? 'sticky top-0 z-10' : ''}`}>
+      {/* overflow-hidden: when the bar runs out of width the breadcrumb clips
+          instead of painting over the action buttons (the logo is shrink-0). */}
+      <div class="flex items-center gap-3 px-3 sm:px-6 flex-1 min-w-0 overflow-hidden">
         <Breadcrumb trail={trail} />
         {/* Optional badge label */}
         {badge && <div class="hidden sm:block text-[11px] font-medium text-muted bg-surface-secondary px-2 py-0.5 rounded-md truncate">{badge}</div>}
       </div>
-      <HeaderActions />
+      <div class="shrink-0 pr-3 sm:pr-5">
+        <HeaderActions githubInPanel={githubInPanel} />
+      </div>
+      {children}
     </header>
   );
 }

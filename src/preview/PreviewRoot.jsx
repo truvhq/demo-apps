@@ -11,6 +11,7 @@ import { MSG, postReady } from './protocol.js';
 import { LoadingPreview } from './components/LoadingPreview.jsx';
 import { ApplicationFormPreview } from './components/ApplicationFormPreview.jsx';
 import { MethodPickerPreview } from './components/MethodPickerPreview.jsx';
+import { TaskListPreview } from './components/TaskListPreview.jsx';
 import { BridgePreview } from './components/BridgePreview.jsx';
 
 export function PreviewRoot() {
@@ -52,6 +53,8 @@ function renderBase(view) {
       return wrap(<ApplicationFormPreview {...view.props} />);
     case 'method-picker':
       return wrap(<MethodPickerPreview {...view.props} />);
+    case 'task-list':
+      return wrap(<TaskListPreview {...view.props} />);
     case 'loading':
       return <LoadingPreview {...view.props} />;
     default:

@@ -1,7 +1,7 @@
 /**
  * FILE SUMMARY: OrderWaitingScreen
  * DATA FLOW: GET /api/orders/:id/info -> start polling -> watch webhooks for "completed" -> navigate to results
- * INTEGRATION PATTERN: Orders flow only (Mortgage/Public Sector). Bridge flow uses BridgeScreen callbacks instead.
+ * INTEGRATION PATTERN: Orders flow only (Mortgage/Public Sector). Bridge flow advances via BridgePreview callbacks instead.
  *
  * Displays a waiting state while Truv processes an order in the background. Polls for
  * webhooks via usePanel() and watches for the order-status-updated/completed event.
