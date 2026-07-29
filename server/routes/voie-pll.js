@@ -74,9 +74,10 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
   // If coverage is low/unsupported/null, the borrower should be routed to manual.
   router.get('/api/voie-pll/coverage/:cmid', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
       const { cmid } = req.params;
       const sessionId = req.query.session_id || null;
-      const result = await truv.getCompanyInfo(cmid, 'pll');
+      const result = await truvClient.getCompanyInfo(cmid, 'pll');
       apiLogger.logApiCall({ sessionId, method: 'GET', endpoint: `/v1/companies/${cmid}?product_type=pll`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
       if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Failed to fetch coverage', details: result.data });
 
@@ -102,6 +103,7 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
   // PLL order that will follow. Persisted in SQLite alongside the bridge_token.
   router.post('/api/voie-pll/voie-order', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
       const { first_name, last_name, company_mapping_id } = req.body || {};
       // company_mapping_id is optional — when missing, Bridge prompts the borrower
       // to search for and pick their employer themselves.
@@ -111,7 +113,7 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
       const externalUserId = `qs-${uuidv4()}`;
       const orderId = db.generateId();
 
-      const result = await truv.createVoiePllVoieOrder({
+      const result = await truvClient.createVoiePllVoieOrder({
         orderNumber,
         externalUserId,
         firstName: first_name || 'ExampleUser',
@@ -161,12 +163,13 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
   // single proceed/manual verdict with reason codes for the frontend to display.
   router.get('/api/voie-pll/decision/:voieOrderId', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
       const order = db.getOrder(req.params.voieOrderId);
       if (!order || !order.truv_order_id) return res.status(404).json({ error: 'VOIE order not found' });
       const userId = order.user_id;
 
       // Step 4 of postman flow: read bank_accounts to check for percent allocations.
-      const orderResult = await truv.getOrder(order.truv_order_id);
+      const orderResult = await truvClient.getOrder(order.truv_order_id);
       apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/orders/${order.truv_order_id}/`, responseBody: orderResult.data, statusCode: orderResult.statusCode, durationMs: orderResult.durationMs });
       if (orderResult.statusCode >= 400) return res.status(orderResult.statusCode).json({ error: 'Failed to fetch order', details: orderResult.data });
 
@@ -203,7 +206,7 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
       let maxNumber = null;
       let successRate = null;
       if (companyMappingId) {
-        const covResult = await truv.getCompanyInfo(companyMappingId, 'pll');
+        const covResult = await truvClient.getCompanyInfo(companyMappingId, 'pll');
         apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/companies/${companyMappingId}?product_type=pll`, responseBody: covResult.data, statusCode: covResult.statusCode, durationMs: covResult.durationMs });
         if (covResult.statusCode < 400) {
           successRate = covResult.data?.success_rate ?? null;
@@ -217,7 +220,7 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
       let isDdsSupported = null;
       let linkInfoData = null;
       if (linkId) {
-        const linkResult = await truv.getLinkInfo(linkId);
+        const linkResult = await truvClient.getLinkInfo(linkId);
         apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/links/${linkId}/`, responseBody: linkResult.data, statusCode: linkResult.statusCode, durationMs: linkResult.durationMs });
         if (linkResult.statusCode < 400) {
           linkInfoData = linkResult.data;
@@ -260,6 +263,7 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
   // borrowers get re-auth prompts in production.
   router.post('/api/voie-pll/pll-order/:voieOrderId', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
       const voieOrder = db.getOrder(req.params.voieOrderId);
       if (!voieOrder || !voieOrder.truv_order_id) return res.status(404).json({ error: 'VOIE order not found' });
 
@@ -271,12 +275,12 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
       // exposing a cmid-override surface in the request body.
       let companyMappingId = voieRaw.employers?.[0]?.company_mapping_id || null;
       if (!companyMappingId) {
-        const liveResult = await truv.getOrder(voieOrder.truv_order_id);
+        const liveResult = await truvClient.getOrder(voieOrder.truv_order_id);
         apiLogger.logApiCall({ userId: voieOrder.user_id, method: 'GET', endpoint: `/v1/orders/${voieOrder.truv_order_id}/`, responseBody: liveResult.data, statusCode: liveResult.statusCode, durationMs: liveResult.durationMs });
         companyMappingId = liveResult.data?.employers?.[0]?.company_mapping_id || null;
         const linkId = liveResult.data?.employers?.[0]?.link_id || null;
         if (!companyMappingId && linkId) {
-          const linkResult = await truv.getLinkInfo(linkId);
+          const linkResult = await truvClient.getLinkInfo(linkId);
           apiLogger.logApiCall({ userId: voieOrder.user_id, method: 'GET', endpoint: `/v1/links/${linkId}/`, responseBody: linkResult.data, statusCode: linkResult.statusCode, durationMs: linkResult.durationMs });
           companyMappingId = linkResult.data?.company_mapping?.id || null;
         }
@@ -292,7 +296,7 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
       const orderId = db.generateId();
       const userId = voieOrder.user_id;
 
-      const result = await truv.createVoiePllPllOrder({
+      const result = await truvClient.createVoiePllPllOrder({
         orderNumber, externalUserId,
         firstName: voieRaw.first_name || 'ExampleUser',
         lastName: voieRaw.last_name || 'NewUser',
@@ -327,11 +331,12 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
   // when the order didn't reach status=done.
   router.get('/api/voie-pll/pll-report/:pllOrderId', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
       const pllOrder = db.getOrder(req.params.pllOrderId);
       if (!pllOrder || !pllOrder.truv_order_id) return res.status(404).json({ error: 'PLL order not found' });
       const userId = pllOrder.user_id;
 
-      const orderResult = await truv.getOrder(pllOrder.truv_order_id);
+      const orderResult = await truvClient.getOrder(pllOrder.truv_order_id);
       apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/orders/${pllOrder.truv_order_id}/`, responseBody: orderResult.data, statusCode: orderResult.statusCode, durationMs: orderResult.durationMs });
       if (orderResult.statusCode >= 400) return res.status(orderResult.statusCode).json({ error: 'Failed to fetch PLL order', details: orderResult.data });
 
@@ -341,7 +346,7 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
 
       let report = null;
       if (linkId) {
-        const reportResult = await truv.getPllReport(linkId);
+        const reportResult = await truvClient.getPllReport(linkId);
         apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/links/${linkId}/pll/report/`, responseBody: reportResult.data, statusCode: reportResult.statusCode, durationMs: reportResult.durationMs });
         if (reportResult.statusCode < 400) report = reportResult.data;
       }
@@ -363,8 +368,9 @@ export default function voiePllRoutes({ truv, db, apiLogger }) {
   // tells you whether to retry, send to manual, or escalate.
   router.get('/api/voie-pll/tasks/:userId', async (req, res) => {
     try {
+      const truvClient = req.truv || truv;
       const { userId } = req.params;
-      const result = await truv.getUserTasks(userId);
+      const result = await truvClient.getUserTasks(userId);
       apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/tasks/?user_id=${userId}`, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
       if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Failed to fetch tasks', details: result.data });
       res.json(result.data);
