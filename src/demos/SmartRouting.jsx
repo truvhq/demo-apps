@@ -43,7 +43,7 @@ import { IncomeInsightsReport } from '../components/reports/IncomeInsightsReport
 import { DIAGRAM } from '../diagrams/smart-routing.js';
 
 // --- Imports: scaffolding (steps, method definitions, intro config, picker components) ---
-import { STEPS, METHODS, INTRO_SLIDE_CONFIG, MethodCards } from './scaffolding/smart-routing.jsx';
+import { STEPS, METHODS, INTRO_SLIDE_CONFIG, MethodSummaries } from './scaffolding/smart-routing.jsx';
 
 // Screens form a forward-only flow: never roll back from a later phase to an earlier one.
 const SCREEN_FLOW = ['select', 'choose', 'waiting', 'review'];
@@ -294,7 +294,7 @@ export function SmartRoutingDemo() {
   // --- Render: state-driven screen routing ---
   return (
     <Layout badge="Smart Routing" steps={STEPS} panel={panel} hidePanel={isIntro}>
-      {/* Intro slide: method cards overview + architecture diagram */}
+      {/* Intro slide: method overview + architecture diagram */}
       {screen === 'select' && !showForm && (
         <div class="flex-1 flex flex-col">
           <IntroSlide
@@ -308,7 +308,7 @@ export function SmartRoutingDemo() {
               </button>
             }
           >
-            <MethodCards />
+            <MethodSummaries />
           </IntroSlide>
         </div>
       )}

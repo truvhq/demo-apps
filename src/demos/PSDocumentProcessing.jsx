@@ -27,7 +27,7 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
 
 // --- Imports: shared layout, components, hooks, and API utilities ---
-import { Layout, OrderResults, WebhookFeed, usePanel, API_BASE, parsePayload, IntroSlide, TERMINAL_FILE_STATUSES, FileProcessingErrors } from '../components/index.js';
+import { Layout, OrderResults, WebhookFeed, usePanel, API_BASE, parsePayload, IntroSlide, FeatureList, TERMINAL_FILE_STATUSES, FileProcessingErrors } from '../components/index.js';
 
 // --- Imports: Mermaid diagram for intro slide ---
 import { DOC_DIAGRAM } from '../diagrams/ps-document-processing.js';
@@ -179,14 +179,7 @@ export function PSDocumentProcessingDemo() {
           diagram={DOC_DIAGRAM}
           actions={<button onClick={() => setScreen('upload')} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors text-center">Get started</button>}
         >
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {FEATURE_CARDS.map(d => (
-              <div key={d.name} class="rounded-xl border border-[#e8e8ed] px-5 py-4">
-                <h3 class="text-[14px] font-semibold text-[#000000] mb-1">{d.name}</h3>
-                <p class="text-[13px] text-[#808080] leading-[1.4]">{d.desc}</p>
-              </div>
-            ))}
-          </div>
+          <FeatureList items={FEATURE_CARDS} columns={2} />
         </IntroSlide>
       )}
       {/* Upload screen: file picker with drag-drop and test document list */}
