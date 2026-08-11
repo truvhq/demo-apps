@@ -33,12 +33,20 @@ import uploadDocumentsRoutes from './routes/upload-documents.js';
 import userReportsRoutes from './routes/user-reports.js';
 import voiePllRoutes from './routes/voie-pll.js';
 import coverageAnalysisRoutes from './routes/coverage-analysis.js';
+import autoOrderRoutes from './routes/auto-order.js';
 
 // Local mode keeps one TruvClient built from your .env keys and uses it for
 // every request. (Hosted deployments build a client per visitor instead.)
 const localTruv = config.localMode
   ? new TruvClient({ clientId: config.creds.clientId, secret: config.creds.secret })
   : null;
+
+// Only set when AUTO_ORDER_CLIENT_ID/SECRET are configured — see
+// routes/auto-order.js for why this is separate from localTruv/session auth.
+const autoOrderTruv = (config.autoOrder.clientId && config.autoOrder.secret)
+  ? new TruvClient({ clientId: config.autoOrder.clientId, secret: config.autoOrder.secret })
+  : null;
+
 db.initDb();
 
 // In-memory, TTL'd session store. Holds per-visitor API credentials; never
@@ -235,6 +243,7 @@ app.use(uploadDocumentsRoutes(deps));
 app.use(userReportsRoutes(deps));
 app.use(voiePllRoutes(deps));
 app.use(coverageAnalysisRoutes(deps));
+app.use(autoOrderRoutes({ truv: autoOrderTruv, db, apiLogger }));
 
 // --- Health check ---
 app.get('/api/health', (_req, res) => res.json({ ok: true }));

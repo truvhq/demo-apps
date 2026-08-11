@@ -75,4 +75,14 @@ export const config = {
 
   // Bridge script URL baked into the built HTML; overridable per environment.
   bridgeUrl: env.BRIDGE_URL || 'https://cdn.truv.com/bridge.js',
+
+  // Optional: a fixed credential pair scoped to POST /api/auto-order only.
+  // Independent of ALLOW_ENV_FALLBACK_CREDS/localMode above — setting these
+  // doesn't change the Configure/session flow for any other route or
+  // deployment. Unset on every deployment except one that explicitly needs
+  // zero-credential-entry order creation.
+  autoOrder: {
+    clientId: env.AUTO_ORDER_CLIENT_ID || '',
+    secret: env.AUTO_ORDER_SECRET || '',
+  },
 };
