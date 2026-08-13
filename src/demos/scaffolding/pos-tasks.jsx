@@ -12,7 +12,7 @@
 import { Icons } from '../../components/Icons.jsx';
 
 // --- Imports: shared intro slide component ---
-import { IntroSlide } from '../../components/index.js';
+import { IntroSlide, FeatureList } from '../../components/index.js';
 
 // --- Imports: report display components ---
 import { VoieReport } from '../../components/reports/VoieReport.jsx';
@@ -60,7 +60,7 @@ export const TASKS = [
   { id: 'assets-income', name: 'Assets + Income', desc: 'Combined order', products: ['income', 'assets'], employer: 'Home Depot', Icon: Icons.barChart },
 ];
 
-// --- Config: task info cards shown on the intro screen ---
+// --- Config: task info blurbs shown on the intro screen ---
 export const FOLLOWUP_TASKS_INFO = [
   { name: 'Income', desc: 'Verify earnings and pay history from payroll', report: 'VOIE' },
   { name: 'Employment', desc: 'Verify job title, status, and tenure', report: 'VOE' },
@@ -101,17 +101,7 @@ export function InitScreen({ applicationId, onApplicationIdChange, onInitialize,
         </div>
       }
     >
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {FOLLOWUP_TASKS_INFO.map(t => (
-          <div key={t.name} class="rounded-xl border border-[#e8e8ed] px-5 py-4">
-            <div class="flex items-start justify-between mb-1">
-              <h3 class="text-[14px] font-semibold text-[#000000]">{t.name}</h3>
-              <span class="text-[11px] font-medium text-[#808080] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{t.report}</span>
-            </div>
-            <p class="text-[13px] text-[#808080] leading-[1.4]">{t.desc}</p>
-          </div>
-        ))}
-      </div>
+      <FeatureList items={FOLLOWUP_TASKS_INFO} />
     </IntroSlide>
   );
 }

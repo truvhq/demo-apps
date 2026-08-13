@@ -26,7 +26,7 @@
 import { useState } from 'preact/hooks';
 
 // --- Imports: shared layout, components, hooks, and API base URL ---
-import { Layout, WebhookFeed, usePanel, API_BASE, IntroSlide, useReportFetch } from '../components/index.js';
+import { Layout, WebhookFeed, usePanel, API_BASE, IntroSlide, FeatureList, useReportFetch } from '../components/index.js';
 
 // --- Imports: report display components ---
 import { VoieReport } from '../components/reports/VoieReport.jsx';
@@ -112,14 +112,7 @@ export function CaseWorkerPortalDemo({ screen, param }) {
           diagram={VERIFIER_DIAGRAM}
           actions={<button onClick={() => setIntroSeen(true)} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors text-center">Get started</button>}
         >
-          <div class="grid gap-3">
-            {INTRO_FEATURES.map(item => (
-              <div key={item.name} class="rounded-xl border border-[#e8e8ed] px-5 py-4">
-                <h3 class="text-[14px] font-semibold text-[#000000] mb-1">{item.name}</h3>
-                <p class="text-[13px] text-[#808080] leading-[1.4]">{item.desc}</p>
-              </div>
-            ))}
-          </div>
+          <FeatureList items={INTRO_FEATURES} />
         </IntroSlide>
       )}
 

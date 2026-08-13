@@ -2,6 +2,7 @@
 // Extracted so the demo file contains only Truv API workflow code.
 
 import { Icons } from '../../components/Icons.jsx';
+import { FeatureList } from '../../components/index.js';
 
 // STEPS: sidebar Guide tab content. Each step highlights when setCurrentStep(index) is called.
 export const STEPS = [
@@ -41,17 +42,10 @@ export const INTRO_SLIDE_CONFIG = {
   subtitle: 'The system checks the applicant\'s employer payroll coverage and recommends the fastest path: payroll, bank transactions, or document upload. The applicant can accept or override.',
 };
 
-export function MethodCards() {
-  return (
-    <div class="grid gap-3 text-left">
-      {METHODS.map(m => (
-        <div key={m.id} class="rounded-xl border border-[#e8e8ed] px-5 py-4">
-          <h3 class="text-[14px] font-semibold text-[#000000] mb-1">{m.name}</h3>
-          <p class="text-[13px] text-[#808080] leading-[1.4]">{m.desc}</p>
-        </div>
-      ))}
-    </div>
-  );
+// Read-only summaries on the intro slide. Deliberately styled as content, not as
+// controls — the clickable version of these is MethodPicker below.
+export function MethodSummaries() {
+  return <FeatureList items={METHODS} />;
 }
 
 export function MethodPicker({ methods, recommended, onSelect, loading }) {

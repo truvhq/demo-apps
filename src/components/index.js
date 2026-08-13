@@ -23,6 +23,7 @@ export { useOrderRestore } from './useOrderRestore.js';
 
 // Intro and diagram components
 export { IntroSlide } from './IntroSlide.jsx';
+export { FeatureList } from './FeatureList.jsx';
 export { MermaidDiagram } from './MermaidDiagram.jsx';
 
 // Form components
