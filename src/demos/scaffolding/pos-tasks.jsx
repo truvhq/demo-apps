@@ -101,7 +101,7 @@ export function InitScreen({ applicationId, onApplicationIdChange, onInitialize,
         </div>
       }
     >
-      <FeatureList items={FOLLOWUP_TASKS_INFO} columns={2} />
+      <FeatureList items={FOLLOWUP_TASKS_INFO} />
     </IntroSlide>
   );
 }

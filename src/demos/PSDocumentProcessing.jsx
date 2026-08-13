@@ -179,7 +179,7 @@ export function PSDocumentProcessingDemo() {
           diagram={DOC_DIAGRAM}
           actions={<button onClick={() => setScreen('upload')} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors text-center">Get started</button>}
         >
-          <FeatureList items={FEATURE_CARDS} columns={2} />
+          <FeatureList items={FEATURE_CARDS} />
         </IntroSlide>
       )}
       {/* Upload screen: file picker with drag-drop and test document list */}

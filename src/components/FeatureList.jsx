@@ -8,33 +8,34 @@
  * bordered-white-card recipe, so the static ones read as buttons and viewers
  * clicked them expecting something to happen (IMP-250).
  *
- * This component owns the informational treatment: no border, no fill, no box —
- * just text in a grid. Only genuinely selectable cards keep the bordered,
- * clickable-looking container, so the two are distinguishable before the pointer
- * ever moves. Every non-selectable grid across the demos renders through here so
- * the two treatments can't drift back together. Deliberately not named
- * "...Cards": these no longer render as cards, and shouldn't grow back into them.
- *
- * The grid gap is wider than the old card grid's on purpose: with no box to
- * bound each entry, spacing is the only thing separating one blurb's
- * description from the next one's heading.
+ * This component owns the informational treatment: no border, no fill, no box,
+ * no badge chrome, no tile grid — a plain single-column list of heading plus
+ * description, read straight down. Only genuinely selectable cards keep the
+ * bordered, clickable-looking container, so the two are distinguishable before
+ * the pointer ever moves. Every non-selectable grid across the demos renders
+ * through here so the two treatments can't drift back together. Deliberately not
+ * named "...Cards": these no longer render as cards, and shouldn't grow back
+ * into them.
  */
 
 // Props:
-//   items   : [{ name, desc, report? }] — `report` renders as a small mono badge
-//   columns : 1 (default) or 2 for a two-up grid on sm and wider
-export function FeatureList({ items, columns = 1 }) {
+//   items : [{ name, desc, report? }] — `report` is a report-type label (VOIE,
+//           VOA, ...). It is folded into the heading as "Name (VOIE)" rather than
+//           rendered as its own badge: with no card border to sit against, a
+//           standalone chip just read as leftover button chrome.
+export function FeatureList({ items }) {
   return (
-    <div class={`grid gap-5 text-left ${columns === 2 ? 'grid-cols-1 sm:grid-cols-2 gap-x-6' : ''}`}>
+    // Always one column. Laid out 2x2, four blurbs read as a block of tiles —
+    // the exact impression this treatment is getting away from. Stacked, they
+    // read as consecutive descriptions. The gap is tight for the same reason:
+    // enough to separate entries, not enough to imply each one is a container.
+    <div class="grid gap-3 text-left">
       {items.map(item => (
         <div key={item.name}>
-          <div class="flex items-start justify-between gap-3 mb-1">
-            <h3 class="text-[14px] font-semibold text-[#000000]">{item.name}</h3>
-            {item.report && (
-              <span class="text-[11px] font-medium text-[#808080] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono shrink-0">{item.report}</span>
-            )}
-          </div>
-          <p class="text-[13px] text-[#808080] leading-[1.4]">{item.desc}</p>
+          <h3 class="text-[14px] font-semibold text-[#000000]">
+            {item.report ? `${item.name} (${item.report})` : item.name}
+          </h3>
+          <p class="text-[13px] text-[#808080] leading-[1.4] mt-1">{item.desc}</p>
         </div>
       ))}
     </div>
