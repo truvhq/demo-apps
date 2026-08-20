@@ -26,6 +26,9 @@ export { IntroSlide } from './IntroSlide.jsx';
 export { FeatureList } from './FeatureList.jsx';
 export { MermaidDiagram } from './MermaidDiagram.jsx';
 
+// Guided multi-stage walkthrough shell (narrated intro before a live demo)
+export { Walkthrough, DEFAULT_SURFACES } from './Walkthrough.jsx';
+
 // Form components
 export { ApplicationForm } from './ApplicationForm.jsx';
 

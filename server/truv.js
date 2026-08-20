@@ -238,9 +238,25 @@ export class TruvClient {
     return this._request('GET', `orders/${truvOrderId}/`);
   }
 
-  // Triggers a refresh of an existing order. Used when re-pulling data for an order.
-  async refreshOrder(truvOrderId) {
-    return this._request('POST', `orders/${truvOrderId}/refresh/`);
+  // --- Data refresh (renewals / recertification) ---
+  // Re-pulls data from the connections an existing order already established.
+  // POSTing to the ORDER's own path (not a /refresh/ sub-path) is what creates a
+  // refresh: Truv returns a brand-new order carrying its own id, share_url and
+  // bridge_token, and attempts the pull server-side with the stored credentials.
+  //
+  // Two outcomes, and the caller must handle both:
+  //   - session still valid  -> the new order completes on its own, no applicant action
+  //   - session needs MFA /
+  //     credentials changed  -> the refresh task fails, the new order stays at `sent`
+  //                             forever, and Truv fires `order-refresh-failed`
+  //
+  // `products` narrows what gets refreshed ('income' | 'employment' | 'assets' | ...).
+  // Omit employers/financial_accounts to refresh every connection on the order.
+  // Rate limit: 3 refreshes per order per 24h, then Truv returns 429.
+  async createRefreshOrder(truvOrderId, { products } = {}) {
+    const payload = {};
+    if (products && products.length) payload.products = products;
+    return this._request('POST', `orders/${truvOrderId}/`, { json: payload });
   }
 
   // --- Income + PLL chained order flow ---
