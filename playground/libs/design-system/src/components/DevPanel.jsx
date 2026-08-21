@@ -80,17 +80,6 @@ export function DevPanel({ api, loadContexts }) {
           Live view of what this app is doing with Truv — click a row to see the full payload.
         </p>
       </div>
-      {(tab === 'calls' || tab === 'webhooks') && loadContexts && (
-        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--truv-grey-30)' }}>
-          <Select
-            label="Filter by application/loan"
-            value={selectedContextId}
-            onChange={(e) => setSelectedContextId(e.target.value)}
-            placeholder="All applications/loans"
-            options={contexts.map((c) => ({ value: String(c.id), label: c.label }))}
-          />
-        </div>
-      )}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--truv-grey-30)' }}>
         <TabButton active={tab === 'guide'} onClick={() => setTab('guide')}>Guide</TabButton>
         <TabButton active={tab === 'calls'} onClick={() => { setTab('calls'); setExpandedId(null); }}>
@@ -103,6 +92,21 @@ export function DevPanel({ api, loadContexts }) {
           Webhooks ({selectedContext ? `${webhooks.filter((i) => matchesContext(i, selectedContext)).length}/${webhooks.length}` : webhooks.length})
         </TabButton>
       </div>
+
+      {/* Rendered below the tab row (not above it) so the tabs stay in a
+          fixed position when switching between tabs that show this filter
+          (API Calls, Webhooks) and ones that don't (Guide, Bridge). */}
+      {(tab === 'calls' || tab === 'webhooks') && loadContexts && (
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--truv-grey-30)' }}>
+          <Select
+            label="Filter by application/loan"
+            value={selectedContextId}
+            onChange={(e) => setSelectedContextId(e.target.value)}
+            placeholder="All applications/loans"
+            options={contexts.map((c) => ({ value: String(c.id), label: c.label }))}
+          />
+        </div>
+      )}
 
       {tab === 'guide' && <GuideTab progress={guideProgress} />}
 

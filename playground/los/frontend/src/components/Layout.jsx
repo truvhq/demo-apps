@@ -43,6 +43,7 @@ export function Layout({ loanHeader, children }) {
       <aside style={{
         width: 220, flexShrink: 0, background: 'var(--truv-primary-black)', color: 'var(--truv-white)',
         padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 32,
+        position: 'sticky', top: 0, height: '100vh', overflowY: 'auto',
       }}>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
           <span style={{
