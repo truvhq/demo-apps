@@ -59,7 +59,8 @@ of the four Mortgage demos above has a "Dev Playground" button in the dev panel'
 deep-links straight into the matching side's `/configure-truv` screen — POS Application and POS
 Tasks go to POS, LOS and Document Processing go to LOS — so a developer can set up Truv
 credentials and integration options before working in either app. Once inside, a "Switch to
-LOS/POS →" link moves freely between the two sides.
+LOS/POS →" link moves freely between the two sides, and a "← Back to Demo Apps" link returns to
+the exact demo the developer came from.
 
 See `playground/README.md` for setup and `scripts/dev.sh`. It runs independently of the main demo
 app (POS on :5183, LOS on :5184 by default); point the main app at different origins with the

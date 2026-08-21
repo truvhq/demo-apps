@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { DevPanel, Switch } from '@truv-demo/design-system';
+import { DevPanel, Switch, captureDemoAppsReturn, getDemoAppsReturnUrl } from '@truv-demo/design-system';
 
 import { api } from '../api.js';
 
@@ -30,6 +30,14 @@ export function Layout({ loanHeader, children }) {
     localStorage.setItem(DEV_MODE_KEY, devMode ? '1' : '0');
   }, [devMode]);
 
+  // Only the initial landing (via a demo-apps "Dev Playground" button, which
+  // appends ?from=<hash-route>) ever has the param; capture is a no-op on
+  // every later navigation once it's stripped from the URL.
+  useEffect(() => {
+    captureDemoAppsReturn();
+  }, []);
+  const demoAppsUrl = getDemoAppsReturnUrl(import.meta.env.VITE_DEMO_APPS_URL || 'http://localhost:5173');
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <aside style={{
@@ -52,18 +60,29 @@ export function Layout({ loanHeader, children }) {
           <Link to="/settings" style={navLinkStyle}>Settings</Link>
         </nav>
 
-        <a
-          href={import.meta.env.VITE_POS_URL || 'http://localhost:5183'}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            fontSize: 13, fontWeight: 500, color: 'var(--truv-white)', textDecoration: 'none',
-            border: '1px solid rgba(255,255,255,0.25)', borderRadius: 100, padding: '10px 14px',
-          }}
-        >
-          Switch to POS →
-        </a>
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Same-tab navigation: returns to the demo the "Dev Playground"
+              button was clicked from, or the demo-apps home page if this tab
+              wasn't opened from one. */}
+          <a
+            href={demoAppsUrl}
+            style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.75)', textDecoration: 'none' }}
+          >
+            ← Back to Demo Apps
+          </a>
+          <a
+            href={import.meta.env.VITE_POS_URL || 'http://localhost:5183'}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              fontSize: 13, fontWeight: 500, color: 'var(--truv-white)', textDecoration: 'none',
+              border: '1px solid rgba(255,255,255,0.25)', borderRadius: 100, padding: '10px 14px',
+            }}
+          >
+            Switch to POS →
+          </a>
+        </div>
       </aside>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>

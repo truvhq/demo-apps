@@ -63,6 +63,12 @@ over a local HTTP call so a single tunnel serves both apps.
 
 Then open **http://localhost:5183** (POS) and **http://localhost:5184** (LOS).
 
+Each app's left rail carries a **"← Back to Demo Apps"** link, for returning to the parent
+`demo-apps` app this playground was folded into. When reached via one of the Mortgage demos' "Dev
+Playground" panel button, it returns to that exact demo; opened directly, it falls back to the
+demo-apps home page. Defaults to `http://localhost:5173`; override per-frontend with
+`VITE_DEMO_APPS_URL` in `pos/frontend/.env` / `los/frontend/.env` if demo-apps runs elsewhere.
+
 **Adding Truv credentials**: open Settings in *both* apps and add the same sandbox and/or
 production `client_id`/`secret`/`base_url` to each (POS and LOS each call Truv independently, so
 each needs its own credential-set row). Use "Activate" to switch which one is live — no restart

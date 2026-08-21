@@ -8,3 +8,4 @@ export { Stepper } from './components/Stepper.jsx';
 export { DevPanel } from './components/DevPanel.jsx';
 export { addBridgeEvent } from './devpanel/bridgeEvents.js';
 export { setGuideProgress } from './devpanel/guideStore.js';
+export { captureDemoAppsReturn, getDemoAppsReturnUrl } from './demoAppsReturn.js';

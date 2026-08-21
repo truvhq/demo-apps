@@ -202,12 +202,15 @@ function WebhooksTab({ webhooks, tunnelUrl }) {
 // `target` picks which side's /configure-truv it opens: 'pos' for POS Application
 // and POS Tasks, 'los' for LOS and Document Processing. Opens in a new tab since
 // the playground is a separate app on its own port; the playground's own Layout
-// carries a "Switch to LOS/POS →" link so a developer can move freely between the
-// two sides once there.
+// carries both a "Switch to LOS/POS →" link (to move between the two sides) and
+// a "Back to Demo Apps" link, which reads the current hash route passed here as
+// ?from= so it returns to this exact demo rather than just the demo-apps home page.
 function DevPlaygroundLink({ target }) {
+  const from = typeof window !== 'undefined' ? window.location.hash.slice(1) : '';
+  const href = `${PLAYGROUND_CONFIGURE_URLS[target]}${from ? `?from=${encodeURIComponent(from)}` : ''}`;
   return (
     <a
-      href={PLAYGROUND_CONFIGURE_URLS[target]}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       class="text-[13px] font-medium text-white bg-primary rounded-lg px-3 py-1.5 hover:bg-primary-hover active:bg-primary-active transition-colors whitespace-nowrap"
