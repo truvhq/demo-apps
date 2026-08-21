@@ -20,3 +20,21 @@ const DASHBOARD_BASE = (
 export const DASHBOARD_URL = DASHBOARD_BASE;
 export const DASHBOARD_KEYS_URL = `${DASHBOARD_BASE}/app/development/keys`;
 export const DASHBOARD_WEBHOOKS_URL = `${DASHBOARD_BASE}/app/development/webhooks`;
+
+// Mortgage Dev Playground (playground/pos, playground/los) origins the dev
+// panel's "Dev Playground" button deep-links into. Overridable via the
+// PLAYGROUND_POS_URL / PLAYGROUND_LOS_URL server env vars; default to the
+// ports scripts/dev.sh runs them on for local dev.
+const PLAYGROUND_POS_BASE = (
+  (typeof window !== 'undefined' && window.__DEMO_CONFIG__?.playgroundPosUrl)
+  || 'http://localhost:5183'
+).replace(/\/$/, '');
+const PLAYGROUND_LOS_BASE = (
+  (typeof window !== 'undefined' && window.__DEMO_CONFIG__?.playgroundLosUrl)
+  || 'http://localhost:5184'
+).replace(/\/$/, '');
+
+export const PLAYGROUND_CONFIGURE_URLS = {
+  pos: `${PLAYGROUND_POS_BASE}/configure-truv`,
+  los: `${PLAYGROUND_LOS_BASE}/configure-truv`,
+};

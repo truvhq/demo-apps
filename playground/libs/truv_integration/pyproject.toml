@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "truv-integration"
+version = "0.1.0"
+description = "Shared Truv API client, credential management, and webhook handling for the POS and LOS Django projects."
+requires-python = ">=3.11"
+dependencies = [
+    "django>=5.1,<5.2",
+    "djangorestframework>=3.15,<3.16",
+    "cryptography>=43,<44",
+    "requests>=2.32,<3",
+]
+
+[tool.setuptools.packages.find]
+include = ["truv_integration*"]

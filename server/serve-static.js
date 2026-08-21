@@ -26,6 +26,8 @@ export function mountStaticIfBuilt(app, config) {
     auth0Domain: config.sso.domain,
     auth0ClientId: config.sso.clientId,
     auth0Audience: config.sso.audience,
+    playgroundPosUrl: config.playground.posUrl,
+    playgroundLosUrl: config.playground.losUrl,
   }).replace(/</g, '\\u003c');
   const configScript = `<script>window.__DEMO_CONFIG__=${configJson};</script>`;
 

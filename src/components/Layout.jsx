@@ -19,6 +19,10 @@
  *
  * Pass hidePanel=true (used by intro/form screens) to hide both toggles and the
  * panel entirely regardless of user preference.
+ *
+ * Pass devPlayground='pos'|'los' (the four mortgage demos only) to add a "Dev
+ * Playground" CTA to the panel's footer, deep-linking into the matching side
+ * of the local Mortgage Dev Playground (playground/pos, playground/los).
  */
 
 import { useState, useEffect } from 'preact/hooks';
@@ -30,13 +34,14 @@ import { useHasDeviceFrame } from '../hooks/deviceFramePresence.jsx';
 import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
 
 // Props:
-//   steps       : step list passed to Panel sidebar
-//   panel       : extra content passed to Panel sidebar (apiLogs, bridgeEvents, webhooks, ...)
-//   hidePanel   : if true, hides the sidebar entirely (and the tab nav + toggles)
-//   children    : main content area
+//   steps         : step list passed to Panel sidebar
+//   panel         : extra content passed to Panel sidebar (apiLogs, bridgeEvents, webhooks, ...)
+//   hidePanel     : if true, hides the sidebar entirely (and the tab nav + toggles)
+//   devPlayground : 'pos' | 'los' — adds the Dev Playground footer CTA to the panel
+//   children      : main content area
 // The breadcrumb (industry > demo) is derived from the current route, so demos
 // no longer pass a badge — any `badge` prop still passed by callers is ignored.
-export function Layout({ steps, panel, hidePanel, children }) {
+export function Layout({ steps, panel, hidePanel, devPlayground, children }) {
   const [activeTab, setActiveTab] = useState('guide');
   const hasDeviceFrame = useHasDeviceFrame();
   const [panelVisible, setPanelVisible] = usePanelVisibility();
@@ -102,6 +107,7 @@ export function Layout({ steps, panel, hidePanel, children }) {
             activeTab={activeTab}
             tabs={tabs}
             onTabChange={setActiveTab}
+            devPlayground={devPlayground}
           />
         )}
       </div>

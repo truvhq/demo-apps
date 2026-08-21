@@ -12,7 +12,7 @@
 // Preact state hook
 import { useState } from 'preact/hooks';
 import { GitHubPanelLink } from './HeaderActions.jsx';
-import { DASHBOARD_WEBHOOKS_URL } from '../config.js';
+import { DASHBOARD_WEBHOOKS_URL, PLAYGROUND_CONFIGURE_URLS } from '../config.js';
 
 // TabButton: individual tab selector pill for the Panel's tab-nav row.
 function TabButton({ active, label, count, onClick }) {
@@ -197,6 +197,26 @@ function WebhooksTab({ webhooks, tunnelUrl }) {
   );
 }
 
+// DevPlaygroundLink: footer CTA into the Mortgage Dev Playground (playground/pos,
+// playground/los — a local Django+React POS/LOS pair with real Truv integration).
+// `target` picks which side's /configure-truv it opens: 'pos' for POS Application
+// and POS Tasks, 'los' for LOS and Document Processing. Opens in a new tab since
+// the playground is a separate app on its own port; the playground's own Layout
+// carries a "Switch to LOS/POS →" link so a developer can move freely between the
+// two sides once there.
+function DevPlaygroundLink({ target }) {
+  return (
+    <a
+      href={PLAYGROUND_CONFIGURE_URLS[target]}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="text-[13px] font-medium text-white bg-primary rounded-lg px-3 py-1.5 hover:bg-primary-hover active:bg-primary-active transition-colors whitespace-nowrap"
+    >
+      Dev Playground
+    </a>
+  );
+}
+
 // tryFormat: utility to pretty-print JSON strings or objects for display in expandable sections
 function tryFormat(s) {
   if (!s) return '';
@@ -212,7 +232,9 @@ function tryFormat(s) {
 // The tab-nav row is the Panel's own first line in both modes, so the app
 // header stays full width and never shares its row with the tabs. Closing the
 // panel is done with the header's Dev toggle — the row has no close button.
-export function Panel({ steps, panel, activeTab, tabs, onTabChange }) {
+// `devPlayground` ('pos' | 'los', mortgage demos only) renders a footer CTA
+// pinned bottom-right into the matching side of the Dev Playground.
+export function Panel({ steps, panel, activeTab, tabs, onTabChange, devPlayground }) {
   // Destructure polled data from usePanel() with safe defaults
   const { currentStep = 0, apiLogs = [], bridgeEvents = [], webhooks = [], tunnelUrl = null } = panel || {};
 
@@ -236,6 +258,11 @@ export function Panel({ steps, panel, activeTab, tabs, onTabChange }) {
         {activeTab === 'bridge' && <BridgeTab events={bridgeEvents} />}
         {activeTab === 'webhooks' && <WebhooksTab webhooks={webhooks} tunnelUrl={tunnelUrl} />}
       </div>
+      {devPlayground && (
+        <div class="flex justify-end px-5 py-3 border-t border-border-light flex-shrink-0">
+          <DevPlaygroundLink target={devPlayground} />
+        </div>
+      )}
     </aside>
   );
 }

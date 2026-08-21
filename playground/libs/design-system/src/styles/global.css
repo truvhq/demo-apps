@@ -1,0 +1,33 @@
+@import "../../tokens/truv-tokens.css";
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--truv-font-text);
+  font-size: var(--truv-body-size);
+  line-height: var(--truv-body-line);
+  letter-spacing: var(--truv-body-tracking);
+  color: var(--truv-primary-black);
+  background: var(--truv-grey-20);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--truv-font-display);
+  margin: 0;
+}
+
+a {
+  color: var(--truv-accent);
+}
+
+@keyframes truv-spin {
+  to { transform: rotate(360deg); }
+}
