@@ -200,19 +200,18 @@ function WebhooksTab({ webhooks, tunnelUrl }) {
 // DevPlaygroundLink: footer CTA into the Mortgage Dev Playground (playground/pos,
 // playground/los — a local Django+React POS/LOS pair with real Truv integration).
 // `target` picks which side's /configure-truv it opens: 'pos' for POS Application
-// and POS Tasks, 'los' for LOS and Document Processing. Opens in a new tab since
-// the playground is a separate app on its own port; the playground's own Layout
-// carries both a "Switch to LOS/POS →" link (to move between the two sides) and
-// a "Back to Demo Apps" link, which reads the current hash route passed here as
-// ?from= so it returns to this exact demo rather than just the demo-apps home page.
+// and POS Tasks, 'los' for LOS and Document Processing. Navigates in the same tab
+// (a separate app on its own port, but not worth a second tab to manage); the
+// playground's own Layout carries both a "Switch to LOS/POS →" link (to move
+// between the two sides) and a "Back to Demo Apps" link, which reads the current
+// hash route passed here as ?from= so it returns to this exact demo rather than
+// just the demo-apps home page.
 function DevPlaygroundLink({ target }) {
   const from = typeof window !== 'undefined' ? window.location.hash.slice(1) : '';
   const href = `${PLAYGROUND_CONFIGURE_URLS[target]}${from ? `?from=${encodeURIComponent(from)}` : ''}`;
   return (
     <a
       href={href}
-      target="_blank"
-      rel="noopener noreferrer"
       class="text-[13px] font-medium text-white bg-primary rounded-lg px-3 py-1.5 hover:bg-primary-hover active:bg-primary-active transition-colors whitespace-nowrap"
     >
       Dev Playground
