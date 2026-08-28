@@ -59,6 +59,7 @@ export function GitHubPanelLink() {
 // real Truv integration). `target` picks which side's /configure-truv it
 // opens: 'pos' for POS-side demos, 'los' for LOS-side demos; on the Mortgage
 // industry page itself (no specific demo selected yet) it defaults to 'pos'.
+// Styled like GitHub/Dashboard (borderless, not the blue Contact sales CTA).
 // Navigates in the same tab (not target="_blank" like the other header
 // actions) — the playground carries its own "Back to Demo Apps" link, so a
 // second tab would just be one more thing to manage. Passes the current hash
@@ -67,11 +68,9 @@ function DevPlaygroundButton({ target }) {
   const from = typeof window !== 'undefined' ? window.location.hash.slice(1) : '';
   const href = `${PLAYGROUND_CONFIGURE_URLS[target]}${from ? `?from=${encodeURIComponent(from)}` : ''}`;
   return (
-    <a
-      href={href}
-      class="ml-2 text-[13px] font-medium text-white bg-primary rounded-lg px-3 py-1.5 hover:bg-primary-hover active:bg-primary-active transition-colors whitespace-nowrap"
-    >
+    <a href={href} class={OUTLINE_BTN}>
       Dev Playground
+      <ExternalArrow />
     </a>
   );
 }
