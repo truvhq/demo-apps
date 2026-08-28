@@ -50,6 +50,22 @@ Demos are organized by industry. Each starts with a split intro screen (business
 
 The two Coverage Analysis demos ship with sample CSVs (`public/samples/employer_sample.csv`, `public/samples/bank_sample.csv`). Jobs run in-memory on the backend with concurrency 5; 429 responses honor the API's `Retry-After` hint (plus a 10s buffer) and 5xx responses fall back to exponential backoff. There is no DB persistence, so a server restart cancels in-flight jobs.
 
+## Mortgage Dev Playground
+
+`playground/` holds a separate, self-contained app: a local simulation of a mortgage POS and LOS,
+each a real Django + DRF + React project integrated with the live Truv API (not Preact/Express
+like the rest of this repo — it's a different stack on purpose, and runs on its own ports). Each
+of the four Mortgage demos above has a "Dev Playground" button in the dev panel's footer that
+deep-links straight into the matching side's `/configure-truv` screen — POS Application and POS
+Tasks go to POS, LOS and Document Processing go to LOS — so a developer can set up Truv
+credentials and integration options before working in either app. Once inside, a "Switch to
+LOS/POS →" link moves freely between the two sides, and a "← Back to Demo Apps" link returns to
+the exact demo the developer came from.
+
+See `playground/README.md` for setup and `scripts/dev.sh`. It runs independently of the main demo
+app (POS on :5183, LOS on :5184 by default); point the main app at different origins with the
+`PLAYGROUND_POS_URL` / `PLAYGROUND_LOS_URL` server env vars if you deploy it elsewhere.
+
 ## Architecture
 
 All demos follow the same 3-tier architecture. API keys never touch the frontend.
@@ -174,6 +190,8 @@ any of it for local development.
 ## Project structure
 
 ```
+playground/              Mortgage Dev Playground — separate Django+React POS/LOS app, see above
+
 server/
   index.js               Express entry point, webhooks, company/provider search
   config.js              All settings & run mode (local by default; deployment knobs live here)

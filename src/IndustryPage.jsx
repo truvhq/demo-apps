@@ -50,9 +50,13 @@ function DemoCard({ demo, industryId, index }) {
 }
 
 export function IndustryPage({ industry }) {
+  // Mortgage only, and no specific demo picked yet on this list page — default
+  // to the POS side (see the four mortgage demos' own Layout usage for how
+  // POS Application/POS Tasks vs. LOS/Document Processing pick their target).
+  const devPlaygroundTarget = industry.id === 'mortgage' ? 'pos' : undefined;
   return (
     <div class="min-h-screen flex flex-col bg-white">
-      <Header trail={[{ label: industry.name, href: `#${industry.id}` }]} sticky />
+      <Header trail={[{ label: industry.name, href: `#${industry.id}` }]} sticky devPlaygroundTarget={devPlaygroundTarget} />
       <main class="flex-1 flex items-start justify-center pt-16 pb-20 px-6">
         <div class="max-w-[640px] w-full">
           <div class="animate-slideUp mb-12">
