@@ -6,7 +6,6 @@ import { Button, Card, setGuideProgress } from '@truv-demo/design-system';
 import { api } from '../../api.js';
 import { Layout } from '../../components/Layout.jsx';
 import { BridgeEmbedScreen } from './BridgeEmbedScreen.jsx';
-import { DocumentUploadScreen } from './DocumentUploadScreen.jsx';
 
 const STEP_LABELS = { employment: 'Employment & Income', assets: 'Assets', liabilities: 'Liabilities', combined: 'Income & Assets' };
 
@@ -23,7 +22,7 @@ export function BorrowerVerifyScreen() {
   const stepKey = searchParams.get('stepKey') || 'employment';
   const returnUrl = `/applications/${id}${returnStep ? `?step=${returnStep}` : ''}`;
 
-  const [phase, setPhase] = useState('starting'); // starting | bridge | hosted | document | applying | done | error
+  const [phase, setPhase] = useState('starting'); // starting | bridge | hosted | applying | done | error
   const [stepConfig, setStepConfig] = useState(null);
   const [verificationRequest, setVerificationRequest] = useState(null);
   const [applySummary, setApplySummary] = useState(null);
@@ -59,9 +58,6 @@ export function BorrowerVerifyScreen() {
         if (saved.integration_method === 'hosted_order') {
           setGuideProgress(saved.integration_method, 1);
           setPhase('hosted');
-        } else if (saved.integration_method === 'document_upload') {
-          setGuideProgress(saved.integration_method, 1);
-          setPhase('document');
         } else if (vr.bridge_token) {
           setGuideProgress(saved.integration_method, 1);
           setPhase('bridge');
@@ -128,10 +124,6 @@ export function BorrowerVerifyScreen() {
               <Button onClick={handleBridgeSuccess}>I've completed it</Button>
             </div>
           </Card>
-        )}
-
-        {phase === 'document' && verificationRequest && (
-          <DocumentUploadScreen verificationRequest={verificationRequest} onFinalized={handleBridgeSuccess} />
         )}
 
         {phase === 'applying' && (

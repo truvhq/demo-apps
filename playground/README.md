@@ -6,8 +6,8 @@ A local, working simulation of a mortgage **POS** (borrower-facing loan applicat
 - Demo how much of a 1003 (URLA) loan application Truv's direct-source data can auto-fill vs. what
   a borrower must type by hand — including sections (property, loan terms, declarations,
   demographics) that are genuinely 0%-fillable.
-- Toggle between Truv's integration methods (Embedded Orders, Hosted Orders, Bridge Token,
-  Document Processing/AIM Check) and the full Orders API parameter surface live.
+- Toggle between Truv's integration methods (Embedded Orders, Hosted Orders, Bridge Token) and
+  the full Orders API parameter surface live.
 - Simulate a realistic POS → LOS handoff, including LOS-initiated refreshes that propagate back to POS.
 - Manage the document lifecycle: Truv verification reports, invoices, OCR'd paystub/W-2 uploads,
   and locally-fabricated GSE (D1C/AIM) report artifacts.
@@ -80,7 +80,7 @@ required. Sandbox test login inside Bridge: employer "Home Depot", username `goo
 1. **POS** → New Application → fill the wizard (Borrower through Demographics) manually, or —
 2. On the Employment & Income or Assets step, click **Verify with Truv** → pick an integration
    method → configure products/data sources in the request console → run it. Embedded Orders opens
-   Bridge inline; Hosted Orders emails/texts a link; Document Processing accepts paystub/W-2 uploads.
+   Bridge inline; Hosted Orders emails/texts a link.
 3. **Review & Coverage** shows the auto-fill percentage, honestly 0% for sections Truv has no
    product for. **Submit to LOS** pushes the full application over.
 4. **LOS** → the loan file appears in the list. **Refresh from Truv** re-pulls the order and pushes
@@ -89,9 +89,6 @@ required. Sandbox test login inside Bridge: employer "Home Depot", username `goo
 
 ## Known limitations (disclosed, not hidden)
 
-- **Document Processing → URLA mapping**: the AIM Check finalize/results response shape differs
-  from an Orders API response, so `urla.mapping.apply_truv_data` won't yet extract fields from it —
-  uploads/finalization work end-to-end against the real API, but nothing auto-fills from them yet.
 - **Refresh is synchronous in this build**: Truv's order refresh is asynchronous; LOS calls
   `refresh_order` then immediately `get_order`, which may still return the pre-refresh snapshot.
   The webhook receiver narrows this gap but doesn't fully close it.

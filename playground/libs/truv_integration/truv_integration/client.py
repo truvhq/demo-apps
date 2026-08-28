@@ -321,9 +321,6 @@ class TruvClient:
     def get_document_collection(self, collection_id: str) -> TruvResponse:
         return self._request("GET", f"documents/collections/{collection_id}/")
 
-    def upload_to_collection(self, collection_id: str, documents: list[dict]) -> TruvResponse:
-        return self._request("POST", f"documents/collections/{collection_id}/upload/", json={"documents": documents})
-
     def finalize_collection(self, collection_id: str, product_type: str = "income") -> TruvResponse:
         return self._request("POST", f"documents/collections/{collection_id}/finalize/", json={"product_type": product_type})
 

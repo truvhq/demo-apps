@@ -1,9 +1,9 @@
-"""Truv Orders/Bridge-Token/Document-Processing product-combination rules —
-confirmed against a live sandbox account (not just documentation) by POSTing
-every combination and recording the actual accept/reject behavior. Used by
-both POS's and LOS's create_verification_request views so a caller gets an
-immediate, clear 400 instead of Truv's raw error (or worse, a silent
-mismatch the UI never explains). The frontend mirrors this same ruleset in
+"""Truv Orders/Bridge-Token product-combination rules — confirmed against a
+live sandbox account (not just documentation) by POSTing every combination
+and recording the actual accept/reject behavior. Used by both POS's and
+LOS's create_verification_request views so a caller gets an immediate, clear
+400 instead of Truv's raw error (or worse, a silent mismatch the UI never
+explains). The frontend mirrors this same ruleset in
 screens/verification/productRules.js so the console never lets a user build
 one of these requests in the first place — this module is the server-side
 backstop for anyone hitting the API directly.
@@ -25,9 +25,6 @@ Confirmed findings (2026-08-07, live sandbox):
   product." Orders' `employers[]` shape has no path to supply that bank
   account object from this app; only the Bridge Token flow (which this app
   always supplies a demo account for) can request these two products.
-- `POST /v1/documents/collections/{id}/finalize/` only accepts
-  `product_type` of `income` or `employment` — `assets`, `insurance`, and
-  `transactions` all reject with '"<value>" is not a valid choice.'
 """
 
 # Freely combinable in any subset via Embedded/Hosted Orders.
@@ -40,9 +37,6 @@ SOLO_ONLY_PRODUCTS = {"employment", "transactions", "deposit_switch", "pll"}
 # Only obtainable via the Bridge Token (User Token) flow — Embedded/Hosted
 # Orders can't supply the required bank `account` object for these.
 BRIDGE_TOKEN_ONLY_PRODUCTS = {"deposit_switch", "pll"}
-
-# The only two product types Document Processing's finalize endpoint accepts.
-DOCUMENT_UPLOAD_PRODUCTS = {"income", "employment"}
 
 
 def validate_products(integration_method: str, products: list[str]) -> str | None:
@@ -65,13 +59,6 @@ def validate_products(integration_method: str, products: list[str]) -> str | Non
         bad = [p for p in products if p in BRIDGE_TOKEN_ONLY_PRODUCTS]
         if bad:
             return f"'{bad[0]}' requires the Bridge Token integration method — Embedded/Hosted Orders can't request it."
-
-    if integration_method == "document_upload":
-        bad = [p for p in products if p not in DOCUMENT_UPLOAD_PRODUCTS]
-        if bad:
-            return f"Document Processing only supports {' or '.join(sorted(DOCUMENT_UPLOAD_PRODUCTS))}."
-        if len(products) > 1:
-            return "Document Processing verifies one product at a time — choose either income or employment."
 
     if integration_method == "bridge_token" and len(products) > 1:
         return "Bridge Token issues a single-product token — choose one product."

@@ -125,14 +125,6 @@ def create_verification_request(request):
     order_number = f"pos-{application.loan_number}-{vr.id}"
     external_user_id = f"pos-{application.loan_uuid}"
 
-    if integration_method == IntegrationMethod.DOCUMENT_UPLOAD:
-        resp = client.create_document_collection(documents=[])
-        vr.document_collection_id = resp.data.get("id", "")
-        vr.status = resp.data.get("status", "created")
-        vr.raw_response = resp.data
-        vr.save()
-        return Response(VerificationRequestSerializer(vr).data, status=201 if resp.ok else 400)
-
     if integration_method == IntegrationMethod.BRIDGE_TOKEN:
         user_resp = client.create_user(
             external_user_id=external_user_id,
@@ -207,57 +199,6 @@ def verification_request_detail(request, request_id):
 
 
 @api_view(["POST"])
-def document_upload(request, request_id):
-    """Uploads borrower-provided files into an existing document collection
-    (AIM Check). Expects {"documents": [{"file_name": ..., "content_base64": ...}]}.
-    NOTE: the exact per-document field names Truv's API expects for inline file
-    bytes (vs. a pre-signed upload URL) are not confirmed against a live sandbox
-    response — validate this shape against a real collection before relying on it."""
-    vr = get_object_or_404(VerificationRequest, pk=request_id)
-    try:
-        client = TruvClient.for_active()
-    except TruvNotConfigured as exc:
-        return Response({"error": str(exc)}, status=400)
-
-    documents = [
-        {"file_name": d.get("file_name", ""), "content": d.get("content_base64", "")}
-        for d in request.data.get("documents", [])
-    ]
-    resp = client.upload_to_collection(vr.document_collection_id, documents)
-    vr.raw_response = resp.data
-    vr.save()
-    return Response(resp.data, status=200 if resp.ok else 400)
-
-
-@api_view(["POST"])
-def document_finalize(request, request_id):
-    vr = get_object_or_404(VerificationRequest, pk=request_id)
-    try:
-        client = TruvClient.for_active()
-    except TruvNotConfigured as exc:
-        return Response({"error": str(exc)}, status=400)
-
-    product_type = vr.products[0] if vr.products else "income"
-    resp = client.finalize_collection(vr.document_collection_id, product_type=product_type)
-    vr.status = resp.data.get("status", "finalizing")
-    vr.raw_response = resp.data
-    vr.save()
-    return Response(resp.data, status=200 if resp.ok else 400)
-
-
-@api_view(["GET"])
-def document_results(request, request_id):
-    vr = get_object_or_404(VerificationRequest, pk=request_id)
-    try:
-        client = TruvClient.for_active()
-    except TruvNotConfigured as exc:
-        return Response({"error": str(exc)}, status=400)
-
-    resp = client.get_finalization_results(vr.document_collection_id)
-    return Response(resp.data, status=200 if resp.ok else 400)
-
-
-@api_view(["POST"])
 def apply_verification_request(request, request_id):
     """Pulls the latest order state from Truv and writes whatever it can onto
     the URLA record — this is what actually powers the coverage screen."""
@@ -280,12 +221,11 @@ def apply_verification_request(request, request_id):
         vr.loan_application.last_truv_order_id = vr.truv_order_id
         vr.loan_application.save()
     else:
-        # Document Processing has no order_id — its finalize/results response
-        # shape differs from an Orders API response, so urla.mapping's
-        # employer/financial_institution extraction will likely find nothing
-        # to apply yet. That shows up honestly as an empty "applied" list
-        # rather than a crash; wiring a document-results-specific mapping is
-        # a follow-up, not something to fake here.
+        # No order_id (e.g. a Bridge Token request whose bridge_token
+        # response has no order attached yet) — fall back to whatever's in
+        # raw_response. urla.mapping's employer/financial_institution
+        # extraction may find nothing to apply yet; that shows up honestly as
+        # an empty "applied" list rather than a crash.
         source_data = vr.raw_response or {}
 
     if vr.fetch_liabilities:

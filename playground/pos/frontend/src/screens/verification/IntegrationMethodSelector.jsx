@@ -4,12 +4,11 @@ const METHODS = [
   { value: 'embedded_order', label: 'Embedded Orders', desc: 'In-app Bridge widget, employer search included. Truv\'s recommended default.' },
   { value: 'hosted_order', label: 'Hosted Orders', desc: 'No widget — Truv emails/texts the borrower a verification link.' },
   { value: 'bridge_token', label: 'Bridge Token', desc: 'In-app widget for a known employer/account (Deposit Switch, PLL).' },
-  { value: 'document_upload', label: 'Document Processing', desc: 'AIM Check — borrower uploads paystubs/W-2s for OCR-based verification.' },
 ];
 
 export function IntegrationMethodSelector({ value, onChange }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
       {METHODS.map((m) => {
         const active = value === m.value;
         return (

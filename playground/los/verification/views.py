@@ -337,14 +337,6 @@ def create_verification_request(request):
     order_number = f"los-{application.loan_number}-{vr.id}"
     external_user_id = f"los-{application.loan_uuid}"
 
-    if integration_method == IntegrationMethod.DOCUMENT_UPLOAD:
-        resp = client.create_document_collection(documents=[])
-        vr.document_collection_id = resp.data.get("id", "")
-        vr.status = resp.data.get("status", "created")
-        vr.raw_response = resp.data
-        vr.save()
-        return Response(VerificationRequestSerializer(vr).data, status=201 if resp.ok else 400)
-
     if integration_method == IntegrationMethod.BRIDGE_TOKEN:
         user_resp = client.create_user(
             external_user_id=external_user_id,
@@ -411,52 +403,6 @@ def verification_request_detail(request, request_id):
 
 
 @api_view(["POST"])
-def document_upload(request, request_id):
-    vr = get_object_or_404(VerificationRequest, pk=request_id)
-    try:
-        client = TruvClient.for_active()
-    except TruvNotConfigured as exc:
-        return Response({"error": str(exc)}, status=400)
-
-    documents = [
-        {"file_name": d.get("file_name", ""), "content": d.get("content_base64", "")}
-        for d in request.data.get("documents", [])
-    ]
-    resp = client.upload_to_collection(vr.document_collection_id, documents)
-    vr.raw_response = resp.data
-    vr.save()
-    return Response(resp.data, status=200 if resp.ok else 400)
-
-
-@api_view(["POST"])
-def document_finalize(request, request_id):
-    vr = get_object_or_404(VerificationRequest, pk=request_id)
-    try:
-        client = TruvClient.for_active()
-    except TruvNotConfigured as exc:
-        return Response({"error": str(exc)}, status=400)
-
-    product_type = vr.products[0] if vr.products else "income"
-    resp = client.finalize_collection(vr.document_collection_id, product_type=product_type)
-    vr.status = resp.data.get("status", "finalizing")
-    vr.raw_response = resp.data
-    vr.save()
-    return Response(resp.data, status=200 if resp.ok else 400)
-
-
-@api_view(["GET"])
-def document_results(request, request_id):
-    vr = get_object_or_404(VerificationRequest, pk=request_id)
-    try:
-        client = TruvClient.for_active()
-    except TruvNotConfigured as exc:
-        return Response({"error": str(exc)}, status=400)
-
-    resp = client.get_finalization_results(vr.document_collection_id)
-    return Response(resp.data, status=200 if resp.ok else 400)
-
-
-@api_view(["POST"])
 def apply_verification_request(request, request_id):
     """Pulls the latest order state from Truv and writes whatever it can onto
     the URLA record, then pushes the result back to POS — LOS is authoritative
@@ -480,7 +426,8 @@ def apply_verification_request(request, request_id):
         application.last_truv_order_id = vr.truv_order_id
         application.save()
     else:
-        # Document Processing has no order_id — same honest-empty-applied
+        # No order_id (e.g. a Bridge Token request whose bridge_token
+        # response has no order attached yet) — same honest-empty-applied
         # behavior as POS's version rather than faking a mapping.
         source_data = vr.raw_response or {}
 

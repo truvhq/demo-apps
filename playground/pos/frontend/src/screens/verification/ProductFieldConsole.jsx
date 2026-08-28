@@ -32,7 +32,6 @@ export function ProductFieldConsole({ config, onChange, requestPreview, applicat
 
   const method = config.integration_method;
   const isBridgeToken = method === 'bridge_token';
-  const isDocumentUpload = method === 'document_upload';
   const singleSelect = isSingleSelectMethod(method);
   const PRODUCTS = productsForMethod(method);
 
@@ -66,14 +65,11 @@ export function ProductFieldConsole({ config, onChange, requestPreview, applicat
   // Employer deeplinking applies to a payroll connection (income/employment
   // via Embedded/Hosted Orders) or a Bridge Token for deposit_switch/pll
   // (company_mapping_id there identifies the payroll provider the paycheck
-  // comes from). Not meaningful for assets/insurance/transactions-only, and
-  // Document Processing has no employer-search step to skip at all.
-  const showEmployerDeeplink = !isDocumentUpload && (
-    config.products.some((p) => DATA_SOURCE_PRODUCTS.includes(p))
-    || (isBridgeToken && config.products.some((p) => BRIDGE_TOKEN_ONLY_PRODUCTS.includes(p)))
-  );
+  // comes from). Not meaningful for assets/insurance/transactions-only.
+  const showEmployerDeeplink = config.products.some((p) => DATA_SOURCE_PRODUCTS.includes(p))
+    || (isBridgeToken && config.products.some((p) => BRIDGE_TOKEN_ONLY_PRODUCTS.includes(p)));
   const showFinancialInstitutionDeeplink = config.products.includes('assets');
-  const showDataSources = !isDocumentUpload && (isBridgeToken || config.products.some((p) => DATA_SOURCE_PRODUCTS.includes(p)));
+  const showDataSources = isBridgeToken || config.products.some((p) => DATA_SOURCE_PRODUCTS.includes(p));
   const showLiabilitiesToggle = config.products.includes('assets');
 
   const borrower = application?.borrowers?.[0];
@@ -88,19 +84,13 @@ export function ProductFieldConsole({ config, onChange, requestPreview, applicat
             <CheckboxPill key={p} checked={config.products.includes(p)} onClick={() => toggleProduct(p)} label={p} />
           ))}
         </div>
-        {isDocumentUpload && (
-          <div style={{ fontSize: 12, color: 'var(--truv-grey-50)', marginTop: 6 }}>
-            Document Processing (AIM Check) only recognizes income or employment paystub/W-2 data — Truv rejects
-            any other product at finalization, so those aren't offered here.
-          </div>
-        )}
         {isBridgeToken && (
           <div style={{ fontSize: 12, color: 'var(--truv-grey-50)', marginTop: 6 }}>
             Deposit Switch and Paycheck Linked Lending both need a target bank account attached to the token —
             that's only possible via Bridge Token (this console fills in a demo account automatically).
           </div>
         )}
-        {!isBridgeToken && !isDocumentUpload && (
+        {!isBridgeToken && (
           <div style={{ fontSize: 12, color: 'var(--truv-grey-50)', marginTop: 6 }}>
             "income" already includes employment data — pick "employment" only for an employment-only check with no
             income figures. Employment and Transactions must each be requested on their own; Truv only allows

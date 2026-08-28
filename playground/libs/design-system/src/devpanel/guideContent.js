@@ -48,25 +48,10 @@ export const GUIDE_STEPS = {
       html: '<p>Once authorized, the app pulls the confirmation report for the connection.</p><pre>GET /v1/users/{user_id}/deposit_switch/report/</pre>',
     },
   ],
-  document_upload: [
-    {
-      title: 'Create a document collection',
-      html: '<p>No widget or live payroll connection involved — the app opens a document collection up front.</p><pre>POST /v1/documents/collections/</pre>',
-    },
-    {
-      title: 'Upload paystubs or W-2s',
-      html: '<p>Files are validated, OCR\'d, and categorized automatically as they\'re uploaded — no manual document-type selection needed.</p><pre>POST /v1/documents/collections/{id}/upload/</pre>',
-    },
-    {
-      title: 'Finalize & apply',
-      html: '<p>Finalizing turns the recognized documents into an income report, which the app then writes onto the loan\'s URLA fields.</p><pre>POST /v1/documents/collections/{id}/finalize/</pre>',
-    },
-  ],
 };
 
 export const GUIDE_FLOW_LABELS = {
   embedded_order: 'Embedded Orders',
   hosted_order: 'Hosted Orders',
   bridge_token: 'Bridge Token',
-  document_upload: 'Document Processing',
 };

@@ -7,7 +7,6 @@ class IntegrationMethod(models.TextChoices):
     EMBEDDED_ORDER = "embedded_order", "Embedded Orders"
     HOSTED_ORDER = "hosted_order", "Hosted Orders"
     BRIDGE_TOKEN = "bridge_token", "Bridge Token"
-    DOCUMENT_UPLOAD = "document_upload", "Document Processing"
 
 
 class VerificationRequest(models.Model):
@@ -34,7 +33,6 @@ class VerificationRequest(models.Model):
     truv_user_id = models.CharField(max_length=64, blank=True)
     bridge_token = models.CharField(max_length=500, blank=True)
     share_url = models.URLField(blank=True)
-    document_collection_id = models.CharField(max_length=64, blank=True)
 
     status = models.CharField(max_length=30, default="created")
     raw_response = models.JSONField(null=True, blank=True)

@@ -7,7 +7,6 @@ import { api } from '../../api.js';
 import { Layout } from '../../components/Layout.jsx';
 import { BridgeEmbedScreen } from './BridgeEmbedScreen.jsx';
 import { CoverageResultsScreen } from './CoverageResultsScreen.jsx';
-import { DocumentUploadScreen } from './DocumentUploadScreen.jsx';
 import { IntegrationMethodSelector } from './IntegrationMethodSelector.jsx';
 import { ProductFieldConsole } from './ProductFieldConsole.jsx';
 import { sanitizeProductsForMethod } from './productRules.js';
@@ -115,9 +114,6 @@ export function VerificationScreen() {
       } else if (vr.bridge_token) {
         setGuideProgress(config.integration_method, 1);
         setPhase('bridge');
-      } else if (config.integration_method === 'document_upload') {
-        setGuideProgress(config.integration_method, 1);
-        setPhase('document');
       } else {
         setPhase('configure');
         setErrorMessage('No bridge_token returned — check the Activity Log or the credential Test result for details.');
@@ -244,7 +240,7 @@ export function VerificationScreen() {
           </>
         )}
 
-        {(phase === 'bridge' || phase === 'hosted' || phase === 'document') && (
+        {(phase === 'bridge' || phase === 'hosted') && (
           <div>
             <Button variant="secondary" onClick={() => { setPhase('configure'); setErrorMessage(''); }}>
               ← Back to Configuration
@@ -275,13 +271,6 @@ export function VerificationScreen() {
               <Button onClick={handleBridgeSuccess}>Check Status & Apply</Button>
             </div>
           </Card>
-        )}
-
-        {phase === 'document' && verificationRequest && (
-          <DocumentUploadScreen
-            verificationRequest={verificationRequest}
-            onFinalized={handleBridgeSuccess}
-          />
         )}
 
         {phase === 'applying' && (
