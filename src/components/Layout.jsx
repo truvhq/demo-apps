@@ -21,8 +21,9 @@
  * panel entirely regardless of user preference.
  *
  * Pass devPlayground='pos'|'los' (the four mortgage demos only) to add a "Dev
- * Playground" CTA to the panel's footer, deep-linking into the matching side
- * of the local Mortgage Dev Playground (playground/pos, playground/los).
+ * Playground" button to the header's action row (every screen, including
+ * intro/hidePanel ones), deep-linking into the matching side of the local
+ * Mortgage Dev Playground (playground/pos, playground/los).
  */
 
 import { useState, useEffect } from 'preact/hooks';
@@ -37,7 +38,7 @@ import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
 //   steps         : step list passed to Panel sidebar
 //   panel         : extra content passed to Panel sidebar (apiLogs, bridgeEvents, webhooks, ...)
 //   hidePanel     : if true, hides the sidebar entirely (and the tab nav + toggles)
-//   devPlayground : 'pos' | 'los' — adds the Dev Playground footer CTA to the panel
+//   devPlayground : 'pos' | 'los' — adds the Dev Playground button to the header
 //   children      : main content area
 // The breadcrumb (industry > demo) is derived from the current route, so demos
 // no longer pass a badge — any `badge` prop still passed by callers is ignored.
@@ -74,7 +75,7 @@ export function Layout({ steps, panel, hidePanel, devPlayground, children }) {
       {/* Shared top bar. The panel's tab nav lives inside the Panel itself, so
           the header is always full width and behaves the same on every page.
           Right-edge slot: device toggle + Dev-panel button (demo shell only). */}
-      <Header trail={getBreadcrumbTrail()} githubInPanel={!hidePanel}>
+      <Header trail={getBreadcrumbTrail()} githubInPanel={!hidePanel} devPlaygroundTarget={devPlayground}>
         {!hidePanel && (
           <>
             {/* Device toggle: only shown when a DeviceFrame is currently mounted
@@ -107,7 +108,6 @@ export function Layout({ steps, panel, hidePanel, devPlayground, children }) {
             activeTab={activeTab}
             tabs={tabs}
             onTabChange={setActiveTab}
-            devPlayground={devPlayground}
           />
         )}
       </div>
