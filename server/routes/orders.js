@@ -53,6 +53,14 @@ export default function ordersRoutes({ truv, db, apiLogger }) {
         company_mapping_id: data.company_mapping_id,
         provider_id: data.provider_id,
         data_sources: data.data_sources,
+        // A demo that pins a customization template has to be able to say so.
+        // Without this the order is created with no template_id and Truv falls
+        // back to the tenant's default template — which, on a sandbox tenant
+        // shared between demos, means one demo renders with another's branding.
+        // createOrder() only sets these when present, so demos that send
+        // neither are unaffected.
+        template_id: data.template_id,
+        order_number: data.order_number,
       };
 
       const truvClient = req.truv || truv;

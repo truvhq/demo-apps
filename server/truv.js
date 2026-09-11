@@ -187,7 +187,9 @@ export class TruvClient {
   async createOrder(params = {}) {
     const productType = params.product_type || 'income';
     const payload = {
-      order_number: `qs-${uuidv4()}`, // Replace with your internal order/application ID
+      // Replace with your internal order/application ID. A demo that tracks its
+      // own case number can pass one and it is used as-is; otherwise a uuid.
+      order_number: params.order_number || `qs-${uuidv4()}`,
       external_user_id: params.external_user_id || `qs-${uuidv4()}`,
       first_name: params.first_name || 'John',
       last_name: params.last_name || 'Johnson',
