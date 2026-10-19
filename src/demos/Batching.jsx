@@ -12,6 +12,7 @@ import { useState, useEffect } from 'preact/hooks';
 // dependency on any other demo's stylesheet and deploys on its own branch.
 import './batching.css';
 import { Header } from '../components/Header.jsx';
+import { Icons } from '../components/Icons.jsx';
 
 /* ---------- shared bits ---------- */
 
@@ -34,9 +35,7 @@ function Sheet({ rows = ROWS, badRow = -1, phase = 'idle', title = 'july31_batch
     <div class={`bt-sheet phase-${phase}${compact ? ' compact' : ''}`}>
       <div class="bt-sheet-head">
         <span class="bt-file-ic" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 3v5h5" /><path d="M19 8v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7z" />
-          </svg>
+          <Icons.file size={14} />
         </span>
         <span class="bt-file-name">{title}</span>
         <span class="bt-file-meta">{rows.length} rows · your columns</span>
@@ -208,9 +207,7 @@ function Ledger() {
           <div class="bt-shield-ring r1" />
           <div class="bt-shield-ring r2" />
           <div class="bt-shield-core">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 3l7 3v6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6z" /><path d="M9 12l2 2 4-4" />
-            </svg>
+            <Icons.shieldCheck size={22} />
           </div>
         </div>
         <div class="bt-ledger-card">
@@ -405,22 +402,16 @@ const ASSETS = [
 function KitIcon({ kind }) {
   if (kind === 'zip') {
     return (
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" /><path d="M12 3v5" /><path d="M12 10v2" /><path d="M12 14v2" />
-      </svg>
+      <Icons.fileZip size={18} />
     );
   }
   if (kind === 'csv') {
     return (
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14 3v5h5" /><path d="M19 8v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7z" /><path d="M8 13h8M8 17h5" />
-      </svg>
+      <Icons.fileCsv size={18} />
     );
   }
   return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M14 3v5h5" /><path d="M19 8v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7z" /><path d="M9 15h6" /><path d="M9 11h2" />
-    </svg>
+    <Icons.fileText size={18} />
   );
 }
 
@@ -460,9 +451,7 @@ function DemoArea({ selected, onSelect }) {
               </span>
             </button>
             <a class="bt-kit-dl" href={a.href} download={fileName(a.href)} title={`Download ${a.name}`}>
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 4v11" /><path d="M7 12l5 5 5-5" /><path d="M5 20h14" />
-              </svg>
+              <Icons.download size={15} />
             </a>
           </div>
         ))}
@@ -508,9 +497,7 @@ function FilePreview({ asset, onClose }) {
                   <span class="f">{item.f}</span>
                   <span class="d">{openFile === item.f ? 'hide code' : 'view code'}</span>
                   <span class="chev" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M8 6l-5 6 5 6" /><path d="M16 6l5 6-5 6" />
-                    </svg>
+                    <Icons.code size={12} />
                   </span>
                 </button>
               ) : (
@@ -533,9 +520,7 @@ function FilePreview({ asset, onClose }) {
           {!openCode && (
             <div class="bt-prev-cue">
               <span class="bt-prev-cue-arrow" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 5v14" /><path d="M5 12l7-7 7 7" />
-                </svg>
+                <Icons.arrowUp size={15} />
               </span>
               <span>Open <strong>view code</strong> on any of the three Python files
               to read a real excerpt from it.</span>

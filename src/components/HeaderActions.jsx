@@ -6,6 +6,7 @@
  * is intentionally NOT here — it lives only on the Home page (see Home.jsx).
  */
 import { DASHBOARD_KEYS_URL } from '../config.js';
+import { Icons } from './Icons.jsx';
 
 const GITHUB_URL = 'https://github.com/truvhq/demo-apps/';
 
@@ -16,13 +17,7 @@ const OUTLINE_BTN = 'text-[13px] font-medium text-[#474c52] rounded-[6px] px-3 p
 // save space; the caller passes the breakpoint that matches its own text label
 // so the arrow never shows next to a bare icon.
 function ExternalArrow({ class: cls = 'hidden sm:inline' }) {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class={cls}>
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-      <polyline points="15 3 21 3 21 9" />
-      <line x1="10" y1="14" x2="21" y2="3" />
-    </svg>
-  );
+  return <Icons.arrowSquareOut size={12} className={cls} />;
 }
 
 // GitHub mark, shared by the header link and the panel tab-row link.

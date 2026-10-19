@@ -15,11 +15,7 @@ import { BrandLogo } from './BrandLogo.jsx';
 
 // Chevron separator drawn between breadcrumb segments.
 function Chevron() {
-  return (
-    <svg class="w-3 h-3 shrink-0 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-    </svg>
-  );
+  return <Icons.chevronRight size={12} className="shrink-0 text-muted" />;
 }
 
 // Truv logo (links to Home) followed by a clickable breadcrumb trail.
