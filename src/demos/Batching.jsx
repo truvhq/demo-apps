@@ -685,7 +685,6 @@ export function BatchingWalkthrough({ screen }) {
   return (
     <div class="wt bt">
       <Header trail={[{ label: 'Public Sector', href: '#public-sector' },
-                      { label: 'Demos', href: '#public-sector/demos' },
                       { label: 'Batching', href: '#public-sector/batching' }]} />
       <header class="wt-top">
         <div class="wt-brand">
