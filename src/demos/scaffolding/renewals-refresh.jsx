@@ -53,7 +53,7 @@ export const CASELOAD = [
     connector: 'Truv Bank (non-oAuth)',
     connectorKind: 'bank',
     credential: { username: 'goodlogin', password: 'mfa' },
-    credentialNote: 'Search "Truv Bank" and pick the non-oAuth entry. Any MFA code is accepted.',
+    credentialNote: 'Search "Truv Bank" and pick the non-oAuth entry. Any MFA code is accepted. Overwrite the pre-filled password — Bridge fills goodpassword, which would connect a healthy account and the scenario would not reproduce.',
     expect: 'reauth',
     expectLabel: 'Refresh fails, needs re-authorization',
     verifiedOn: 'Aug 2025',
@@ -88,7 +88,7 @@ export const STEPS = [
   },
   {
     title: 'Two outcomes, and only one of them is loud',
-    guide: '<p><strong>Session still valid:</strong> the refresh order completes on its own. You get <code>order-status-updated: completed</code> and fresh data. No applicant action at all.</p><p><strong>Re-auth needed:</strong> the refresh task fails. The order status never changes, so <code>order-status-updated</code> is <strong>never emitted again</strong> and the order sits at <code>sent</code> indefinitely. The only signal is:</p><pre>{\n  "event_type": "order-refresh-failed",\n  "order_id": "...",\n  "status": "mfa_error",\n  "product": "income"\n}</pre><p>Subscribe to <code>order-refresh-failed</code> and branch on <code>status</code>. Statuses like <code>no_data</code> and <code>unavailable</code> fire the same event but are not credential problems, so they should not prompt anyone to re-authenticate.</p>',
+    guide: '<p><strong>Session still valid:</strong> the refresh order completes on its own. You get <code>order-status-updated: completed</code> and fresh data. No applicant action at all.</p><p><strong>Re-auth needed:</strong> the refresh task fails and the order&rsquo;s <code>completed_at</code> stays null. The only signal that it failed is:</p><pre>{\n  "event_type": "order-refresh-failed",\n  "order_id": "...",\n  "status": "mfa_error",\n  "product": "income"\n}</pre><p><strong>Do not detect this by watching for silence.</strong> <code>order-status-updated</code> is emitted <em>per connection</em> and carries an <code>employer_id</code>; on an order with several employers you still receive <code>completed</code> for each one that worked, so absence of events is the wrong signal and a <code>completed</code> does not mean the refresh as a whole succeeded. Subscribe to <code>order-refresh-failed</code> and branch on <code>status</code>. Statuses like <code>no_data</code> and <code>unavailable</code> fire the same event but are not credential problems, so they should not prompt anyone to re-authenticate.</p>',
   },
   {
     title: 'Re-engage only who needs it',
@@ -166,7 +166,7 @@ export const WALKTHROUGH_STAGES = [
         tone: 'warn',
         tag: 'Re-authorization needed',
         title: 'Order stays at sent, forever',
-        body: 'The task fails, so the order status never changes and no further status update is ever sent. Listening only to order-status-updated, this looks like a hang.',
+        body: 'The task fails and the order never completes. Listening only to order-status-updated you get no completion for this connection — and on a multi-employer order you would still get one for the employers that did work, which reads as success.',
         code: 'order-refresh-failed: mfa_error',
       },
     ],
@@ -222,7 +222,7 @@ export const OUTCOME_DISPLAY = {
   refreshing: { label: 'Refreshing...', tone: 'pending', detail: 'Truv is reconnecting with the stored credentials.' },
   refreshed: { label: 'Refreshed', tone: 'good', detail: 'Fresh data returned with no applicant action.' },
   reauth_required: { label: 'Re-authorization required', tone: 'warn', detail: 'The stored session needs the applicant to clear a challenge.' },
-  failed_other: { label: 'Could not refresh', tone: 'neutral', detail: 'The provider could not return data. Not a credential problem, so do not prompt the applicant.' },
+  failed_other: { label: 'Connected, no data returned', tone: 'neutral', detail: 'The connection worked and the provider returned nothing, or the provider itself errored. Not a credential problem, so do not prompt the applicant — and never record no_data as $0 income.' },
 };
 
 // Human-readable reason strings for the statuses this demo can produce.
@@ -235,6 +235,6 @@ export const REASON_COPY = {
   unavailable: 'Provider was unavailable',
   config_error: 'Provider configuration issue',
   error: 'Provider returned an error',
-  no_data: 'Provider returned no records',
+  no_data: 'Provider connected and returned no records — this is NOT a verified $0 income',
   not_supported: 'Refresh is not supported for this connection',
 };

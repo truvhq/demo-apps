@@ -195,8 +195,15 @@
 .twt-lane code { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; background: var(--twt-bg); border: 1px solid var(--twt-line-2); border-radius: 6px; padding: 2px 6px; color: var(--twt-ink); display: inline-block; }
 
 /* diagram: wraps a MermaidDiagram in the stage panel */
-.twt-diagram { background: var(--twt-panel); border: 1px solid var(--twt-line); border-radius: 16px; padding: 24px; max-width: 640px; width: 100%; box-shadow: 0 1px 2px rgba(0, 0, 0, .03), 0 12px 32px rgba(0, 0, 0, .05); }
-.twt-diagram > div { margin: 0; }
+.twt-diagram { background: var(--twt-panel); border: 1px solid var(--twt-line); border-radius: 16px; padding: 24px; max-width: 640px; width: 100%; max-height: 100%; display: flex; box-shadow: 0 1px 2px rgba(0, 0, 0, .03), 0 12px 32px rgba(0, 0, 0, .05); }
+.twt-diagram > div { margin: 0; width: 100%; min-height: 0; }
+/* MermaidDiagram sets width:100%/height:auto inline, which makes a tall top-down
+   flowchart scale to the panel's WIDTH and then overflow the fixed-height stage —
+   .twt-stage clips with overflow:hidden, so the bottom of the graph just vanishes.
+   Bounding both axes and letting the viewBox preserve the aspect ratio makes the
+   diagram fit whichever dimension runs out first. !important is required because
+   the inline style would otherwise win. */
+.twt-diagram svg { width: auto !important; height: auto !important; max-width: 100% !important; max-height: min(58vh, 460px) !important; margin: 0 auto; display: block; }
 
 /* ============================================================================
  * RESPONSIVE + MOTION
@@ -239,3 +246,8 @@
     transition-duration: .01ms !important;
   }
 }
+
+/* Card rows given as {k, v} render as a label/value pair rather than one blob. */
+.twt-card .twt-ul li { display: flex; gap: 12px; align-items: baseline; }
+.twt-card-k { flex: 0 0 auto; font-weight: 600; color: var(--twt-ink); }
+.twt-card-v { flex: 1 1 auto; color: var(--twt-ink-2); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12.5px; }

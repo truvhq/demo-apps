@@ -13,11 +13,16 @@
  * WHY THIS DEMO EXISTS: a refresh has two outcomes that look nothing alike on the
  * wire. When the stored session is still good, the refresh order completes by
  * itself and emits `order-status-updated: completed`. When it needs the applicant,
- * the refresh TASK fails, the order status never changes, and no further
- * `order-status-updated` is ever emitted, so the order sits at `sent` forever. The
- * only signal is `order-refresh-failed`. Teams that subscribe to order status
- * alone see refreshes "stall at Sent" with no explanation. This demo makes that
- * divergence visible, on both payroll and bank connections.
+ * the refresh TASK fails and the order's `completed_at` stays null, so no
+ * completion arrives for that connection. `order-refresh-failed` is the only signal
+ * that it failed.
+ *
+ * Careful with the general claim, though: `order-status-updated` is emitted PER
+ * SUBORDER and carries an `employer_id` (verified 2026-09-17, see
+ * REFRESH-FINDINGS.md). Each applicant here has a single connection, so a failure
+ * does look like silence. On an order with several employers you still receive
+ * `completed` for each one that worked — so "watch for silence" is the wrong
+ * detector, and a `completed` does not mean the refresh as a whole succeeded.
  *
  * TIMING NOTE (measured in sandbox, 2026-08-19/20): failures arrive 0.2-5.5s after
  * the refresh POST, silent successes take ~13-15s. The failure therefore usually

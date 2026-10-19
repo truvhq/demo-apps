@@ -25,6 +25,7 @@ Demos are organized by industry. Each starts with a split intro screen (business
 | **Document Processing** | Process pay stubs, W-2s, and tax returns for benefit eligibility decisions |
 | **Case Worker Portal** | A Case Worker creates verification orders using applicant data on file |
 | **Renewals & Data Refresh** | Guided walkthrough plus a live recertification cycle: refresh existing payroll and bank connections via `POST /v1/orders/{id}/`, then watch the two outcomes diverge. A refresh that needs re-authorization emits `order-refresh-failed` and its order stays at `sent` forever, which is why order status alone is not enough |
+| **Orders & Refresh Lifecycle** | The object model first — what a refresh creates (order, suborder, task), writes to (the link), and leaves alone (the user, and any report you already generated). Enumerates all 11 terminal statuses with their remedies and whether each can be reproduced in sandbox, the four trigger shapes, and the refresh-vs-new-order gates. Compose a case and run it live |
 
 ### Consumer Credit
 

@@ -10,6 +10,7 @@ const DEMO_ICONS = {
   'verifier-portal': Icons.shieldCheck,
   'batching': Icons.layers,
   'renewals-refresh': Icons.repeat,
+  'refresh-guide': Icons.sparkles,
   'smart-routing': Icons.shuffle,
   'bank-income': Icons.bankBuilding,
   'payroll-income': Icons.briefcase,

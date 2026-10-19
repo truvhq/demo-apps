@@ -32,6 +32,7 @@ import { POSApplicationDemo } from './demos/POSApplication.jsx';
 import { POSTasksDemo } from './demos/POSTasks.jsx';
 import { CaseWorkerPortalDemo } from './demos/CaseWorkerPortal.jsx';
 import { RenewalsRefreshDemo } from './demos/RenewalsRefresh.jsx';
+import { RefreshGuideDemo } from './demos/RefreshGuide.jsx';
 import { DocumentProcessingDemo } from './demos/DocumentProcessing.jsx';
 import { LOSDemo } from './demos/LOS.jsx';
 import { CustomerPortalDemo } from './demos/CustomerPortal.jsx';
@@ -71,6 +72,7 @@ export const INDUSTRIES = [
       { id: 'verifier-portal', name: 'Case Worker Portal', component: CaseWorkerPortalDemo, desc: 'A Case Worker creates verification orders using applicant data on file and sends verification links via email or SMS.', tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'] },
       { id: 'batching', name: 'Batching', component: BatchingWalkthrough, noSession: true, desc: 'Animated walkthrough of bulk order intake: staff drop a CSV into a folder and a scheduled job creates one order per row. Ends with the setup guides and the runnable kit to hand to a customer.', tags: ['Guided', 'Bulk', 'CSV', 'Orders', 'Webhooks'] },
       { id: 'renewals-refresh', name: 'Renewals & Data Refresh', component: RenewalsRefreshDemo, desc: 'Recertification without re-collecting documents: refresh existing payroll and bank connections server-side, watch the silent-success and re-auth paths diverge, and re-engage only the applicants who need it.', tags: ['Guided', 'Orders', 'Refresh', 'order-refresh-failed', 'Webhooks'] },
+      { id: 'refresh-guide', name: 'Orders & Refresh Lifecycle', component: RefreshGuideDemo, desc: 'A standalone guide with a live sandbox attached: when to refresh versus start a new order, what a refresh actually returns per connection, and what to do when one comes back broken and the others are fine. Every claim is from a captured run.', tags: ['Guide', 'Orders', 'Refresh', 'Standalone', 'Live API'] },
     ],
   },
   {
@@ -107,8 +109,15 @@ export const INDUSTRIES = [
 // Parse the URL hash into route segments.
 // e.g. "#consumer-credit/smart-routing/bridge/abc123"
 //   -> { industry: "consumer-credit", demo: "smart-routing", screen: "bridge", param: "abc123" }
+// A standalone build (VITE_STANDALONE_DEMO="industry/demo") opens straight on that
+// demo instead of the Home grid, so a per-branch subdomain can be handed out as a
+// bare link. Unset in the normal multi-demo build, where it changes nothing.
+const STANDALONE = (import.meta.env?.VITE_STANDALONE_DEMO || '').trim();
+
 function parseHash() {
-  const hash = window.location.hash.slice(1);
+  // An empty hash in a standalone build resolves to that build's single demo, so
+  // the bare subdomain is a working link.
+  const hash = window.location.hash.slice(1) || STANDALONE;
   const [industry, demo, screen, ...rest] = hash.split('/');
   return { industry: industry || '', demo: demo || '', screen: screen || '', param: rest.join('/') || '' };
 }

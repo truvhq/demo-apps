@@ -76,9 +76,18 @@ function CardSurface({ stage }) {
       {card.eyebrow && <div class="twt-card-eyebrow">{card.eyebrow}</div>}
       {card.title && <h3>{card.title}</h3>}
       {card.body && <p>{card.body}</p>}
-      {Array.isArray(card.rows) && (
+      {Array.isArray(card.rows) && card.rows.length > 0 && (
         <ul class="twt-ul" style="margin-top:16px">
-          {card.rows.map((r, i) => <li key={i}>{r}</li>)}
+          {/* Rows come in two shapes: a plain string, or a {k, v} pair for a
+              label/value line. Rendering the object directly makes Preact emit
+              nothing, which silently produced a list of empty bullets. */}
+          {card.rows.map((r, i) => (
+            <li key={i}>
+              {r && typeof r === 'object'
+                ? <><span class="twt-card-k">{r.k}</span><span class="twt-card-v">{r.v}</span></>
+                : r}
+            </li>
+          ))}
         </ul>
       )}
     </div>
