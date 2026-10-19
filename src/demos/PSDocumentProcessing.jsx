@@ -169,7 +169,7 @@ export function PSDocumentProcessingDemo() {
 
   // --- Render: state-driven screen routing ---
   return (
-    <Layout badge="Public Sector · Document Processing" steps={STEPS} panel={panel} hidePanel={isIntro}>
+    <Layout badge="Public Sector · Document Processing" steps={STEPS} panel={panel} hidePanel={isIntro} theme="checkr">
       {/* Intro slide: feature overview and architecture diagram */}
       {screen === 'intro' && (
         <IntroSlide

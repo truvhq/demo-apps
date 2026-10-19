@@ -7,9 +7,9 @@
  */
 .psh {
   --ck-black:#1b1c1f; --ck-dark-gray:#474c52; --ck-gray:#7a828c;
-  --ck-lighter-gray:#d8dee5; --ck-lightest-gray:#f0f2f5; --ck-paper:#f8f8f8;
+  --ck-lighter-gray:#d8dee5; --ck-lightest-gray:#f0f2f5; --ck-paper:#f0f2f5;
   --ck-aqua:#23deff; --ck-ease:cubic-bezier(.39,.575,.565,1);
-  --sans:"National 2","Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --sans:'National 2','Helvetica Neue',Arial,sans-serif; --headline:'National 2 Narrow','Arial Narrow',Arial,sans-serif;
   min-height:100vh; background:#fff; color:var(--ck-black); font-family:var(--sans);
   -webkit-font-smoothing:antialiased;
 }
@@ -123,3 +123,9 @@
   background:transparent; border:1px solid var(--ck-dark-gray); border-radius:6px; padding:9px 16px; cursor:pointer;
   transition:background .4s var(--ck-ease), border-color .4s var(--ck-ease), color .4s var(--ck-ease); }
 .psh-btn-outline:hover { background:var(--ck-aqua); border-color:var(--ck-aqua); color:var(--ck-black); }
+
+/* Checkr Brand Guidelines 1.0: headlines National 2 Narrow Medium, 100% line
+   height, -1% letter spacing; subheads 120%; body 130%. */
+.psh-title, .psh-section-title, .psh-section-name { font-family:var(--headline); font-weight:500; line-height:1; letter-spacing:-.01em; }
+.psh-tile-name, .psh-group-label { line-height:1.2; letter-spacing:0; }
+.psh-lead, .psh-tile-desc { line-height:1.3; }

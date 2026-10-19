@@ -40,12 +40,12 @@ const BASE_VARS = {
 
 // Checkr look: the same greys, black and status green as checkr-theme.css.
 const CHECKR_VARS = {
-  primaryColor: '#f8f8f8', primaryTextColor: '#1b1c1f', primaryBorderColor: '#1b1c1f',
+  primaryColor: '#f0f2f5', primaryTextColor: '#1b1c1f', primaryBorderColor: '#1b1c1f',
   lineColor: '#7a828c', secondaryColor: '#f0f2f5',
-  fontFamily: '"National 2", Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-  nodeBorder: '#1b1c1f', mainBkg: '#f8f8f8',
+  fontFamily: '"National 2", "Helvetica Neue", Arial, sans-serif',
+  nodeBorder: '#1b1c1f', mainBkg: '#f0f2f5',
   noteBkgColor: '#f0f2f5', noteBorderColor: '#d8dee5', noteTextColor: '#1b1c1f',
-  actorBkg: '#f8f8f8', actorBorder: '#1b1c1f', actorTextColor: '#1b1c1f',
+  actorBkg: '#f0f2f5', actorBorder: '#1b1c1f', actorTextColor: '#1b1c1f',
   signalColor: '#474c52', signalTextColor: '#474c52',
 };
 if (import.meta.hot) import.meta.hot.accept(() => { initialized = false; });
