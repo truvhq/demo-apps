@@ -35,6 +35,7 @@ import { DocumentProcessingDemo } from './demos/DocumentProcessing.jsx';
 import { LOSDemo } from './demos/LOS.jsx';
 import { CustomerPortalDemo } from './demos/CustomerPortal.jsx';
 import { PSDocumentProcessingDemo } from './demos/PSDocumentProcessing.jsx';
+import { BatchingWalkthrough } from './demos/Batching.jsx';
 import { SmartRoutingDemo } from './demos/SmartRouting.jsx';
 import { BankIncomeDemo } from './demos/BankIncome.jsx';
 import { PayrollIncomeDemo } from './demos/PayrollIncome.jsx';
@@ -67,6 +68,7 @@ export const INDUSTRIES = [
       { id: 'customer-portal', name: 'Customer Portal', component: CustomerPortalDemo, desc: 'An applicant applies for benefits and verifies their income and employment through a self-service portal.', tags: ['Company Search', 'Orders', 'Bridge', 'Reports'] },
       { id: 'documents', name: 'Document Processing', component: PSDocumentProcessingDemo, desc: 'Process pay stubs, W-2s, and tax returns to verify income for benefit eligibility decisions.', tags: ['Document Collections', 'Finalize', 'Parsed Data'] },
       { id: 'verifier-portal', name: 'Case Worker Portal', component: CaseWorkerPortalDemo, desc: 'A Case Worker creates verification orders using applicant data on file and sends verification links via email or SMS.', tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'] },
+      { id: 'batching', name: 'Batching', component: BatchingWalkthrough, noSession: true, desc: 'Animated walkthrough of bulk order intake: staff drop a CSV into a folder and a scheduled job creates one order per row. Ends with the setup guides and the runnable kit to hand to a customer.', tags: ['Guided', 'Bulk', 'CSV', 'Orders', 'Webhooks'] },
     ],
   },
   {
@@ -192,6 +194,23 @@ export function App() {
 
   // Gate: BYO credentials must be configured before any demo can be reached.
   if (session.loading || ssoCallbackBusy) return null;
+
+  // Exception: demos flagged `noSession` make no API calls at all — they are
+  // static, animated explainers plus file downloads. Gating those behind
+  // Configure would only get in the way of a shared hosted link, and unlike the
+  // sandbox-bootstrap approach used by other hosted branches this needs no
+  // credentials bundled into the build. `?configure` still wins, so the entry
+  // screen stays reachable for styling.
+  if (!forceConfigure && route.industry && route.demo) {
+    const noSessionDemo = INDUSTRIES
+      .find(i => i.id === route.industry)?.demos
+      .find(d => d.id === route.demo && d.noSession);
+    if (noSessionDemo) {
+      const PublicDemo = noSessionDemo.component;
+      return <PublicDemo key={`${route.industry}/${route.demo}/${restartNonce}`} screen={route.screen} param={route.param} />;
+    }
+  }
+
   if (forceConfigure || !session.authenticated) return <ConfigureScreen onSubmit={session.submit} ssoError={ssoError} />;
 
   // Routing logic: progressively resolve industry, then demo, then screen.

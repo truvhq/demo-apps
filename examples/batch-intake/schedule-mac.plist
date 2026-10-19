@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Truv Intake Tool - macOS scheduled job (launchd).
+  The Mac equivalent of Windows Task Scheduler. Runs the tool at :30 past
+  every hour while you are logged in.
+
+  1. Replace every /path/to/this/folder with this folder's full path.
+  2. cp schedule-mac.plist ~/Library/LaunchAgents/com.truv.intake.plist
+  3. launchctl load ~/Library/LaunchAgents/com.truv.intake.plist
+
+  To stop it: launchctl unload ~/Library/LaunchAgents/com.truv.intake.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.truv.intake</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>truv_intake.py</string>
+        <string>run</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/path/to/this/folder</string>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/path/to/this/folder/state/launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/path/to/this/folder/state/launchd.log</string>
+</dict>
+</plist>

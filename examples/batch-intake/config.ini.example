@@ -1,0 +1,59 @@
+# ==============================================================================
+# Truv Intake Tool configuration
+#
+# THIS FILE CONTAINS SECRETS. Keep it readable only by the account that runs the
+# tool. On Mac/Linux the tool does this for you (chmod 600). On Windows, restrict
+# the file to the service account in Properties -> Security.
+# ==============================================================================
+
+[truv]
+# Paste the two values from the Truv Dashboard -> Development -> API Keys.
+client_id = REPLACE_ME
+access_key = REPLACE_ME
+
+# Which key pair did you paste above? Either "sandbox" or "production".
+# IMPORTANT: the API URL is the same either way. Switching to production means
+# swapping the KEYS above, then changing this label to match.
+environment = sandbox
+
+# Which verifications to request on each order. Comma-separated.
+products = income,assets
+
+# Optional. Leave blank to use your account's default template.
+template_id =
+
+[folders]
+input = input
+processed = processed
+failed = failed
+logs = logs
+
+[email]
+# Set to false to turn off all email from this tool.
+enabled = true
+smtp_host = REPLACE_ME
+smtp_port = 587
+use_tls = true
+smtp_user = REPLACE_ME
+smtp_password = REPLACE_ME
+from_addr = truv-orders@example.org
+
+# Who gets the operations summary after every run. Comma-separated.
+to_addrs = REPLACE_ME
+
+# Email a summary even when there was nothing to do. Recommended: true.
+# With this on, silence means something is broken.
+send_on_noop = true
+
+# Email each row's staff_email and cc_emails a confirmation listing the lines
+# that became orders. No verification results are ever included.
+send_row_confirmations = true
+
+[safety]
+# Refuse to run against production until a sandbox selftest has passed.
+# Leave this on. It is what stops an untested setup from touching real people.
+require_sandbox_first = true
+
+# Never create more than this many orders in a single run. A CSV bigger than
+# this is rejected instead of partially processed. Raise it deliberately.
+max_orders_per_run = 1000
