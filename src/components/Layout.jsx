@@ -37,7 +37,7 @@ import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
 //   children    : main content area
 // The breadcrumb (industry > demo) is derived from the current route, so demos
 // no longer pass a badge — any `badge` prop still passed by callers is ignored.
-export function Layout({ steps, panel, hidePanel, theme, children }) {
+export function Layout({ steps, panel, hidePanel, theme = 'checkr', children }) {
   const [activeTab, setActiveTab] = useState('guide');
   const hasDeviceFrame = useHasDeviceFrame();
   const [panelVisible, setPanelVisible] = usePanelVisibility();
