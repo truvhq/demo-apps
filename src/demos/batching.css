@@ -988,3 +988,8 @@
 .bt-kit-dl:hover { color: var(--ck-black); background: var(--ck-lightest-gray); }
 
 .bt a:not(.wt-btn):not(.bt-kit-dl):hover { text-decoration: underline 2px; text-underline-offset: 6px; }
+
+/* Code blocks never shrink to fit: on laptop heights the narrative rail
+   scrolls instead, so the whole request and response stay readable. */
+.bt .wt-context > * { flex-shrink: 0; }
+.bt .wt-context { justify-content: safe center; }

@@ -29,8 +29,9 @@ failed = failed
 logs = logs
 
 [email]
-# Set to false to turn off all email from this tool.
-enabled = true
+# Optional. Off until you set it up. When on, the tool connects to your mail
+# server (SMTP) as well as to Truv.
+enabled = false
 smtp_host = REPLACE_ME
 smtp_port = 587
 use_tls = true
@@ -42,7 +43,7 @@ from_addr = truv-orders@example.org
 to_addrs = REPLACE_ME
 
 # Email a summary even when there was nothing to do. Recommended: true.
-# With this on, silence means something is broken.
+# With this on, if the summary stops arriving, the tool or the machine is down.
 send_on_noop = true
 
 # Email each row's staff_email and cc_emails a confirmation listing the lines
@@ -54,6 +55,21 @@ send_row_confirmations = true
 # Leave this on. It is what stops an untested setup from touching real people.
 require_sandbox_first = true
 
-# Never create more than this many orders in a single run. A CSV bigger than
-# this is rejected instead of partially processed. Raise it deliberately.
-max_orders_per_run = 1000
+# Your account can create 3,000 orders per hour, and one request may carry all
+# 3,000. A file larger than this is rejected with instructions rather than
+# half-sent - split it across runs.
+max_orders_per_run = 3000
+
+# Only paces housekeeping calls (status polls, credential checks). Order volume is
+# limited by the hourly order count above, not by this.
+max_requests_per_minute = 240
+
+# Delete files older than this many days from the processed, failed and logs
+# folders at the start of each run. They hold applicant names. 0 = keep forever.
+retention_days = 0
+
+[columns]
+# Optional. If your export uses column names the tool does not recognize, map
+# them here: tool_column = Your Header. Examples:
+# first_name = Applicant First
+# case_number = Program Case Ref

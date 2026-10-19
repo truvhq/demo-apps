@@ -41,9 +41,16 @@ STATUS=$?
 
 echo ""
 if [ $STATUS -eq 0 ]; then
-    echo "  Setup finished. Next, run this to check everything:"
+    echo "  Setup finished. Checking everything now..."
     echo ""
-    echo "      $PY truv_intake.py doctor"
+    "$PY" truv_intake.py doctor
+    echo ""
+    read -r -p "  Create one real test order now (selftest)? (y/N): " ANSWER
+    if [ "$ANSWER" = "y" ] || [ "$ANSWER" = "Y" ]; then
+        "$PY" truv_intake.py selftest
+    else
+        echo "  When you are ready, run:  $PY truv_intake.py selftest"
+    fi
     echo ""
 else
     echo "  Setup did not finish. Scroll up for the reason."

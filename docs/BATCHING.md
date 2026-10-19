@@ -44,7 +44,7 @@ Reach for this demo when a customer says:
 
 Stage 03 is the one worth dwelling on in a live pitch. The toggle turns
 whole-file rejection into a concrete consequence - five orders versus zero - and
-it is the behaviour customers have not thought about.
+it is the behavior customers have not thought about.
 
 It was eight stages; reviewers found that long. The dedicated "where this fits"
 ladder and the separate notifications stage were folded into 01 and 05.
@@ -108,7 +108,13 @@ source in `examples/batch-intake/`, then:
 
 Skip that and the demo hands customers a stale copy. The script refuses to
 build if a real `config.ini`, an internal document, or anything resembling a
-live API secret is staged.
+live API secret is staged, or if any code excerpt shown on the demo page is no
+longer a line of the file it claims to come from. It also writes `LICENSE` and
+`VERSION` into the kit and `Truv_Intake_Kit.zip.sha256` next to it.
+
+The two guide PDFs and their page-1 preview PNGs are rendered from HTML sources
+kept outside this repo. Re-render all four after editing a guide, and update the
+page counts on the demo's file cards.
 
 ---
 
@@ -126,7 +132,7 @@ python3 truv_intake.py selftest   # creates one real order, reads it back
 Then it runs on cron or Task Scheduler. It also has `validate`, `send`,
 `direct`, `webhook list|add|history`, and `fetch`.
 
-Behaviours that matter when you are explaining it:
+Behaviors that matter when you are explaining it:
 
 - **One bad row does not block the rest** - row-level problems skip that row and
   come back as a `.failed-rows.csv` in `failed/`. Only file-level problems (wrong
@@ -197,7 +203,7 @@ docs. None were visible by reading the source.
   `orders_template.csv`) are CRLF for the same reason.
 - **Real exports do not match your column names.** Case, spaces and hyphens all
   vary (`First_Name`, `LAST NAME`). Matching case-sensitively rejected whole
-  files over capitalisation. Headers are normalised now.
+  files over capitalization. Headers are normalized now.
 - **Excel writes semicolon-separated `.csv`** on any locale that uses a comma
   for decimals. The old code reported "missing required column first_name",
   which pointed at the wrong problem entirely. The separator is sniffed from the
@@ -211,6 +217,27 @@ docs. None were visible by reading the source.
 - **`email` is write-only.** Truv validates it on create - a malformed value
   returns a field-level 400 - but `GET /v1/orders/{id}/` does not echo it back.
   A fetched order showing no email is not a dropped field.
+
+## Behavior worth knowing (v2.2)
+
+- **`force_new` adds `-R<timestamp>` to the order reference.** The batch endpoint
+  answers `existing` for a reference it already holds and creates nothing, so a
+  deliberate repeat needs a new reference. Verified in sandbox: a force_new row got
+  a new order with reference `<CASE>-<First>-<Last>-R<yyyymmddhhmmss>`.
+- **`existing` is reported as skipped, never created**, in results.csv, the summary
+  and the per-staff email.
+- **Rows without a case number** are keyed on name + email + phone, not file and row
+  position, so renaming or re-sorting a file cannot duplicate them. Truv's own
+  dedupe needs an order reference, which needs a case number.
+- **Exit codes:** 0 ok or already done, 2 a row failed or a file was rejected, 1 could
+  not run.
+- **Files holding applicant data** (ledger, results, fix files, moved copies, logs)
+  are chmod 600 on Mac/Linux; fix files carry only known columns; optional
+  `retention_days` purges old copies and logs (never the ledger).
+- **Email is off by default** and verifies the SMTP server certificate when on.
+- **Header aliases** (Given Name, Surname, Case ID, Email Address...) plus a
+  `[columns]` mapping in config.ini. UTF-16 is read; workbooks are refused with a
+  re-save message and moved to failed/.
 
 ## Open items
 
@@ -229,8 +256,11 @@ Known gaps, in the order they are likely to bite.
   so this is the highest-value gap to close.
 - **Email alerts have never been sent.** The SMTP path is exercised only by unit
   tests with a fake server. No real mail server has been tried.
-- **Scheduling has never been observed firing.** Cron and Task Scheduler entries are
-  generated and their syntax is checked, but no run has been watched from a scheduler
-  in situ.
+- **Scheduling has never been observed firing.** Cron, launchd (`schedule`) and Task
+  Scheduler entries are generated and their syntax is checked, but no run has been
+  watched from a scheduler in situ.
+- **The Windows launcher was changed without a Windows run.** It now runs `doctor`
+  and offers `selftest` after `setup`. Line endings and labels were checked by
+  inspection only.
 - **Sandbox only.** Everything verified against sandbox keys. No production key has
   been used from the kit.

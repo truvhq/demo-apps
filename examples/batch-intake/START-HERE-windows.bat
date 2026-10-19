@@ -40,14 +40,25 @@ echo.
 set STATUS=%errorlevel%
 
 echo.
-if "%STATUS%"=="0" (
-    echo   Setup finished. Next, run this to check everything:
-    echo.
-    echo       %PY% truv_intake.py doctor
-    echo.
+if not "%STATUS%"=="0" goto setupfailed
+echo   Setup finished. Checking everything now...
+echo.
+%PY% truv_intake.py doctor
+echo.
+set "ANSWER="
+set /p ANSWER=  Create one real test order now (selftest)? (y/N): 
+if /i "%ANSWER%"=="y" (
+    %PY% truv_intake.py selftest
 ) else (
+    echo   When you are ready, run:  %PY% truv_intake.py selftest
+)
+echo.
+goto done
+:setupfailed
+(
     echo   Setup did not finish. Scroll up for the reason.
     echo.
 )
 
+:done
 pause

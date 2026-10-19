@@ -103,9 +103,12 @@ def create_truv_order(first_name, last_name, case_number=None, email=None,
     }
 
     if case_number:
-        # Your own identifier. Send it - it is how you match the result back to
-        # your record, and it is what makes the request safe to look up later.
-        payload["order_number"] = str(case_number).strip()
+        # Your own identifier: the case number plus the applicant's name, the same
+        # reference truv_intake.py uses. A case often covers a household, so the
+        # name keeps each person's order separate. This path does not read the
+        # batch tool's ledger, so send each applicant through one path only.
+        ref = "%s %s %s" % (str(case_number).strip(), first_name.strip(), last_name.strip())
+        payload["order_number"] = "-".join(ref.split())
 
     if email:
         payload["email"] = email.strip()

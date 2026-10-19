@@ -23,6 +23,7 @@ COMMANDS
   webhook list     Show the webhooks configured on your account.
   webhook add URL  Register a webhook so results are pushed to your system.
   fetch ORDER_ID   Download an order's data as JSON, or its report as PDF.
+  schedule         Mac: install the hourly job. Elsewhere: show how.
   version          Print the tool version.
 
 Requires Python 3.8 or newer. Uses only the Python standard library - there is
@@ -32,7 +33,7 @@ nothing to install.
 
 import sys
 
-VERSION = "2.1"
+VERSION = "2.2"
 MIN_PY = (3, 8)
 
 # ------------------------------------------------------------------ python gate
@@ -70,6 +71,7 @@ from email.message import EmailMessage
 
 # ------------------------------------------------------------------- constants
 HERE = os.path.dirname(os.path.abspath(__file__))
+PY_CMD = "py -3" if os.name == "nt" else "python3"
 CONFIG_PATH = os.path.join(HERE, "config.ini")
 STATE_DIR = os.path.join(HERE, "state")
 LEDGER_PATH = os.path.join(STATE_DIR, "ledger.csv")
@@ -108,6 +110,23 @@ API_BASE = "https://prod.truv.com/v1"
 COLUMNS = ["first_name", "last_name", "case_number", "email", "phone",
            "staff_name", "staff_email", "cc_emails", "force_new"]
 REQUIRED_COLUMNS = ["first_name", "last_name"]
+
+# Common header names from case systems, mapped to the tool's columns. Matching
+# happens after normalize_header(), so case, spaces and hyphens already do not
+# matter. Anything else can be mapped in config.ini under [columns].
+HEADER_ALIASES = {
+    "first_name": ("first", "firstname", "fname", "given_name", "givenname",
+                   "applicant_first_name"),
+    "last_name": ("last", "lastname", "lname", "surname", "family_name",
+                  "familyname", "applicant_last_name"),
+    "case_number": ("case", "case_id", "caseid", "case_no", "case_num", "case_#",
+                    "casenumber", "case_nbr"),
+    "email": ("email_address", "emailaddress", "e_mail", "applicant_email"),
+    "phone": ("phone_number", "phonenumber", "mobile", "mobile_phone", "cell",
+              "cell_phone", "telephone"),
+    "staff_email": ("worker_email", "caseworker_email", "case_worker_email"),
+    "staff_name": ("worker_name", "caseworker_name", "case_worker_name"),
+}
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 LEDGER_FIELDS = ["key", "order_id", "created_at", "source_file", "environment"]
@@ -145,8 +164,9 @@ failed = failed
 logs = logs
 
 [email]
-# Set to false to turn off all email from this tool.
-enabled = true
+# Optional. Off until you set it up. When on, the tool connects to your mail
+# server (SMTP) as well as to Truv.
+enabled = false
 smtp_host = REPLACE_ME
 smtp_port = 587
 use_tls = true
@@ -158,7 +178,7 @@ from_addr = truv-orders@example.org
 to_addrs = REPLACE_ME
 
 # Email a summary even when there was nothing to do. Recommended: true.
-# With this on, silence means something is broken.
+# With this on, if the summary stops arriving, the tool or the machine is down.
 send_on_noop = true
 
 # Email each row's staff_email and cc_emails a confirmation listing the lines
@@ -178,6 +198,16 @@ max_orders_per_run = 3000
 # Only paces housekeeping calls (status polls, credential checks). Order volume is
 # limited by the hourly order count above, not by this.
 max_requests_per_minute = 240
+
+# Delete files older than this many days from the processed, failed and logs
+# folders at the start of each run. They hold applicant names. 0 = keep forever.
+retention_days = 0
+
+[columns]
+# Optional. If your export uses column names the tool does not recognize, map
+# them here: tool_column = Your Header. Examples:
+# first_name = Applicant First
+# case_number = Program Case Ref
 """
 
 
@@ -244,6 +274,7 @@ class Logger:
             try:
                 with open(self.path, "a", encoding="utf-8") as fh:
                     fh.write(line + "\n")
+                make_private(self.path)
             except OSError:
                 pass
 
@@ -281,7 +312,7 @@ def env_from_key(access_key):
     """The environment this access secret actually belongs to.
 
     Returns "sandbox", "production", "dev", or None when the prefix is not one
-    Truv issues. Never guesses - an unrecognised key returns None so callers can
+    Truv issues. Never guesses - an unrecognized key returns None so callers can
     refuse outright instead of assuming the safe answer.
     """
     key = (access_key or "").strip().lower()
@@ -309,6 +340,15 @@ def truv_settings(cfg):
 def creds_are_placeholder(truv):
     return (not truv["client_id"] or not truv["access_key"]
             or "REPLACE_ME" in (truv["client_id"] + truv["access_key"]))
+
+
+def make_private(path):
+    """Owner-only permissions for files that hold applicant data. Best effort:
+    on Windows, folder permissions are what protect these files."""
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
 
 
 def folder(cfg, name):
@@ -381,7 +421,7 @@ def api_call(method, path, truv, payload=None, query=None, expect_bytes=False, r
             _last_call_at[0] = time.time()
             body = e.read().decode("utf-8", errors="replace")
             if e.code in RETRY_STATUS and attempt < RETRY_MAX:
-                # Truv sends Retry-After on 429 and the docs require honouring it.
+                # Truv sends Retry-After on 429 and the docs require honoring it.
                 # Fall back to exponential backoff when the header is absent.
                 wait = RETRY_BACKOFF_SEC * attempt
                 if e.code == 429:
@@ -478,8 +518,14 @@ def recipients_for_row(row):
     return out
 
 
+SAMPLE_DOMAINS = ("@example.com", "@example.org", "@example.net")
+
+
 def row_errors(row, require_staff_email):
     problems = []
+    if (row.get("email") or "").strip().lower().endswith(SAMPLE_DOMAINS):
+        problems.append("this looks like a sample row from the template (example.com "
+                        "address) - delete it before sending real orders")
     for col in REQUIRED_COLUMNS:
         if not (row.get(col) or "").strip():
             problems.append("missing %s" % col)
@@ -505,7 +551,7 @@ def row_errors(row, require_staff_email):
     return problems
 
 
-def order_number_for(row):
+def order_number_for(row, stamp=None):
     """The order reference Truv stores: the case number plus the applicant's name.
 
     order_number must be unique within the environment, and the BATCH endpoint
@@ -524,18 +570,24 @@ def order_number_for(row):
         return ""
     name = "%s %s" % ((row.get("first_name") or "").strip(),
                       (row.get("last_name") or "").strip())
-    # Collapse whitespace to dashes so the reference stays one readable token.
-    return re.sub(r"\s+", "-", ("%s %s" % (case, name)).strip())
+    ref = re.sub(r"\s+", "-", ("%s %s" % (case, name)).strip())
+    # A force_new row is a deliberate repeat (redetermination, expired order).
+    # Truv's batch endpoint treats an order_number it already has as `existing`
+    # and creates NOTHING, so a repeat needs its own reference. The run stamp
+    # keeps it unique and still starts with the case number for searching.
+    if is_truthy(row.get("force_new")) and stamp:
+        ref = "%s-R%s" % (ref, stamp)
+    return ref
 
 
-def build_payload(row, truv):
+def build_payload(row, truv, stamp=None):
     """Build the POST /v1/orders/ body. Field names verified against openapi.yaml."""
     payload = {
         "products": truv["products"],
         "first_name": (row.get("first_name") or "").strip(),
         "last_name": (row.get("last_name") or "").strip(),
     }
-    order_number = order_number_for(row)
+    order_number = order_number_for(row, stamp)
     if order_number:
         payload["order_number"] = order_number
     if (row.get("email") or "").strip():
@@ -564,7 +616,7 @@ def normalize_header(name):
     """Make a column name match regardless of how the export cased or spaced it.
 
     Real exports arrive as "First_Name", "FIRST NAME", " first-name ". They all
-    mean the same column, and rejecting a whole file over capitalisation is not
+    mean the same column, and rejecting a whole file over capitalization is not
     a defensible reason to verify nobody that day.
     """
     h = (name or "").strip().lower()
@@ -584,7 +636,37 @@ def sniff_delimiter(first_line):
     return best if best_count else ","
 
 
-def read_rows(path):
+class NotACsv(Exception):
+    """The file is not a CSV at all - say so plainly instead of failing oddly."""
+
+
+def canonical_header(name, custom=None):
+    h = normalize_header(name)
+    if custom and h in custom:
+        return custom[h]
+    for col, alts in HEADER_ALIASES.items():
+        if h in alts:
+            return col
+    return h
+
+
+def detect_format(path):
+    """Spot files that are not text CSV before csv tries to parse them."""
+    with open(path, "rb") as fh:
+        head = fh.read(512)
+    if head.startswith(b"PK\x03\x04") or head.startswith(b"\xd0\xcf\x11\xe0"):
+        raise NotACsv("This is an Excel workbook saved with a .csv name, not a CSV. "
+                      "Open it in Excel and use File > Save As > CSV UTF-8 "
+                      "(Comma delimited).")
+    if head.startswith(b"\xff\xfe") or head.startswith(b"\xfe\xff"):
+        return "utf-16"
+    if b"\x00" in head:
+        raise NotACsv("This file is not plain text (it contains null bytes). "
+                      "Re-save it as CSV UTF-8 (Comma delimited).")
+    return None
+
+
+def read_rows(path, custom_headers=None):
     """Read a CSV, tolerating how Windows and Excel actually produce them.
 
     Excel's "CSV UTF-8" export writes a BOM (handled by utf-8-sig), but Excel's
@@ -598,7 +680,8 @@ def read_rows(path):
     separated - so a successful run can still say what it assumed.
     """
     last_error = None
-    for encoding in ("utf-8-sig", "cp1252"):
+    forced = detect_format(path)
+    for encoding in ((forced,) if forced else ("utf-8-sig", "cp1252")):
         try:
             with open(path, newline="", encoding=encoding) as fh:
                 first_line = fh.readline()
@@ -613,7 +696,7 @@ def read_rows(path):
                                  "It was read correctly anyway."
                                  % {";": "semicolon", "\t": "tab",
                                     "|": "pipe"}[delimiter])
-                headers = [normalize_header(h) for h in reader.fieldnames]
+                headers = [canonical_header(h, custom_headers) for h in reader.fieldnames]
                 rows = []
                 for raw in reader:
                     row = {}
@@ -621,7 +704,7 @@ def read_rows(path):
                         # csv puts any extra unnamed columns under a None key.
                         if k is None:
                             continue
-                        row[normalize_header(k)] = v
+                        row[canonical_header(k, custom_headers)] = v
                     # A row where every cell is empty is not a person. Excel
                     # leaves these behind whenever someone clears a row instead
                     # of deleting it; reporting them as errors would put a fix
@@ -657,10 +740,13 @@ def row_key(row, index, source_file):
                       (row.get("last_name") or "").strip().lower())
     if case:
         return "case:%s|%s" % (case, name)
-    # No case number: fall back to name, scoped to this file so two different
-    # people who happen to share a name in separate batches both go through.
-    return "row:%s:%d:%s" % (os.path.basename(source_file), index,
-                             hashlib.sha256(name.encode()).hexdigest()[:10])
+    # No case number: key on who the person is (name plus email and phone), not
+    # on where the row sits, so renaming or re-sorting a file cannot create
+    # duplicates. Truv's own duplicate check needs an order_number, which needs a
+    # case number - so rows without one rely on this local key alone.
+    who = "%s|%s|%s" % (name, (row.get("email") or "").strip().lower(),
+                        normalize_phone(row.get("phone", "")))
+    return "person:%s" % hashlib.sha256(who.encode()).hexdigest()[:16]
 
 
 # =============================================================================
@@ -691,6 +777,7 @@ def ledger_append(entries):
         if write_header:
             w.writeheader()
         w.writerows(entries)
+    make_private(LEDGER_PATH)
 
 
 # =============================================================================
@@ -718,7 +805,10 @@ def send_email(cfg, subject, body, log, to_addrs=None):
     port = cfg.getint("email", "smtp_port", fallback=587)
     with smtplib.SMTP(host, port, timeout=HTTP_TIMEOUT) as server:
         if cfg.getboolean("email", "use_tls", fallback=True):
-            server.starttls()
+            # Verify the mail server's certificate and hostname. Python's bare
+            # starttls() does not, which would expose the SMTP password and the
+            # applicant names in these emails to anyone on the network path.
+            server.starttls(context=ssl.create_default_context())
         user = cfg.get("email", "smtp_user", fallback="")
         pw = os.environ.get("TRUV_SMTP_PASSWORD") or cfg.get("email", "smtp_password", fallback="")
         if user and pw and "REPLACE_ME" not in user:
@@ -738,8 +828,7 @@ def build_summary_body(truv, summaries, started, env_label):
     if not summaries:
         L.append("No new CSV files were found. Nothing to do.")
         L.append("")
-        L.append("This message confirms the tool ran. If these stop arriving,")
-        L.append("the scheduler or the machine is down.")
+        L.append("This message confirms the tool ran.")
         return "\n".join(L)
 
     total_created = sum(s["created"] for s in summaries)
@@ -747,7 +836,7 @@ def build_summary_body(truv, summaries, started, env_label):
     total_skipped = sum(s["skipped"] for s in summaries)
     L.append("Orders created: %d" % total_created)
     if total_skipped:
-        L.append("Already done (skipped): %d" % total_skipped)
+        L.append("Already ordered (skipped, nothing new created): %d" % total_skipped)
     if total_failed:
         L.append("Rows that failed: %d" % total_failed)
     L.append("")
@@ -794,14 +883,18 @@ def build_recipient_digests(file_name, deliveries, started):
 
     out = []
     for addr, items in sorted(by_addr.items()):
-        created = [i for i in items if i["status"] in ("created", "already done")]
+        created = [i for i in items if i["status"] == "created"]
+        earlier = [i for i in items if i["status"] == "already done"]
         failed = [i for i in items if i["status"] == "failed"]
         subject = "Truv orders processed - %s (%d created)" % (file_name, len(created))
         L = ["Verification orders for your cases:", ""]
         for i in created:
             label = i["case_number"] or "(no case number)"
-            note = " - order created" if i["status"] == "created" else " - already created earlier"
-            L.append("  %s - %s%s" % (label, i["name"], note))
+            L.append("  %s - %s - order created" % (label, i["name"]))
+        for i in earlier:
+            label = i["case_number"] or "(no case number)"
+            L.append("  %s - %s - already ordered earlier, nothing new created"
+                     % (label, i["name"]))
         if failed:
             L.append("")
             L.append("NOT created - these need attention:")
@@ -812,8 +905,9 @@ def build_recipient_digests(file_name, deliveries, started):
         L.append("File: %s" % file_name)
         L.append("Run:  %s" % started)
         L.append("")
-        L.append("This message confirms the order was created. It contains no")
-        L.append("verification results - review those in the Truv dashboard.")
+        L.append("This message lists what happened to each of your cases. It")
+        L.append("contains no verification results - review those in the Truv")
+        L.append("dashboard.")
         out.append((addr, subject, "\n".join(L)))
     return out
 
@@ -828,10 +922,19 @@ def process_file(path, truv, cfg, log, dry_run=False):
                "outcome": "", "problems": [], "errors": [], "deliveries": [],
                "fix_file": ""}
 
+    custom = {}
+    if cfg.has_section("columns"):
+        for col, theirs in cfg.items("columns"):
+            if theirs.strip():
+                custom[normalize_header(theirs)] = col
     try:
-        headers, rows, read_notes = read_rows(path)
+        headers, rows, read_notes = read_rows(path, custom)
         for note in read_notes:
             log("%s: %s" % (name, note))
+    except NotACsv as e:
+        summary["outcome"] = "unreadable"
+        summary["problems"].append(str(e))
+        return summary
     except (OSError, UnicodeDecodeError, csv.Error) as e:
         summary["outcome"] = "unreadable"
         summary["problems"].append(
@@ -864,7 +967,8 @@ def process_file(path, truv, cfg, log, dry_run=False):
         summary["outcome"] = "rejected"
         summary["problems"].append(
             "The file is missing required column(s): %s. Found: %s. "
-            "Run `python3 truv_intake.py template` for a correct blank file."
+            "Rename the column in your export, or map it in config.ini under "
+            "[columns] (for example: first_name = Applicant First)."
             % (", ".join(missing), ", ".join(headers) or "(none)"))
         return summary
 
@@ -961,19 +1065,34 @@ def process_file(path, truv, cfg, log, dry_run=False):
         if key in ledger and not is_truthy(row.get("force_new")):
             prev = ledger[key]
             summary["skipped"] += 1
-            log("row %d skipped - %s was already ordered on %s (order %s)"
-                % (i, key, prev.get("created_at", "?"), prev.get("order_id", "?")))
+            log("row %d skipped - already ordered on %s (order %s)"
+                % (i, prev.get("created_at", "?"), prev.get("order_id", "?")))
             record(row, i, "already done", prev.get("order_id", ""), "")
             continue
 
         to_send.append((i, row, key))
 
-    # One request for the whole file, however many rows it holds.
-    outcomes = submit_batch([build_payload(row, truv) for _, row, _ in to_send],
+    # One request for the whole file, however many rows it holds. The stamp
+    # gives force_new rows a fresh order reference (see order_number_for).
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    outcomes = submit_batch([build_payload(row, truv, stamp) for _, row, _ in to_send],
                             truv, log, rpm=rpm) if to_send else []
 
     for (i, row, key), outcome in zip(to_send, outcomes):
-        if outcome["ok"]:
+        if outcome["ok"] and outcome.get("status") == "existing":
+            # Truv already held an order with this reference, so NOTHING was
+            # created. Report it as skipped - never as created - and remember it.
+            oid = outcome["order_id"]
+            new_results.append({"key": key, "row": i, "status": "existing",
+                                "order_id": oid, "share_url": outcome.get("share_url", ""),
+                                "error": "already ordered at Truv - nothing new created"})
+            new_ledger.append({"key": key, "order_id": oid,
+                               "created_at": datetime.now().isoformat(timespec="seconds"),
+                               "source_file": name, "environment": truv["environment"]})
+            summary["skipped"] += 1
+            log("row %d already had a Truv order (%s) - nothing new created" % (i, oid))
+            record(row, i, "already done", oid, "")
+        elif outcome["ok"]:
             oid = outcome["order_id"]
             new_results.append({"key": key, "row": i, "status": "success",
                                 "order_id": oid, "share_url": outcome.get("share_url", ""),
@@ -998,6 +1117,7 @@ def process_file(path, truv, cfg, log, dry_run=False):
             if write_header:
                 w.writeheader()
             w.writerows(new_results)
+        make_private(results_path)
     ledger_append(new_ledger)
 
     # A file containing ONLY the rows that failed, with the reason attached. Fix
@@ -1018,21 +1138,28 @@ def process_file(path, truv, cfg, log, dry_run=False):
                      % (datetime.now().strftime("%Y%m%d-%H%M%S"),
                         os.path.splitext(os.path.basename(path))[0]))
         try:
+            # Only the columns this tool reads, plus the reason. Anything else in
+            # the export (SSN, date of birth...) is never copied into new files.
+            keep = [c for c in COLUMNS if c in headers]
             with open(fix_path, "w", newline="", encoding="utf-8") as fh:
-                w = csv.DictWriter(fh, fieldnames=headers + ["_error"])
+                w = csv.DictWriter(fh, fieldnames=keep + ["_error"])
                 w.writeheader()
                 for i in failed_rows:
-                    out = {k: rows[i - 1].get(k, "") for k in headers}
+                    out = {k: rows[i - 1].get(k, "") for k in keep}
                     out["_error"] = reasons.get(i, "")
                     w.writerow(out)
+            make_private(fix_path)
             summary["fix_file"] = os.path.basename(fix_path)
             log("wrote failed/%s - fix those rows and move the file into input/"
                 % os.path.basename(fix_path))
         except OSError as e:
             log("could not write the failed-rows file: %s" % e)
 
-    summary["outcome"] = ("ok" if summary["failed"] == 0
-                          else "partial" if summary["created"] else "all rows failed")
+    if summary["failed"] == 0:
+        summary["outcome"] = "ok" if summary["created"] else "already done"
+    else:
+        summary["outcome"] = ("partial" if summary["created"] or summary["skipped"]
+                              else "all rows failed")
     return summary
 
 
@@ -1089,12 +1216,10 @@ def submit_batch(payloads, truv, log, rpm=DEFAULT_RPM):
         elif result.get("status") == "failed":
             outcomes.append({"ok": False, "error": str(result.get("errors"))[:400]})
         else:
-            # "existing" means Truv already had an order with this reference - the
-            # order is usable, nothing new was created. The local ledger normally
-            # catches this first, so log it when it slips through.
-            if result.get("status") == "existing":
-                log("row matched an existing Truv order (%s)" % result.get("order_id", ""))
+            # "existing" means Truv already had an order with this reference and
+            # created nothing. process_file reports those as skipped.
             outcomes.append({"ok": True,
+                             "status": result.get("status", "created"),
                              "order_id": result.get("order_id", ""),
                              "share_url": result.get("share_url", "")})
     return outcomes
@@ -1107,6 +1232,7 @@ def move_file(path, dest_dir, log):
     dest = os.path.join(dest_dir, "%s__%s" % (stamp, base))
     try:
         os.replace(path, dest)
+        make_private(dest)
         side = os.path.splitext(path)[0] + ".results.csv"
         if os.path.exists(side):
             os.replace(side, os.path.join(
@@ -1218,6 +1344,11 @@ def scheduler_hint():
                 "      Start in:  %s\n"
                 "    Check \"Run whether user is logged on or not\"."
                 % (sys.executable, tool, HERE))
+    if platform.system() == "Darwin":
+        return ("Mac - run `%s truv_intake.py schedule` to install an hourly job\n"
+                "  (launchd) with the right paths filled in. Or use cron:\n"
+                "    30 * * * * cd %s && %s truv_intake.py run"
+                % (PY_CMD, HERE, sys.executable))
     return ("Mac / Linux - cron. Run `crontab -e` and add this line:\n"
             "    30 * * * * cd %s && %s truv_intake.py run\n"
             "  That runs at :30 past every hour. For once daily at 6:30am use "
@@ -1227,6 +1358,60 @@ def scheduler_hint():
 # =============================================================================
 # Commands
 # =============================================================================
+
+LAUNCHD_LABEL = "com.truv.intake"
+LAUNCHD_PLIST = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>%(label)s</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>%(python)s</string>
+        <string>%(tool)s</string>
+        <string>run</string>
+    </array>
+    <key>WorkingDirectory</key><string>%(here)s</string>
+    <key>StartCalendarInterval</key><dict><key>Minute</key><integer>30</integer></dict>
+    <key>StandardOutPath</key><string>%(log)s</string>
+    <key>StandardErrorPath</key><string>%(log)s</string>
+</dict>
+</plist>
+"""
+
+
+def cmd_schedule(args):
+    """Install the hourly macOS job with this machine's real paths."""
+    if platform.system() != "Darwin":
+        rule("Schedule the hourly run")
+        for line in scheduler_hint().splitlines():
+            say("  " + line)
+        return 0
+    from xml.sax.saxutils import escape
+    agents = os.path.expanduser("~/Library/LaunchAgents")
+    os.makedirs(agents, exist_ok=True)
+    os.makedirs(STATE_DIR, exist_ok=True)
+    dest = os.path.join(agents, LAUNCHD_LABEL + ".plist")
+    with open(dest, "w", encoding="utf-8") as fh:
+        fh.write(LAUNCHD_PLIST % {
+            "label": LAUNCHD_LABEL, "python": escape(sys.executable),
+            "tool": escape(os.path.join(HERE, "truv_intake.py")), "here": escape(HERE),
+            "log": escape(os.path.join(STATE_DIR, "launchd.log"))})
+    ok("wrote %s" % dest)
+    say("")
+    say("Turn it on with:")
+    say("    launchctl load %s" % dest)
+    say("Turn it off with:")
+    say("    launchctl unload %s" % dest)
+    say("")
+    warn("This runs while you are logged in to this Mac. For a server that runs "
+         "with nobody logged in, ask your IT team to install it as a LaunchDaemon.")
+    if any(seg in HERE for seg in ("/Documents", "/Desktop", "/Downloads")):
+        warn("This folder is inside Documents, Desktop or Downloads. macOS can block "
+             "scheduled jobs from reading those. Move the folder (for example to "
+             "your home folder) and run this command again.")
+    return 0
+
 
 def cmd_setup(args):
     rule("Truv Intake Tool %s - setup" % VERSION)
@@ -1326,10 +1511,11 @@ def cmd_setup(args):
                         % (cur["template_id"] or "account default")).strip() or cur["template_id"]
 
     rule("Step 4 of 4 - email notifications")
-    say("The tool emails a summary after every run. Silence then means something")
-    say("is broken. You can skip this and set it up later in config.ini.")
+    say("Optional. The tool can email a summary after every run, which tells you")
+    say("it is still working. It needs your mail server's details. You can skip")
+    say("this now and turn it on later in config.ini.")
     say("")
-    want_email = input("  Set up email now? (Y/n): ").strip().lower() != "n"
+    want_email = input("  Set up email now? (y/N): ").strip().lower() == "y"
 
     e = {"enabled": "false", "smtp_host": "REPLACE_ME", "smtp_port": "587",
          "smtp_user": "REPLACE_ME", "smtp_password": "REPLACE_ME",
@@ -1380,8 +1566,8 @@ def cmd_setup(args):
     say("")
     say("NEXT - three commands, in this order:")
     say("")
-    say("  1.  python3 truv_intake.py doctor      (checks everything)")
-    say("  2.  python3 truv_intake.py selftest    (creates one real test order)")
+    say("  1.  %s truv_intake.py doctor      (checks everything)" % PY_CMD)
+    say("  2.  %s truv_intake.py selftest    (creates one real test order)" % PY_CMD)
     say("  3.  schedule the hourly run:")
     say("")
     for line in scheduler_hint().splitlines():
@@ -1439,7 +1625,7 @@ def cmd_doctor(args):
         # operator's own claim back at them as though it had been checked.
         actual_env = truv["key_environment"]
         ok("Truv credentials are present (key environment: %s)"
-           % (actual_env.upper() if actual_env else "UNRECOGNISED"))
+           % (actual_env.upper() if actual_env else "UNRECOGNIZED"))
     if truv["environment"] not in ("sandbox", "production"):
         bad("environment must be exactly 'sandbox' or 'production' (found '%s')"
             % truv["environment"])
@@ -1570,7 +1756,7 @@ def cmd_selftest(args):
                 die("Refusing to create a production test order without confirmation.",
                     "Re-run with --yes if you really mean to.")
             if input("  Type CREATE to continue: ").strip() != "CREATE":
-                say("\n  Cancelled. Nothing was created.\n")
+                say("\n  Canceled. Nothing was created.\n")
                 return 1
 
     row = {"first_name": "Truv", "last_name": "Selftest",
@@ -1679,11 +1865,36 @@ def _run_files(paths, cfg, truv, log, started, move=True, dry_run=False):
                     log("could not send confirmation to %s: %s" % (addr, e))
 
         if move and not dry_run:
-            # Anything created means the file did its job; only a file that
-            # produced nothing goes to failed/.
-            dest = "processed" if s["created"] else "failed"
+            # failed/ means "a person needs to look at this": the whole file was
+            # rejected, or every row failed. A file whose rows were all already
+            # ordered did its job and goes to processed/ with its results.
+            dest = ("failed" if s["outcome"] in ("rejected", "unreadable", "all rows failed")
+                    else "processed")
             move_file(path, folder(cfg, dest), log)
     return summaries
+
+
+def purge_old_files(cfg, log):
+    """Optional retention: remove old files that hold applicant data."""
+    days = cfg.getint("safety", "retention_days", fallback=0)
+    if days <= 0:
+        return
+    cutoff = time.time() - days * 86400
+    removed = 0
+    for name in ("processed", "failed", "logs"):
+        d = folder(cfg, name)
+        if not os.path.isdir(d):
+            continue
+        for f in os.listdir(d):
+            p = os.path.join(d, f)
+            if os.path.isfile(p) and os.path.getmtime(p) < cutoff:
+                try:
+                    os.remove(p)
+                    removed += 1
+                except OSError as e:
+                    log("could not remove %s: %s" % (f, e))
+    if removed:
+        log("retention: removed %d file(s) older than %d days" % (removed, days))
 
 
 def cmd_run(args):
@@ -1711,8 +1922,10 @@ def cmd_run(args):
     try:
         in_dir = folder(cfg, "input")
         os.makedirs(in_dir, exist_ok=True)
+        purge_old_files(cfg, log)
+        names = os.listdir(in_dir)
         paths = sorted(
-            os.path.join(in_dir, f) for f in os.listdir(in_dir)
+            os.path.join(in_dir, f) for f in names
             if f.lower().endswith(".csv")
             and not f.lower().endswith(".results.csv")
             and not f.lower().endswith(".failed-rows.csv")
@@ -1720,6 +1933,19 @@ def cmd_run(args):
 
         summaries = _run_files(paths, cfg, truv, log, started,
                                move=True, dry_run=args.dry_run)
+
+        # Workbooks and other formats are never read, but they must not sit in
+        # input/ unnoticed either - say what to do and move them aside.
+        for f in sorted(names):
+            if f.lower().endswith((".xlsx", ".xls", ".xlsm", ".ods", ".numbers", ".txt")):
+                summaries.append({"file": f, "rows": 0, "created": 0, "failed": 0,
+                                  "skipped": 0, "outcome": "rejected", "deliveries": [],
+                                  "errors": [], "fix_file": "",
+                                  "problems": ["This is not a CSV file. Open it and use "
+                                               "Save As > CSV UTF-8 (Comma delimited), "
+                                               "then put the .csv in the input folder."]})
+                if not args.dry_run:
+                    move_file(os.path.join(in_dir, f), folder(cfg, "failed"), log)
 
         if not paths and not cfg.getboolean("email", "send_on_noop", fallback=True):
             log("nothing to do and send_on_noop is false; not emailing")
@@ -1738,8 +1964,12 @@ def cmd_run(args):
                                               truv["environment"]), log)
             except (smtplib.SMTPException, OSError) as e:
                 log("could not send the summary email: %s" % e)
+        problems = sum(s["failed"] for s in summaries) + sum(
+            1 for s in summaries if s["outcome"] in ("rejected", "unreadable"))
         log("run finished")
-        return 0
+        # Non-zero when anything needs a person, so a scheduler or monitoring
+        # agent sees failures without anyone reading the email.
+        return 2 if problems else 0
     finally:
         release_lock()
 
@@ -1860,7 +2090,7 @@ def cmd_webhook(args):
                 "Put the endpoint behind TLS and use its https:// address.")
         env_type = "prod" if truv["environment"] == "production" else "sandbox"
         events = [e.strip() for e in (args.events or
-                  "order-finalized,order-status-updated,task-status-updated").split(",")
+                  "order-finalized").split(",")
                   if e.strip()]
         payload = {"name": args.name or "Truv Intake Tool",
                    "webhook_url": args.url, "env_type": env_type, "events": events}
@@ -2027,6 +2257,7 @@ def main(argv=None):
     fe.add_argument("--out", help="Write to this file instead of the screen.")
 
     sub.add_parser("version", help="Print the tool version.")
+    sub.add_parser("schedule", help="Mac: install the hourly job. Other systems: show how.")
 
     args = p.parse_args(argv)
     if not args.command:
@@ -2039,7 +2270,8 @@ def main(argv=None):
     handlers = {"setup": cmd_setup, "doctor": cmd_doctor, "selftest": cmd_selftest,
                 "template": cmd_template, "validate": cmd_validate, "run": cmd_run,
                 "send": cmd_send, "direct": cmd_direct, "webhook": cmd_webhook,
-                "fetch": cmd_fetch, "version": cmd_version}
+                "fetch": cmd_fetch, "version": cmd_version,
+                "schedule": cmd_schedule}
     return handlers[args.command](args)
 
 

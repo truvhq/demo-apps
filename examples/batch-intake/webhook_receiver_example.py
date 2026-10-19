@@ -11,7 +11,7 @@ webhook receiver must do:
   4. Fetch the actual order data only after the order is finalized.
 
 It uses only the Python standard library so you can run it anywhere to prove
-the flow works. For production, port these four behaviours into whatever web
+the flow works. For production, port these four behaviors into whatever web
 framework you already use - do not run this as your production endpoint.
 
 --------------------------------------------------------------------------------
@@ -47,9 +47,32 @@ ACCESS_KEY = os.environ.get("TRUV_ACCESS_KEY", "")
 API_BASE = "https://prod.truv.com/v1"
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "received")
 
-# In production use a database or Redis. An in-memory set is lost on restart,
-# which would let a redelivered event be processed twice.
-SEEN_WEBHOOK_IDS = set()
+# Durable bookkeeping, kept as plain files so the example has no dependencies.
+# In production use a database table or a queue - the shape is the same:
+#   1. save the event to durable storage BEFORE answering Truv,
+#   2. mark it done only AFTER the work has succeeded,
+#   3. on restart, retry anything saved but not done.
+INBOX_DIR = os.path.join(OUT_DIR, "inbox")
+DONE_PATH = os.path.join(OUT_DIR, "processed_webhook_ids.txt")
+
+
+def is_done(wid):
+    try:
+        with open(DONE_PATH, encoding="utf-8") as fh:
+            return any(line.strip() == wid for line in fh)
+    except OSError:
+        return False
+
+
+def mark_done(wid):
+    os.makedirs(OUT_DIR, exist_ok=True)
+    with open(DONE_PATH, "a", encoding="utf-8") as fh:
+        fh.write(wid + "\n")
+
+
+def inbox_path(wid):
+    safe = "".join(c for c in str(wid) if c.isalnum() or c in "-_") or "event"
+    return os.path.join(INBOX_DIR, "%s.json" % safe)
 
 
 # =============================================================================
@@ -96,17 +119,21 @@ def api_get(path, query=None, raw=False):
 
 
 def fetch_and_store(order_id):
-    """Pull the finished order, save the JSON, and save any PDF reports."""
+    """Pull the finished order, save the JSON, and save any PDF reports.
+
+    Returns True only when everything was saved, so the caller knows whether
+    the event can be marked done or must be retried."""
+    complete = True
     os.makedirs(OUT_DIR, exist_ok=True)
     try:
         order = api_get("/orders/%s/" % order_id)
     except urllib.error.HTTPError as e:
         log("could not fetch order %s: HTTP %s %s"
             % (order_id, e.code, e.read().decode("utf-8", "replace")[:200]))
-        return
+        return False
     except urllib.error.URLError as e:
         log("could not reach Truv to fetch order %s: %s" % (order_id, e))
-        return
+        return False
 
     label = order.get("order_number") or order_id
     safe = "".join(c for c in str(label) if c.isalnum() or c in "-_") or order_id
@@ -138,6 +165,7 @@ def fetch_and_store(order_id):
             log("saved %s (%d KB)" % (pdf_path, len(data) // 1024))
         except (urllib.error.URLError, OSError) as e:
             log("could not download PDF %s: %s" % (url, e))
+            complete = False
 
     if not pdf_urls:
         log("order %s has no PDF report - the connection may not have completed"
@@ -157,6 +185,8 @@ def fetch_and_store(order_id):
             log("saved %s (%d KB)" % (voa_path, len(data) // 1024))
         except (urllib.error.URLError, OSError) as e:
             log("could not download assets report for %s: %s" % (label, e))
+            complete = False
+    return complete
 
 
 # =============================================================================
@@ -167,6 +197,22 @@ def log(msg):
     print("%s  %s" % (datetime.now().strftime("%H:%M:%S"), msg), flush=True)
 
 
+def process_saved(path):
+    """Run one saved event. Done only on success; otherwise it stays in the
+    inbox and is retried the next time the receiver starts."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            event = json.load(fh)
+        if handle_event(event) is False:
+            log("not complete - %s kept in the inbox for retry" % os.path.basename(path))
+            return
+        if event.get("webhook_id"):
+            mark_done(event["webhook_id"])
+        os.remove(path)
+    except Exception as e:  # never let a handler error crash the server
+        log("handler error (%s kept for retry): %s" % (os.path.basename(path), e))
+
+
 def handle_event(event):
     """Decide what to do with a verified event. Runs AFTER we replied 200."""
     etype = event.get("event_type")
@@ -175,8 +221,8 @@ def handle_event(event):
     if etype == "order-finalized":
         # The order has reached its terminal state. Nothing more will change.
         # THIS is the signal to pull results.
-        log("order %s finalized - fetching results" % event.get("order_number") or order_id)
-        fetch_and_store(order_id)
+        log("order %s finalized - fetching results" % (event.get("order_number") or order_id))
+        return fetch_and_store(order_id)
 
     elif etype == "order-status-updated":
         # Fires per suborder (one employer or one financial account), not once
@@ -228,24 +274,22 @@ class Handler(BaseHTTPRequestHandler):
             self._reply(400, "invalid json")
             return
 
-        # --- 3. Idempotency -------------------------------------------------
-        wid = event.get("webhook_id")
-        if wid and wid in SEEN_WEBHOOK_IDS:
+        # --- 3. Idempotency, durably --------------------------------------
+        wid = event.get("webhook_id") or ""
+        if wid and (is_done(wid) or os.path.exists(inbox_path(wid))):
             log("duplicate delivery %s - acknowledged, not reprocessed" % wid)
-            self._reply(200, "already processed")
+            self._reply(200, "already received")
             return
-        if wid:
-            SEEN_WEBHOOK_IDS.add(wid)
 
-        # --- 2. Answer fast, THEN do the slow work --------------------------
-        # Truv gives you 10 seconds. Fetching an order and a PDF can exceed
-        # that, so in production you would enqueue here and return immediately.
+        # --- 2. Save it, answer fast, THEN do the slow work -------------------
+        # Truv gives you 10 seconds, and a 200 tells Truv the event was
+        # delivered - so it must be on disk before you answer.
+        os.makedirs(INBOX_DIR, exist_ok=True)
+        saved = inbox_path(wid or datetime.now().strftime("evt-%Y%m%d%H%M%S%f"))
+        with open(saved, "w", encoding="utf-8") as fh:
+            json.dump(event, fh)
         self._reply(200, "ok")
-
-        try:
-            handle_event(event)
-        except Exception as e:  # never let a handler error crash the server
-            log("handler error: %s" % e)
+        process_saved(saved)
 
     def do_GET(self):
         # A health check so you can confirm the server is reachable.
@@ -270,6 +314,12 @@ def main():
         print("  Signature verification and result fetching will not work.\n")
         print("  export TRUV_CLIENT_ID=...")
         print("  export TRUV_ACCESS_KEY=...\n")
+
+    # Retry anything that was saved but not finished before the last stop.
+    if os.path.isdir(INBOX_DIR):
+        for f in sorted(os.listdir(INBOX_DIR)):
+            log("retrying saved event %s" % f)
+            process_saved(os.path.join(INBOX_DIR, f))
 
     print("Truv webhook receiver listening on http://0.0.0.0:%d" % port)
     print("  endpoint:     POST /webhooks/truv")

@@ -3,7 +3,14 @@
 Create Truv verification orders automatically, either from CSV files or directly
 from your own application.
 
-**You do not need to read any code.** There are three commands. Do them in order.
+**You do not need to read any code.** Setup is three commands - the double-click
+launcher runs the first two for you and offers the third.
+
+**What "quick" covers, and what it does not.** Getting a sandbox test order through
+is quick. Going live also needs things outside this kit: an export from your case
+system that runs on a schedule, a machine that stays on, someone who owns the API
+keys and the folders (they hold applicant names), and - only if you want results
+delivered into your systems - a developer.
 
 Requires **Python 3.8 or newer**. Nothing to install - the tool uses only what
 comes with Python.
@@ -41,7 +48,7 @@ The kit works the same on Windows, Mac and Linux. Only the first steps differ.
 | Double-click launcher | `START-HERE-windows.bat` | `START-HERE-mac-linux.command` | `START-HERE-mac-linux.command` |
 | Python command in this guide | `py -3` | `python3` | `python3` |
 | Open a terminal in this folder | Open the folder in File Explorer, click the address bar, type `cmd`, press Enter | Open **Terminal**, type `cd ` (with a space), drag the folder into the window, press Enter | In most file managers: right-click inside the folder → **Open in Terminal** |
-| Scheduler | Task Scheduler | cron, or `schedule-mac.plist` | cron |
+| Scheduler | Task Scheduler | `python3 truv_intake.py schedule`, or cron | cron |
 
 Every command below is written with `python3`. **On Windows, type `py -3`
 instead** - for example `py -3 truv_intake.py doctor`.
@@ -57,7 +64,8 @@ scripts downloaded from the internet, and the launchers are not signed.
   info → Run anyway**. Or open a terminal in this folder and type
   `START-HERE-windows.bat`.
 
-Either way you end up in the same place: `setup` starts and asks for your keys.
+Either way you end up in the same place: `setup` asks for your keys, then the
+launcher runs `doctor` and offers to run `selftest`.
 
 ---
 
@@ -102,18 +110,18 @@ looks like this:
 30 * * * * cd /path/to/this/folder && /usr/bin/python3 truv_intake.py run
 ```
 
-**Mac, alternative to cron** - `schedule-mac.plist` in this folder is a
-ready-made macOS scheduled job (launchd). Open it in a text editor, replace every
-`/path/to/this/folder` with this folder's path, then run:
+**Mac, alternative to cron** - run:
 
 ```bash
-cp schedule-mac.plist ~/Library/LaunchAgents/com.truv.intake.plist
-launchctl load ~/Library/LaunchAgents/com.truv.intake.plist
+python3 truv_intake.py schedule
 ```
 
-It runs at :30 past every hour while you are logged in. If this folder is inside
+It writes a macOS scheduled job (launchd) with this machine's real paths filled
+in and prints the one command that turns it on. It runs at :30 past every hour
+**while you are logged in**. For a server that runs with nobody logged in, your IT
+team installs it as a LaunchDaemon instead. If this folder is inside
 **Documents**, **Desktop** or **Downloads**, macOS may block scheduled jobs from
-reading it. Keep the folder somewhere else, such as your home folder.
+reading it - keep the folder somewhere else, such as your home folder.
 
 **Windows** - Task Scheduler → Create Task → Trigger: Daily, repeat every 1
 hour → Action: *Start a program* → the program is your `python.exe`, the
@@ -122,6 +130,10 @@ whether user is logged on or not**.
 
 **You are done.** From here on, staff drop CSV files into `input/` and the tool
 does the rest.
+
+**Exit codes, for schedulers and monitoring:** `0` means everything went through
+or was already done. `2` means at least one row failed or a file was rejected -
+look in `failed/`. `1` means the tool could not run at all.
 
 ---
 
@@ -157,15 +169,22 @@ Two guarantees worth knowing:
 - **One bad row never blocks the rest.** The good rows are sent; the bad ones come
   back in a small file you can fix and drop straight back into `input/`. Only the
   rows you fix get sent - the ones already created are not repeated.
-- **The same applicant is never ordered twice by accident.** The tool remembers
-  everyone it has submitted, in `state/ledger.csv`, keyed on the **person and the
-  case** - not the case alone. Re-dropping the same file, or a renamed copy,
+- **The same applicant is not ordered twice by accident.** The tool keeps a list
+  of everyone it has submitted, in `state/ledger.csv`, keyed on the **person and
+  the case** - not the case alone. Re-dropping the same file, or a renamed copy,
   creates nothing new.
+  - **This works best when every row has a `case_number`.** Truv also checks the
+    case-based order reference, so a repeat is caught even if the ledger is lost.
+    Rows without a case number are matched on name, email and phone in the
+    ledger only.
   - A household sharing one `case_number` is several applicants, and each one
     gets their own order.
   - Repeat verification for the same person is legitimate - a redetermination, a
-    retry, an expired order. Put `yes` in a `force_new` column on that row and it
-    goes through.
+    retry, an expired order. Put `yes` in a `force_new` column on that row and a
+    **new order** is created, with the date and time added to its reference
+    (for example `CASE-1001-Maria-Lopez-R20261019153000`).
+  - If Truv already has an order with a row's reference, nothing new is created
+    and the row is reported as **already ordered**, never as created.
 
 ### Fixing rows that failed
 
@@ -179,9 +198,10 @@ James,Nguyen,CASE-4472,not-an-email,email is not a valid email address
 ,NoFirst,CASE-4474,x@example.com,missing first_name
 ```
 
-Fix the values, then move the file into `input/`. Only those rows are sent. Safe
-to repeat: the tool remembers what it has already created, and Truv also ignores
-an order reference it has seen before.
+It holds only the columns this tool reads, plus the reason - any other columns in
+your export are not copied. Fix the values, then move the file into `input/`.
+Only those rows are sent. Safe to repeat: the tool remembers what it has already
+created, and Truv also recognizes an order reference it has seen before.
 
 ---
 
@@ -195,34 +215,57 @@ instructions rather than half-sent - split it across runs.
 |---|---|---|
 | `first_name` | **Yes** | Applicant first name |
 | `last_name` | **Yes** | Applicant last name |
-| `case_number` | No | Your case ID. Becomes the order reference and the duplicate key. **Strongly recommended.** |
+| `case_number` | No | Your case ID. Becomes the order reference and the duplicate key. **Strongly recommended** - see above. |
 | `email` | No | Applicant email. If you fill this in, **Truv emails the applicant.** Leave blank if you don't want that. |
 | `phone` | No | Any format - `(415) 555-4193` is fine. Reduced to 10 digits. |
 | `staff_name` | No | Staff member who owns the order |
 | `staff_email` | No | Staff member who owns the order - receives Truv's order notifications |
 | `cc_emails` | No | Extra people to copy. Separate several with `;`. Maximum 15. |
-| `force_new` | No | Put `yes` here to create an order even if this applicant was sent before - redeterminations, retries, expired orders. |
+| `force_new` | No | Put `yes` here to create a new order even if this applicant was sent before - redeterminations, retries, expired orders. |
 
-Need a blank one? `python3 truv_intake.py template`
+Need a blank one? `python3 truv_intake.py template`. The template has two sample
+rows with `example.com` addresses so you can see the format - **delete them**.
+The tool refuses any row with an `example.com`, `example.org` or `example.net`
+address, so a forgotten sample row is never sent.
 
-**You do not need to reformat your export.** The tool handles what real case
-systems and Excel actually produce:
+**Column names.** Case, spaces and hyphens are ignored (`First_Name`, `LAST NAME`
+and `first-name` all match). These common alternatives are also recognized:
+
+| Column | Also accepted |
+|---|---|
+| `first_name` | First, FirstName, FName, Given Name |
+| `last_name` | Last, LastName, LName, Surname, Family Name |
+| `case_number` | Case, Case ID, Case No, Case Num, Case #, CaseNumber |
+| `email` | Email Address, E-mail |
+| `phone` | Phone Number, Mobile, Cell, Telephone |
+| `staff_email` / `staff_name` | Worker Email / Worker Name, Caseworker Email / Caseworker Name |
+
+If your export uses other names, map them in `config.ini` under `[columns]`
+instead of changing the export:
+
+```
+[columns]
+first_name = Applicant First
+case_number = Program Case Ref
+```
+
+The tool also handles what Excel and case systems produce:
 
 | Your export | What happens |
 |---|---|
-| Column names cased differently - `First_Name`, `LAST NAME`, `first-name` | Matched anyway. Case, spaces and hyphens are ignored. |
 | Semicolon or tab separated (Excel does this on many locales) | Detected and read. The run log says which separator it used. |
 | Saved as plain "CSV (Comma delimited)" on Windows | Read as cp1252, so accented names survive. |
 | Windows CRLF line endings, or a UTF-8 BOM | Handled. |
 | Blank rows left behind after clearing cells | Ignored silently. They are not reported as errors. |
-| Extra columns you use internally (SSN, DOB, county) | Ignored. Only the columns above are read. |
+| Saved as "Unicode Text" / UTF-16 | Read. |
+| Extra columns you use internally (SSN, DOB, county) | Not sent and not copied into any file the tool writes. Your original file is moved into `processed/` or `failed/` as it is. |
 
-Two things it will refuse, because guessing would be worse than stopping:
+Things it will refuse, because guessing would be worse than stopping:
 
 - **Two columns with the same name.** Only one could be used, so the values sent
   might not be the ones you meant. Remove the duplicate and re-export.
-- **A file saved as "Unicode Text" or an actual `.xlsx` renamed to `.csv`.**
-  Re-save it as CSV.
+- **An Excel workbook** - an `.xlsx` in the input folder, or one renamed to
+  `.csv`. The run says so and moves it to `failed/`. Re-save it as CSV UTF-8.
 
 ---
 
@@ -239,14 +282,17 @@ time, on anything.
 
 ## The emails
 
+Email is **optional and off until you set it up**, because it needs your mail
+server's details. When it is on, the tool connects to your mail server as well as
+to Truv, and it checks the server's TLS certificate.
+
 **Run summary** - after every run, to the addresses in `to_addrs`:
 
 - `Truv order intake - 12 created, 0 failed, 0 rejected (2026-07-31 14:30:00)`
 - `Truv order intake - ran, nothing to do (2026-07-31 15:30:00)`
 
-The "nothing to do" message matters. It means **silence is the alarm** - if the
-summaries stop arriving, the scheduler or the machine is down. Check the newest
-file in `logs/`.
+The "nothing to do" message matters: if the summaries stop arriving, the
+scheduler or the machine is down. Check the newest file in `logs/`.
 
 **Per-staff confirmation** - after each file, every `staff_email` and CC gets one
 email listing only their own lines and whether each became an order. It contains
@@ -257,9 +303,8 @@ with `send_row_confirmations = false`.
 
 ## Getting results back
 
-By default nothing comes back to you: completed verifications are reviewed in
-the Truv dashboard, and nothing sensitive is stored on your machine. If that is
-how your staff work, you can stop here.
+By default no verification results come back to you: completed verifications are
+reviewed in the Truv dashboard. If that is how your staff work, you can stop here.
 
 If you want results delivered into your own system, that needs a **webhook** -
 a URL on your servers that Truv calls when an order finishes. See the separate
@@ -385,10 +430,11 @@ saves everyone time when something breaks at 6am.
 | Truv owns | You own |
 |---|---|
 | The API this tool calls, and telling you before it changes | The machine or server the tool runs on |
-| The tool's own logic and these guides | The scheduler - cron or Windows Task Scheduler |
+| The tool's own logic and these guides | The scheduler - cron, launchd or Windows Task Scheduler |
 | Verification data, once an order exists | The export that produces the CSV |
 | | Your mail server, and the account the tool sends from |
 | | Folder permissions, disk space, and the Python install |
+| | How long files that hold applicant names are kept (`retention_days`) |
 
 **Diagnosing which side a failure is on.** Run `python3 truv_intake.py doctor`
 first - it checks credentials, folder access, Truv connectivity and email
@@ -397,19 +443,25 @@ Every error message names the thing to check. If `doctor` passes and orders are
 still not appearing, that is ours; if it fails on folders, email or the
 scheduler, that is yours.
 
-**Version and change management.** Every request this tool makes is stamped with
-its version, so Truv can see which accounts are running which build and give
-notice before anything in the API changes underneath you. Two things you can do
-to help:
+**Version.** This is version 2.2. Every request the tool makes carries its
+version in the `User-Agent` header. Two things you can do to help:
 
 - Run `python3 truv_intake.py version` and include the output in any support
   request.
-- Do not edit `truv_intake.py`. If you need different behaviour, ask - a local
+- Do not edit `truv_intake.py`. If you need different behavior, ask - a local
   fork is invisible to us and cannot be supported.
 
-**What is deliberately not automatic.** The tool does not upgrade itself, does
-not phone home for configuration, and does not send anything except the orders
-you put in the file. Nothing changes on your server without you doing it.
+**What the tool talks to.** Truv's API over HTTPS, and - only if you turn email
+on - your own mail server. It does not upgrade itself or fetch configuration from
+anywhere. Nothing changes on your server without you doing it.
+
+**What it keeps on your machine.** The tool writes files that contain applicant
+names: the ledger (`state/ledger.csv`), the processed and failed copies of your
+files, per-file `.results.csv` files (with the applicant's verification link),
+and the logs. On Mac and Linux these are readable only by the account that runs
+the tool. On Windows, restrict the folder to that account. Set `retention_days`
+in `config.ini` to delete old copies and logs automatically - the ledger is
+always kept, because it is what prevents duplicate orders.
 
 ---
 
@@ -422,13 +474,17 @@ you put in the file. Nothing changes on your server without you doing it.
 | `HTTP 401` or `HTTP 403` | Wrong keys. Re-copy both values from the dashboard, or re-run `setup`. |
 | `config.ini says environment = ...` | The `environment` line disagrees with the key you pasted. Make them match; the key is what actually decides. |
 | A file went to `failed/` | Open the summary email. It lists every bad row. Fix and re-drop. |
-| "already ordered" messages | Working as intended - that case was submitted before. |
+| "already ordered" messages | Working as intended - that applicant was submitted before. Use `force_new` for a deliberate repeat. |
+| Exit code `2` from the scheduler | Some rows failed or a file was rejected. Look in `failed/`. |
 | Nothing happens at all | Run `python3 truv_intake.py doctor`. |
 
 Need help? Send your Truv contact:
 
 - the file from `failed/` and its `.results.csv`
 - the newest file from `logs/`
+
+**These contain applicant names.** Remove or replace them before sending, or
+share through a channel your organization approves for applicant data.
 
 **Never send your `config.ini` or your API keys.** Nobody at Truv needs them.
 
@@ -441,14 +497,13 @@ Need help? Send your Truv contact:
 | `truv_intake.py` | The program. This is the only file you run. |
 | `config.ini` | Your settings and keys. Created by `setup`. **Contains secrets.** |
 | `config.ini.example` | A blank reference copy. |
-| `orders_template.csv` | A blank CSV with the right columns. |
+| `orders_template.csv` | The right columns, with two sample rows to delete. |
 | `direct_example.py` | Reference implementation for the direct pattern. |
 | `webhook_receiver_example.py` | Working webhook receiver you can run and test. |
 | `START-HERE-windows.bat` | Double-click launcher for Windows. |
 | `START-HERE-mac-linux.command` | Double-click launcher for Mac and Linux. |
-| `schedule-mac.plist` | Ready-made macOS scheduled job (optional alternative to cron). |
 | `input/` | Drop CSVs here. |
-| `processed/` `failed/` | Where files land afterwards. |
+| `processed/` `failed/` | Where files land afterwards. Contain applicant names. |
 | `logs/` | One log per day. |
 | `state/` | The duplicate-protection ledger. **Do not delete.** |
 
