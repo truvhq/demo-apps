@@ -64,7 +64,28 @@ function GuideTile({ guide, index }) {
  */
 export function DemoHub({ trail, back, eyebrow, title, lead, items, guides = PLACEHOLDER_GUIDES,
                           filters, section, heroExtra }) {
-  const [filter, setFilter] = useState('all');
+  // The filter lives in the URL (#filter=<industry-id>) so a filtered view can
+  // be linked and shared. Unknown ids fall back to All.
+  const validIds = new Set((filters || []).map(f => f.id));
+  const fromHash = () => {
+    const m = /^#filter=([\w-]+)/.exec(window.location.hash);
+    return m && validIds.has(m[1]) ? m[1] : 'all';
+  };
+  const [filter, setFilterState] = useState(filters ? fromHash : 'all');
+  const setFilter = (id) => {
+    setFilterState(id);
+    // replaceState: updates the shareable URL without adding a history entry
+    // per click or triggering the router.
+    const url = window.location.pathname + window.location.search + (id === 'all' ? '#' : `#filter=${id}`);
+    window.history.replaceState(null, '', url);
+  };
+  // A pasted link or a manual hash edit on the same page re-applies the filter.
+  useEffect(() => {
+    if (!filters) return;
+    const onHash = () => setFilterState(fromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   useEffect(() => {
     if (!section) return;

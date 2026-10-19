@@ -11,7 +11,8 @@
  *   updates window.location.hash and triggers a re-render cycle.
  *
  * Hash URL structure:
- *   #                                        -> Home (industry picker)
+ *   #                                        -> Home (every demo, industry filter chips)
+ *   #filter=public-sector                    -> Home with that industry's chip preselected
  *   #consumer-credit                         -> IndustryHub (Demos + Guides tiles)
  *   #consumer-credit/smart-routing           -> Demo intro screen
  *   #consumer-credit/smart-routing/bridge/id -> Demo active screen
