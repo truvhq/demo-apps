@@ -129,6 +129,8 @@ export function getBreadcrumbTrail() {
   const ind = INDUSTRIES.find(i => i.id === industry);
   if (!ind) return trail;
   trail.push({ label: ind.name, href: `#${ind.id}` });
+  // Public Sector groups its demos under a Demos section.
+  if (ind.id === 'public-sector') trail.push({ label: 'Demos', href: `#${ind.id}/demos` });
   const dem = ind.demos.find(d => d.id === demo);
   if (dem) trail.push({ label: dem.name, href: `#${ind.id}/${dem.id}` });
   return trail;
@@ -225,6 +227,10 @@ export function App() {
   // until they are migrated.
   const Landing = industry.id === 'public-sector' ? PublicSectorHub : IndustryPage;
   if (!route.demo) return <Landing key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
+  // Public Sector's two sections live at their own URLs so they can be linked.
+  if (industry.id === 'public-sector' && (route.demo === 'demos' || route.demo === 'guides')) {
+    return <PublicSectorHub key={`industry/${route.industry}/${route.demo}/${restartNonce}`} industry={industry} section={route.demo} />;
+  }
 
   const demoConfig = industry.demos.find(d => d.id === route.demo);
   if (!demoConfig) return <IndustryPage key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;

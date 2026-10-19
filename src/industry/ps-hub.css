@@ -79,3 +79,18 @@
 @media (prefers-reduced-motion: reduce) {
   .psh-tile, .psh-title, .psh-lead { animation:none; opacity:1; }
 }
+
+/* landing: two large section tiles */
+.psh-landing { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; padding-top:40px; padding-bottom:72px; }
+.psh-section { min-height:300px; padding:30px 30px 26px; }
+.psh-ic.big { width:52px; height:52px; border-radius:8px; }
+.psh-section-name { font-size:28px; font-weight:500; letter-spacing:-.02em; margin:0 0 10px; }
+.psh-section .psh-tile-desc { font-size:15px; max-width:44ch; }
+
+/* placeholder tiles: visible, not clickable */
+.psh-tile.is-soon { cursor:default; background:#fff; border-style:dashed; }
+.psh-tile.is-soon:hover { border-color:var(--ck-lighter-gray); box-shadow:none; }
+.psh-tile.is-soon:hover .psh-ic { background:var(--ck-lightest-gray); }
+.psh-tile.is-soon .psh-tile-name { color:var(--ck-dark-gray); }
+
+@media (max-width: 900px) { .psh-landing { grid-template-columns:1fr; } .psh-section { min-height:0; } }

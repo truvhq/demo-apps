@@ -53,7 +53,108 @@ function Tile({ demo, industryId, index }) {
   );
 }
 
-export function PublicSectorHub({ industry }) {
+// Guides are placeholders until the content is written. `ready: false` keeps
+// them visible but not clickable, so nobody lands on an empty page.
+const GUIDES = [
+  { id: 'best-practices', name: 'Best practices', icon: 'shieldCheck',
+    desc: 'How agencies set up verification for the best applicant experience and fewest manual reviews.', ready: false },
+  { id: 'faq', name: 'FAQ', icon: 'search',
+    desc: 'Answers to the questions caseworkers, IT teams and program staff ask most.', ready: false },
+  { id: 'scenarios', name: 'Scenarios', icon: 'users',
+    desc: 'Worked examples for real situations - households, recertification, applicants with no payroll account.', ready: false },
+];
+
+function SectionTile({ href, icon, name, desc, count, index }) {
+  const Icon = Icons[icon];
+  return (
+    <a class="psh-tile psh-section" href={href} style={{ '--i': index }}>
+      <div class="psh-tile-top">
+        <span class="psh-ic big" aria-hidden="true">{Icon && <Icon size={24} />}</span>
+        <span class="psh-mode">{count}</span>
+      </div>
+      <h2 class="psh-section-name">{name}</h2>
+      <p class="psh-tile-desc">{desc}</p>
+      <span class="psh-open">Open <span class="arr" aria-hidden="true">→</span></span>
+    </a>
+  );
+}
+
+function GuideTile({ guide, index }) {
+  const Icon = Icons[guide.icon];
+  return (
+    <div class="psh-tile is-soon" style={{ '--i': index }} aria-disabled="true">
+      <div class="psh-tile-top">
+        <span class="psh-ic" aria-hidden="true">{Icon && <Icon size={20} />}</span>
+        <span class="psh-mode">Coming soon</span>
+      </div>
+      <h3 class="psh-tile-name">{guide.name}</h3>
+      <p class="psh-tile-desc">{guide.desc}</p>
+    </div>
+  );
+}
+
+function Hero({ industry, back, title, lead }) {
+  return (
+    <section class="psh-hero">
+      <div class="psh-wrap">
+        <a href={back.href} class="psh-back"><Icons.arrowLeft size={14} /> {back.label}</a>
+        <div class="psh-eyebrow">Public Sector</div>
+        <h1 class="psh-title">{title}</h1>
+        <p class="psh-lead">{lead}</p>
+      </div>
+    </section>
+  );
+}
+
+export function PublicSectorHub({ industry, section }) {
+  const base = `#${industry.id}`;
+  const trail = [{ label: industry.name, href: base }];
+  if (section === 'demos') trail.push({ label: 'Demos', href: `${base}/demos` });
+  if (section === 'guides') trail.push({ label: 'Guides', href: `${base}/guides` });
+
+  if (!section) {
+    return (
+      <div class="psh">
+        <Header trail={trail} sticky />
+        <Hero industry={industry} back={{ href: '#', label: 'All industries' }}
+              title="Verify income and employment for benefits" lead={industry.desc} />
+        <main class="psh-wrap psh-landing">
+          <SectionTile href={`${base}/demos`} icon="sparkles" name="Demos" index={0}
+                       count={`${industry.demos.length} demos`}
+                       desc="See verification working in the flows agencies use - applicant self-service, caseworker requests, bulk intake and document processing." />
+          <SectionTile href={`${base}/guides`} icon="fileText" name="Guides" index={1}
+                       count={`${GUIDES.length} guides`}
+                       desc="Best practices, answers to common questions, and worked scenarios for planning an implementation." />
+        </main>
+      </div>
+    );
+  }
+
+  if (section === 'guides') {
+    return (
+      <div class="psh">
+        <Header trail={trail} sticky />
+        <Hero industry={industry} back={{ href: base, label: 'Public Sector' }}
+              title="Guides" lead="Reference material for planning and running verification in a benefits program." />
+        <main class="psh-wrap psh-groups">
+          <section class="psh-group">
+            <div class="psh-group-head">
+              <h2 class="psh-group-label">Plan and run</h2>
+              <p class="psh-group-desc">Placeholders for now - content is being written.</p>
+            </div>
+            <div class="psh-tiles">
+              {GUIDES.map((g, i) => <GuideTile key={g.id} guide={g} index={i} />)}
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  return <DemosSection industry={industry} trail={trail} />;
+}
+
+function DemosSection({ industry, trail }) {
   const byId = Object.fromEntries(industry.demos.map(d => [d.id, d]));
   // Anything registered but not placed in a group still shows, so a new demo
   // is never hidden by this page.
@@ -65,15 +166,9 @@ export function PublicSectorHub({ industry }) {
 
   return (
     <div class="psh">
-      <Header trail={[{ label: industry.name, href: `#${industry.id}` }]} sticky />
-      <section class="psh-hero">
-        <div class="psh-wrap">
-          <a href="#" class="psh-back"><Icons.arrowLeft size={14} /> All industries</a>
-          <div class="psh-eyebrow">Public Sector</div>
-          <h1 class="psh-title">Verify income and employment for benefits</h1>
-          <p class="psh-lead">{industry.desc} Pick the way your agency works today.</p>
-        </div>
-      </section>
+      <Header trail={trail} sticky />
+      <Hero industry={industry} back={{ href: `#${industry.id}`, label: 'Public Sector' }}
+            title="Demos" lead="Pick the way your agency works today. Each demo runs on Truv's sandbox, except the walkthrough, which needs no keys." />
 
       <main class="psh-wrap psh-groups">
         {groups.map(g => (
