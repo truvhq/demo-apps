@@ -8,6 +8,7 @@ const DEMO_ICONS = {
   'documents': Icons.upload,
   'customer-portal': Icons.users,
   'verifier-portal': Icons.shieldCheck,
+  'batching': Icons.layers,
   'smart-routing': Icons.shuffle,
   'bank-income': Icons.bankBuilding,
   'payroll-income': Icons.briefcase,
