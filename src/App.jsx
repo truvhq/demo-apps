@@ -212,7 +212,12 @@ export function App() {
     }
   }
 
-  if (forceConfigure || !session.authenticated) return <ConfigureScreen onSubmit={session.submit} ssoError={ssoError} />;
+  if (forceConfigure) return <ConfigureScreen onSubmit={session.submit} ssoError={ssoError} />;
+
+  // Home and industry pages are browsable without signing in - they make no API
+  // calls. Sign-in is asked for only when a visitor opens a live demo, and the
+  // hash is unchanged, so after signing in they land in the demo they picked.
+  const signIn = <ConfigureScreen onSubmit={session.submit} ssoError={ssoError} />;
 
   // Routing logic: progressively resolve industry, then demo, then screen.
   // At each level, fall back to the parent view if no match is found.
@@ -232,6 +237,8 @@ export function App() {
 
   const demoConfig = industry.demos.find(d => d.id === route.demo);
   if (!demoConfig) return <Landing key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
+
+  if (!session.authenticated) return signIn;
 
   // Render the matched demo component with screen and param props.
   const Component = demoConfig.component;
