@@ -6,13 +6,13 @@
  *
  * DATA FLOW:
  * Browser (hash change) -> App component (parseHash) -> route state ->
- *   renders Home, IndustryPage, or a specific Demo component.
+ *   renders Home, an industry page (IndustryHub / PublicSectorHub), or a Demo.
  * Demo components call navigate() to transition between screens, which
  *   updates window.location.hash and triggers a re-render cycle.
  *
  * Hash URL structure:
  *   #                                        -> Home (industry picker)
- *   #consumer-credit                         -> IndustryPage (list of demos)
+ *   #consumer-credit                         -> IndustryHub (Demos + Guides tiles)
  *   #consumer-credit/smart-routing           -> Demo intro screen
  *   #consumer-credit/smart-routing/bridge/id -> Demo active screen
  *
@@ -24,7 +24,6 @@
 // Imports: Preact hooks, page-level components, and all demo components.
 import { useState, useEffect } from 'preact/hooks';
 import { Home } from './Home.jsx';
-import { IndustryPage } from './IndustryPage.jsx';
 import { ConfigureScreen } from './components/ConfigureScreen.jsx';
 import { useSession } from './hooks/useSession.js';
 import { hasCallbackParams, handleCallback, getIdToken } from './auth/auth0Client.js';
@@ -37,6 +36,7 @@ import { CustomerPortalDemo } from './demos/CustomerPortal.jsx';
 import { PSDocumentProcessingDemo } from './demos/PSDocumentProcessing.jsx';
 import { BatchingWalkthrough } from './demos/Batching.jsx';
 import { PublicSectorHub } from './industry/PublicSectorHub.jsx';
+import { IndustryHub } from './industry/IndustryHub.jsx';
 import { SmartRoutingDemo } from './demos/SmartRouting.jsx';
 import { BankIncomeDemo } from './demos/BankIncome.jsx';
 import { PayrollIncomeDemo } from './demos/PayrollIncome.jsx';
@@ -221,17 +221,17 @@ export function App() {
   const industry = INDUSTRIES.find(i => i.id === route.industry);
   if (!industry) return <Home />;
 
-  // Public Sector uses the grouped tile hub; other industries keep the list
-  // until they are migrated.
-  const Landing = industry.id === 'public-sector' ? PublicSectorHub : IndustryPage;
+  // Every industry page uses the flat Demos + Guides layout. Public Sector has
+  // its own wrapper for use-case labels and ordering.
+  const Landing = industry.id === 'public-sector' ? PublicSectorHub : IndustryHub;
   if (!route.demo) return <Landing key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
-  // Public Sector's section links scroll to the Demos or Guides section.
-  if (industry.id === 'public-sector' && (route.demo === 'demos' || route.demo === 'guides')) {
-    return <PublicSectorHub key={`industry/${route.industry}/${route.demo}/${restartNonce}`} industry={industry} section={route.demo} />;
+  // #<industry>/demos and /guides scroll to that section of the industry page.
+  if (route.demo === 'demos' || route.demo === 'guides') {
+    return <Landing key={`industry/${route.industry}/${route.demo}/${restartNonce}`} industry={industry} section={route.demo} />;
   }
 
   const demoConfig = industry.demos.find(d => d.id === route.demo);
-  if (!demoConfig) return <IndustryPage key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
+  if (!demoConfig) return <Landing key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
 
   // Render the matched demo component with screen and param props.
   const Component = demoConfig.component;
