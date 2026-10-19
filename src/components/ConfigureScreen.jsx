@@ -169,7 +169,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
   }
 
   return (
-    <div class="min-h-screen relative flex items-center justify-center px-6 overflow-hidden bg-[#fafafa]">
+    <div class="ck-theme ck-signin min-h-screen relative flex items-center justify-center px-6 overflow-hidden bg-[#f0f2f5]">
       {/* Soft background ambience: pastel radial blooms drifting behind the card. */}
       <div aria-hidden="true" class="pointer-events-none absolute inset-0">
         <div class="config-bloom-a absolute -top-32 left-1/2 w-[640px] h-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(94,92,230,0.13),transparent_60%)]" />
@@ -181,13 +181,13 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
         href="https://truv.com/contact-sales"
         target="_blank"
         rel="noreferrer"
-        class="absolute top-5 right-6 z-10 text-[13px] font-medium text-white bg-primary rounded-lg px-3.5 py-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.06)] hover:bg-primary-hover active:bg-primary-active hover:shadow-[0_2px_6px_rgba(94,92,230,0.25)] transition-all"
+        class="absolute top-5 right-6 z-10 text-[13px] font-medium text-white bg-primary rounded-lg px-3.5 py-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.06)] hover:bg-primary-hover active:bg-primary-active  transition-all"
       >
         Contact sales
       </a>
 
       <div class="relative w-full max-w-[420px] animate-slideUp">
-        <div class="gradient-ring relative bg-white border border-[#e8e8ed]/80 rounded-[20px] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_12px_40px_rgba(16,24,40,0.10),0_2px_8px_rgba(94,92,230,0.05)] px-8 py-9">
+        <div class="gradient-ring relative bg-white border border-[#e8e8ed]/80 rounded-[20px] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_12px_40px_rgba(16,24,40,0.10)] px-8 py-9">
           {/* Header */}
           <div class="flex flex-col items-center gap-3 mb-6">
             <BrandLogo height={44} />
@@ -211,7 +211,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
                 type="button"
                 onClick={handleSsoClick}
                 disabled={ssoBusy}
-                class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-lg shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary-hover active:bg-primary-active hover:-translate-y-px hover:shadow-[0_6px_16px_rgba(94,92,230,0.30)] active:translate-y-0 disabled:bg-[#d1d1d6] disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-150 inline-flex items-center justify-center gap-2"
+                class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-lg shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary-hover active:bg-primary-active hover:-translate-y-px hover:shadow-[0_6px_16px_rgba(27,28,31,0.15)] active:translate-y-0 disabled:bg-[#d1d1d6] disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-150 inline-flex items-center justify-center gap-2"
               >
                 {ssoBusy ? (
                   <>
@@ -258,7 +258,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
                 <button
                   type="submit"
                   disabled={busy || !clientId || !secret}
-                  class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-lg shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary-hover active:bg-primary-active hover:-translate-y-px hover:shadow-[0_6px_16px_rgba(94,92,230,0.30)] active:translate-y-0 disabled:bg-[#d1d1d6] disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-150"
+                  class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-lg shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary-hover active:bg-primary-active hover:-translate-y-px hover:shadow-[0_6px_16px_rgba(27,28,31,0.15)] active:translate-y-0 disabled:bg-[#d1d1d6] disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-150"
                 >
                   {busy ? (
                     <span class="inline-flex items-center gap-2">
@@ -305,9 +305,9 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
         {/* What you'll verify — a quiet preview of what the demos surface. */}
         <div class="flex items-center justify-center gap-2 mt-4">
           {[
-            { label: 'Income', dot: '#34c759' },
-            { label: 'Employment', dot: '#2C64E3' },
-            { label: 'Assets', dot: '#8b5cf6' },
+            { label: 'Income', dot: '#23DEFF' },
+            { label: 'Employment', dot: '#1B1C1F' },
+            { label: 'Assets', dot: '#7A828C' },
           ].map((chip, i) => (
             <span
               key={chip.label}

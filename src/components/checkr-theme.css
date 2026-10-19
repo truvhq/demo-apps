@@ -71,3 +71,9 @@
 .ck-theme .border-\[\#f5f5f7\] { border-color: #f0f2f5; }
 .ck-theme .hover\:text-\[\#ff3b30\]:hover { color: #cc2421; }
 .ck-theme .hover\:border-\[\#808080\]:hover { border-color: #474c52; }
+
+/* Sign-in screen: Checkr surfaces are flat - no colour blooms or animated
+   gradient ring (Brand Guidelines 1.0: no visual effects, cool grays only). */
+.ck-signin .config-bloom-a, .ck-signin .config-bloom-b { display: none; }
+.ck-signin .gradient-ring::before { display: none; }
+.ck-signin .gradient-ring { border-color: #d8dee5; border-radius: 8px; }
