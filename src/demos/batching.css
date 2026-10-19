@@ -22,8 +22,8 @@
   --line:#d8dee5; --line-2:#f0f2f5; --bg:#f0f2f5; --panel:#fff;
   --navy:#1b1c1f; --navy-2:#1b1c1f; --brand:#1b1c1f; --brand-soft:#f0f2f5;
   --gold:#1b1c1f; --good:#197d58; --mist:#f0f2f5;
-  --sans:'National 2','Helvetica Neue',Arial,sans-serif; --headline:'National 2 Narrow','Arial Narrow',Arial,sans-serif;
-  --display:'National 2 Narrow','Arial Narrow',Arial,sans-serif;
+  --sans:'National 2','Helvetica Neue',Arial,sans-serif; --headline:'National 2 Narrow','Helvetica Neue',Arial,sans-serif;
+  --display:'National 2 Narrow','Helvetica Neue',Arial,sans-serif;
   position:relative; display:flex; flex-direction:column;
   background:var(--bg); color:var(--ink); font-family:var(--sans);
   -webkit-font-smoothing:antialiased;

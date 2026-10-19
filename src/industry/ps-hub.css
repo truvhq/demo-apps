@@ -9,7 +9,7 @@
   --ck-black:#1b1c1f; --ck-dark-gray:#474c52; --ck-gray:#7a828c;
   --ck-lighter-gray:#d8dee5; --ck-lightest-gray:#f0f2f5; --ck-paper:#f0f2f5;
   --ck-aqua:#23deff; --ck-ease:cubic-bezier(.39,.575,.565,1);
-  --sans:'National 2','Helvetica Neue',Arial,sans-serif; --headline:'National 2 Narrow','Arial Narrow',Arial,sans-serif;
+  --sans:'National 2','Helvetica Neue',Arial,sans-serif; --headline:'National 2 Narrow','Helvetica Neue',Arial,sans-serif;
   min-height:100vh; background:#fff; color:var(--ck-black); font-family:var(--sans);
   -webkit-font-smoothing:antialiased;
 }
@@ -24,7 +24,7 @@
 .psh-eyebrow { font-size:10.5px; font-weight:700; letter-spacing:.16em; text-transform:uppercase;
   color:var(--ck-dark-gray); margin-bottom:14px; }
 .psh-title { font-size:44px; font-weight:500; line-height:1.08; letter-spacing:-.02em; margin:0 0 16px;
-  max-width:18ch; text-wrap:balance; animation:psh-in .4s var(--ck-ease) both; }
+  max-width:24ch; text-wrap:balance; animation:psh-in .4s var(--ck-ease) both; }
 .psh-lead { font-size:16.5px; line-height:1.6; color:var(--ck-dark-gray); margin:0; max-width:60ch;
   animation:psh-in .4s var(--ck-ease) .06s both; }
 
