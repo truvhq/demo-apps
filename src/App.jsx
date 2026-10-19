@@ -36,6 +36,7 @@ import { LOSDemo } from './demos/LOS.jsx';
 import { CustomerPortalDemo } from './demos/CustomerPortal.jsx';
 import { PSDocumentProcessingDemo } from './demos/PSDocumentProcessing.jsx';
 import { BatchingWalkthrough } from './demos/Batching.jsx';
+import { PublicSectorHub } from './industry/PublicSectorHub.jsx';
 import { SmartRoutingDemo } from './demos/SmartRouting.jsx';
 import { BankIncomeDemo } from './demos/BankIncome.jsx';
 import { PayrollIncomeDemo } from './demos/PayrollIncome.jsx';
@@ -220,7 +221,10 @@ export function App() {
   const industry = INDUSTRIES.find(i => i.id === route.industry);
   if (!industry) return <Home />;
 
-  if (!route.demo) return <IndustryPage key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
+  // Public Sector uses the grouped tile hub; other industries keep the list
+  // until they are migrated.
+  const Landing = industry.id === 'public-sector' ? PublicSectorHub : IndustryPage;
+  if (!route.demo) return <Landing key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
 
   const demoConfig = industry.demos.find(d => d.id === route.demo);
   if (!demoConfig) return <IndustryPage key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
