@@ -10,7 +10,7 @@ import { DASHBOARD_KEYS_URL } from '../config.js';
 const GITHUB_URL = 'https://github.com/truvhq/demo-apps/';
 
 // Shared button styling for the borderless (secondary) actions.
-const OUTLINE_BTN = 'text-[13px] font-medium text-[#000000] rounded-lg px-3 py-1.5 hover:bg-[#f5f5f7] active:bg-[#e8e8ed] transition-colors inline-flex items-center gap-1.5';
+const OUTLINE_BTN = 'text-[13px] font-medium text-[#474c52] rounded-[6px] px-3 py-1.5 hover:text-[#1b1c1f] hover:bg-[#f0f2f5] transition-colors duration-[400ms] inline-flex items-center gap-1.5';
 
 // External-link arrow appended to outbound links. Hidden on narrow screens to
 // save space; the caller passes the breakpoint that matches its own text label
@@ -84,7 +84,7 @@ export function HeaderActions({ githubInPanel = false }) {
         href="https://truv.com/contact-sales"
         target="_blank"
         rel="noreferrer"
-        class="ml-2 text-[13px] font-medium text-white bg-primary rounded-lg px-3 py-1.5 hover:bg-primary-hover active:bg-primary-active transition-colors whitespace-nowrap"
+        class="ml-2 text-[13px] font-medium text-white bg-[#1b1c1f] rounded-[6px] px-4 py-2 hover:bg-[#23deff] hover:text-[#1b1c1f] transition-colors duration-[400ms] whitespace-nowrap"
       >
         Contact sales
       </a>

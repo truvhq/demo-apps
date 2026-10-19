@@ -993,3 +993,8 @@
    scrolls instead, so the whole request and response stay readable. */
 .bt .wt-context > * { flex-shrink: 0; }
 .bt .wt-context { justify-content: safe center; }
+
+/* Shared site header sits above; this bar now carries only the walkthrough's
+   own controls (title, stage counter, skip, progress). */
+.bt .wt-top { height:46px; background:#f8f8f8; }
+.bt .wt-brand .partner { font-size:13px; font-weight:500; color:#1b1c1f; }

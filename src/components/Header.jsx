@@ -11,6 +11,7 @@
 import { Fragment } from 'preact';
 import { Icons } from './Icons.jsx';
 import { HeaderActions } from './HeaderActions.jsx';
+import { BrandLogo } from './BrandLogo.jsx';
 
 // Chevron separator drawn between breadcrumb segments.
 function Chevron() {
@@ -31,8 +32,8 @@ export function Breadcrumb({ trail = [] }) {
   return (
     <nav aria-label="Breadcrumb" class="flex items-center gap-2 min-w-0">
       {/* Logo is the implicit Home root of every breadcrumb */}
-      <a href="#" aria-label="Truv home" class="flex items-center shrink-0 hover:opacity-80 transition-opacity">
-        <Icons.truvLogo height={21} className="text-text" />
+      <a href="#" aria-label="Truv by Checkr home" class="flex items-center shrink-0 hover:opacity-80 transition-opacity">
+        <BrandLogo height={30} />
       </a>
       {/* Trail: hidden only on phones (<sm), where the row cannot physically
           fit it; the logo alone remains as the Home link. From sm up the FULL
@@ -64,7 +65,7 @@ export function Breadcrumb({ trail = [] }) {
                 // (no rigid floor) so that, once the leading crumbs are ellipses,
                 // it truncates cleanly with its own "…" instead of being
                 // hard-clipped by the container edge.
-                class={`text-[13px] font-medium text-muted hover:text-text transition-colors truncate ${isLast ? 'min-w-0' : 'shrink-[9999] min-w-[1.5rem]'}`}
+                class={`text-[13px] font-medium text-[#474c52] hover:text-[#1b1c1f] hover:underline decoration-2 underline-offset-[6px] transition-colors duration-[400ms] truncate ${isLast ? 'min-w-0' : 'shrink-[9999] min-w-[1.5rem]'}`}
               >
                 {seg.label}
               </a>
@@ -91,7 +92,7 @@ export function Breadcrumb({ trail = [] }) {
 //                  and the Dev-panel button here)
 export function Header({ trail, badge, sticky, githubInPanel, children }) {
   return (
-    <header class={`flex items-center h-12 bg-white/80 backdrop-blur-xl border-b border-border/40 ${sticky ? 'sticky top-0 z-10' : ''}`}>
+    <header class={`flex items-center h-14 bg-white border-b border-[#d8dee5] ${sticky ? 'sticky top-0 z-10' : ''}`}>
       {/* overflow-hidden: when the bar runs out of width the breadcrumb clips
           instead of painting over the action buttons (the logo is shrink-0). */}
       <div class="flex items-center gap-3 px-3 sm:px-6 flex-1 min-w-0 overflow-hidden">

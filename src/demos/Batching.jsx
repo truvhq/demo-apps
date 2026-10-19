@@ -11,6 +11,7 @@ import { useState, useEffect } from 'preact/hooks';
 // batching.css is self-contained (shell + animations) so this demo has no
 // dependency on any other demo's stylesheet and deploys on its own branch.
 import './batching.css';
+import { Header } from '../components/Header.jsx';
 
 /* ---------- shared bits ---------- */
 
@@ -683,10 +684,11 @@ export function BatchingWalkthrough({ screen }) {
 
   return (
     <div class="wt bt">
+      <Header trail={[{ label: 'Public Sector', href: '#public-sector' },
+                      { label: 'Batching', href: '#public-sector/batching' }]} />
       <header class="wt-top">
         <div class="wt-brand">
-          <span class="truv">truv</span><span class="rule" />
-          <span class="partner">Batch Order Intake<span class="dep">Public Sector</span></span>
+          <span class="partner">Batch Order Intake</span>
         </div>
         <div class="wt-step">
           <div class="k">Stage {s.n} / {STAGES.length.toString().padStart(2, '0')}</div>

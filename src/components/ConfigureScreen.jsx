@@ -10,6 +10,7 @@
  * the input value is cleared and the rest of the app loads.
  */
 import { useState } from 'preact/hooks';
+import { BrandLogo } from './BrandLogo.jsx';
 import { Icons } from './Icons.jsx';
 import { signIn, isSsoConfigured } from '../auth/auth0Client.js';
 import { DASHBOARD_KEYS_URL } from '../config.js';
@@ -189,7 +190,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
         <div class="gradient-ring relative bg-white border border-[#e8e8ed]/80 rounded-[20px] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_12px_40px_rgba(16,24,40,0.10),0_2px_8px_rgba(94,92,230,0.05)] px-8 py-9">
           {/* Header */}
           <div class="flex flex-col items-center gap-3 mb-6">
-            <Icons.truvLogo height={29} className="text-text" />
+            <BrandLogo height={44} />
             <h1 class="text-[22px] font-semibold tracking-[-0.025em] text-[#000000]">Personalize your demo</h1>
             <p class="text-[13px] text-[#808080] text-center leading-[1.55] max-w-[340px]">
               Add your Truv keys to run the demos on your own account. Real users, real API calls, live reports in your dashboard.
