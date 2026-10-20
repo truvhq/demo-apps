@@ -992,3 +992,14 @@
    scrolls instead, so the whole request and response stay readable. */
 .bt .wt-context > * { flex-shrink: 0; }
 .bt .wt-context { justify-content: safe center; }
+
+/* Final-stage preview fits the rail with no scrolling: the page image takes the
+   space left over after the header and the two-column "What's inside" list, and
+   shrinks to fit on shorter screens instead of pushing the rail into a scroll. */
+@media (min-width: 901px) {
+  .bt .wt-context.has-preview { overflow: hidden; }
+  .bt .wt-context.has-preview > .bt-prev { flex: 1 1 auto; min-height: 0; }
+  .bt-prev > .bt-prev-page { flex: 0 1 auto; min-height: 0; display: flex; }
+  .bt-prev-page img { width: auto; max-width: 100%; height: auto; max-height: 100%; object-fit: contain; object-position: top; margin: 0 auto; }
+}
+.bt-prev-list { display: grid; grid-template-rows: repeat(4, auto); grid-auto-flow: column; column-gap: 28px; }
