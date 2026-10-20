@@ -31,7 +31,6 @@
  * reveals rows on a timer, instead of trying to observe live transitions.
  *
  * Scaffolding: ./scaffolding/renewals-refresh.jsx
- * Diagrams:    ../diagrams/renewals-refresh.js
  *
  * WHAT TO COPY (for your own Truv integration):
  *   - refreshCase()        : POST to the order's own path to create a refresh
@@ -52,9 +51,6 @@ import { usePreviewIframe } from '../hooks/usePreviewIframe.js';
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { AssetsReport } from '../components/reports/AssetsReport.jsx';
 
-// --- Imports: diagrams ---
-import { RENEWALS_DIAGRAM, REFRESH_FORK_DIAGRAM } from '../diagrams/renewals-refresh.js';
-
 // --- Imports: scaffolding (caseload, guide steps, walkthrough stages, copy) ---
 import { CASELOAD, STEPS, WALKTHROUGH_STAGES, OUTCOME_DISPLAY, REASON_COPY } from './scaffolding/renewals-refresh.jsx';
 
@@ -69,13 +65,15 @@ const OUTCOME_POLL_MS = 3000;
 // Gap between revealing one resolved row and the next, so the divergence reads as
 // a sequence on screen instead of everything flipping at once.
 const REVEAL_STAGGER_MS = 900;
+// Truv rejects a refresh for a short while after Bridge finishes, because the order
+// reads complete before its connections are refresh-eligible. Retry instead of
+// asking the presenter to do it by hand.
+const REFRESH_RETRY_MS = 4000;
+const REFRESH_RETRY_MAX = 12;
+// After this many outcome polls with no result, say so instead of spinning silently.
+const SLOW_AFTER_POLLS = 60;
 
-// Attach the walkthrough's Mermaid definitions to the stages that render them.
-const STAGES = WALKTHROUGH_STAGES.map(s => {
-  if (s.kind === 'diagram' && s.name === 'Both products') return { ...s, diagram: RENEWALS_DIAGRAM };
-  if (s.name === 'The fork') return { ...s, forkDiagram: REFRESH_FORK_DIAGRAM };
-  return s;
-});
+const STAGES = WALKTHROUGH_STAGES;
 
 // --- Helper: small status pill used across the renewals and watch tables ---
 function StatusPill({ tone, children }) {
@@ -112,17 +110,18 @@ function CredentialChip({ label, value }) {
 function StuckAtSentCallout() {
   return (
     <div class="border border-[#C18D10]/30 bg-amber-50/60 rounded-xl p-4 text-[13px] leading-[1.55] text-[#000000]">
-      <div class="font-semibold mb-1">Why a failed refresh looks like a hang</div>
+      <div class="font-semibold mb-1">Why a failed refresh is easy to miss</div>
       <p class="text-[#5b5b60]">
-        The rows above that need re-authorization will <strong>never</strong> emit another{' '}
-        <code class="font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]">order-status-updated</code>.
-        Their order status stays <code class="font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]">sent</code> indefinitely,
-        because the task failed rather than the order changing state. The only signal is{' '}
+        Each applicant here has one connection. For the rows above that need re-authorization, no further{' '}
+        <code class="font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]">order-status-updated</code>{' '}
+        arrives and the order stays unfinished. The webhook that reports the failure is{' '}
         <code class="font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]">order-refresh-failed</code>,
         which carries the reason in its <code class="font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]">status</code> field.
-        Branch on that status: <code class="font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]">no_data</code> and{' '}
+        On an order with several employers, the connections that worked still send{' '}
+        <code class="font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]">completed</code>, so silence is the wrong thing to watch for.
+        Branch on the status: <code class="font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]">no_data</code> and{' '}
         <code class="font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]">unavailable</code> fire the same event but are not
-        credential problems and should not prompt anyone.
+        credential problems, so do not ask the applicant to do anything.
       </p>
     </div>
   );
@@ -146,6 +145,8 @@ export function RenewalsRefreshDemo() {
   const iframeRef = useRef(null);
   const completedRef = useRef(false);
   const revealQueueRef = useRef([]);
+  const pollCountRef = useRef({});
+  const runRef = useRef(0); // bumped on Start Over so a pending retry cannot touch the fresh state
 
   // Panel hook: sidebar (Guide / API / Bridge / Webhooks) + per-user polling.
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset: resetPanel } = usePanel();
@@ -211,38 +212,59 @@ export function RenewalsRefreshDemo() {
   }
 
   // --- Step 3: recertification. Refresh one applicant's existing connection. ---
+  // Returns true when a refresh order was created.
   async function refreshCase(c) {
-    if (!c.order || c.refresh) return;
+    if (!c.order || c.refresh) return false;
+    const run = runRef.current;
     setBusy(c.id);
     setError(null);
     try {
-      const resp = await fetch(`${API_BASE}/api/renewals/refresh/${encodeURIComponent(c.order.order_id)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ products: c.products }),
-      });
-      const data = await resp.json();
-      if (!resp.ok) {
+      for (let attempt = 0; ; attempt++) {
+        const resp = await fetch(`${API_BASE}/api/renewals/refresh/${encodeURIComponent(c.order.order_id)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ products: c.products }),
+        });
+        const data = await resp.json();
+        if (run !== runRef.current) return false;
+        if (resp.ok) {
+          patchCase(c.id, { refresh: data, outcome: { state: 'refreshing' }, revealed: false, waiting: false });
+          setBusy(null);
+          return true;
+        }
+        if (data.error === 'no_connections_yet' && attempt < REFRESH_RETRY_MAX) {
+          patchCase(c.id, { waiting: true });
+          await new Promise(r => setTimeout(r, REFRESH_RETRY_MS));
+          if (run !== runRef.current) return false;
+          continue;
+        }
+        patchCase(c.id, { waiting: false });
         // The per-order cap is its own signal, not a generic failure.
-        setError(data.error === 'refresh_cap_reached'
-          ? `${c.firstName} ${c.lastName}: ${data.message}`
-          : (data.error || 'Could not create the refresh order'));
+        const name = `${c.firstName} ${c.lastName}`;
+        setError(data.error === 'refresh_cap_reached' || data.error === 'no_connections_yet'
+          ? `${name}: ${data.message}`
+          : `${name}: ${data.error || 'Could not create the refresh order'}`);
         setBusy(null);
-        return;
+        return false;
       }
-      patchCase(c.id, { refresh: data, outcome: { state: 'refreshing' }, revealed: false });
     } catch (e) {
       console.error(e);
-      setError('Network error while refreshing.');
+      if (run === runRef.current) {
+        patchCase(c.id, { waiting: false });
+        setError('Network error while refreshing.');
+        setBusy(null);
+      }
+      return false;
     }
-    setBusy(null);
   }
 
-  // Refresh everyone who has a connection and has not been refreshed yet.
+  // Refresh everyone who has a connection and has not been refreshed yet. Only move
+  // on to the watch screen if at least one refresh exists to watch.
   async function refreshAll() {
     const targets = connected.filter(c => !c.refresh);
-    for (const c of targets) await refreshCase(c);
-    setScreen('watch');
+    let created = connected.some(c => c.refresh);
+    for (const c of targets) created = (await refreshCase(c)) || created;
+    if (created) setScreen('watch');
   }
 
   // --- Step 4: resolve outcomes. Server consults the webhook, then the refresh
@@ -251,6 +273,8 @@ export function RenewalsRefreshDemo() {
     const pending = cases.filter(c => c.refresh && (!c.outcome || c.outcome.state === 'refreshing'));
     if (!pending.length) return;
     await Promise.all(pending.map(async (c) => {
+      pollCountRef.current[c.id] = (pollCountRef.current[c.id] || 0) + 1;
+      if (pollCountRef.current[c.id] === SLOW_AFTER_POLLS) patchCase(c.id, { slow: true });
       try {
         const resp = await fetch(`${API_BASE}/api/renewals/outcome/${encodeURIComponent(c.refresh.order_id)}`);
         if (!resp.ok) return;
@@ -345,6 +369,9 @@ export function RenewalsRefreshDemo() {
   function resetDemo() {
     resetPanel();
     revealQueueRef.current = [];
+    pollCountRef.current = {};
+    runRef.current += 1;
+    setBusy(null);
     setCases(CASELOAD.map(c => ({ ...c, order: null, refresh: null, outcome: null, revealed: false })));
     setActive(null);
     setReports({});
@@ -389,13 +416,17 @@ export function RenewalsRefreshDemo() {
             <div class="mb-5 border border-red-200 bg-red-50 rounded-xl p-4 text-[13px] text-[#7f1d1d]">{error}</div>
           )}
 
-          {/* ---------------- Setup: certification day ---------------- */}
+          {/* ---------------- Setup: connect the applicants ---------------- */}
           {screen === 'setup' && (
             <>
-              <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2">Certification day</h2>
-              <p class="text-[15px] text-[#808080] leading-[1.5] mb-5">
-                Connect each applicant the way they would at intake. The credential decides what their
-                renewal does months later, so both outcomes are guaranteed rather than left to chance.
+              <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2">Connect the applicants</h2>
+              <p class="text-[15px] text-[#808080] leading-[1.5] mb-2">
+                Each applicant connects an employer or bank, the way they would at intake. Use the test
+                login shown on their row. The login decides what happens when the connection is refreshed
+                later, so you will see both outcomes.
+              </p>
+              <p class="text-[13px] text-[#808080] leading-[1.5] mb-5">
+                In the window that opens, finish the connection, then click <strong>Submit connected accounts</strong>.
               </p>
 
               <div class="border border-[#d2d2d7] rounded-xl overflow-hidden overflow-x-auto bg-white mb-5">
@@ -405,7 +436,7 @@ export function RenewalsRefreshDemo() {
                       <th class="text-left px-4 py-3">Applicant</th>
                       <th class="text-left px-4 py-3">Case</th>
                       <th class="text-left px-4 py-3">Connect to</th>
-                      <th class="text-left px-4 py-3">Sandbox credential</th>
+                      <th class="text-left px-4 py-3">Test login (sandbox)</th>
                       <th class="text-right px-4 py-3">Action</th>
                     </tr>
                   </thead>
@@ -450,7 +481,7 @@ export function RenewalsRefreshDemo() {
               <div class="flex flex-wrap items-center gap-3">
                 {!showOptional && (
                   <button class="px-4 py-2 text-[13px] font-medium border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] transition-colors" onClick={() => setShowOptional(true)}>
-                    Add a third case
+                    Add a third applicant
                   </button>
                 )}
                 <button
@@ -460,6 +491,9 @@ export function RenewalsRefreshDemo() {
                 >
                   {connected.length === 0 ? 'Connect at least one applicant' : `Continue with ${connected.length} connected`}
                 </button>
+                {connected.length === 0 && (
+                  <span class="text-[13px] text-[#808080]">Click Connect on a row to start.</span>
+                )}
               </div>
             </>
           )}
@@ -468,12 +502,12 @@ export function RenewalsRefreshDemo() {
           {screen === 'renewals' && (
             <>
               <div class="flex items-center gap-2 mb-2">
-                <span class="text-[11px] font-semibold uppercase tracking-wider text-[#C18D10] bg-amber-50 px-2 py-0.5 rounded">12 months later</span>
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-[#C18D10] bg-amber-50 px-2 py-0.5 rounded">Renewal time</span>
               </div>
               <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2">Recertification is due</h2>
               <p class="text-[15px] text-[#808080] leading-[1.5] mb-5">
-                Nobody has been contacted. Refresh the connections these applicants already made
-                and see which ones answer on their own.
+                No one has contacted these applicants. Refresh the connections they already made
+                and see which ones update without any action from them.
               </p>
 
               <div class="border border-[#d2d2d7] rounded-xl overflow-hidden overflow-x-auto bg-white mb-5">
@@ -498,6 +532,8 @@ export function RenewalsRefreshDemo() {
                         <td class="px-4 py-3 text-right">
                           {c.refresh
                             ? <StatusPill tone="pending">refresh requested</StatusPill>
+                            : c.waiting
+                            ? <StatusPill tone="pending">waiting for the connection to be ready</StatusPill>
                             : (
                               <button
                                 class="px-3 py-1.5 text-[13px] font-medium border border-[#d2d2d7] rounded-lg hover:border-[#c0c0c5] transition-colors disabled:opacity-40"
@@ -516,11 +552,13 @@ export function RenewalsRefreshDemo() {
 
               <div class="border border-[#d2d2d7] rounded-xl p-4 mb-5 bg-[#f5f5f7]">
                 <div class="text-[13px] font-semibold text-[#808080] uppercase tracking-wide mb-2">What the agency backend sends</div>
-                <pre class="text-[12px] font-mono text-[#000000] whitespace-pre-wrap m-0">{`POST /v1/orders/{order_id}/
-{ "products": ${JSON.stringify(connected[0]?.products || ['income'])} }`}</pre>
+                <pre class="text-[12px] font-mono text-[#000000] whitespace-pre-wrap m-0">{[...new Set(connected.map(c => c.products.includes('assets') ? 'assets' : 'income'))]
+  .map(p => `POST /v1/orders/{order_id}/\n{ "products": ["${p}"] }   // ${p === 'assets' ? 'bank connections' : 'payroll connections'}`)
+  .join('\n\n') || 'POST /v1/orders/{order_id}/\n{ "products": ["income"] }'}</pre>
                 <p class="text-[12px] text-[#808080] mt-2 mb-0">
                   Server-side, no applicant contact. Truv returns a new order and reconnects with the
-                  stored credentials. Capped at 3 refreshes per order per 24 hours.
+                  stored credentials. Limited to 3 refreshes per order per 24 hours. If Bridge only just
+                  finished, the first attempt can be rejected for a few seconds, so this demo retries.
                 </p>
               </div>
 
@@ -543,7 +581,9 @@ export function RenewalsRefreshDemo() {
               <p class="text-[15px] text-[#808080] leading-[1.5] mb-5">
                 {screen === 'watch'
                   ? 'Same call for every applicant. The stored session decides what happens next.'
-                  : 'Everyone else is already done. These applicants need to clear one challenge, and they do not re-enter credentials.'}
+                  : (needsReauth.length
+                    ? 'Everyone else is already done. These applicants only need to clear one challenge. They do not re-enter credentials.'
+                    : 'Every refresh is done. Nobody else needs to be contacted.')}
               </p>
 
               <div class="space-y-3 mb-6">
@@ -551,6 +591,9 @@ export function RenewalsRefreshDemo() {
                   const state = c.revealed ? (c.outcome?.state || 'refreshing') : 'refreshing';
                   const display = OUTCOME_DISPLAY[state] || OUTCOME_DISPLAY.refreshing;
                   const reason = c.outcome?.reason;
+                  const detail = state === 'refreshed' && c.reauthDone
+                    ? 'Fresh data returned after the applicant cleared the challenge.'
+                    : display.detail;
                   return (
                     <div key={c.id} class="border border-[#d2d2d7] rounded-xl p-4 bg-white">
                       <div class="flex flex-wrap items-start justify-between gap-3">
@@ -563,9 +606,12 @@ export function RenewalsRefreshDemo() {
                           </div>
                           <div class="text-[13px] text-[#5b5b60] mt-1.5">
                             {state === 'refreshing'
-                              ? display.detail
-                              : <>{display.detail}{reason ? <> <span class="text-[#808080]">Reason:</span> <code class="font-mono text-[12px] bg-[#f5f5f7] px-1 py-0.5 rounded border border-[#d2d2d7]">{reason}</code>{REASON_COPY[reason] ? ` — ${REASON_COPY[reason]}` : ''}</> : null}</>}
+                              ? detail
+                              : <>{detail}{reason ? <> <span class="text-[#808080]">Reason:</span> <code class="font-mono text-[12px] bg-[#f5f5f7] px-1 py-0.5 rounded border border-[#d2d2d7]">{reason}</code>{REASON_COPY[reason] ? `. ${REASON_COPY[reason]}` : ''}</> : null}</>}
                           </div>
+                          {c.slow && state === 'refreshing' && (
+                            <div class="text-[12px] text-[#C18D10] mt-1">This is taking longer than usual. Still checking.</div>
+                          )}
                           {c.outcome?.errorMessage && c.revealed && (
                             <div class="text-[12px] text-[#5b5b60] mt-1 italic">Provider said: “{c.outcome.errorMessage}”</div>
                           )}
@@ -573,7 +619,7 @@ export function RenewalsRefreshDemo() {
                             <div class="text-[12px] text-[#808080] mt-1">
                               Detected via {c.outcome.source === 'order-refresh-failed'
                                 ? <code class="font-mono bg-[#f5f5f7] px-1 rounded border border-[#d2d2d7]">order-refresh-failed</code>
-                                : c.outcome.source === 'task' ? 'the refresh task status (no webhook tunnel on localhost)'
+                                : c.outcome.source === 'task' ? 'the refresh task status (works without webhooks)'
                                 : c.outcome.source === 'suborder' ? 'the suborder\'s last_task_status'
                                 : 'the order status'}
                             </div>
@@ -588,7 +634,7 @@ export function RenewalsRefreshDemo() {
                       {/* Re-auth affordances appear once the row has resolved that way. */}
                       {c.revealed && c.outcome?.state === 'reauth_required' && (
                         <div class="mt-3 pt-3 border-t border-[#f5f5f7]">
-                          <div class="text-[12px] font-semibold text-[#808080] uppercase tracking-wide mb-1.5">Link sent to the applicant</div>
+                          <div class="text-[12px] font-semibold text-[#808080] uppercase tracking-wide mb-1.5">Link for the applicant</div>
                           {c.refresh?.share_url && (
                             <a href={c.refresh.share_url} target="_blank" rel="noopener noreferrer" class="text-[12px] text-primary font-mono break-all hover:underline">{c.refresh.share_url}</a>
                           )}
@@ -607,6 +653,13 @@ export function RenewalsRefreshDemo() {
                   );
                 })}
               </div>
+
+              {connected.some(c => !c.refresh) && (
+                <div class="mb-6 border border-[#C18D10]/30 bg-amber-50/60 rounded-xl p-4 text-[13px] text-[#000000]">
+                  {connected.filter(c => !c.refresh).map(c => c.firstName).join(', ')} {connected.filter(c => !c.refresh).length === 1 ? 'was' : 'were'} not refreshed.{' '}
+                  <button class="text-primary font-medium hover:underline" onClick={() => setScreen('renewals')}>Back to the renewals list</button>
+                </div>
+              )}
 
               {allResolved && needsReauth.length > 0 && <div class="mb-6"><StuckAtSentCallout /></div>}
 
@@ -639,8 +692,8 @@ export function RenewalsRefreshDemo() {
             <>
               <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2">Refreshed and current</h2>
               <p class="text-[15px] text-[#808080] leading-[1.5] mb-5">
-                Each refresh produced its own order and its own report, so "current as of" moves
-                forward while the original order stays intact as the historical record.
+                Each refresh creates its own order and report. The original order is not changed,
+                so it stays as the record of the first verification.
               </p>
 
               <div class="border border-[#d2d2d7] rounded-xl overflow-hidden bg-white mb-6">
@@ -649,7 +702,7 @@ export function RenewalsRefreshDemo() {
                     <tr class="border-b border-[#d2d2d7] bg-[#f5f5f7] text-[#808080] text-[13px] font-medium uppercase tracking-wide">
                       <th class="text-left px-4 py-3">Applicant</th>
                       <th class="text-left px-4 py-3">How it resolved</th>
-                      <th class="text-left px-4 py-3">Told us by</th>
+                      <th class="text-left px-4 py-3">Detected by</th>
                       <th class="text-right px-4 py-3">Report</th>
                     </tr>
                   </thead>
@@ -685,7 +738,7 @@ export function RenewalsRefreshDemo() {
                 const c = cases.find(x => x.id === caseId);
                 return (
                   <div key={caseId} class="border border-[#d2d2d7] rounded-xl p-6 bg-white mb-4">
-                    <h3 class="text-lg font-semibold text-[#000000] mb-4">{c?.firstName} {c?.lastName} — refreshed report</h3>
+                    <h3 class="text-lg font-semibold text-[#000000] mb-4">Refreshed report for {c?.firstName} {c?.lastName}</h3>
                     {byType.income && <VoieReport report={byType.income} />}
                     {byType.assets && <AssetsReport report={byType.assets} />}
                   </div>

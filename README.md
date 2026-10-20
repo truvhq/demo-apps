@@ -24,8 +24,8 @@ Demos are organized by industry. Each starts with a split intro screen (business
 | **Customer Portal** | An applicant applies for benefits and verifies income through a self-service portal |
 | **Document Processing** | Process pay stubs, W-2s, and tax returns for benefit eligibility decisions |
 | **Case Worker Portal** | A Case Worker creates verification orders using applicant data on file |
-| **Renewals & Data Refresh** | Guided walkthrough plus a live recertification cycle: refresh existing payroll and bank connections via `POST /v1/orders/{id}/`, then watch the two outcomes diverge. A refresh that needs re-authorization emits `order-refresh-failed` and its order stays at `sent` forever, which is why order status alone is not enough |
-| **Orders & Refresh Lifecycle** | The object model first — what a refresh creates (order, suborder, task), writes to (the link), and leaves alone (the user, and any report you already generated). Enumerates all 11 terminal statuses with their remedies and whether each can be reproduced in sandbox, the four trigger shapes, and the refresh-vs-new-order gates. Compose a case and run it live |
+| **Renewals & Data Refresh** | Guided walkthrough plus a live recertification cycle: refresh existing payroll and bank connections via `POST /v1/orders/{id}/`, then see the two outcomes. A refresh that needs re-authorization emits `order-refresh-failed` and never completes, so listening only for `order-status-updated` will not tell you it failed |
+| **Orders & Refresh Lifecycle** | Starts with the object model: what a refresh creates (order, suborder, task), what it writes to (the link), and what it leaves alone (the user and any report you already generated). Lists all 11 terminal statuses with what to do for each and whether sandbox can reproduce it, and when to refresh versus start a new order. Build a case and run it live |
 
 ### Consumer Credit
 

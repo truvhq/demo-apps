@@ -66,13 +66,15 @@ const Chip = ({ v, title }) => {
   const [c, setC] = useState(false);
   return (
     <button type="button" class="rg-chip" title={title || 'Copy'}
-      onClick={() => { navigator.clipboard?.writeText(v); setC(true); setTimeout(() => setC(false), 1100); }}>
+      onClick={() => { Promise.resolve(navigator.clipboard?.writeText(v)).then(() => { setC(true); setTimeout(() => setC(false), 1100); }).catch(() => {}); }}>
       {c ? 'copied' : v}
     </button>
   );
 };
 
-export function RefreshGuideDemo() {
+const GUIDE_PATH = '#public-sector/refresh-guide';
+
+export function RefreshGuide({ screen }) {
   const [active, setActive] = useState('start');
   const [mode, setMode] = useState('naive');
   const [consoleOpen, setConsoleOpen] = useState(false);
@@ -116,6 +118,21 @@ export function RefreshGuideDemo() {
       setCalls(c => c.map(x => (x.id === entry.id ? done : x)));
       return done;
     }
+  }, []);
+
+  // The app routes on the URL hash, so a bare "#decide" link would navigate the
+  // router away from this page. Scroll instead, and record the section in the
+  // route's screen segment with replaceState (no hashchange, no remount).
+  const goTo = id => e => {
+    e.preventDefault();
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setActive(id);
+    history.replaceState(null, '', `${GUIDE_PATH}/${id}`);
+  };
+
+  // Opening .../refresh-guide/<section> scrolls straight to that section.
+  useEffect(() => {
+    if (SECTIONS.some(s => s.id === screen)) document.getElementById(screen)?.scrollIntoView();
   }, []);
 
   // scroll-spy for the rail
@@ -211,6 +228,7 @@ export function RefreshGuideDemo() {
   return (
     <div class={`rg${consoleOpen ? ' console-open' : ''}`}>
       <div class="rg-top">
+        <a class="rg-back" href="#public-sector">&larr; Public Sector</a>
         <span class="rg-top-title">Orders &amp; Refresh</span>
         <span class="rg-top-sub">When to refresh, when to start a new order, and what to do when one connection breaks</span>
         <span class="rg-top-spacer" />
@@ -222,7 +240,7 @@ export function RefreshGuideDemo() {
           {SECTIONS.map((s, i) => (
             <>
               {(i === 0 || SECTIONS[i - 1].group !== s.group) && <div class="rg-rail-h" key={s.group}>{s.group}</div>}
-              <a key={s.id} href={`#${s.id}`} class={active === s.id ? 'on' : ''}>{s.label}</a>
+              <a key={s.id} href={`${GUIDE_PATH}/${s.id}`} onClick={goTo(s.id)} class={active === s.id ? 'on' : ''}>{s.label}</a>
             </>
           ))}
         </nav>
@@ -231,33 +249,33 @@ export function RefreshGuideDemo() {
 
           {/* ============ START ============ */}
           <section id="start" class="rg-sec">
-            <h2>Verification you already have, re-used</h2>
+            <h2>Reusing a verification you already have</h2>
             <p class="rg-lede">
               When someone verifies their income, Truv keeps a live connection to their payroll or
-              bank. Months later you can pull from it again — often with the person not involved at
-              all. This page is about the decisions around that: which call to make, what actually
-              comes back, and what to do with the parts that fail.
+              bank. Months later you can pull from it again, often without involving the person at
+              all. This page covers which call to make, what comes back, and what to do when part
+              of it fails.
             </p>
             <div class="rg-card">
               <div class="rg-row"><strong>Refresh</strong> an order to re-pull the connections it already has.
-                You can narrow it to a subset; you cannot add to it. <code>POST /v1/orders/{'{id}'}/</code></div>
-              <div class="rg-row"><strong>A new order</strong> for the same person carries their existing
-                connections over and lets you change the list. <code>POST /v1/orders/</code></div>
-              <div class="rg-row"><strong>Never</strong> add an employer to an order that already exists.
-                It reset a completed order's <code>completed_at</code> to <code>null</code> in testing.</div>
+                You can narrow it to a subset, but you cannot add to it. <code>POST /v1/orders/{'{id}'}/</code></div>
+              <div class="rg-row"><strong>Start a new order</strong> for the same person when their list of
+                employers changes. An employer they already connected shows as connected. <code>POST /v1/orders/</code></div>
+              <div class="rg-row"><strong>Do not</strong> add an employer to an order that already exists.
+                In testing it reset a completed order's <code>completed_at</code> to <code>null</code>.</div>
             </div>
             <div class="rg-note">
               <div class="rg-note-t">How to read this page</div>
-              <p>Everything below was run against Truv's sandbox and captured. Where a behaviour was
-                not observed, it says so instead of being stated as fact. The playground makes the same
-                calls for real — open the console at the bottom right to watch them.</p>
+              <p>Everything below was run against Truv's sandbox and captured. Anything that was not
+                observed is labeled as such. The playground makes the same calls for real. Open the
+                console at the bottom right to watch them.</p>
             </div>
           </section>
 
           {/* ============ DECIDE ============ */}
           <section id="decide" class="rg-sec">
             <h2>Refresh, or a new order?</h2>
-            <p class="rg-lede">Start from what changed about their jobs, not from the API.</p>
+            <p class="rg-lede">Start with what changed about the person's jobs.</p>
 
             <div class="rg-scroll">
               <table class="rg-table">
@@ -314,10 +332,10 @@ export function RefreshGuideDemo() {
 
           {/* ============ RETURNS ============ */}
           <section id="returns" class="rg-sec">
-            <h2>What a refresh actually returns</h2>
+            <h2>What a refresh returns</h2>
             <p class="rg-lede">
-              One call, three connections, three different answers. This is a real run —
-              <code>{RUN_META.call}</code> — plotted at the offsets the events actually arrived.
+              One call, three connections, three different results. This is a real sandbox run
+              (<code>{RUN_META.call}</code>) with each event plotted at the time it arrived.
             </p>
 
             <div class="rg-card" style="padding:20px 18px">
@@ -345,7 +363,7 @@ export function RefreshGuideDemo() {
               </div>
             )}
 
-            <h3>So how do you read it?</h3>
+            <h3>How to read the result</h3>
             <div class="rg-card">
               {CORRELATION.map(c => (
                 <div key={c.n} class="rg-row">
@@ -356,7 +374,7 @@ export function RefreshGuideDemo() {
               ))}
             </div>
 
-            <h3>The two payloads, side by side</h3>
+            <h3>The payloads side by side</h3>
             {[CORRELATION_EVIDENCE.webhook, CORRELATION_EVIDENCE.taskEvent, CORRELATION_EVIDENCE.task].map((e, i) => (
               <div key={i} style="margin-bottom:14px">
                 <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--rg-ink-3);font-weight:600;margin-bottom:6px">{e.label}</div>
@@ -366,8 +384,8 @@ export function RefreshGuideDemo() {
 
             <h3>Every event, in order</h3>
             <p style="font-size:14px;color:var(--rg-ink-2)">
-              Offsets from the refresh POST. <code>link-disconnected</code> fires on each failure and does
-              not mean the link is unusable — the re-auth goes back through it.
+              Times are seconds after the refresh POST. <code>link-disconnected</code> fires on each
+              failure. It does not mean the link is unusable, because re-authorization goes back through it.
             </p>
             <RefreshEventLog events={CAPTURED_RUN} lanes={RUN_LANES} visible={visible} />
           </section>
@@ -376,18 +394,17 @@ export function RefreshGuideDemo() {
           <section id="partial" class="rg-sec">
             <h2>One connection fails, the others are fine</h2>
             <p class="rg-lede">
-              The common case, and the one worth getting right. Three connections came back: one
-              refreshed, two need something. What you do next depends on which of two things is true —
-              and the status cannot tell you which.
+              In the captured run, three connections came back: one refreshed and two failed. What
+              you do next depends on whether the person still works there, and the status cannot
+              tell you.
             </p>
 
             <div class="rg-note warn">
-              <div class="rg-note-t">“I no longer work there” is not a status</div>
+              <div class="rg-note-t">No status means “I no longer work there”</div>
               <p>
-                A changed password and a job that ended both arrive as <code>login_error</code>. Truv
-                cannot distinguish them, and <code>is_active</code> on the employment is derived by the
-                crawler over roughly three missed pay cycles — far too slow to answer a renewal
-                question. So ask the person, and offer both answers.
+                A changed password and a job that ended can both come back as <code>login_error</code>,
+                and <code>is_active</code> on the employment is not a reliable answer at renewal time.
+                Ask the person, and offer both answers.
               </p>
             </div>
 
@@ -402,7 +419,7 @@ export function RefreshGuideDemo() {
                   <tr>
                     <td><span class="rg-pill warn">credential class</span>
                       <div style="margin-top:6px;color:var(--rg-ink-2)"><code>login_error</code> · <code>mfa_error</code> · <code>session_expired</code></div></td>
-                    <td><strong>Send the refresh order's link.</strong><div style="color:var(--rg-ink-2);margin-top:4px">It opens on the challenge with credentials already stored — one action, not a restart.</div></td>
+                    <td><strong>Send the refresh order's link.</strong><div style="color:var(--rg-ink-2);margin-top:4px">It opens on the challenge with credentials already stored, so the applicant does one thing instead of starting over.</div></td>
                     <td><strong>Re-refresh, scoped.</strong><div style="color:var(--rg-ink-2);margin-top:4px">Pass only the employer ids that remain. The dropped one is absent from the new refresh order, so it can complete with nobody contacted.</div></td>
                   </tr>
                   <tr>
@@ -414,7 +431,7 @@ export function RefreshGuideDemo() {
               </table>
             </div>
 
-            <h3>Getting the re-auth done</h3>
+            <h3>Getting the applicant to re-authorize</h3>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
               {DELIVERY.map(d => (
                 <div key={d.key} class="rg-card" style="padding:16px">
@@ -445,8 +462,8 @@ export function RefreshGuideDemo() {
           <section id="play" class="rg-sec">
             <h2>Try it against sandbox</h2>
             <p class="rg-lede">
-              The same three-connection case, for real. Every request appears in the console —
-              open it and watch. Nothing here is simulated.
+              The same three-connection case against live sandbox. Every request appears in the
+              console, which you can open from the bottom right.
             </p>
 
             {err && <div class="rg-note bad"><p>{err}</p></div>}
@@ -468,7 +485,7 @@ export function RefreshGuideDemo() {
                   <div class="rg-step-n">1</div>
                   <div>
                     <div class="rg-step-t">Create an order with three employers</div>
-                    <div class="rg-step-d">Each credential is chosen to produce a different refresh outcome, so the divergence is guaranteed.</div>
+                    <div class="rg-step-d">Each credential is set up to give a different refresh result.</div>
                     {seeds.map(s => (
                       <div key={s.key} class="rg-conn" style="border:1px solid var(--rg-line);border-radius:8px;margin-bottom:6px">
                         <span class="rg-conn-n">{s.label}</span>
@@ -477,8 +494,8 @@ export function RefreshGuideDemo() {
                       </div>
                     ))}
                     <div style="font-size:12.5px;color:var(--rg-ink-3);margin:6px 0 10px">
-                      Bridge pre-fills <code>goodlogin</code>/<code>goodpassword</code> — overwrite <em>both</em> fields
-                      on every row or the scenario will not reproduce. Kroger needs captcha <code>9M4BP</code>.
+                      Bridge pre-fills <code>goodlogin</code>/<code>goodpassword</code>. Replace <em>both</em> fields
+                      with the credentials shown for each row, or the results will not match. Kroger needs captcha <code>9M4BP</code>.
                     </div>
                     {!order
                       ? <button class="rg-btn primary" disabled={busy === 'order'} onClick={createOrder}>{busy === 'order' ? 'Creating…' : 'Create the order'}</button>
@@ -493,11 +510,11 @@ export function RefreshGuideDemo() {
                   <div>
                     <div class="rg-step-t">Refresh it</div>
                     <div class="rg-step-d">
-                      Refreshing is rejected for a few seconds after Bridge finishes — the order reads
-                      complete before its connections are eligible.
+                      Truv rejects a refresh for a few seconds after Bridge finishes, because the order
+                      reads complete before its connections can be refreshed.
                     </div>
                     <button class="rg-btn primary" disabled={!order || !refreshable || busy === 'refresh'} onClick={() => doRefresh()}>
-                      {busy === 'refresh' ? 'Refreshing…' : !order ? 'Create an order first' : !refreshable ? 'Waiting for a connection…' : refresh ? 'Refresh again' : 'Refresh all connections'}
+                      {busy === 'refresh' ? 'Refreshing…' : !order ? 'Create an order first' : !refreshable ? 'Waiting until refresh is allowed…' : refresh ? 'Refresh again' : 'Refresh all connections'}
                     </button>
                   </div>
                 </div>
@@ -532,7 +549,7 @@ export function RefreshGuideDemo() {
                         Order status <code>{triage.order_status || 'sent'}</code>.{' '}
                         {triage.rollup.complete ? 'Every connection refreshed, so it completed on its own.'
                           : triage.rollup.pending ? 'Still in flight.'
-                            : 'It will not complete while a connection is unresolved — but per-connection events kept arriving for the ones that worked.'}
+                            : 'The order will not complete while a connection is unresolved, though events kept arriving for the connections that worked.'}
                       </div>
                     )}
                   </div>
@@ -542,7 +559,7 @@ export function RefreshGuideDemo() {
                   <div class="rg-step-n">4</div>
                   <div>
                     <div class="rg-step-t">Resolve the failures</div>
-                    <div class="rg-step-d">Two routes, and you can take both.</div>
+                    <div class="rg-step-d">Two ways to resolve a failure. You can use both.</div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
                       {refresh?.share_url && (
                         <>
@@ -558,9 +575,9 @@ export function RefreshGuideDemo() {
                     </div>
                     {report && (
                       <div class="rg-note good" style="margin-top:12px">
-                        <p>Report generated. A refresh writes to the <strong>link</strong> — the original
-                          order's <code>voie_report_id</code> still points at the pre-refresh snapshot, so
-                          this is the call that shows you what the refresh pulled.</p>
+                        <p>Report generated. A refresh updates the <strong>link</strong>. The original
+                          order's <code>voie_report_id</code> still points at the pre-refresh report, so a
+                          new report is how you see what the refresh pulled.</p>
                       </div>
                     )}
                   </div>
@@ -573,8 +590,8 @@ export function RefreshGuideDemo() {
           <section id="outcomes" class="rg-sec">
             <h2>Every outcome a refresh can produce</h2>
             <p class="rg-lede">
-              Eleven terminal statuses. <code>order-refresh-failed</code> is emitted for the failures
-              including the ones nobody can fix, which is why you branch on the status and not the event.
+              Eleven terminal statuses. <code>order-refresh-failed</code> fires for every failure,
+              including ones the applicant cannot fix, so branch on the status.
             </p>
             <div class="rg-note bad">
               <div class="rg-note-t">no_data is not zero income</div>
@@ -582,7 +599,7 @@ export function RefreshGuideDemo() {
             </div>
             <div class="rg-scroll">
               <table class="rg-table">
-                <thead><tr><th>What happened</th><th>status</th><th>Who acts</th><th>What you do</th><th>Sandbox</th></tr></thead>
+                <thead><tr><th style="min-width:150px">What happened</th><th>Status</th><th>Who acts</th><th style="min-width:200px">What you do</th><th>Sandbox</th></tr></thead>
                 <tbody>
                   {OUTCOMES.map(o => (
                     <tr key={o.status} style={o.danger ? 'background:var(--rg-bad-bg)' : ''}>
@@ -600,8 +617,8 @@ export function RefreshGuideDemo() {
             </div>
             <p style="font-size:13px;color:var(--rg-ink-3);margin-top:10px">
               Observed in the captured run: <code>done</code>, <code>login_error</code>, <code>mfa_error</code>.
-              The rest are Truv's documented statuses with the credential that should produce them; where a
-              row was not exercised, treat it as untested.
+              The other rows are Truv's documented statuses with the credential that should produce them.
+              They were not tested.
             </p>
           </section>
 
@@ -633,10 +650,9 @@ export function RefreshGuideDemo() {
           <section id="evidence" class="rg-sec">
             <h2>What we tested, and what we did not</h2>
             <p class="rg-lede">
-              The credibility of everything above rests on this section being honest, so it is
-              deliberately specific.
+              What the sandbox run covered, and what it left out.
             </p>
-            <h3>Settled by the run</h3>
+            <h3>Answered by the run</h3>
             <div class="rg-card">
               {ANSWERED.map((a, i) => (
                 <div key={i} class="rg-row">
@@ -672,7 +688,7 @@ export function RefreshGuideDemo() {
                 ))}
                 <div class="rg-row" style="background:var(--rg-bad-bg);display:flex;gap:14px;padding:8px 14px">
                   <span style="color:var(--rg-bad);width:74px;flex:0 0 auto;font-size:13px;font-weight:650">Margin</span>
-                  <span style="font-size:14px;color:var(--rg-bad)">About four weeks between the renewal being due and the saved sign-in being deleted.</span>
+                  <span style="font-size:14px;color:var(--rg-bad)">About one month between the renewal being due and the saved sign-in being deleted.</span>
                 </div>
               </div>
               <p style="font-size:12.5px;color:var(--rg-ink-2);margin-top:8px">{PROGRAM_CALENDAR.source}</p>
@@ -729,7 +745,9 @@ export function RefreshGuideDemo() {
           {!calls.length && <div style="color:#6e6e7e">Nothing yet. Run something in “Try it against sandbox”.</div>}
           {calls.map(c => (
             <div key={c.id} class="rg-call">
-              <div class="rg-call-h" onClick={() => setOpenCall(openCall === c.id ? null : c.id)}>
+              <div class="rg-call-h" role="button" tabIndex={0} aria-expanded={openCall === c.id}
+                onClick={() => setOpenCall(openCall === c.id ? null : c.id)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenCall(openCall === c.id ? null : c.id); } }}>
                 <span class="rg-call-m">{c.method}</span>
                 <span style="overflow:hidden;text-overflow:ellipsis">{c.path}</span>
                 <span class={`rg-call-s${c.status >= 400 || c.status === 0 ? ' err' : ''}`}>{c.status ?? '…'}{c.ms != null ? ` ${c.ms}ms` : ''}</span>

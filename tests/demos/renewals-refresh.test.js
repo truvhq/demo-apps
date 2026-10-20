@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyRefreshOutcome, REAUTH_STATUSES, NON_REAUTH_FAILURE_STATUSES } from '../../server/routes/renewals-refresh.js';
+import { classifyRefreshOutcome, classifyRefreshOutcomePerSuborder, tasksForOrder, REAUTH_STATUSES, NON_REAUTH_FAILURE_STATUSES } from '../../server/routes/renewals-refresh.js';
 import { CASELOAD, STEPS, WALKTHROUGH_STAGES, OUTCOME_DISPLAY } from '../../src/demos/scaffolding/renewals-refresh.jsx';
 import { RENEWALS_DIAGRAM, REFRESH_FORK_DIAGRAM } from '../../src/diagrams/renewals-refresh.js';
 
@@ -171,6 +171,55 @@ describe('classifyRefreshOutcome', () => {
     }
   });
 
+  it('does not match a task that names a different order, even if it carries is_refresh', () => {
+    const tasks = [
+      { id: 'a', order_id: 'other-order', is_refresh: true, status: 'login_error' },
+      { id: 'b', order_id: 'mine', status: 'done' },
+      { id: 'c', is_refresh: true, status: 'mfa_error' },
+    ];
+    expect(tasksForOrder(tasks, 'mine').map(t => t.id)).toEqual(['b', 'c']);
+  });
+
+  it('reports refreshed once a failed refresh order completes after the applicant re-authenticates', () => {
+    const failedThenCompleted = {
+      truvOrderId: 'refresh-order',
+      orderData: { employers: [{ id: 'e1', status: 'completed' }] },
+      webhooks: [{ event_type: 'order-refresh-failed', payload: { order_id: 'refresh-order', status: 'mfa_error' } }],
+      tasks: [{ id: 't', order_id: 'refresh-order', status: 'mfa_error' }],
+    };
+    expect(classifyRefreshOutcome(failedThenCompleted).state).toBe('refreshed');
+  });
+
+  it('does not let completion hide a provider-class failure such as no_data', () => {
+    const out = classifyRefreshOutcome({
+      truvOrderId: 'refresh-order',
+      orderData: { employers: [{ id: 'e1', status: 'completed' }] },
+      webhooks: [{ event_type: 'order-refresh-failed', payload: { order_id: 'refresh-order', status: 'no_data' } }],
+    });
+    expect(out.state).toBe('failed_other');
+    expect(out.reason).toBe('no_data');
+  });
+
+  it('still reports re-auth while another connection on the order has not completed', () => {
+    const out = classifyRefreshOutcome({
+      truvOrderId: 'refresh-order',
+      orderData: { employers: [{ id: 'e1', status: 'completed' }, { id: 'e2', status: 'sent' }] },
+      webhooks: [{ event_type: 'order-refresh-failed', payload: { order_id: 'refresh-order', status: 'mfa_error' } }],
+    });
+    expect(out.state).toBe('reauth_required');
+  });
+
+  it('fails closed on an unknown or missing webhook status instead of prompting the applicant', () => {
+    for (const status of ['something_new', null, undefined]) {
+      const out = classifyRefreshOutcome({
+        truvOrderId: 'refresh-order',
+        orderData: { employers: [{ id: 'e1', status: 'sent' }] },
+        webhooks: [{ event_type: 'order-refresh-failed', payload: { order_id: 'refresh-order', status } }],
+      });
+      expect(out.state).toBe('failed_other');
+    }
+  });
+
   it('is pending, not failed, when nothing has resolved yet', () => {
     expect(classifyRefreshOutcome({ truvOrderId: 'x', orderData: { employers: [{ status: 'sent' }] } }).state).toBe('refreshing');
     expect(classifyRefreshOutcome({}).state).toBe('refreshing');
@@ -184,6 +233,41 @@ describe('classifyRefreshOutcome', () => {
     });
     expect(out.state).toBe('reauth_required');
     expect(out.reason).toBe('login_error');
+  });
+});
+
+describe('classifyRefreshOutcomePerSuborder', () => {
+  const failure = (employer_id, status) => ({ event_type: 'order-refresh-failed', payload: { order_id: 'r', employer_id, status } });
+
+  it('gives each connection its own verdict on a mixed order', () => {
+    const rows = classifyRefreshOutcomePerSuborder({
+      truvOrderId: 'r',
+      orderData: { employers: [
+        { id: 'a', status: 'completed', company_name: 'Home Depot' },
+        { id: 'b', status: 'sent', company_name: 'Kroger' },
+        { id: 'c', status: 'sent', company_name: 'Walmart' },
+      ] },
+      webhooks: [failure('b', 'mfa_error'), failure('c', 'no_data')],
+    });
+    expect(rows.map(r => r.state)).toEqual(['refreshed', 'reauth_required', 'failed_other']);
+  });
+
+  it('clears a stale credential failure once that connection completes', () => {
+    const rows = classifyRefreshOutcomePerSuborder({
+      truvOrderId: 'r',
+      orderData: { employers: [{ id: 'b', status: 'completed', company_name: 'Kroger' }] },
+      webhooks: [failure('b', 'mfa_error')],
+    });
+    expect(rows[0].state).toBe('refreshed');
+  });
+
+  it('fails closed on an unknown failure status', () => {
+    const rows = classifyRefreshOutcomePerSuborder({
+      truvOrderId: 'r',
+      orderData: { employers: [{ id: 'b', status: 'sent' }] },
+      webhooks: [failure('b', null)],
+    });
+    expect(rows[0].state).toBe('failed_other');
   });
 });
 

@@ -96,11 +96,12 @@ function suborderStatuses(orderData) {
  * does NOT rely on `is_refresh`: that field exists on the internal Task model but
  * is absent from the `GET /v1/tasks/` response (verified live 2026-08-20), so an
  * `is_refresh` filter matches nothing and silently disables every caller. It is
- * still accepted when present, in case a later API version exposes it.
+ * still accepted when present and the task has no order_id, in case a later API
+ * version exposes it. A task that names a different order is never matched.
  */
 export function tasksForOrder(tasks, truvOrderId) {
   return (tasks || []).filter(t => (
-    (truvOrderId && t?.order_id === truvOrderId) || t?.is_refresh === true
+    (truvOrderId && t?.order_id === truvOrderId) || (t?.order_id == null && t?.is_refresh === true)
   ));
 }
 
@@ -130,14 +131,25 @@ export function tasksForOrder(tasks, truvOrderId) {
  *   state: 'refreshing' | 'refreshed' | 'reauth_required' | 'failed_other'
  */
 export function classifyRefreshOutcome({ truvOrderId, orderData = null, webhooks = [], tasks = [] } = {}) {
+  // Every suborder completed means the refresh worked, including after the
+  // applicant cleared a challenge on a failed refresh order. A stored credential
+  // failure from before that must not outrank it, or the row flips back to
+  // "re-authorization required" on the next poll. Provider-class failures
+  // (no_data and the like) are not overridden: completion does not clear them.
+  const priorStatuses = suborderStatuses(orderData);
+  const allDone = priorStatuses.length > 0 && priorStatuses.every(s => s === 'completed');
+
   // 1. The dedicated failure event, matched to this specific refresh order.
   for (const wh of webhooks) {
     if (wh?.event_type !== 'order-refresh-failed') continue;
     const payload = typeof wh.payload === 'string' ? safeParse(wh.payload) : (wh.payload || {});
     if (truvOrderId && payload.order_id && payload.order_id !== truvOrderId) continue;
     const status = payload.status || wh.status || null;
+    // Fails closed: only a known credential status prompts the applicant.
+    const state = REAUTH_STATUSES.includes(status) ? 'reauth_required' : 'failed_other';
+    if (state === 'reauth_required' && allDone) continue;
     return {
-      state: NON_REAUTH_FAILURE_STATUSES.includes(status) ? 'failed_other' : 'reauth_required',
+      state,
       reason: status,
       product: payload.product || null,
       source: 'order-refresh-failed',
@@ -154,7 +166,7 @@ export function classifyRefreshOutcome({ truvOrderId, orderData = null, webhooks
   // the refresh order rather than the original, so recency guessing is unnecessary.
   const refreshTasks = tasksForOrder(tasks, truvOrderId);
   for (const t of refreshTasks) {
-    if (REAUTH_STATUSES.includes(t.status)) {
+    if (REAUTH_STATUSES.includes(t.status) && !allDone) {
       return { state: 'reauth_required', reason: t.status, product: t.product_type || null, source: 'task', errorMessage: t.error_message || null };
     }
     if (NON_REAUTH_FAILURE_STATUSES.includes(t.status)) {
@@ -170,7 +182,7 @@ export function classifyRefreshOutcome({ truvOrderId, orderData = null, webhooks
     for (const s of group) {
       const st = s?.last_task_status;
       if (!st) continue;
-      if (REAUTH_STATUSES.includes(st)) return { state: 'reauth_required', reason: st, product: s.product_type || null, source: 'suborder' };
+      if (REAUTH_STATUSES.includes(st) && !allDone) return { state: 'reauth_required', reason: st, product: s.product_type || null, source: 'suborder' };
       if (NON_REAUTH_FAILURE_STATUSES.includes(st)) return { state: 'failed_other', reason: st, product: s.product_type || null, source: 'suborder' };
     }
   }
@@ -179,8 +191,7 @@ export function classifyRefreshOutcome({ truvOrderId, orderData = null, webhooks
   // EVERY suborder must be completed. Accepting a single `completed` here is the
   // false positive the whole demo is about: on a multi-connection order it reports
   // success while other connections are dead. (Removed 2026-09-17.)
-  const statuses = suborderStatuses(orderData);
-  if (statuses.length && statuses.every(s => s === 'completed')) {
+  if (allDone) {
     return { state: 'refreshed', reason: null, product: null, source: 'order' };
   }
 
@@ -277,8 +288,10 @@ export function classifyRefreshOutcomePerSuborder({ truvOrderId, orderData = nul
     const stateFor = (status) => (REAUTH_STATUSES.includes(status) ? 'reauth_required' : 'failed_other');
 
     // 1. The dedicated failure event for this specific connection.
+    const recovered = row.status === 'completed';
+    const staleReauth = (status) => recovered && stateFor(status) === 'reauth_required';
     const wh = row.id ? failureByEmployer.get(row.id) : null;
-    if (wh) {
+    if (wh && !staleReauth(wh.status)) {
       return { ...row, state: stateFor(wh.status), reason: wh.status, product: wh.product, source: 'order-refresh-failed', errorMessage: null };
     }
 
@@ -288,7 +301,7 @@ export function classifyRefreshOutcomePerSuborder({ truvOrderId, orderData = nul
     const linkId = row.link_id || linkByCompany.get(row.company_name) || null;
     const task = linkId ? refreshTasks.find(t => t?.link_id === linkId) : null;
     if (task) {
-      if (REAUTH_STATUSES.includes(task.status) || NON_REAUTH_FAILURE_STATUSES.includes(task.status)) {
+      if ((REAUTH_STATUSES.includes(task.status) || NON_REAUTH_FAILURE_STATUSES.includes(task.status)) && !staleReauth(task.status)) {
         return { ...row, link_id: linkId, state: stateFor(task.status), reason: task.status, product: task.product_type || row.product_type, source: 'task', errorMessage: task.error_message || null };
       }
       if (task.status === 'done') {
@@ -298,7 +311,7 @@ export function classifyRefreshOutcomePerSuborder({ truvOrderId, orderData = nul
 
     // 3. The row's own last task status, then its suborder status.
     if (row.last_task_status) {
-      if (REAUTH_STATUSES.includes(row.last_task_status) || NON_REAUTH_FAILURE_STATUSES.includes(row.last_task_status)) {
+      if ((REAUTH_STATUSES.includes(row.last_task_status) || NON_REAUTH_FAILURE_STATUSES.includes(row.last_task_status)) && !staleReauth(row.last_task_status)) {
         return { ...row, state: stateFor(row.last_task_status), reason: row.last_task_status, product: row.product_type, source: 'suborder', errorMessage: null };
       }
     }
@@ -406,7 +419,7 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger }) {
     if (result.statusCode === 429) {
       return { statusCode: 429, payload: {
         error: 'refresh_cap_reached',
-        message: 'Truv allows 3 refreshes per order per 24 hours. This order has hit that limit.',
+        message: 'Truv rejected the refresh with a rate limit (429). Refreshes are limited to 3 per order per 24 hours, so this order may have hit that cap.',
         retry_after: result.retryAfter ?? null,
         details: truvData,
       } };
@@ -417,7 +430,7 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger }) {
     // ("Can not find any employers connected to refresh the data") reads like a
     // broken integration rather than "wait a moment".
     const invalid = truvData?.error?.extra?.['invalid-params'] || [];
-    if (result.statusCode === 400 && invalid.some(p => /employers/.test(p?.field || '') && /connected/i.test(p?.message || ''))) {
+    if (result.statusCode === 400 && invalid.some(p => /employers|financial_accounts/.test(p?.field || '') && /connected/i.test(p?.message || ''))) {
       return { statusCode: 409, payload: {
         error: 'no_connections_yet',
         message: 'This order has no connection that can be refreshed yet. If Bridge only just finished, give it a few seconds and try again.',

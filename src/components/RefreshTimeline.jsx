@@ -90,7 +90,7 @@ export function RefreshTimeline({ lanes = [], events = [], span = 22, visible = 
             {lane.kind !== 'conn'
               ? <div class="rt-verdict" aria-hidden="true" />
               : hideVerdicts && lane.verdict !== 'refreshed'
-                ? <div class="rt-verdict rt-verdict-unknown">still sent — no terminal signal</div>
+                ? <div class="rt-verdict rt-verdict-unknown">still sent, nothing says it failed</div>
                 : <div class={`rt-verdict ${lane.verdict === 'refreshed' ? 'rt-verdict-good' : 'rt-verdict-warn'}`}>{lane.verdict}</div>}
           </div>
         );
@@ -110,7 +110,7 @@ export function RefreshEventLog({ events = [], lanes = [], visible = null }) {
           <div key={i} class={`rt-log-row${dimmed ? ' rt-off' : ''}`}>
             <span class="rt-log-t">+{e.t}s</span>
             <span class="rt-log-ev">{e.event}</span>
-            <span class={`rt-log-st ${TONE_TEXT[e.tone] || ''}`}>{e.status || '—'}</span>
+            <span class={`rt-log-st ${TONE_TEXT[e.tone] || ''}`}>{e.status || '-'}</span>
             <span class="rt-log-lane">{laneLabel(e.lane)}</span>
             {e.note && <span class="rt-log-note">{e.note}</span>}
           </div>

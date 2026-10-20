@@ -241,7 +241,7 @@ describe('content correctness', () => {
   });
 
   it('guards no_data against being read as zero income', () => {
-    expect(OUTCOMES.find(o => o.status === 'no_data').action).toMatch(/NEVER record as \$0/);
+    expect(OUTCOMES.find(o => o.status === 'no_data').action).toMatch(/never record as \$0/i);
   });
 
   it('only cites sandbox credentials that were captured', () => {
@@ -261,7 +261,7 @@ describe('content correctness', () => {
   it('tells you to anchor on the original order and never on employer_id', () => {
     const keys = IDENTITY.keep.map(k => k.what);
     expect(keys).toContain('external_user_id');
-    expect(keys.join(' ')).toMatch(/ORIGINAL order id/);
+    expect(keys.join(' ')).toMatch(/original order id/);
     expect(keys.join(' ')).toMatch(/link_id/);
     expect(IDENTITY.avoid).toMatch(/employer_id/);
   });
@@ -393,7 +393,7 @@ describe('claims match the evidence', () => {
     // An earlier version labelled the whole comparison "verified in the capture"
     // when the run never completed. The disclaimer is now load-bearing.
     expect(NEW_ORDER_PROOF.observed).toBeTruthy();
-    expect(NEW_ORDER_PROOF.notObserved).toMatch(/NOT yet verified/);
+    expect(NEW_ORDER_PROOF.notObserved).toMatch(/not yet verified/i);
   });
 
   it('points at the event that actually carries the join key', () => {
@@ -407,7 +407,7 @@ describe('claims match the evidence', () => {
   it('surfaces the caps in the reader\'s path, not only the server', () => {
     const t = JSON.stringify(LIMITS);
     expect(t).toMatch(/3 refreshes per order per 24 hours/);
-    expect(t).toMatch(/300 order creations/);
+    expect(t).toMatch(/300 API requests per minute/);
     expect(t).toMatch(/bills as a verification/);
   });
 });
