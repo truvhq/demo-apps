@@ -747,7 +747,7 @@
 
 .bt-prev-page {
   margin-top: 14px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
-  background: #fff; box-shadow: 0 12px 28px -22px rgba(27,28,31, .4); max-height: 300px;
+  background: #fff; box-shadow: 0 12px 28px -22px rgba(27,28,31, .4);
 }
 .bt-prev-page img { display: block; width: 100%; height: auto; max-width: 100%; }
 
@@ -796,7 +796,6 @@
 .bt-prev-dl { margin-top: 18px; align-self: flex-start; }
 
 @media (max-height: 860px) {
-  .bt-prev-page { max-height: 210px; }
   .bt-prev-name { font-size: 17px; }
   .bt-prev-list li { font-size: 11px; }
 }
