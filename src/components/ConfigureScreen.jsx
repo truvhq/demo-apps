@@ -11,6 +11,7 @@
  */
 import { useState } from 'preact/hooks';
 import { BrandLogo } from './BrandLogo.jsx';
+import { DotField } from './DotField.jsx';
 import { Icons } from './Icons.jsx';
 import { signIn, isSsoConfigured } from '../auth/auth0Client.js';
 import { DASHBOARD_KEYS_URL } from '../config.js';
@@ -329,36 +330,63 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
   );
 }
 
-// Proof panel beside the sign-in card. Product screens are real captures of
-// these demos. Quotes and logos are placeholders on purpose: they must come
-// from Marketing with approval, never be invented here.
+// Proof panel beside the sign-in card. Quotes, names, titles and agency logos
+// are taken verbatim from truv.com/public-sector (approved by Marketing as the
+// source). Product screens are real captures of these demos.
+const QUOTES = [
+  {
+    quote: 'During a 3-month side-by-side evaluation of Truv against our instant database solution, Truv not only matched the data quality of the database but outperformed it with data on gig economy workers—solving a critical gap in our verifications.',
+    name: 'Jake Parlett', title: 'Systems Manager, Utah DWS', photo: '/brand/people/jake-parlett.png',
+  },
+  {
+    quote: "In our partnership with Truv, we've seen a significant financial impact on the verification with Truv. It is a significant decrease in cost per hit.",
+    name: 'Wesley Merritt', title: 'Assistant Deputy Commissioner of Quality & Vendor Relations, GA DHS', photo: '/brand/people/wesley-merritt.png',
+  },
+];
+const AGENCY_LOGOS = [
+  { src: '/brand/logos/CA-Department.png', alt: 'California Department of Social Services' },
+  { src: '/brand/logos/Oklahoma-DHS-logo.png', alt: 'Oklahoma DHS' },
+  { src: '/brand/logos/Washington-DSHS.png', alt: 'Washington DSHS' },
+  { src: '/brand/logos/UT-DWS.png', alt: 'Utah Department of Workforce Services' },
+];
+
 function ProofPanel() {
   return (
-    <aside class="ck-proof hidden lg:flex flex-col justify-center bg-[#1b1c1f] text-white px-14 py-12 overflow-y-auto">
-      <div class="max-w-[620px] w-full mx-auto">
-        <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-[#23deff] mb-4">Truv by Checkr</div>
+    <aside class="ck-proof relative hidden lg:flex flex-col justify-center overflow-hidden px-14 py-12">
+      <DotField class="absolute inset-0" />
+      <div class="ck-proof-content relative z-10 max-w-[620px] w-full mx-auto">
+        <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-[#474c52] mb-4">Truv by Checkr · Public Sector</div>
         <h2 class="ck-proof-title text-[36px] mb-3">Income and employment verification, straight from the source</h2>
-        <p class="text-[15px] leading-[1.5] text-[#bcc5d1] mb-8 max-w-[52ch]">
+        <p class="text-[15px] leading-[1.5] text-[#474c52] mb-7 max-w-[52ch]">
           Applicants connect their payroll provider, and agencies receive income and employment data directly - no re-keying documents.
         </p>
 
-        <div class="ck-proof-shots relative h-[280px] mb-8">
+        <div class="ck-proof-shots relative h-[250px] mb-7">
           <img src="/brand/screens/caseworker-applicants.png" alt="Case Worker Portal: applicants and verification status"
-               class="absolute left-0 top-10 w-[78%] rounded-[8px] border border-[#474c52] shadow-[0_24px_48px_-24px_rgba(0,0,0,0.6)]" />
+               class="absolute left-0 top-8 w-[76%] rounded-[8px] border border-[#d8dee5] bg-white shadow-[0_24px_48px_-28px_rgba(27,28,31,0.45)]" />
           <img src="/brand/screens/phone-application.png" alt="Applicant verification form on a phone"
-               class="absolute right-2 top-0 h-[280px] w-auto drop-shadow-[0_24px_40px_rgba(0,0,0,0.5)]" />
+               class="absolute right-2 top-0 h-[250px] w-auto drop-shadow-[0_20px_32px_rgba(27,28,31,0.35)]" />
         </div>
 
-        <figure class="ck-placeholder rounded-[8px] border border-dashed border-[#7a828c] px-6 py-4 mb-6">
-          <div class="ck-ph-tag">Placeholder</div>
-          <blockquote class="text-[17px] leading-[1.4] text-white">Customer quote goes here - an approved quote from Marketing.</blockquote>
-          <figcaption class="mt-3 text-[13px] text-[#bcc5d1]">Name, title, organization</figcaption>
-        </figure>
+        <div class="grid grid-cols-2 gap-4 mb-7">
+          {QUOTES.map(q => (
+            <figure key={q.name} class="rounded-[8px] border border-[#d8dee5] bg-white/90 backdrop-blur-sm p-4">
+              <blockquote class="text-[13px] leading-[1.45] text-[#1b1c1f]">“{q.quote}”</blockquote>
+              <figcaption class="mt-3 flex items-center gap-2.5">
+                <img src={q.photo} alt="" class="w-8 h-8 rounded-full object-cover object-top bg-[#f0f2f5]" />
+                <span class="text-[12px] leading-[1.3]">
+                  <span class="block font-medium text-[#1b1c1f]">{q.name}</span>
+                  <span class="block text-[#474c52]">{q.title}</span>
+                </span>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
 
-        <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7a828c] mb-3">Trusted by <span class="ck-ph-inline">placeholder</span></div>
-        <div class="grid grid-cols-5 gap-3">
-          {[0, 1, 2, 3, 4].map(i => (
-            <div key={i} class="h-12 rounded-[6px] border border-dashed border-[#474c52] flex items-center justify-center text-[11px] text-[#7a828c]">Logo</div>
+        <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7a828c] mb-3">Trusted by state agencies</div>
+        <div class="flex items-center gap-8">
+          {AGENCY_LOGOS.map(l => (
+            <img key={l.src} src={l.src} alt={l.alt} class="h-9 w-auto object-contain" />
           ))}
         </div>
       </div>
