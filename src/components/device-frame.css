@@ -1,0 +1,61 @@
+/*
+ * iPhone mock (iPhone 15 Pro proportions: 393 x 852 pt screen). Visual only -
+ * DeviceFrame keeps its fixed layer structure; these classes only style it.
+ */
+.dvc-phone {
+  --bezel: 11px;
+  position: relative;
+  aspect-ratio: 417 / 876;            /* screen 393x852 + bezel on each side */
+  height: 820px;
+  max-height: 100%;
+  min-height: 480px;
+  flex: none;
+  padding: var(--bezel);
+  border-radius: 64px;
+  background: #0b0b0c;                 /* black glass bezel */
+  /* thin titanium band, a soft highlight, and the drop shadow */
+  box-shadow:
+    0 0 0 2px #5b5d61,
+    0 0 0 3px #2a2b2e,
+    inset 0 0 0 1px #1f2023,
+    0 40px 80px -30px rgba(27, 28, 31, 0.55),
+    0 18px 36px -18px rgba(27, 28, 31, 0.35);
+}
+/* Side buttons, drawn outside the band: power on the right; action button and
+   volume up/down on the left (one element, extra segments via box-shadow). */
+.dvc-phone::before, .dvc-phone::after {
+  content: ''; position: absolute; width: 4px; border-radius: 2px;
+  background: linear-gradient(90deg, #3a3b3f, #6a6c70);
+}
+.dvc-phone::after {                    /* power */
+  right: -6px; top: 26%; height: 11%;
+  background: linear-gradient(90deg, #6a6c70, #3a3b3f);
+}
+.dvc-phone::before {                   /* action button, volume up, volume down */
+  left: -6px; top: 17%; height: 27%;
+  /* one strip with transparent gaps, so the three buttons scale with the phone */
+  background: linear-gradient(180deg,
+    #4d4f53 0 15%, transparent 15% 30%,
+    #4d4f53 30% 62%, transparent 62% 68%,
+    #4d4f53 68% 100%);
+}
+.dvc-island {
+  position: absolute; z-index: 20; left: 50%; transform: translateX(-50%);
+  top: calc(var(--bezel) + 11px);
+  width: 31%; height: 33px; border-radius: 999px; background: #000;
+}
+.dvc-screen {
+  position: relative; height: 100%; width: 100%; overflow: hidden;
+  border-radius: 53px; background: #fff; display: flex; flex-direction: column;
+}
+.dvc-status {
+  height: 54px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 30px 0 34px; color: #1b1c1f;
+  font: 600 15px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  letter-spacing: -0.01em;
+}
+.dvc-status-icons { display: flex; align-items: center; gap: 6px; }
+.dvc-home {
+  position: absolute; z-index: 20; left: 50%; transform: translateX(-50%);
+  bottom: 8px; width: 36%; height: 5px; border-radius: 999px; background: #1b1c1f;
+}

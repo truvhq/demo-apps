@@ -24,6 +24,7 @@ import { useState, useEffect } from 'preact/hooks';
 import { useDeviceMode } from '../hooks/useDeviceMode.js';
 import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
 import { useRegisterDeviceFrame } from '../hooks/deviceFramePresence.jsx';
+import './device-frame.css';
 
 // True below the sm breakpoint (640px). Phones get the simplified full-bleed
 // preview regardless of the persisted device mode, so this drives that fallback.
@@ -80,22 +81,22 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
   // Width follows from aspect-ratio. Desktop: invisible flex passthrough so
   // the inner "screen" fills the column.
   const frameClass = isMobile
-    ? 'relative w-full flex-1 min-h-0 max-w-full sm:w-auto sm:flex-none sm:bg-gray-900 sm:rounded-[2.75rem] sm:p-3 sm:shadow-2xl sm:h-[804px] sm:min-h-[480px] sm:max-h-full sm:aspect-[414/804]'
+    ? (isNarrow ? 'relative w-full flex-1 min-h-0 max-w-full' : 'dvc-phone')
     : 'flex flex-1 w-full';
   const overlayTopClass = isMobile
-    ? 'hidden sm:block absolute top-5 left-1/2 -translate-x-1/2 w-32 h-7 bg-black rounded-full z-10'
+    ? (isNarrow ? 'hidden' : 'dvc-island')
     : 'hidden';
   // Mobile: white phone screen filling the bezel (size driven by frame above);
   // below sm it reads as a plain bordered card instead of a phone screen.
   // Desktop: browser window chrome — fills outer's height exactly so any scroll
   // happens inside the iframe rather than on the host page.
   const screenClass = isMobile
-    ? 'bg-white rounded-xl border border-gray-200 sm:rounded-[2.25rem] sm:border-0 overflow-hidden h-full w-full flex flex-col relative'
+    ? (isNarrow ? 'bg-white rounded-xl border border-gray-200 overflow-hidden h-full w-full flex flex-col relative' : 'dvc-screen')
     : 'bg-gray-100 rounded-xl shadow-2xl overflow-hidden w-full border border-gray-200 flex flex-col flex-1 min-h-0';
   // Mobile: empty status-bar reserve (only when the bezel chrome is shown).
   // Desktop: traffic lights + URL bar (rendered below).
   const chromeBarClass = isMobile
-    ? 'h-0 sm:h-12 flex-shrink-0'
+    ? (isNarrow ? 'h-0 flex-shrink-0' : 'dvc-status')
     : 'bg-gray-200 px-4 py-2.5 flex items-center gap-3 border-b border-gray-300 flex-shrink-0';
   // `content` is a flex column so the inner wrap (a flex item with flex-1)
   // gets a definite height — necessary for h-full on iframe children to resolve.
@@ -108,13 +109,13 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
   // the iframe document handles its own scrolling, so a host-side scroll would
   // just be redundant (and at extreme sizes can cause a double scrollbar).
   const contentClass = isMobile
-    ? 'flex flex-col flex-1'
+    ? 'flex flex-col flex-1 min-h-0'
     : 'bg-white flex flex-col flex-1';
   // Both modes: fill the full content area horizontally and vertically. The
   // iframe inside owns its own internal max-width for forms.
   const innerWrapClass = 'flex-1 w-full';
   const overlayBottomClass = isMobile
-    ? 'hidden sm:block absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-black rounded-full'
+    ? (isNarrow ? 'hidden' : 'dvc-home')
     : 'hidden';
 
   return (
@@ -123,6 +124,7 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
         <div class={overlayTopClass} aria-hidden="true" />
         <div class={screenClass}>
           <div class={chromeBarClass} aria-hidden={isMobile ? 'true' : undefined}>
+            {isMobile && !isNarrow && <StatusBar />}
             {!isMobile && (
               <>
                 <div class="flex gap-1.5">
@@ -145,6 +147,32 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// iOS status bar: time on the left, signal / Wi-Fi / battery on the right. The
+// Dynamic Island sits over the gap between them.
+function StatusBar() {
+  return (
+    <>
+      <span>9:41</span>
+      <span class="dvc-status-icons">
+        <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor" aria-hidden="true">
+          <rect x="0" y="8" width="3" height="4" rx="1" /><rect x="5" y="5.5" width="3" height="6.5" rx="1" />
+          <rect x="10" y="3" width="3" height="9" rx="1" /><rect x="15" y="0" width="3" height="12" rx="1" />
+        </svg>
+        <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor" aria-hidden="true">
+          <path d="M8 2.6c2.3 0 4.4.9 6 2.4l1.1-1.2A10.2 10.2 0 0 0 8 1C5.3 1 2.8 2 .9 3.8L2 5c1.6-1.5 3.7-2.4 6-2.4Z" />
+          <path d="M8 5.9c1.4 0 2.7.5 3.7 1.4l1.1-1.2A7 7 0 0 0 8 4.3a7 7 0 0 0-4.8 1.8l1.1 1.2c1-.9 2.3-1.4 3.7-1.4Z" />
+          <path d="M8 9.1c.6 0 1.1.2 1.5.6L8 11.3 6.5 9.7c.4-.4.9-.6 1.5-.6Z" />
+        </svg>
+        <svg width="27" height="13" viewBox="0 0 27 13" fill="none" aria-hidden="true">
+          <rect x="0.5" y="0.5" width="23" height="12" rx="3.5" stroke="currentColor" opacity="0.4" />
+          <rect x="2" y="2" width="20" height="9" rx="2" fill="currentColor" />
+          <path d="M25 4.5v4a2 2 0 0 0 0-4Z" fill="currentColor" opacity="0.45" />
+        </svg>
+      </span>
+    </>
   );
 }
 
