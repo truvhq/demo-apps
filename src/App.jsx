@@ -13,6 +13,7 @@
  * Hash URL structure:
  *   #                                        -> Home (every demo, industry filter chips)
  *   #filter=public-sector                    -> Home with that industry's chip preselected
+ *   #filter=all                              -> Home showing every industry (default is Public Sector)
  *   #consumer-credit                         -> IndustryHub (Demos + Guides tiles)
  *   #consumer-credit/smart-routing           -> Demo intro screen
  *   #consumer-credit/smart-routing/bridge/id -> Demo active screen
@@ -51,17 +52,8 @@ import { BankCoverageDemo } from './demos/BankCoverage.jsx';
 // demos array. Each demo object maps { id, name, component, desc, tags } so
 // the router can resolve a hash URL to a component and the UI can render cards.
 export const INDUSTRIES = [
-  {
-    id: 'mortgage',
-    name: 'Mortgage',
-    desc: 'Verify borrower income, employment, and assets in minutes with GSE-certified reports for Day 1 Certainty.',
-    demos: [
-      { id: 'pos-application', name: 'POS Application', component: POSApplicationDemo, desc: 'A borrower fills out a loan application and verifies their income or employment in real time, right inside the point-of-sale.', tags: ['Company Search', 'Orders', 'Bridge', 'Reports'] },
-      { id: 'pos-tasks', name: 'POS Tasks', component: POSTasksDemo, desc: 'After submitting a loan application, the borrower returns to complete remaining verifications: income, employment, and assets.', tags: ['Orders', 'Bridge', 'VOIE', 'VOE', 'Assets'] },
-      { id: 'los', name: 'LOS', component: LOSDemo, desc: 'A Loan Processor creates verification orders from the LOS using borrower data on file. Borrowers receive a link to complete verification on their own.', tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'] },
-      { id: 'documents', name: 'Document Processing', component: DocumentProcessingDemo, desc: 'Process pay stubs, W-2s, and tax returns already collected. Truv validates the documents and extracts structured income data for underwriting.', tags: ['Document Collections', 'Finalize', 'Parsed Data'] },
-    ],
-  },
+  // Display order everywhere (home tiles, filter chips): Public Sector is the
+  // primary audience, Mortgage last.
   {
     id: 'public-sector',
     name: 'Public Sector',
@@ -100,6 +92,17 @@ export const INDUSTRIES = [
     demos: [
       { id: 'payroll-coverage', name: 'Payroll Coverage', component: PayrollCoverageDemo, desc: 'Upload a CSV of up to 10,000 employers and see which ones Truv supports for income, employment, deposit-switch, or paycheck-linked-loans.', tags: ['Bulk', 'companies', 'CSV', 'Rate-limited'] },
       { id: 'bank-coverage', name: 'Financial Accounts Coverage', component: BankCoverageDemo, desc: 'Upload a CSV of up to 10,000 financial accounts and see which ones Truv can connect to for transactions or assets data.', tags: ['Bulk', 'providers', 'financial_accounts', 'CSV'] },
+    ],
+  },
+  {
+    id: 'mortgage',
+    name: 'Mortgage',
+    desc: 'Verify borrower income, employment, and assets in minutes with GSE-certified reports for Day 1 Certainty.',
+    demos: [
+      { id: 'pos-application', name: 'POS Application', component: POSApplicationDemo, desc: 'A borrower fills out a loan application and verifies their income or employment in real time, right inside the point-of-sale.', tags: ['Company Search', 'Orders', 'Bridge', 'Reports'] },
+      { id: 'pos-tasks', name: 'POS Tasks', component: POSTasksDemo, desc: 'After submitting a loan application, the borrower returns to complete remaining verifications: income, employment, and assets.', tags: ['Orders', 'Bridge', 'VOIE', 'VOE', 'Assets'] },
+      { id: 'los', name: 'LOS', component: LOSDemo, desc: 'A Loan Processor creates verification orders from the LOS using borrower data on file. Borrowers receive a link to complete verification on their own.', tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'] },
+      { id: 'documents', name: 'Document Processing', component: DocumentProcessingDemo, desc: 'Process pay stubs, W-2s, and tax returns already collected. Truv validates the documents and extracts structured income data for underwriting.', tags: ['Document Collections', 'Finalize', 'Parsed Data'] },
     ],
   },
 ];
@@ -232,7 +235,7 @@ export function App() {
   const Landing = industry.id === 'public-sector' ? PublicSectorHub : IndustryHub;
   if (!route.demo) return <Landing key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
   // #<industry>/demos and /guides scroll to that section of the industry page.
-  if (route.demo === 'demos' || route.demo === 'guides') {
+  if (route.demo === 'demos' || route.demo === 'channels' || route.demo === 'guides') {
     return <Landing key={`industry/${route.industry}/${route.demo}/${restartNonce}`} industry={industry} section={route.demo} />;
   }
 

@@ -169,7 +169,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
   }
 
   return (
-    <div class="ck-theme ck-signin min-h-screen relative flex items-center justify-center px-6 overflow-hidden bg-[#f0f2f5]">
+    <div class="ck-theme ck-signin min-h-screen relative grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] bg-white">
       {/* Soft background ambience: pastel radial blooms drifting behind the card. */}
       <div aria-hidden="true" class="pointer-events-none absolute inset-0">
         <div class="config-bloom-a absolute -top-32 left-1/2 w-[640px] h-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(94,92,230,0.13),transparent_60%)]" />
@@ -181,11 +181,13 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
         href="https://truv.com/contact-sales"
         target="_blank"
         rel="noreferrer"
-        class="absolute top-5 right-6 z-10 text-[13px] font-medium text-white bg-primary rounded-lg px-3.5 py-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.06)] hover:bg-primary-hover active:bg-primary-active  transition-all"
+        class="absolute top-5 right-6 z-10 text-[13px] font-medium text-[#1b1c1f] bg-white border border-[#d8dee5] rounded-[6px] px-3.5 py-1.5 hover:bg-[#23deff] hover:border-[#23deff] transition-colors duration-[400ms]"
       >
         Contact sales
       </a>
 
+      {/* Left: sign-in */}
+      <div class="relative flex items-center justify-center px-6 py-16">
       <div class="relative w-full max-w-[420px] animate-slideUp">
         <div class="gradient-ring relative bg-white border border-[#e8e8ed]/80 rounded-[20px] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_12px_40px_rgba(16,24,40,0.10)] px-8 py-9">
           {/* Header */}
@@ -319,6 +321,47 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
           ))}
         </div>
       </div>
+      </div>
+
+      {/* Right: product and proof panel (wide screens only) */}
+      <ProofPanel />
     </div>
+  );
+}
+
+// Proof panel beside the sign-in card. Product screens are real captures of
+// these demos. Quotes and logos are placeholders on purpose: they must come
+// from Marketing with approval, never be invented here.
+function ProofPanel() {
+  return (
+    <aside class="ck-proof hidden lg:flex flex-col justify-center bg-[#1b1c1f] text-white px-14 py-12 overflow-y-auto">
+      <div class="max-w-[620px] w-full mx-auto">
+        <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-[#23deff] mb-4">Truv by Checkr</div>
+        <h2 class="ck-proof-title text-[36px] mb-3">Income and employment verification, straight from the source</h2>
+        <p class="text-[15px] leading-[1.5] text-[#bcc5d1] mb-8 max-w-[52ch]">
+          Applicants connect their payroll provider, and agencies receive income and employment data directly - no re-keying documents.
+        </p>
+
+        <div class="ck-proof-shots relative h-[280px] mb-8">
+          <img src="/brand/screens/caseworker-applicants.png" alt="Case Worker Portal: applicants and verification status"
+               class="absolute left-0 top-10 w-[78%] rounded-[8px] border border-[#474c52] shadow-[0_24px_48px_-24px_rgba(0,0,0,0.6)]" />
+          <img src="/brand/screens/phone-application.png" alt="Applicant verification form on a phone"
+               class="absolute right-2 top-0 h-[280px] w-auto drop-shadow-[0_24px_40px_rgba(0,0,0,0.5)]" />
+        </div>
+
+        <figure class="ck-placeholder rounded-[8px] border border-dashed border-[#7a828c] px-6 py-4 mb-6">
+          <div class="ck-ph-tag">Placeholder</div>
+          <blockquote class="text-[17px] leading-[1.4] text-white">Customer quote goes here - an approved quote from Marketing.</blockquote>
+          <figcaption class="mt-3 text-[13px] text-[#bcc5d1]">Name, title, organization</figcaption>
+        </figure>
+
+        <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7a828c] mb-3">Trusted by <span class="ck-ph-inline">placeholder</span></div>
+        <div class="grid grid-cols-5 gap-3">
+          {[0, 1, 2, 3, 4].map(i => (
+            <div key={i} class="h-12 rounded-[6px] border border-dashed border-[#474c52] flex items-center justify-center text-[11px] text-[#7a828c]">Logo</div>
+          ))}
+        </div>
+      </div>
+    </aside>
   );
 }

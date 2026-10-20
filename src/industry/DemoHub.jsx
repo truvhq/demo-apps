@@ -13,6 +13,17 @@ import './ps-hub.css';
 
 // Guides are placeholders until the content is written. They stay visible but
 // not clickable, so nobody lands on an empty page.
+// Channels: the other ways agencies use Truv besides an embedded demo flow.
+// Placeholders until each has content - visible, not clickable.
+export const PLACEHOLDER_CHANNELS = [
+  { id: 'dashboard', name: 'Truv Dashboard', icon: 'building',
+    desc: 'Staff create and track verification orders in the Truv Dashboard - no integration needed.' },
+  { id: 'existing-system', name: 'Your existing system', icon: 'repeat',
+    desc: 'Verification inside the eligibility or case system an agency or its system integrator already runs.' },
+  { id: 'order-link', name: 'Shared order link', icon: 'link2',
+    desc: 'Send the applicant a verification link by email or text, or print it as a QR code.' },
+];
+
 export const PLACEHOLDER_GUIDES = [
   { id: 'best-practices', name: 'Best practices', icon: 'shieldCheck',
     desc: 'How teams set up verification for the best applicant experience and fewest manual reviews.' },
@@ -63,20 +74,23 @@ function GuideTile({ guide, index }) {
  * heroExtra: optional node under the lead (e.g. the Update API keys button)
  */
 export function DemoHub({ trail, back, eyebrow, title, lead, items, guides = PLACEHOLDER_GUIDES,
-                          filters, section, heroExtra }) {
+                          channels = PLACEHOLDER_CHANNELS, filters, defaultFilter = 'all',
+                          section, heroExtra }) {
   // The filter lives in the URL (#filter=<industry-id>) so a filtered view can
   // be linked and shared. Unknown ids fall back to All.
   const validIds = new Set((filters || []).map(f => f.id));
   const fromHash = () => {
     const m = /^#filter=([\w-]+)/.exec(window.location.hash);
-    return m && validIds.has(m[1]) ? m[1] : 'all';
+    if (m && (m[1] === 'all' || validIds.has(m[1]))) return m[1];
+    return validIds.has(defaultFilter) ? defaultFilter : 'all';
   };
   const [filter, setFilterState] = useState(filters ? fromHash : 'all');
   const setFilter = (id) => {
     setFilterState(id);
     // replaceState: updates the shareable URL without adding a history entry
     // per click or triggering the router.
-    const url = window.location.pathname + window.location.search + (id === 'all' ? '#' : `#filter=${id}`);
+    // All gets its own link too, so it can override a non-All default.
+    const url = window.location.pathname + window.location.search + `#filter=${id}`;
     window.history.replaceState(null, '', url);
   };
   // A pasted link or a manual hash edit on the same page re-applies the filter.
@@ -130,6 +144,16 @@ export function DemoHub({ trail, back, eyebrow, title, lead, items, guides = PLA
           )}
           <div class="psh-grid" key={filter}>
             {shown.map((it, i) => <DemoTile key={it.key} item={it} index={i} />)}
+          </div>
+        </section>
+
+        <section class="psh-section-block" id="psh-channels" aria-labelledby="psh-channels-h">
+          <div class="psh-section-head">
+            <h2 class="psh-section-title" id="psh-channels-h">Channels</h2>
+            <span class="psh-count">{channels.length}</span>
+          </div>
+          <div class="psh-grid">
+            {channels.map((g, i) => <GuideTile key={g.id} guide={g} index={i} />)}
           </div>
         </section>
 

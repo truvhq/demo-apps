@@ -29,6 +29,8 @@ export function Home() {
         lead="Verify income, employment and assets across mortgage, public sector, consumer credit and retail banking, and check how many of your employers and banks Truv covers."
         items={items}
         filters={industries.map(i => ({ id: i.id, name: i.name }))}
+        // Public Sector is the primary audience, so it is the default view.
+        defaultFilter="public-sector"
         heroExtra={
           // Home-only action: swap the API keys in use without leaving the page.
           <button type="button" class="psh-btn-outline" onClick={() => setOverrideOpen(true)}>

@@ -77,3 +77,10 @@
 .ck-signin .config-bloom-a, .ck-signin .config-bloom-b { display: none; }
 .ck-signin .gradient-ring::before { display: none; }
 .ck-signin .gradient-ring { border-color: #d8dee5; border-radius: 8px; }
+
+/* Sign-in proof panel (Off Black ground, white text, aqua accent). */
+.ck-signin .ck-proof-title { font-family:'National 2 Narrow','Helvetica Neue',Arial,sans-serif; font-weight:500; line-height:1; letter-spacing:-.01em; color:#fff; }
+.ck-placeholder { position:relative; }
+.ck-ph-tag { position:absolute; top:-9px; left:16px; background:#1b1c1f; color:#7a828c; font-size:10px;
+  font-weight:700; letter-spacing:.12em; text-transform:uppercase; padding:0 6px; }
+.ck-ph-inline { color:#474c52; letter-spacing:.1em; }
