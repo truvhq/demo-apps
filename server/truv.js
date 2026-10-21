@@ -284,7 +284,7 @@ export class TruvClient {
   // 90-day transaction window no matter how much history the original connection
   // pulled. Pass true for the full 730 days or the data silently truncates.
   //
-  // Rate limit: 3 refreshes per order per 24h, then Truv returns 429.
+  // Rate limit: counted per connection (access_token), 1 initial request plus 3 refreshes per 24h, then Truv returns 429.
   async createRefreshOrder(truvOrderId, { products, employers, financial_accounts, request_extended_history } = {}) {
     const payload = {};
     if (products && products.length) payload.products = products;

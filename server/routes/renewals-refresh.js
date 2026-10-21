@@ -36,6 +36,15 @@
  * challenge, after which the refresh order itself completes.
  */
 
+// WHICH FUNCTION TO USE, if you are lifting the logic into your own code:
+//   classifyRefreshOutcomePerSuborder  one verdict per connection. This is the one to build on.
+//   rollupRefreshOutcome               turns those verdicts into an order-level summary.
+//   classifyRefreshOutcome             a single verdict for the whole refresh order. It is correct for an
+//                                      order with one connection and too coarse for more than one.
+//   tasksForOrder, suborders           small helpers the classifiers use.
+// All of these are pure (no database, no network). The router below (runRefresh and the routes) is
+// demo wiring: it uses SQLite and the demo's logger, so copy the classifiers and write your own routes.
+
 // Express router factory
 import { Router } from 'express';
 
@@ -414,7 +423,7 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger }) {
       requestBody: result.requestBody, responseBody: truvData, statusCode: result.statusCode, durationMs: result.durationMs,
     });
 
-    // The per-order refresh cap is 3 per 24h. Surface it as its own signal so the UI
+    // The refresh limit is counted per connection (access_token): 1 initial request plus 3 refreshes per 24h. Surface it as its own signal so the UI
     // can say what happened instead of showing a generic failure.
     if (result.statusCode === 429) {
       // Truv's body names when the order can be refreshed again:
@@ -423,7 +432,7 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger }) {
       const wait = waitSeconds ? ` It can be refreshed again in about ${Math.max(1, Math.round(waitSeconds / 3600))} hour${Math.round(waitSeconds / 3600) === 1 ? '' : 's'}.` : '';
       return { statusCode: 429, payload: {
         error: 'refresh_cap_reached',
-        message: `Truv limits refreshes to 3 per order per 24 hours, and this order has reached that limit.${wait}`,
+        message: `Truv limits each connection to 3 refreshes per 24 hours, and a connection on this order has reached that limit.${wait}`,
         retry_after: result.retryAfter ?? waitSeconds,
         details: truvData,
       } };

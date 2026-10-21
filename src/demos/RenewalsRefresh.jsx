@@ -418,7 +418,7 @@ export function RenewalsRefreshDemo() {
           continue;
         }
         patchCase(c.id, { waiting: false });
-        // The per-order cap is its own signal, not a generic failure.
+        // The per-connection refresh limit is its own signal, not a generic failure.
         const name = `${c.firstName} ${c.lastName}`;
         const message = data.error === 'no_connections_yet'
           ? 'Still not ready to refresh after about a minute. Check that the applicant clicked Submit connected accounts in the connection window, then try again.'
@@ -764,7 +764,7 @@ export function RenewalsRefreshDemo() {
   .join('\n\n') || 'POST /v1/orders/{order_id}/\n{ "products": ["income"] }'}</pre>
                 <p class="text-[12px] text-[#666670] mt-2 mb-0">
                   Server-side, no applicant contact. Truv returns a new order and refreshes through the
-                  applicant's authenticated session. Limited to 3 refreshes per order per 24 hours.
+                  applicant's authenticated session. Limited to 3 refreshes per connection per 24 hours.
                 </p>
               </div>
 

@@ -78,11 +78,11 @@ export const CASELOAD = [
 export const STEPS = [
   {
     title: 'Applicants connect at intake',
-    guide: '<p>Normal verification orders. Each one leaves a connection to a payroll provider or bank, and a renewal reuses that connection later.</p><pre>POST /v1/orders/\n{\n  "products": ["income"],\n  "first_name": "...",\n  "last_name": "..."\n}</pre><p>In this demo, the test login each applicant uses decides what their refresh does later.</p>',
+    guide: '<p>Normal verification orders. Each one leaves a connection to a payroll provider or bank, and a renewal reuses that connection later.</p><pre>POST /v1/orders/\n{\n  "products": ["income"],\n  "first_name": "Ana",\n  "last_name": "Silva",\n  "external_user_id": "your-applicant-id",\n  "employers": [{ "company_name": "Home Depot" }]\n}</pre><p>Send your own <code>external_user_id</code> so a returning applicant is the same Truv user.</p><p>In this demo, the test login each applicant uses decides what their refresh does later.</p>',
   },
   {
     title: 'Recertification comes due',
-    guide: '<p>Refresh the existing order instead of collecting documents again. POST to the order\'s own path:</p><pre>POST /v1/orders/{order_id}/\n{ "products": ["income"] }</pre><p>Truv returns a <strong>new order</strong> with its own id, share_url and bridge_token, then attempts the pull server-side through the applicant\'s authenticated session. Rate limit: 3 refreshes per order per 24 hours.</p>',
+    guide: '<p>Refresh the existing order instead of collecting documents again. POST to the order\'s own path:</p><pre>POST /v1/orders/{order_id}/\n{ "products": ["income"] }</pre><p>Truv returns a <strong>new order</strong> with its own id, share_url and bridge_token, then attempts the pull server-side through the applicant\'s authenticated session. Limit: 1 initial request plus 3 refreshes per connection in any 24 hours.</p>',
   },
   {
     title: 'A refresh completes or it fails',
@@ -131,7 +131,7 @@ export const WALKTHROUGH_STAGES = [
         'When it does, one API call refreshes the data with no applicant contact',
       ],
     },
-    chips: [['1 request', 'to refresh a case'], ['0 actions', 'for the applicant when the session still works'], ['3 per 24 hours', 'refreshes allowed per case']],
+    chips: [['1 request', 'to refresh a case'], ['0 actions', 'for the applicant when the session still works'], ['3 per 24 hours', 'refreshes per connection']],
   },
   {
     n: '03',

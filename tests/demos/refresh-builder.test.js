@@ -11,6 +11,8 @@ import {
   PROGRAM_TABLE, PROGRAM_RISKS, PROGRAM_SCRIPTS, STEPS, SCOPE_LIMITS, IDENTITY, OPEN_QUESTIONS,
   SCOPING, NEW_ORDER_PROOF, LIMITS, CORRELATION, REFRESH_VS_NEW as RVN,
 } from '../../src/demos/scaffolding/refresh-builder.jsx';
+import * as GuideContent from '../../src/demos/scaffolding/refresh-builder.jsx';
+import { BASICS } from '../../src/demos/scaffolding/refresh-builder.jsx';
 
 // ---------------------------------------------------------------------------
 // Orders & Refresh Lifecycle
@@ -406,7 +408,7 @@ describe('claims match the evidence', () => {
 
   it('surfaces the caps in the reader\'s path, not only the server', () => {
     const t = JSON.stringify(LIMITS);
-    expect(t).toMatch(/3 refreshes per order per 24 hours/);
+    expect(t).toMatch(/3 refreshes per connection per 24 hours/);
     expect(t).toMatch(/300 API requests per minute/);
     expect(t).toMatch(/bills as a verification/);
   });
@@ -435,7 +437,7 @@ describe('the guide stays standalone', () => {
   });
 
   it('anchors every section so any part can be linked to', () => {
-    for (const id of ['start', 'decide', 'returns', 'partial', 'play', 'outcomes', 'limits', 'evidence', 'program']) {
+    for (const id of ['start', 'basics', 'decide', 'returns', 'partial', 'play', 'outcomes', 'limits', 'evidence', 'program']) {
       expect(code).toMatch(new RegExp(`id="${id}"`));
     }
   });
@@ -448,5 +450,75 @@ describe('the guide stays standalone', () => {
     // and no bare fetch that bypasses the log
     const bareFetches = (code.match(/await fetch\(/g) || []).length;
     expect(bareFetches, 'every call must go through api() so it appears in the console').toBe(1);
+  });
+});
+
+describe('Integration basics', () => {
+  const text = JSON.stringify(BASICS);
+
+  it('says how to authenticate and where to send requests', () => {
+    expect(text).toMatch(/X-Access-Client-Id/);
+    expect(text).toMatch(/X-Access-Secret/);
+    expect(text).toMatch(/https:\/\/prod\.truv\.com\/v1\//);
+  });
+
+  it('covers connecting in Bridge, including closing it', () => {
+    expect(text).toMatch(/cdn\.truv\.com\/bridge\.js/);
+    expect(text).toMatch(/isOrder: true/);
+    expect(text).toMatch(/bridge\.close\(\)/);
+  });
+
+  it('covers reading results: paginated tasks matched by link_id', () => {
+    expect(text).toMatch(/\/v1\/tasks\/\?user_id=/);
+    expect(text).toMatch(/cursor/);
+    expect(text).toMatch(/link_id/);
+  });
+
+  it('covers webhook registration, signing, retries and the delivery log', () => {
+    expect(text).toMatch(/POST \/v1\/webhooks\//);
+    expect(text).toMatch(/X-WEBHOOK-SIGN/);
+    expect(text).toMatch(/HMAC-SHA256/);
+    expect(text).toMatch(/3 times, 30 seconds apart/);
+    expect(text).toMatch(/webhook-requests/);
+  });
+
+  it('explains the three refresh errors and the 404 body shape', () => {
+    const codes = BASICS.errors.map(e => e.code);
+    expect(codes).toContain('incorrect_parameters');
+    expect(codes).toContain('invalid');
+    expect(codes).toContain('throttled');
+    expect(BASICS.errors.some(e => e.status === '404' && /detail/.test(e.message))).toBe(true);
+  });
+
+  it('gives a copy-and-paste sequence that uses only documented calls', () => {
+    for (const call of ['/v1/orders/', '/v1/tasks/?user_id=', '/v1/users/USER_ID/reports/']) {
+      expect(BASICS.curl).toContain(call);
+    }
+    expect(BASICS.curl).not.toMatch(/sk_|secret_[a-z0-9]{8}/i);
+  });
+
+  it('keeps user_id on the list of what to store', () => {
+    expect(IDENTITY.keep.map(k => k.what)).toContain('user_id');
+  });
+});
+
+describe('Guide wording guards', () => {
+  const all = JSON.stringify(Object.values(GuideContent));
+
+  it('states the refresh limit per connection, never per order', () => {
+    expect(all).not.toMatch(/per order per 24/);
+    expect(all).toMatch(/per connection/);
+  });
+
+  it('has no internal references an outside reader cannot follow', () => {
+    expect(all).not.toMatch(/DS-\d+|REFRESH-FINDINGS|GOVERNMENT_|truv-context/);
+  });
+
+  it('never describes Truv as storing or keeping credentials', () => {
+    expect(all).not.toMatch(/stored credential|credentials? (are|is|were) (stored|kept|saved)|saved sign-?in|stored session/i);
+  });
+
+  it('does not quote a status code where runs disagreed', () => {
+    expect(all).not.toMatch(/returned 200/);
   });
 });

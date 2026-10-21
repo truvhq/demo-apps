@@ -186,16 +186,72 @@ export const NEW_ORDER_PROOF = {
   notObserved: 'Not yet verified for a new order that reuses existing connections: that it completes on its own, creates a report, or returns data without the applicant finishing the flow. That run was not taken to completion, so do not plan around that part. This is separate from a failed refresh that the applicant re-authorizes, which did complete and create a new report id.',
 };
 
+
+// ---------------------------------------------------------------------------
+// Integration basics: what an engineer needs to make the first calls. Everything
+// here is in Truv's public documentation (docs.truv.com) or was seen in the runs
+// on this page; it is collected so a refresh build does not start with a search.
+// ---------------------------------------------------------------------------
+
+export const BASICS = {
+  title: 'Integration basics',
+  lede: 'What you need to make your first calls. The details are in Truv\'s public documentation at docs.truv.com. This page collects the parts a refresh depends on.',
+  steps: [
+    { t: 'Authenticate', d: 'Send two headers on every request: X-Access-Client-Id and X-Access-Secret. The base URL is https://prod.truv.com/v1/. Truv\'s docs and this demo use that host for sandbox too, and your key decides which environment you reach. Keep the secret on your server.' },
+    { t: 'Create the order', d: 'POST /v1/orders/ with products, the applicant\'s name, your own external_user_id and, optionally, employers. The response carries id, user_id, bridge_token and share_url. Creating an order is not idempotent, so a retry creates a second order. Store your own reference first.' },
+    { t: 'Connect in Bridge', d: 'In the browser, load https://cdn.truv.com/bridge.js, call TruvBridge.init({ bridgeToken, isOrder: true, onEvent, onClose }), then bridge.open(). When onEvent reports COMPLETED for the order, call bridge.close(). In our runs the "Thank you" screen stayed on top of the page until it was closed. The applicant\'s last step is "Submit connected accounts".' },
+    { t: 'Wait before the first refresh', d: 'The order reads completed about 15 to 20 seconds before its connections can be refreshed. Retry a rejected refresh every few seconds for up to about a minute.' },
+    { t: 'Refresh', d: 'POST /v1/orders/{original_order_id}/ with products, and optionally employers[] or financial_accounts[] to refresh only some connections. It returns a new order with its own id, user_id, bridge_token and share_url. To refresh one connection directly, POST /v1/refresh/tasks/ with its access_token and a product_type, then read GET /v1/refresh/tasks/{task_id}/. This page uses the order endpoint.' },
+    { t: 'Read the results', d: 'GET /v1/tasks/?user_id={user_id} lists tasks, newest first, in pages (use the cursor and page_size parameters and follow "next"). Keep the ones for your refresh order and match them to your case file by link_id. Polling works with no public URL. Webhooks need a public HTTPS address.' },
+    { t: 'Webhooks, if you use them', d: 'Register an endpoint with POST /v1/webhooks/. Every delivery carries an X-WEBHOOK-SIGN header: "v1=" followed by an HMAC-SHA256 of the raw request body, keyed with your access secret. Verify it before you act on the event. Truv retries a 4xx or 5xx response up to 3 times, 30 seconds apart. GET /v1/webhook-requests/ lists the last 30 days of deliveries, which is the quickest way to see what was sent.' },
+    { t: 'Rate limits', d: '300 requests a minute per secret key. Order creation has its own hourly budget. Refreshes are limited per connection: 1 initial request plus 3 refreshes in any 24 hours. A 429 response says how many seconds remain.' },
+  ],
+  errors: [
+    { status: '400', code: 'incorrect_parameters', message: 'Can not find any employers connected to refresh the data.', means: 'Refreshed too early, or the named connection never connected. Retry for about a minute, then treat it as not connected.' },
+    { status: '400', code: 'invalid', message: 'Refresh already in progress', means: 'A refresh is still running. Wait for it to finish.' },
+    { status: '429', code: 'throttled', message: 'Order refresh limit exceeded Expected available in N seconds.', means: 'That connection used its 3 refreshes. Try again after N seconds.' },
+    { status: '401 / 403', code: 'authentication_failed / not_authenticated', message: '', means: 'Missing or wrong headers, or sandbox keys used against a production resource.' },
+    { status: '404', code: '', message: '{"detail":"Not Found."}', means: 'The id does not exist or belongs to another client. This is the one error with a different body shape.' },
+  ],
+  errorNote: 'Errors share one shape: {"error":{"code","message","extra"}}. On a 400, extra["invalid-params"] lists the fields. Match on the message text for the two 400s above, because both are 400s.',
+  curl: `# Set your sandbox keys first.
+export TRUV_CLIENT_ID=...
+export TRUV_SECRET=...
+
+# 1. Create the order. The response has id, user_id, bridge_token and share_url.
+curl -s https://prod.truv.com/v1/orders/ \\
+  -H "X-Access-Client-Id: $TRUV_CLIENT_ID" -H "X-Access-Secret: $TRUV_SECRET" \\
+  -H "Content-Type: application/json" \\
+  -d '{"products":["income"],"first_name":"Ana","last_name":"Silva","external_user_id":"your-applicant-id","employers":[{"company_name":"Home Depot"}]}'
+
+# 2. The applicant connects in Bridge (browser). Wait about 20 seconds.
+
+# 3. Refresh. Retry on 400 for up to about a minute.
+curl -s -X POST https://prod.truv.com/v1/orders/ORDER_ID/ \\
+  -H "X-Access-Client-Id: $TRUV_CLIENT_ID" -H "X-Access-Secret: $TRUV_SECRET" \\
+  -H "Content-Type: application/json" -d '{"products":["income"]}'
+
+# 4. Read per-connection results. Keep tasks created after your refresh, matched by link_id.
+curl -s "https://prod.truv.com/v1/tasks/?user_id=USER_ID" \\
+  -H "X-Access-Client-Id: $TRUV_CLIENT_ID" -H "X-Access-Secret: $TRUV_SECRET"
+
+# 5. Generate the report.
+curl -s -X POST https://prod.truv.com/v1/users/USER_ID/reports/ \\
+  -H "X-Access-Client-Id: $TRUV_CLIENT_ID" -H "X-Access-Secret: $TRUV_SECRET" \\
+  -H "Content-Type: application/json" -d '{"is_voe":false}'`,
+};
+
 export const IDENTITY = {
   title: 'What to keep on the case file',
   body: 'This matters most over repeated renewals. A refresh creates a new order with new suborder ids, and the original order\'s refresh_order field is overwritten each time. It only points at the most recent refresh, so you cannot walk back through earlier ones.',
   keep: [
     { what: 'external_user_id', why: 'Yours. It makes a returning applicant the same Truv user, and lets a new order reuse their existing connections.' },
+    { what: 'user_id', why: 'Truv\'s id for the applicant. You need it to list tasks and to generate reports.' },
     { what: 'the original order id', why: 'The id that never changes. Refresh against it, and scope with the employer ids on it.' },
     { what: 'link_id per employer', why: 'Stays the same across refreshes. Use it to match a refresh result to a job on the case.' },
     { what: 'each refresh order id, as you create it', why: 'If you want a history. Truv does not keep it for you.' },
   ],
-  avoid: 'Do not key anything on employer_id. It is regenerated on every refresh order.',
+  avoid: 'Do not key anything on a refresh order\'s employer_id. It is regenerated on every refresh order. To scope a refresh, use the employers[].id values from the original order.',
 };
 
 export const GATES = [
@@ -210,8 +266,8 @@ export const GATES = [
 
 // Limits that will shape any real design, and are easy to discover the hard way.
 export const LIMITS = [
-  { what: '3 refreshes per order per 24 hours', then: 'The 4th refresh within 24 hours returned 429 ("Order refresh limit exceeded", with the number of seconds until it is available again). A refresh sent while another is still running on the order returned 400 "Refresh already in progress". One sent after the earlier refresh had stopped running (finished, or waiting on the applicant) returned 200 even though that order was still incomplete. Disable the button while one is running.' },
-  { what: 'Refresh-eligible shortly after Bridge finishes', then: 'The order reads completed before its connections can be refreshed. Refreshing too early returns 400 "Can not find any employers connected to refresh the data". Wait for a suborder with an access_token and status completed.' },
+  { what: '3 refreshes per connection per 24 hours', then: 'The limit is counted per connection (its access_token), not per order: 1 initial request plus 3 refreshes in any 24 hours. In our runs the 4th refresh of the same connection returned 429 ("Order refresh limit exceeded", with the number of seconds until it is available again), and in a test run a refresh scoped to a different connection on the same order was still accepted. A refresh sent while another is still running returned 400 "Refresh already in progress". One sent after the earlier refresh had stopped running (finished, or waiting on the applicant) was accepted even though that order was still incomplete. Disable the button while one is running.' },
+  { what: 'Refreshing right after Bridge finishes', then: 'The order reads completed about 15 to 20 seconds before its connections can be refreshed (seen in several runs). A refresh sent too early returns 400 incorrect_parameters "Can not find any employers connected to refresh the data" (the same message names financial accounts for a bank). Retry every few seconds for up to about a minute. The same 400 also appears when a named connection never connected, so if it persists, treat that connection as not connected. A suborder with an access_token and status completed is ready.' },
   { what: '300 API requests per minute (Truv docs)', then: 'Requests over the limit return 429. Order creation is metered separately. Bound the concurrency of any batch.' },
   { what: 'Every refresh bills as a verification', then: 'Per Truv\'s published pricing. Whether a fully failed refresh also bills is unconfirmed, so get it in writing.' },
 ];
@@ -280,7 +336,7 @@ export const OUTCOMES = [
   { status: 'account_locked',  cls: 'provider',   plain: 'Their payroll account is locked',     action: 'They unlock it with their provider. If the deadline is close, take a document.', cred: null, seen: false },
   { status: 'unable_to_reset', cls: 'provider',   plain: 'The connection could not be rebuilt', action: 'Same as a locked account: they go through the provider, or you take a document.',              cred: null, seen: false },
   { status: 'no_data',         cls: 'nodata',     plain: 'Connected, but no records came back', action: 'Document or self-certify. Never record as $0 income.',  cred: { u: 'goodlogin', p: 'no_data' }, seen: false, danger: true },
-  { status: 'not_supported',   cls: 'nodata',     plain: 'Refresh is not supported here',       action: 'Document or self-certify.',                            cred: null, seen: false, note: 'Cannot be produced in sandbox. See DS-3507.' },
+  { status: 'not_supported',   cls: 'nodata',     plain: 'Refresh is not supported here',       action: 'Document or self-certify.',                            cred: null, seen: false, note: 'Cannot be produced in sandbox.' },
   { status: 'unavailable',     cls: 'transient',  plain: 'The provider was down',               action: 'Retry later. Do not contact anyone.',                  cred: null, seen: false },
   { status: 'error',           cls: 'transient',  plain: 'The provider errored',                action: 'Retry later. Do not contact anyone.',                  cred: null, seen: false },
   { status: 'config_error',    cls: 'transient',  plain: 'A provider-side configuration problem', action: 'Retry later. Do not contact anyone.',                cred: { u: 'goodlogin.pll.config_error', p: 'goodpassword' }, seen: false },
@@ -293,7 +349,9 @@ export const NO_DATA_WARNING = 'no_data means the provider connected and returne
 // ---------------------------------------------------------------------------
 
 export const ANSWERED = [
-  { q: 'If a refresh order can never complete, am I stuck?', a: 'Not for long. Refreshing the original order again returned 200 and created a second refresh order, with the first still incomplete, as long as the first was no longer running. A refresh sent while another is still running is rejected.' },
+  { q: 'Does every failing connection announce itself on the next refresh?', a: 'Not always. In two runs (one payroll, one bank), a connection whose earlier refresh had failed with an MFA challenge produced no task and no event on the next refresh. In the bank case the refresh order\'s connection stayed at sent with no link_id for over two minutes, and in the payroll case the other connection refreshed normally. Treat "no task after about two minutes" as unknown, never as refreshed.' },
+  { q: 'Can I rely on a failed task keeping its order_id?', a: 'No. In one run the failed task\'s order_id became empty after the applicant re-authorized through that refresh order\'s link, and in another it did not. Match on link_id, and save your own snapshot of each result when you first see it.' },
+  { q: 'If a refresh order can never complete, am I stuck?', a: 'Not for long. Refreshing the original order again was accepted and created a second refresh order, with the first still incomplete, as long as the first was no longer running. A refresh sent while another is still running is rejected.' },
   { q: 'Which order id do I keep on the case file?', a: 'The original. Its refresh_order field is overwritten each time and only points at the latest refresh, so store refresh ids yourself if you need a history.' },
   { q: 'Does a re-auth fix the connection for next time?', a: 'No. Kroger was re-authenticated successfully, then failed again with mfa_error on the next refresh minutes later. A re-auth clears the order in front of you and does not make later refreshes work.' },
   { q: 'Does the original order change when I refresh it?', a: 'Only its refresh_order pointer. Its data and report id stay the same, so reading them after a refresh gives you the values from before the refresh.' },
@@ -303,7 +361,7 @@ export const ANSWERED = [
 // What the capture did NOT cover. Stated so nobody reads the guide as broader than
 // the evidence behind it.
 export const SCOPE_LIMITS = [
-  'This run was income only, on payroll connections. Bank and asset connections use financial_accounts[] instead of employers[]. A later bank run (REFRESH-FINDINGS.md section 16, 2026-10-21) saw a bank refresh succeed with no applicant action and another fail with an MFA challenge that a code-only re-authorization cleared, but timings and the per-connection shape were not captured. Do not assume the timings, the per-connection shape, or the re-auth path are the same without testing them.',
+  'This run was income only, on payroll connections. Bank and asset connections use financial_accounts[] instead of employers[]. A later bank run (2026-10-21) saw a bank refresh succeed with no applicant action and another fail with an MFA challenge that a code-only re-authorization cleared, but timings and the per-connection shape were not captured. Do not assume the timings, the per-connection shape, or the re-auth path are the same without testing them.',
   'One product per refresh request. A mixed income and employment order was not tested.',
   'Assets refresh uses a 90-day transaction window unless request_extended_history is set to true. The full window is up to 2 years (Truv docs).',
 ];
@@ -313,9 +371,9 @@ export const OPEN_QUESTIONS = [
   'Does share_url expire separately from the order, and does it still work if the applicant returns to it days later after a partial re-auth?',
   'Truv\'s docs say each refresh bills as a separate verification. Unconfirmed: does a refresh that fails on every connection still bill, and does the applicant re-auth that follows bill again?',
   'Is link_id stable across an Update Mode re-auth, or can re-auth create a new link?',
-  'How often does not_supported happen on real payroll refreshes? It cannot be reproduced in sandbox (DS-3507).',
+  'How often does not_supported happen on real payroll refreshes? It cannot be reproduced in sandbox.',
   'Webhook delivery guarantees were not tested: signing, retries, duplicate delivery and ordering. Check Truv\'s webhook documentation, and do not assume a failure notice arrives after you have saved your own record of the refresh.',
-  'If the refresh request times out, was an order created? The cap of 3 per 24 hours makes a blind retry costly. Not tested.',
+  'If the refresh request times out, was an order created? The limit of 3 refreshes per connection per 24 hours makes a blind retry costly. Not tested.',
   'In the captured run a new report id appeared after each completed refresh, and POST /v1/users/{user_id}/reports/ returned the current state of every connection. Whether a refresh order\'s own report is the better one to read was not tested.',
 ];
 

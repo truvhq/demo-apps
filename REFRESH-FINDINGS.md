@@ -309,3 +309,32 @@ Separate runs from the 2026-09-17 capture above. Income and assets, one order at
   bank refresh completed with no applicant action (a bank silent success).
 - **MFA code.** Any code was accepted at the bank code prompt (`123456` was used).
 
+---
+
+## 17. Observed 2026-10-21 by two outside-engineer proofs of concept, and a standalone script
+
+Two engineers new to Truv built working proofs of concept from the guide, the demo and the public repo, and a
+minimal standalone script (`examples/refresh-minimal.mjs`) was run against real sandbox orders. What they saw,
+checked against Truv's published documentation where it covers the point.
+
+- **The refresh limit is per connection.** Truv's docs count it per `access_token`: 1 initial request plus 3
+  refreshes in any 24 hours. In one proof of concept, after the 4th Home Depot refresh returned 429, a refresh
+  scoped to Kroger alone on the same order was accepted. Earlier text on this page said "per order".
+- **The order reads completed 15 to 20 seconds before it can be refreshed.** Both proofs of concept were
+  rejected with 400 until about 15 to 17 seconds after "Submit connected accounts", then accepted.
+- **A connection whose earlier refresh failed with an MFA challenge can be skipped silently.** Reproduced twice.
+  In the payroll proof of concept, a second refresh refreshed Home Depot and produced no task and no
+  `order-refresh-failed` for Kroger for over 95 seconds, until the applicant re-authorized. In a bank run
+  with the standalone script, the refresh order's connection stayed at `sent` with `link_id: null` and no task
+  was created for over two minutes. Truv's docs say the order endpoint rejects a refresh while one is already
+  running on a connection; here it was accepted and nothing ran.
+- **A failed task can lose its `order_id`.** In one run the failed task's `order_id` became null after the
+  applicant re-authorized through that refresh order's link. In another it stayed. Match tasks on `link_id` and
+  keep your own snapshot.
+- **Bridge keeps a "Thank you" screen on top of the page until `bridge.close()` is called.**
+- **Suborder `status` can still read `sent` while `completed_at` is set**, for about the same 15 to 20 seconds.
+- **Re-authorization does not stick.** The next refresh failed with `mfa_error` again 20 to 30 seconds after a
+  successful re-authorization (confirms section 13).
+- **`provider.name` can differ from the employer you asked for** (it read "Workday" and "Oracle HCM" for Home
+  Depot and Kroger). The requested name is in `company_name`.
+

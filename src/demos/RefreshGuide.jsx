@@ -34,7 +34,7 @@ import './refresh-guide.css';
 import {
   RUN_META, RUN_LANES, CAPTURED_RUN, RUN_SPAN, THE_TRAP, LISTENER_MODES,
   CORRELATION, CORRELATION_EVIDENCE,
-  REFRESH_VS_NEW, NEW_ORDER_PROOF, SCOPING, GATES, ANTIPATTERN, IDENTITY, LIMITS,
+  BASICS, REFRESH_VS_NEW, NEW_ORDER_PROOF, SCOPING, GATES, ANTIPATTERN, IDENTITY, LIMITS,
   DELIVERY, REAUTH_NOTE,
   OUTCOMES, OUTCOME_CLASSES, NO_DATA_WARNING,
   ANSWERED, OPEN_QUESTIONS, SCOPE_LIMITS,
@@ -46,6 +46,7 @@ const POLL_MS = 3000;
 
 const SECTIONS = [
   { id: 'start', label: 'Start here', group: 'Learn' },
+  { id: 'basics', label: 'Integration basics', group: 'Learn' },
   { id: 'decide', label: 'Refresh or new order', group: 'Learn' },
   { id: 'returns', label: 'What a refresh returns', group: 'Learn' },
   { id: 'partial', label: 'When one connection fails', group: 'Learn' },
@@ -310,6 +311,42 @@ export function RefreshGuide({ screen }) {
             </div>
           </section>
 
+
+          {/* ============ BASICS ============ */}
+          <section id="basics" class="rg-sec">
+            <h2>{BASICS.title}</h2>
+            <p class="rg-lede">{BASICS.lede}</p>
+            <div class="rg-card">
+              {BASICS.steps.map((b, i) => (
+                <div key={b.t} class="rg-row">
+                  <div style="font-weight:600;margin-bottom:2px">{i + 1}. {b.t}</div>
+                  <div style="color:var(--rg-ink-2);font-size:14px">{b.d}</div>
+                </div>
+              ))}
+            </div>
+
+            <h3>Errors you will meet</h3>
+            <div class="rg-scroll">
+              <table class="rg-table">
+                <thead><tr><th scope="col">Status</th><th scope="col">Code</th><th scope="col">Message</th><th scope="col">What it means</th></tr></thead>
+                <tbody>
+                  {BASICS.errors.map((e, i) => (
+                    <tr key={i}>
+                      <td><code>{e.status}</code></td>
+                      <td>{e.code ? <code>{e.code}</code> : ''}</td>
+                      <td style="color:var(--rg-ink-2)">{e.message}</td>
+                      <td style="color:var(--rg-ink-2)">{e.means}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p style="font-size:13px;color:var(--rg-ink-2);margin-top:8px">{BASICS.errorNote}</p>
+
+            <h3>Copy and paste</h3>
+            <pre><code>{BASICS.curl}</code></pre>
+          </section>
+
           {/* ============ DECIDE ============ */}
           <section id="decide" class="rg-sec">
             <h2>Refresh, or a new order?</h2>
@@ -499,8 +536,7 @@ export function RefreshGuide({ screen }) {
           <section id="play" class="rg-sec">
             <h2>Try it against sandbox</h2>
             <p class="rg-lede">
-              The same three-connection case against live sandbox. Every request appears in the
-              console, which you can open from the bottom right.
+              The same three-connection case against live sandbox. The console lists each request this page sends to its own server, which calls Truv and adds the auth headers. Open a row to see the body and the response.
             </p>
 
             {err && <div class="rg-note bad" role="alert"><p>{err}</p></div>}
@@ -547,8 +583,7 @@ export function RefreshGuide({ screen }) {
                   <div>
                     <div class="rg-step-t">Refresh it</div>
                     <div class="rg-step-d">
-                      Truv rejects a refresh for a few seconds after Bridge finishes, because the order
-                      reads complete before its connections can be refreshed.
+                      Truv rejects a refresh for about 15 to 20 seconds after Bridge finishes, because the order reads complete before its connections can be refreshed. This page retries for you.
                     </div>
                     <button class="rg-btn primary" disabled={!order || !refreshable || busy === 'refresh'} onClick={() => doRefresh()}>
                       {busy === 'refresh' ? 'Refreshing…' : !order ? 'Create an order first' : !refreshable ? 'Waiting until refresh is allowed…' : refresh ? 'Refresh again' : 'Refresh all connections'}

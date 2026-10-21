@@ -60,7 +60,8 @@ describe('POST /api/renewals/refresh/:orderId error mapping', () => {
     const { status, json } = await post(ctx);
     expect(status).toBe(429);
     expect(json.error).toBe('refresh_cap_reached');
-    expect(json.message).toMatch(/3 per order per 24 hours/);
+    expect(json.message).toMatch(/3 refreshes per 24 hours/);
+    expect(json.message).toMatch(/connection/);
     expect(json.message).toMatch(/about 24 hours/);
     expect(json.retry_after).toBe(86306);
   });
