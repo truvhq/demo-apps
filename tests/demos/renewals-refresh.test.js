@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { classifyRefreshOutcome, classifyRefreshOutcomePerSuborder, tasksForOrder, REAUTH_STATUSES, NON_REAUTH_FAILURE_STATUSES } from '../../server/routes/renewals-refresh.js';
 import { CASELOAD, STEPS, WALKTHROUGH_STAGES, OUTCOME_DISPLAY } from '../../src/demos/scaffolding/renewals-refresh.jsx';
 import { RENEWALS_DIAGRAM, REFRESH_FORK_DIAGRAM } from '../../src/diagrams/renewals-refresh.js';
@@ -333,5 +334,22 @@ describe('RenewalsRefresh diagrams', () => {
   it('names the failure signal, which is the point of the demo', () => {
     expect(RENEWALS_DIAGRAM).toContain('order-refresh-failed');
     expect(REFRESH_FORK_DIAGRAM).toContain('order-refresh-failed');
+  });
+});
+
+describe('RenewalsRefresh keeps progress across a remount', () => {
+  const code = readFileSync(new URL('../../src/demos/RenewalsRefresh.jsx', import.meta.url), 'utf8');
+
+  it('does not clear saved progress just because the component unmounted', () => {
+    // A code update or any other remount used to wipe the applicants already connected and send the
+    // presenter back to the walkthrough. Clearing must depend on where the URL points.
+    const cleanup = code.slice(code.indexOf("window.addEventListener('truv:restart-view'"), code.indexOf("document.title = 'Renewals"));
+    expect(cleanup).toMatch(/location\.hash\.startsWith\('#public-sector\/renewals-refresh'\)/);
+    expect(cleanup).toMatch(/UNMOUNT_KEY/);
+  });
+
+  it('still resets on Start Over and on a breadcrumb restart', () => {
+    expect(code).toMatch(/function resetDemo\(\)[\s\S]*?removeItem\(STORE_KEY\)/);
+    expect(code).toMatch(/addEventListener\('truv:restart-view', clear\)/);
   });
 });

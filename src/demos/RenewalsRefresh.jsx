@@ -234,9 +234,13 @@ function ReportPanel({ c, ui, data }) {
   );
 }
 
-// Survive a page reload mid-demo. Cleared when the demo unmounts (leaving for the
-// hub, breadcrumb restart) or on Start Over, so re-entering always starts fresh.
+// Survive a page reload or a remount mid-demo. Cleared when the presenter leaves this demo,
+// restarts the view from the breadcrumb, or clicks Start Over, so re-entering starts fresh.
+// It is deliberately NOT cleared when the component unmounts: a hot code update or any other
+// remount would otherwise throw away the applicants already connected and send the presenter
+// back to the walkthrough.
 const STORE_KEY = 'truv_renewals_refresh_state';
+const UNMOUNT_KEY = 'truv_renewals_refresh_unmounted_at';
 const RUNTIME_FIELDS = ['order', 'refresh', 'outcome', 'revealed', 'refreshDetail', 'reauthDone', 'failedReason', 'connectedAt', 'slow'];
 
 function loadSaved() {
@@ -276,6 +280,14 @@ function detectedBy(c) {
 // --- Component: RenewalsRefreshDemo ---
 export function RenewalsRefreshDemo() {
   const [saved] = useState(loadSaved);
+  // True when this instance replaced one that was unmounted moments ago, with progress to restore.
+  const [remounted] = useState(() => {
+    try {
+      const at = Number(sessionStorage.getItem(UNMOUNT_KEY));
+      sessionStorage.removeItem(UNMOUNT_KEY);
+      return !!(saved && at && Date.now() - at < 15000);
+    } catch { return false; }
+  });
   const [screen, setScreen] = useState(saved?.screen && saved.screen !== 'walkthrough' ? (saved.screen === 'reauth' ? 'watch' : saved.screen) : 'walkthrough');
   const [showOptional, setShowOptional] = useState(!!saved?.showOptional);
 
@@ -318,7 +330,21 @@ export function RenewalsRefreshDemo() {
     } catch { /* storage unavailable: the demo still works, it just will not survive a reload */ }
   }, [screen, showOptional, cases]);
 
-  useEffect(() => () => { try { sessionStorage.removeItem(STORE_KEY); } catch { /* ignore */ } }, []);
+  useEffect(() => {
+    const clear = () => { try { sessionStorage.removeItem(STORE_KEY); } catch { /* ignore */ } };
+    window.addEventListener('truv:restart-view', clear);
+    return () => {
+      window.removeEventListener('truv:restart-view', clear);
+      try {
+        // Decide at unmount, not in a hashchange listener: the browser runs the app's own listener
+        // first, which re-renders and removes this one before it gets its turn. If the URL no longer
+        // points at this demo the presenter has left, so start fresh next time. Otherwise this is a
+        // remount (a code update, say): keep the progress and note when it happened.
+        if (!window.location.hash.startsWith('#public-sector/renewals-refresh')) sessionStorage.removeItem(STORE_KEY);
+        else sessionStorage.setItem(UNMOUNT_KEY, String(Date.now()));
+      } catch { /* ignore */ }
+    };
+  }, []);
 
   useEffect(() => {
     document.title = 'Renewals & Data Refresh | Truv Demo Apps';
@@ -614,6 +640,12 @@ export function RenewalsRefreshDemo() {
 
       {!active && (
         <div class="max-w-4xl w-full min-w-0 mx-auto px-4 py-6 sm:px-8 sm:py-10">
+
+          {remounted && screen !== 'walkthrough' && (
+            <div role="status" class="mb-4 text-[12px] text-[#666670]">
+              The demo reloaded itself (usually a code update while the page was open) and picked up where you left off.
+            </div>
+          )}
 
           {error && (
             <div role="alert" class="mb-5 border border-red-200 bg-red-50 rounded-xl p-4 text-[13px] text-[#7f1d1d]">{error}</div>
