@@ -112,7 +112,7 @@ Captured tasks:
 
 Opening the refresh order's `share_url` shows all three employers with *"Previously
 connected on Sep 17"*; the one that refreshed shows its tenure. Reconnecting Kroger through
-it **skipped the credential form entirely** and went straight to the MFA challenge — the
+it **skipped the sign-in form entirely** and went straight to the MFA challenge — the
 applicant answered `9M4BP` and nothing else.
 
 That produced `task done` → `order-status-updated: completed emp:6cbebfad`, and Kroger came
@@ -203,7 +203,7 @@ A second order for the same `external_user_id` resolved to the **same `user_id`*
 (`61e8bd00…`), and opening it showed, for an employer connected on the previous order:
 
 > **"Your Home Depot account is already connected. Your account was successfully
-> connected today, no further action is needed."** — with zero credential inputs.
+> connected today, no further action is needed."** — with zero sign-in fields.
 
 **That is the whole of the evidence.** The run was not driven to completion: the new
 order's suborders all remained `sent` with `link_id: null`, no employment records, no

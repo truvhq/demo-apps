@@ -11,7 +11,7 @@
  *   6. GET  /api/users/:userId/reports/:type     : refreshed report
  *
  * WHY THIS DEMO EXISTS: a refresh has two outcomes that look nothing alike on the
- * wire. When the stored session is still good, the refresh order completes by
+ * wire. When the authenticated session is still valid, the refresh order completes by
  * itself and emits `order-status-updated: completed`. When it needs the applicant,
  * the refresh TASK fails and the order's `completed_at` stays null, so no
  * completion arrives for that connection. `order-refresh-failed` is the webhook
@@ -27,7 +27,7 @@
  * TIMING NOTE (measured in sandbox, 2026-08-19/20): failures arrive 0.2-5.5s after
  * the refresh POST, silent successes take ~13-15s. The failure therefore usually
  * resolves before the screen that wants to show it has even mounted. So the watch
- * screen renders from STORED state (see classifyRefreshOutcome on the server) and
+ * screen renders from recorded state (see classifyRefreshOutcome on the server) and
  * reveals rows on a timer, instead of trying to observe live transitions.
  *
  * Scaffolding: ./scaffolding/renewals-refresh.jsx
@@ -118,7 +118,7 @@ function StuckAtSentCallout() {
         <code class={code}>mfa_error</code> (the error text is on the task). On a case with several employers, the
         connections that worked still send <code class={code}>completed</code>, so silence is the wrong thing to
         watch for. Branch on the status: <code class={code}>no_data</code> and <code class={code}>unavailable</code> fire
-        the same event but are not credential problems, so do not ask the applicant to do anything.
+        the same event but cannot be fixed by the applicant signing in again, so do not ask them to do anything.
       </p>
     </div>
   );
@@ -376,7 +376,7 @@ export function RenewalsRefreshDemo() {
   }, [screen, patchCase]);
 
   // --- Step 5: re-engage. Reuse the FAILED refresh order's own bridge_token.
-  // Bridge skips username and password (credentials are stored on the link) and
+  // Bridge skips username and password (the connection is already authorized) and
   // resumes at the challenge that broke the silent refresh. ---
   function reauthCase(c) {
     if (!c.refresh?.bridge_token) return;
@@ -639,8 +639,8 @@ export function RenewalsRefreshDemo() {
   .map(p => `POST /v1/orders/{order_id}/\n{ "products": ["${p}"] }   // ${p === 'assets' ? 'bank connections' : 'payroll connections'}`)
   .join('\n\n') || 'POST /v1/orders/{order_id}/\n{ "products": ["income"] }'}</pre>
                 <p class="text-[12px] text-[#666670] mt-2 mb-0">
-                  Server-side, no applicant contact. Truv returns a new order and reconnects with the
-                  stored credentials. Limited to 3 refreshes per order per 24 hours. If Bridge only just
+                  Server-side, no applicant contact. Truv returns a new order and refreshes through the
+                  applicant's authenticated session. Limited to 3 refreshes per order per 24 hours. If Bridge only just
                   finished, the first attempt can be rejected for a few seconds, so this demo retries.
                 </p>
               </div>
@@ -663,7 +663,7 @@ export function RenewalsRefreshDemo() {
               </h2>
               <p class="text-[15px] text-[#666670] leading-[1.5] mb-5">
                 {screen === 'watch'
-                  ? 'Same call for every applicant. The stored session decides what happens next.'
+                  ? 'Same call for every applicant. The authenticated session decides what happens next.'
                   : (needsReauth.length
                     ? 'Everyone else is already done. These applicants only need to clear one challenge. For a security challenge they do not re-enter their login.'
                     : 'Every refresh is done. Nobody else needs to be contacted.')}
@@ -758,7 +758,7 @@ export function RenewalsRefreshDemo() {
                 <div class="text-[13px] font-medium text-[#000000] mb-1">Webhook events</div>
                 <p class="text-[12px] text-[#666670] mb-3">
                   Webhooks only appear here when Truv can reach this server. The outcomes above are read from
-                  stored state, so they do not depend on them.
+                  the order and task records, so they do not depend on them.
                 </p>
                 <WebhookFeed webhooks={panel.webhooks} />
               </div>

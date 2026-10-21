@@ -261,7 +261,7 @@ export class TruvClient {
   // Re-pulls data from the connections an existing order already established.
   // POSTing to the ORDER's own path (not a /refresh/ sub-path) is what creates a
   // refresh: Truv returns a brand-new order carrying its own id, share_url and
-  // bridge_token, and attempts the pull server-side with the stored credentials.
+  // bridge_token, and attempts the pull server-side through the applicant's authenticated session.
   //
   // Two outcomes, and the caller must handle both:
   //   - session still valid  -> the new order completes on its own, no applicant action

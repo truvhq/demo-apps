@@ -32,7 +32,7 @@
  *   goodlogin/mfa_captcha   -> order-refresh-failed (mfa_error) in 0.2-5.5s
  *   goodlogin/mfa on a bank -> same shape, product: assets
  * A failed refresh order IS recoverable through its own bridge_token: Bridge skips
- * username/password (credentials are stored on the link) and resumes at the MFA
+ * username/password (the connection is already authorized) and resumes at the MFA
  * challenge, after which the refresh order itself completes.
  */
 
@@ -42,7 +42,7 @@ import { Router } from 'express';
 // Demo identifier persisted on every order this demo creates
 const RENEWALS_DEMO_ID = 'public-sector-renewals-refresh';
 
-// Task statuses that mean "the applicant has to clear something" — a stored
+// Task statuses that mean "the applicant has to clear something" — an authenticated
 // session went stale or the provider now wants MFA. These are the ones that
 // should route to a re-authorization prompt.
 export const REAUTH_STATUSES = [
@@ -132,7 +132,7 @@ export function tasksForOrder(tasks, truvOrderId) {
  */
 export function classifyRefreshOutcome({ truvOrderId, orderData = null, webhooks = [], tasks = [] } = {}) {
   // Every suborder completed means the refresh worked, including after the
-  // applicant cleared a challenge on a failed refresh order. A stored credential
+  // applicant cleared a challenge on a failed refresh order. A stale credential
   // failure from before that must not outrank it, or the row flips back to
   // "re-authorization required" on the next poll. Provider-class failures
   // (no_data and the like) are not overridden: completion does not clear them.
@@ -625,7 +625,7 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger }) {
   // The token has to come from the ORIGINAL order. A failed suborder on the refresh
   // order carries access_token: null (verified 2026-09-17), so reading it there
   // fails for exactly the rows that need re-authenticating. We resolve the employer
-  // by name on the order the refresh came from and use its stored token.
+  // by name on the order the refresh came from and use its access token.
   //
   // Worth saying: for most cases you do not need this at all. The refresh order's
   // own share_url / bridge_token covers every failed connection in one applicant
@@ -658,7 +658,7 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger }) {
       if (!accessToken) {
         return res.status(409).json({
           error: 'no_access_token',
-          message: 'No stored access_token for this connection on either the refresh order or the order it came from. Send the refresh order\'s share_url instead — it covers every failed connection.',
+          message: 'No access_token is available for this connection on either the refresh order or the order it came from. Send the refresh order\'s share_url instead. It covers every failed connection.',
           share_url: safeParse(refreshOrder.raw_response)?.share_url || refreshOrder.share_url || null,
         });
       }

@@ -281,9 +281,7 @@ export function RefreshGuide({ screen }) {
           <section id="start" class="rg-sec">
             <h2>Reusing a verification you already have</h2>
             <p class="rg-lede">
-              When someone verifies their income, Truv keeps a live connection to their payroll or
-              bank. Months later you can pull from it again, and when the saved session still works that
-              needs nothing from the person. This page covers which call to make, what comes back, and what to do when part
+              When someone verifies their income, they authorize a connection to their payroll or bank. Months later you can refresh it, and when the authenticated session is still valid that needs nothing from the person. This page covers which call to make, what comes back, and what to do when part
               of it fails.
             </p>
             <div class="rg-card">
@@ -456,9 +454,9 @@ export function RefreshGuide({ screen }) {
                     <td colspan="2" style="color:var(--rg-ink-2)">Take the data and show when it was refreshed.</td>
                   </tr>
                   <tr>
-                    <td><span class="rg-pill warn">credential class</span>
+                    <td><span class="rg-pill warn">needs the applicant</span>
                       <div style="margin-top:6px;color:var(--rg-ink-2)"><code>login_error</code> · <code>mfa_error</code> · <code>session_expired</code></div></td>
-                    <td><strong>Send the refresh order's link.</strong><div style="color:var(--rg-ink-2);margin-top:4px">For an MFA challenge it opens on the challenge with credentials already stored, so the applicant answers one prompt. For <code>login_error</code> expect them to sign in again.</div></td>
+                    <td><strong>Send the refresh order's link.</strong><div style="color:var(--rg-ink-2);margin-top:4px">For an MFA challenge it opens on the challenge because the connection is already authorized, so the applicant answers one prompt. For <code>login_error</code> expect them to sign in again.</div></td>
                     <td><strong>Re-refresh, scoped.</strong><div style="color:var(--rg-ink-2);margin-top:4px">Pass only the employer ids that remain. The dropped one is absent from the new refresh order, so it can complete with nobody contacted.</div></td>
                   </tr>
                   <tr>
@@ -524,7 +522,7 @@ export function RefreshGuide({ screen }) {
                   <div class="rg-step-n">1</div>
                   <div>
                     <div class="rg-step-t">Create an order with three employers</div>
-                    <div class="rg-step-d">Each credential is set up to give a different refresh result.</div>
+                    <div class="rg-step-d">Each test login is set up to give a different refresh result.</div>
                     {seeds.map(s => (
                       <div key={s.key} class="rg-conn" style="border:1px solid var(--rg-line);border-radius:8px;margin-bottom:6px">
                         <span class="rg-conn-n">{s.label}</span>
@@ -534,7 +532,7 @@ export function RefreshGuide({ screen }) {
                     ))}
                     <div style="font-size:12.5px;color:var(--rg-ink-3);margin:6px 0 10px">
                       Bridge pre-fills <code>goodlogin</code>/<code>goodpassword</code>. Replace <em>both</em> fields
-                      with the credentials shown for each row, or the results will not match. Kroger needs captcha <code>9M4BP</code>.
+                      with the test logins shown for each row, or the results will not match. Kroger needs captcha <code>9M4BP</code>.
                     </div>
                     {!order
                       ? <button class="rg-btn primary" disabled={busy === 'order'} onClick={createOrder}>{busy === 'order' ? 'Creating…' : 'Create the order'}</button>
@@ -656,7 +654,7 @@ export function RefreshGuide({ screen }) {
             </div>
             <p style="font-size:13px;color:var(--rg-ink-3);margin-top:10px">
               Observed in the captured run: <code>done</code>, <code>login_error</code>, <code>mfa_error</code>.
-              The other rows are Truv's documented statuses with the credential that should produce them.
+              The other rows are Truv's documented statuses with the test login that should produce them.
               They were not tested.
             </p>
           </section>
@@ -726,8 +724,8 @@ export function RefreshGuide({ screen }) {
                   </div>
                 ))}
                 <div class="rg-row" style="background:var(--rg-bad-bg);display:flex;gap:14px;padding:8px 14px">
-                  <span style="color:var(--rg-bad);width:74px;flex:0 0 auto;font-size:13px;font-weight:650">Margin</span>
-                  <span style="font-size:14px;color:var(--rg-bad)">About one month between the renewal being due and the saved sign-in being deleted.</span>
+                  <span style="color:var(--rg-bad);width:74px;flex:0 0 auto;font-size:13px;font-weight:650">Check</span>
+                  <span style="font-size:14px;color:var(--rg-bad)">Check that the refresh window on your tenant ends after your renewal date.</span>
                 </div>
               </div>
               <p style="font-size:12.5px;color:var(--rg-ink-2);margin-top:8px">{PROGRAM_CALENDAR.source}</p>

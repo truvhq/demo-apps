@@ -25,7 +25,7 @@ export const RENEWALS_DIAGRAM = `sequenceDiagram
   BE->>Truv: POST /v1/orders/{id}/
   Note right of BE: refresh the existing connection
   Truv-->>BE: new order (own id, share_url, bridge_token)
-  Truv->>P: reconnect with stored credentials
+  Truv->>P: refresh through the authorized connection
   alt Session still valid
     P-->>Truv: fresh income / balances
     Truv->>BE: order-status-updated (completed)
@@ -35,14 +35,14 @@ export const RENEWALS_DIAGRAM = `sequenceDiagram
     Truv->>BE: order-refresh-failed (mfa_error)
     Note right of BE: this connection does not complete until the applicant acts
     BE->>A: send the refresh order's share_url
-    A->>Truv: clears MFA only (no credentials re-entered)
+    A->>Truv: clears MFA only (no sign-in re-entered)
     Truv->>BE: order-status-updated (completed)
   end
   BE->>Truv: GET /v1/orders/{new_id}/
   Truv-->>BE: refreshed report`;
 
 export const REFRESH_FORK_DIAGRAM = `flowchart TD
-  R["POST /v1/orders/{id}/<br/>refresh requested"] --> T{"Stored session<br/>still valid?"}
+  R["POST /v1/orders/{id}/<br/>refresh requested"] --> T{"Authenticated session<br/>still valid?"}
   T -->|Yes| S["order-status-updated: completed<br/>fresh data, no applicant action"]
   T -->|No| F["order-refresh-failed<br/>status: mfa_error / login_error"]
   F --> W["This connection does not complete until the applicant acts<br/>order-refresh-failed reports the failure"]

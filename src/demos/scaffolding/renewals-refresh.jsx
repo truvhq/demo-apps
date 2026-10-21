@@ -6,7 +6,7 @@
  * sidebar Guide steps, and the seeded caseload.
  *
  * THE CASELOAD IS THE SCRIPT. Each seeded applicant is chosen so its refresh lands
- * on a specific, verified outcome. Credentials were confirmed end to end in sandbox
+ * on a specific, verified outcome. The test logins were confirmed end to end in sandbox
  * on 2026-08-19/20:
  *
  *   goodlogin / goodpassword   payroll  -> refresh completes silently in ~13-20s
@@ -77,19 +77,19 @@ export const CASELOAD = [
 export const STEPS = [
   {
     title: 'Applicants connect at intake',
-    guide: '<p>Normal verification orders. Each one leaves a connection to a payroll provider or bank, and a renewal reuses that connection later.</p><pre>POST /v1/orders/\n{\n  "products": ["income"],\n  "first_name": "...",\n  "last_name": "..."\n}</pre><p>In this demo, the credential each applicant uses decides what their refresh does later.</p>',
+    guide: '<p>Normal verification orders. Each one leaves a connection to a payroll provider or bank, and a renewal reuses that connection later.</p><pre>POST /v1/orders/\n{\n  "products": ["income"],\n  "first_name": "...",\n  "last_name": "..."\n}</pre><p>In this demo, the test login each applicant uses decides what their refresh does later.</p>',
   },
   {
     title: 'Recertification comes due',
-    guide: '<p>Refresh the existing order instead of collecting documents again. POST to the order\'s own path:</p><pre>POST /v1/orders/{order_id}/\n{ "products": ["income"] }</pre><p>Truv returns a <strong>new order</strong> with its own id, share_url and bridge_token, then attempts the pull server-side using the stored credentials. Rate limit: 3 refreshes per order per 24 hours.</p>',
+    guide: '<p>Refresh the existing order instead of collecting documents again. POST to the order\'s own path:</p><pre>POST /v1/orders/{order_id}/\n{ "products": ["income"] }</pre><p>Truv returns a <strong>new order</strong> with its own id, share_url and bridge_token, then attempts the pull server-side through the applicant\'s authenticated session. Rate limit: 3 refreshes per order per 24 hours.</p>',
   },
   {
     title: 'A refresh completes or it fails',
-    guide: '<p><strong>Session still valid:</strong> the refresh order completes on its own. You get <code>order-status-updated: completed</code> and fresh data. No applicant action at all.</p><p><strong>Re-auth needed:</strong> the refresh task fails and the order&rsquo;s <code>completed_at</code> stays null. The webhook that tells you it failed is:</p><pre>{\n  "event_type": "order-refresh-failed",\n  "order_id": "...",\n  "employer_id": "...",\n  "status": "mfa_error",\n  "link_id": null\n}</pre><p>It says a refresh failed. The reason for each connection is on the task, which carries the stable <code>link_id</code>.</p><p><strong>Do not detect this by watching for silence.</strong> <code>order-status-updated</code> is emitted <em>per connection</em> and carries an <code>employer_id</code>; on an order with several employers you still receive <code>completed</code> for each one that worked, so absence of events is the wrong signal and a <code>completed</code> does not mean the refresh as a whole succeeded. Subscribe to <code>order-refresh-failed</code> and branch on <code>status</code>. Statuses like <code>no_data</code> and <code>unavailable</code> fire the same event but are not credential problems, so they should not prompt anyone to re-authenticate.</p>',
+    guide: '<p><strong>Session still valid:</strong> the refresh order completes on its own. You get <code>order-status-updated: completed</code> and fresh data. No applicant action at all.</p><p><strong>Re-auth needed:</strong> the refresh task fails and the order&rsquo;s <code>completed_at</code> stays null. The webhook that tells you it failed is:</p><pre>{\n  "event_type": "order-refresh-failed",\n  "order_id": "...",\n  "employer_id": "...",\n  "status": "mfa_error",\n  "link_id": null\n}</pre><p>It says a refresh failed. The reason for each connection is on the task, which carries the stable <code>link_id</code>.</p><p><strong>Do not detect this by watching for silence.</strong> <code>order-status-updated</code> is emitted <em>per connection</em> and carries an <code>employer_id</code>; on an order with several employers you still receive <code>completed</code> for each one that worked, so absence of events is the wrong signal and a <code>completed</code> does not mean the refresh as a whole succeeded. Subscribe to <code>order-refresh-failed</code> and branch on <code>status</code>. Statuses like <code>no_data</code> and <code>unavailable</code> fire the same event but are not something the applicant can fix by signing in again, so they should not prompt anyone to re-authenticate.</p>',
   },
   {
     title: 'Re-engage only who needs it',
-    guide: '<p>The failed refresh order carries its own share_url. Send that. for an MFA challenge Bridge <strong>skips username and password</strong> because credentials are already stored on the link, so the applicant only answers that challenge.</p><p>Tested in the sandbox: after the applicant clears MFA, that connection reports <code>completed</code> and produces a fresh report id. The order as a whole completes once every connection has.</p>',
+    guide: '<p>The failed refresh order carries its own share_url. Send that. for an MFA challenge Bridge <strong>skips username and password</strong> because the connection is already authorized, so the applicant only answers that challenge.</p><p>Tested in the sandbox: after the applicant clears MFA, that connection reports <code>completed</code> and produces a fresh report id. The order as a whole completes once every connection has.</p>',
   },
   {
     title: 'Read the refreshed data',
@@ -126,7 +126,7 @@ export const WALKTHROUGH_STAGES = [
       body: 'Request documents, wait, chase, re-key, re-review. Applicants who do not respond can lose benefits they still qualify for.',
       rows: [
         'The connection from intake may still be there',
-        'A stored payroll or bank session may still work at the next review',
+        'An authenticated payroll or bank session may still be valid at the next review',
         'When it does, one API call refreshes the data with no applicant contact',
       ],
     },
@@ -190,7 +190,7 @@ export const WALKTHROUGH_STAGES = [
     card: {
       eyebrow: 'Tested in the Truv sandbox',
       title: 'No login re-entered for a security challenge',
-      body: 'Opening the link shows the existing connection already in place. When the problem is a security challenge (MFA), Bridge skips the username and password because they are already stored, and goes straight to the challenge, such as a code texted to the applicant. Once it is answered, that connection completes and produces a fresh report.',
+      body: 'Opening the link shows the existing connection already in place. When the problem is a security challenge (MFA), Bridge skips the username and password because the connection is already authorized, and goes straight to the challenge, such as a code texted to the applicant. Once it is answered, that connection completes and produces a fresh report.',
       rows: [
         'Send the link that came with the failed refresh, not a brand-new request',
         'Only applicants whose refresh failed are contacted',
@@ -228,17 +228,17 @@ export const WALKTHROUGH_STAGES = [
 // Kept here (not in the component) so the test suite can assert the mapping and
 // the demo copy stays in one place.
 export const OUTCOME_DISPLAY = {
-  refreshing: { label: 'Refreshing...', tone: 'pending', detail: 'Truv is reconnecting with the stored credentials.' },
+  refreshing: { label: 'Refreshing...', tone: 'pending', detail: 'Truv is refreshing the data through the applicant\'s authenticated session.' },
   refreshed: { label: 'Refreshed', tone: 'good', detail: 'Fresh data returned with no applicant action.' },
-  reauth_required: { label: 'Re-authorization required', tone: 'warn', detail: 'The stored session needs the applicant to clear a challenge.' },
+  reauth_required: { label: 'Re-authorization required', tone: 'warn', detail: 'The authenticated session needs the applicant to clear a challenge.' },
   failed_other: { label: 'Not fixed by signing in again', tone: 'neutral', detail: 'The provider returned nothing or reported a problem on its side, such as an outage or a locked account. A new login will not fix it, so do not send the refresh link. For a locked account the applicant has to unlock it with the provider. Never record no_data as $0 income.' },
 };
 
 // Human-readable reason strings for the statuses this demo can produce.
 export const REASON_COPY = {
   mfa_error: 'Provider asked for MFA that cannot be answered without the applicant',
-  login_error: 'Stored credentials no longer work',
-  session_expired: 'Stored session expired',
+  login_error: 'The employer or bank rejected the previous sign-in',
+  session_expired: 'The authenticated session expired',
   account_locked: 'Provider locked the account',
   unable_to_reset: 'Connection could not be re-established',
   unavailable: 'Provider was unavailable',

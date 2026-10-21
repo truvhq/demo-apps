@@ -182,7 +182,7 @@ export const NEW_ORDER_PROOF = {
   claim: 'A new order reuses the connections they already have.',
   body: 'Pass the same external_user_id and Truv resolves the same user. An employer connected on a previous order shows as already connected, with nothing to type.',
   quote: 'Your Home Depot account is already connected. Your account was successfully connected today, no further action is needed.',
-  observed: 'Observed 2026-09-17: the same user_id resolved, and no credential inputs were shown for a previously connected employer.',
+  observed: 'Observed 2026-09-17: the same user_id resolved, and no sign-in fields were shown for a previously connected employer.',
   notObserved: 'Not yet verified for a new order that reuses existing connections: that it completes on its own, creates a report, or returns data without the applicant finishing the flow. That run was not taken to completion, so do not plan around that part. This is separate from a failed refresh that the applicant re-authorizes, which did complete and create a new report id.',
 };
 
@@ -202,9 +202,9 @@ export const GATES = [
   { when: 'You want current data and nothing about their jobs has changed', then: 'Refresh', call: 'POST /v1/orders/{order_id}/', why: 'One server-side call. No link to send, and nobody is involved if the sessions are still valid.' },
   { when: 'A job ended and they still have the others', then: 'Refresh, scoped', call: 'POST /v1/orders/{id}/ with employers[]', why: 'Pass only the employer ids that remain. The dropped one is absent from the refresh order, so it can complete with nobody contacted.' },
   { when: 'They picked up a new job', then: 'New order', call: 'POST /v1/orders/', why: 'A refresh cannot add a connection the order never had. Employers they already connected carry over.' },
-  { when: 'The connection came from a document upload', then: 'New order', call: 'POST /v1/orders/', why: 'No credential was stored, so there is nothing to pull again.' },
-  { when: 'Credentials are past your retention window', then: 'New order', call: 'POST /v1/orders/', why: 'Government tenants keep stored credentials for 13 months (GOVERNMENT_CREDS_RETENTION_PERIOD in Truv\'s platform config). The default for other tenants is about 6 months, and it can be set per client. After that, only a new connection works. Confirm the figure for your own tenant.' },
-  { when: 'A refresh failed with mfa_error, login_error or session_expired and they still work there', then: 'Send the refresh order\'s link', call: 'refresh_order.share_url', why: 'For an MFA challenge (tested) it opens on the challenge with credentials already stored, so the applicant answers one prompt. For login_error the stored credentials were rejected, so expect the applicant to sign in again (not tested).' },
+  { when: 'The connection came from a document upload', then: 'New order', call: 'POST /v1/orders/', why: 'There is no connection to refresh. The documents were uploaded, not connected through an employer or bank.' },
+  { when: 'The connection is past its refresh window', then: 'New order', call: 'POST /v1/orders/', why: 'A connection can be refreshed without the applicant only while it is inside a refresh window, which is set per tenant. After it closes, only a new connection works. Ask Truv for the window on your tenant before you plan a renewal cycle.' },
+  { when: 'A refresh failed with mfa_error, login_error or session_expired and they still work there', then: 'Send the refresh order\'s link', call: 'refresh_order.share_url', why: 'For an MFA challenge (tested) it opens on the challenge because the connection is already authorized, so the applicant answers one prompt. For login_error the employer or bank rejected the previous sign-in, so expect the applicant to sign in again (not tested).' },
   { when: 'A refresh returned no_data, or the provider errored', then: 'Do not contact the applicant', call: 'document upload, or retry later', why: 'Nothing the applicant does will change the result.' },
 ];
 
@@ -250,7 +250,7 @@ export const DELIVERY = [
       { call: 'send that URL to the applicant', note: 'by SMS or email. You send it, not Truv' },
       { call: 'order-status-updated per connection', note: 'plus your own timeout' },
     ],
-    pro: 'Verified: opening it lists every employer as "Previously connected", and reconnecting skipped the credential form. The applicant only answered the MFA challenge.',
+    pro: 'Verified: opening it lists every employer as "Previously connected", and reconnecting skipped the sign-in form. The applicant only answered the MFA challenge.',
     con: 'You need your own timeout. There is no abandonment event.',
   },
 ];
@@ -274,9 +274,9 @@ export const OUTCOME_CLASSES = {
 
 export const OUTCOMES = [
   { status: 'done',            cls: 'ok',         plain: 'Refreshed successfully',            action: 'Take the data. Show when it was refreshed.',            cred: { u: 'goodlogin', p: 'goodpassword' }, seen: true },
-  { status: 'login_error',     cls: 'credential', plain: 'Their saved sign-in no longer works', action: 'Send the refresh order link. Also ask whether the job ended.', cred: { u: 'goodlogin.pll.reauth', p: 'goodpassword' }, seen: true, ambiguous: true },
+  { status: 'login_error',     cls: 'credential', plain: 'The employer or bank rejected the previous sign-in', action: 'Send the refresh order link. Also ask whether the job ended.', cred: { u: 'goodlogin.pll.reauth', p: 'goodpassword' }, seen: true, ambiguous: true },
   { status: 'mfa_error',       cls: 'credential', plain: 'A security challenge needs answering', action: 'Send the refresh order link. Also ask whether the job ended.', cred: { u: 'goodlogin', p: 'mfa_captcha', hint: 'captcha 9M4BP' }, seen: true, ambiguous: true },
-  { status: 'session_expired', cls: 'credential', plain: 'The saved session expired',          action: 'Send the refresh order link. Also ask whether the job ended.', cred: { u: 'goodlogin.pll.expired', p: 'goodpassword' }, seen: false, ambiguous: true },
+  { status: 'session_expired', cls: 'credential', plain: 'The authenticated session expired',          action: 'Send the refresh order link. Also ask whether the job ended.', cred: { u: 'goodlogin.pll.expired', p: 'goodpassword' }, seen: false, ambiguous: true },
   { status: 'account_locked',  cls: 'provider',   plain: 'Their payroll account is locked',     action: 'They unlock it with their provider. If the deadline is close, take a document.', cred: null, seen: false },
   { status: 'unable_to_reset', cls: 'provider',   plain: 'The connection could not be rebuilt', action: 'Same as a locked account: they go through the provider, or you take a document.',              cred: null, seen: false },
   { status: 'no_data',         cls: 'nodata',     plain: 'Connected, but no records came back', action: 'Document or self-certify. Never record as $0 income.',  cred: { u: 'goodlogin', p: 'no_data' }, seen: false, danger: true },
@@ -325,24 +325,22 @@ export const OPEN_QUESTIONS = [
 
 export const PROGRAM_TABLE = [
   { outcome: 'Income came back current',              who: 'Nobody',                          does: 'Pass straight to eligibility',                  contact: 'None' },
-  { outcome: 'Their saved sign-in stopped working',   who: 'The applicant',                   does: 'Send one link. They may need to sign in again.',   contact: '1 message' },
+  { outcome: 'The previous sign-in was rejected',   who: 'The applicant',                   does: 'Send one link. They may need to sign in again.',   contact: '1 message' },
   { outcome: 'A security challenge needs answering',  who: 'The applicant',                   does: 'Send one link. They answer the challenge only.',  contact: '1 message' },
   { outcome: 'The job may have ended',                who: 'The applicant',                   does: 'Ask which it is. If the job ended, refresh again for the remaining employers only', contact: '1 message' },
   { outcome: 'Locked out at their payroll provider',  who: 'The applicant + their provider',  does: 'Document upload if the deadline is close',        contact: 'Varies' },
   { outcome: 'Connected, no records returned',        who: 'A caseworker',                    does: 'Document or self-certify. Never record as $0.',  contact: 'Varies' },
   { outcome: 'Provider outage',                       who: 'Nobody',                          does: 'Retry later',                                    contact: 'None' },
-  { outcome: 'Saved sign-in too old to reuse',        who: 'The applicant',                   does: 'Full re-verification',                           contact: 'Full packet' },
+  { outcome: 'Connection past its refresh window',        who: 'The applicant',                   does: 'Full re-verification',                           contact: 'Full packet' },
 ];
 
 export const PROGRAM_CALENDAR = {
-  title: 'Renewal cycle against credential retention',
-  source: 'Retention is 13 months for government tenants and about 6 by default, set per client in Truv\'s platform config. Confirm yours in writing before planning around it.',
-  body: 'Saved payroll credentials are kept for 13 months on a government tenant and about 6 otherwise. With a 12-month renewal cycle, a renewal that slips more than a month finds the saved credential gone, and that household starts from scratch.',
+  title: 'Renewal cycle against the refresh window',
+  source: 'The refresh window is set per tenant. Ask Truv for yours in writing before planning around it.',
+  body: 'A connection can be refreshed without the applicant only while it is inside its refresh window, which is set per tenant. If your renewal cycle is longer than that window, those households start from scratch. Find out the window for your tenant and compare it with your cycle.',
   marks: [
     { at: 0,  label: 'Verified at application' },
-    { at: 11, label: 'Suggested: start refreshing' },
-    { at: 12, label: 'Renewal due' },
-    { at: 13, label: 'Credentials deleted' },
+    { at: 12, label: 'Renewal due (example: a 12-month cycle)' },
   ],
   span: 14,
 };
@@ -352,7 +350,7 @@ export const PROGRAM_RISKS = [
   { risk: 'An applicant stuck on a screen they cannot finish', impact: 'They give up and lose coverage, or they call your center.',  do: 'Never add an employer they may have left to an order that requires every connection. If a job ended, refresh again scoped to the employers that remain.' },
   { risk: 'A partial refresh reported as complete', impact: 'Stale income drives eligibility and shows up as an audit finding.',        do: 'Require per-connection results before accepting a renewal.' },
   { risk: 'Every re-check is billed',      impact: 'How often you re-check drives cost.',       do: 'Price the cycle before choosing quarterly or annual. Truv\'s published pricing bills each re-check as its own verification. Whether a failed attempt is also billed is not confirmed, so get that in writing.' },
-  { risk: 'Whether the original consent covers a silent re-pull', impact: 'Reusing a saved sign-in long after application, with nobody present, may go beyond what the applicant agreed to.', do: 'Ask your counsel before you schedule anything. This is a legal question.' },
+  { risk: 'Whether the original consent covers a silent re-pull', impact: 'Refreshing a connection long after application, with nobody present, may go beyond what the applicant agreed to.', do: 'Ask your counsel before you schedule anything. This is a legal question.' },
   { risk: 'Document uploads cannot be refreshed',   impact: 'Anyone who uploads this year cannot be refreshed automatically next year.',       do: 'Track how much of the caseload leaves the automated path each cycle.' },
 ];
 
@@ -383,21 +381,21 @@ GET /v1/tasks/        → same, when you
   {
     title: 'Refresh or new order',
     guide: `<p>A refresh can drop an employer if you scope it to the ones that remain, but it cannot add one.</p>
-<p>A new order for the same <code>external_user_id</code> resolves to the same user and shows every employer they already connected as connected, with <strong>no credential entry</strong>. Use it to add a new job.</p>
+<p>A new order for the same <code>external_user_id</code> resolves to the same user and shows every employer they already connected as connected, with <strong>no sign-in step</strong>. Use it to add a new job.</p>
 <p>Do <strong>not</strong> use <code>POST /v1/orders/{id}/employers/</code>. On a completed order it reset <code>completed_at</code> to <code>null</code>.</p>`,
   },
   {
     title: 'Get the applicant to re-authorize',
     guide: `<p>The failed suborder on a refresh order has <code>link_id: null</code> and <code>access_token: null</code>, so there is nothing on it to re-authenticate with.</p>
-<p>Use the refresh order's own <code>share_url</code> (send it) or its <code>bridge_token</code> (mount it inline). Verified for an MFA challenge: it opens on the challenge with credentials already stored.</p>`,
+<p>Use the refresh order's own <code>share_url</code> (send it) or its <code>bridge_token</code> (mount it inline). Verified for an MFA challenge: it opens on the challenge because the connection is already authorized.</p>`,
   },
   {
     title: 'Every outcome',
-    guide: `<p>Eleven final statuses in five classes. Only the credential statuses are fixed by sending the applicant a link.</p>
+    guide: `<p>Eleven final statuses in five classes. Only the statuses that need the applicant are fixed by sending them a link.</p>
 <p><code>no_data</code> means the provider connected and returned nothing. It is <strong>not</strong> a verified $0. Never write it to an income field.</p>`,
   },
   {
     title: 'Run it live',
-    guide: `<p>Three employers, three credentials, three different refresh outcomes. In sandbox, Bridge pre-fills <code>goodlogin</code>/<code>goodpassword</code>. Overwrite both fields, or you will connect a healthy account and the scenario will not reproduce.</p>`,
+    guide: `<p>Three employers, three test logins, three different refresh outcomes. In sandbox, Bridge pre-fills <code>goodlogin</code>/<code>goodpassword</code>. Overwrite both fields, or you will connect a healthy account and the scenario will not reproduce.</p>`,
   },
 ];
