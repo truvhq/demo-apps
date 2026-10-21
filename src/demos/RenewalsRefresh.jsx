@@ -50,6 +50,7 @@ import { usePreviewIframe } from '../hooks/usePreviewIframe.js';
 // --- Imports: report display components ---
 import { VoieReport } from '../components/reports/VoieReport.jsx';
 import { AssetsReport } from '../components/reports/AssetsReport.jsx';
+import { $ } from '../utils/formatters.js';
 
 // --- Imports: scaffolding (caseload, guide steps, walkthrough stages, copy) ---
 import { CASELOAD, STEPS, WALKTHROUGH_STAGES, OUTCOME_DISPLAY, REASON_COPY } from './scaffolding/renewals-refresh.jsx';
@@ -111,7 +112,7 @@ function StuckAtSentCallout() {
   const code = 'font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]';
   return (
     <div class="border border-[#8A6200]/30 bg-amber-50/60 rounded-xl p-4 text-[13px] leading-[1.55] text-[#000000]">
-      <div class="font-semibold mb-1">For your IT team: why a failed refresh is easy to miss</div>
+      <div class="font-semibold mb-1">Why a failed refresh is easy to miss</div>
       <p class="text-[#5b5b60]">
         A refresh that needs the applicant does not announce itself. The case just stays unfinished. The webhook
         that reports it is <code class={code}>order-refresh-failed</code>, which carries a status such as{' '}
@@ -120,6 +121,115 @@ function StuckAtSentCallout() {
         watch for. Branch on the status: <code class={code}>no_data</code> and <code class={code}>unavailable</code> fire
         the same event but cannot be fixed by the applicant signing in again, so do not ask them to do anything.
       </p>
+    </div>
+  );
+}
+
+// --- Helper: four-step progress strip shown above every screen heading ---
+const FLOW = ['Connect', 'Renew', 'Outcomes', 'Results'];
+function Stepper({ current }) {
+  return (
+    <ol aria-label="Progress" class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-4 text-[12px] font-medium list-none p-0">
+      {FLOW.map((label, i) => {
+        const st = i < current ? 'done' : i === current ? 'now' : 'next';
+        return (
+          <li key={label} aria-current={st === 'now' ? 'step' : undefined} class="flex items-center gap-2">
+            <span class={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] ${st === 'now' ? 'bg-primary text-white' : st === 'done' ? 'bg-green-100 text-[#167A50]' : 'bg-[#f5f5f7] text-[#666670]'}`}>{st === 'done' ? '✓' : i + 1}</span>
+            <span class={st === 'now' ? 'text-[#000000]' : 'text-[#666670]'}>{label}</span>
+            {i < FLOW.length - 1 && <span aria-hidden="true" class="w-6 h-px bg-[#d2d2d7]" />}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+// --- Helper: copies the applicant link instead of printing a very long URL ---
+function CopyLinkButton({ url }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      title={url}
+      class="px-3 py-1.5 text-[13px] font-medium border border-[#d2d2d7] rounded-lg hover:border-[#c0c0c5] transition-colors"
+      onClick={() => {
+        Promise.resolve(navigator.clipboard?.writeText(url)).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {});
+      }}
+    >
+      {copied ? 'Link copied' : 'Copy link'}
+    </button>
+  );
+}
+
+// --- Helper: the technical material for an IT audience, collapsed by default ---
+function ItDetails({ webhooks }) {
+  return (
+    <details class="mb-6 border border-[#d2d2d7] rounded-xl bg-white">
+      <summary class="cursor-pointer px-4 py-3 text-[13px] font-medium text-[#000000]">For your IT team: how a failure shows up</summary>
+      <div class="px-4 pb-4">
+        <StuckAtSentCallout />
+        <div class="text-[13px] font-medium text-[#000000] mt-4 mb-1">Webhook events</div>
+        <p class="text-[12px] text-[#666670] mb-3">
+          Webhooks only appear here when Truv can reach this server. The outcomes above are read from
+          the order and task records, so they do not depend on them.
+        </p>
+        <WebhookFeed webhooks={webhooks} />
+      </div>
+    </details>
+  );
+}
+
+// --- Helper: the few facts worth reading first from a refreshed report ---
+function reportFacts(c, data) {
+  if (!data) return [];
+  if (c.products.includes('assets')) {
+    const accounts = (data.links || []).flatMap(l => l.accounts || []);
+    return [
+      ['Total balance', data.summary?.balance != null ? $(data.summary.balance) : '-'],
+      ['Accounts', String(accounts.length)],
+      ['As of', data.as_of_date || '-'],
+    ];
+  }
+  const emp = (data.links || []).flatMap(l => l.employments || [])[0];
+  if (!emp) return [];
+  const stmts = emp.statements || [];
+  return [
+    ['Employer', emp.company?.name || data.links?.[0]?.provider_name || '-'],
+    ['Job title', emp.job_title || '-'],
+    ['Annual income', emp.income != null ? $(emp.income) : '-'],
+    ['Latest pay date', stmts[0]?.pay_date || '-'],
+    ['Pay statements', String(stmts.length)],
+  ];
+}
+
+function ReportPanel({ c, ui, data }) {
+  if (ui.loading) {
+    return (
+      <div class="flex items-center gap-2 text-[13px] text-[#666670]" aria-live="polite">
+        <span class="inline-block w-3.5 h-3.5 border-2 border-[#d2d2d7] border-t-[#666670] rounded-full animate-spin" />
+        Generating the report. This can take a few seconds.
+      </div>
+    );
+  }
+  if (ui.error) return <div role="alert" class="text-[13px] text-[#7f1d1d]">{ui.error}</div>;
+  const facts = reportFacts(c, data);
+  return (
+    <div>
+      {facts.length > 0 && (
+        <dl class="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 mb-3 m-0">
+          {facts.map(([k, v]) => (
+            <div key={k}>
+              <dt class="text-[11px] uppercase tracking-wide text-[#666670]">{k}</dt>
+              <dd class="text-[15px] font-semibold text-[#000000] m-0">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <p class="text-[12px] text-[#666670] mb-2">Sandbox sample data. The name and figures will not match {c.firstName}.</p>
+      <details>
+        <summary class="cursor-pointer text-[13px] text-primary font-medium">Show the full report</summary>
+        <div class="mt-3">{c.products.includes('assets') ? <AssetsReport report={data} /> : <VoieReport report={data} />}</div>
+      </details>
     </div>
   );
 }
@@ -166,7 +276,7 @@ function detectedBy(c) {
 // --- Component: RenewalsRefreshDemo ---
 export function RenewalsRefreshDemo() {
   const [saved] = useState(loadSaved);
-  const [screen, setScreen] = useState(saved?.screen && saved.screen !== 'walkthrough' ? saved.screen : 'walkthrough');
+  const [screen, setScreen] = useState(saved?.screen && saved.screen !== 'walkthrough' ? (saved.screen === 'reauth' ? 'watch' : saved.screen) : 'walkthrough');
   const [showOptional, setShowOptional] = useState(!!saved?.showOptional);
 
   // Runtime state per applicant, keyed by the seed id. Seeded from CASELOAD and
@@ -178,6 +288,7 @@ export function RenewalsRefreshDemo() {
   const [busy, setBusy] = useState(null);     // case id with an in-flight request
   const [error, setError] = useState(null);
   const [reports, setReports] = useState({}); // caseId -> { income?, assets? }
+  const [reportUi, setReportUi] = useState({}); // caseId -> { open, loading, error }
 
   const iframeRef = useRef(null);
   const completedRef = useRef(false);
@@ -194,6 +305,8 @@ export function RenewalsRefreshDemo() {
   const refreshed = visibleCases.filter(c => c.refresh);
   const needsReauth = refreshed.filter(c => c.revealed && c.outcome?.state === 'reauth_required');
   const allResolved = refreshed.length > 0 && refreshed.every(c => c.revealed && c.outcome && c.outcome.state !== 'refreshing');
+  // Everyone has an answer and someone still needs to act: the watch screen shows their next step.
+  const reengage = allResolved && needsReauth.length > 0;
 
   useEffect(() => {
     try {
@@ -218,9 +331,9 @@ export function RenewalsRefreshDemo() {
 
   // Keep the sidebar step indicator in step with the screen.
   useEffect(() => {
-    const stepMap = { walkthrough: 0, setup: 0, renewals: 1, watch: 2, reauth: 3, results: 4 };
+    const stepMap = { walkthrough: 0, setup: 0, renewals: 1, watch: reengage ? 3 : 2, results: 4 };
     setCurrentStep(stepMap[screen] ?? 0);
-  }, [screen, setCurrentStep]);
+  }, [screen, reengage, setCurrentStep]);
 
   // Point the panel's webhook feed at the most instructive user for the current
   // screen. The panel inspects one Truv user at a time, and this demo creates one
@@ -387,15 +500,26 @@ export function RenewalsRefreshDemo() {
   }
 
   // --- Step 6: read the refreshed report for one applicant. ---
-  async function loadReport(c) {
-    const userId = c.refresh?.user_id || c.order?.user_id;
-    if (!userId) return;
+  async function toggleReport(c) {
+    const ui = reportUi[c.id];
+    if (ui?.open) { setReportUi(prev => ({ ...prev, [c.id]: { ...ui, open: false } })); return; }
     const type = c.products.includes('assets') ? 'assets' : 'income';
+    const have = reports[c.id]?.[type];
+    setReportUi(prev => ({ ...prev, [c.id]: { open: true, loading: !have, error: null } }));
+    if (have) return;
+    const userId = c.refresh?.user_id || c.order?.user_id;
+    const fail = (error) => setReportUi(prev => ({ ...prev, [c.id]: { open: true, loading: false, error } }));
+    if (!userId) { fail('There is no user to load a report for.'); return; }
     try {
       const resp = await fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/reports/${type}`);
       const data = await resp.json();
-      if (resp.ok) setReports(prev => ({ ...prev, [c.id]: { ...(prev[c.id] || {}), [type]: data } }));
-    } catch (e) { console.error(e); }
+      if (!resp.ok) { fail('Could not load the report. Try again.'); return; }
+      setReports(prev => ({ ...prev, [c.id]: { ...(prev[c.id] || {}), [type]: data } }));
+      setReportUi(prev => ({ ...prev, [c.id]: { open: true, loading: false, error: null } }));
+    } catch (e) {
+      console.error(e);
+      fail('Could not load the report. Try again.');
+    }
     pollOnceAndStop();
   }
 
@@ -446,6 +570,7 @@ export function RenewalsRefreshDemo() {
     setCases(CASELOAD.map(c => ({ ...c, order: null, refresh: null, outcome: null, revealed: false })));
     setActive(null);
     setReports({});
+    setReportUi({});
     setError(null);
     setShowOptional(false);
     setScreen('walkthrough');
@@ -497,16 +622,17 @@ export function RenewalsRefreshDemo() {
           {/* ---------------- Setup: connect the applicants ---------------- */}
           {screen === 'setup' && (
             <>
+              <Stepper current={0} />
               <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2 outline-none">Connect the applicants</h2>
-              <p class="text-[15px] text-[#666670] leading-[1.5] mb-2">
-                Each applicant connects an employer or bank, the way they would at intake. Use the test
-                login shown on their row. The login decides what happens when the connection is refreshed
-                later, so you will see both outcomes.
+              <p class="text-[15px] text-[#666670] leading-[1.5] mb-4">
+                Each applicant connects an employer or bank, the way they would at intake. The test login on
+                each row decides what happens at renewal, so you will see both outcomes.
               </p>
-              <p class="text-[13px] text-[#666670] leading-[1.5] mb-5">
-                In the window that opens, finish the connection, then click <strong>Submit connected accounts</strong>.
-                On a projector or small laptop screen, choose <strong>Desktop</strong> at the top right so every button fits.
-              </p>
+              <ol class="mb-5 text-[13px] text-[#444450] leading-[1.6] list-decimal pl-5 space-y-0.5">
+                <li>Click <strong>Connect</strong> on a row and use that row's test login.</li>
+                <li>Sign in. If you change the password, press <strong>Enter</strong> to sign in.</li>
+                <li>When it says done, click <strong>Submit connected accounts</strong>.</li>
+              </ol>
 
               <p class="text-[12px] text-[#666670] mb-2 md:hidden">Scroll the table sideways to reach the action buttons.</p>
 
@@ -515,7 +641,6 @@ export function RenewalsRefreshDemo() {
                   <thead>
                     <tr class="border-b border-[#d2d2d7] bg-[#f5f5f7] text-[#666670] text-[13px] font-medium uppercase tracking-wide">
                       <th scope="col" class="text-left px-4 py-3">Applicant</th>
-                      <th scope="col" class="text-left px-4 py-3">Case</th>
                       <th scope="col" class="text-left px-4 py-3">Connect to</th>
                       <th scope="col" class="text-left px-4 py-3">Test login (sandbox)</th>
                       <th scope="col" class="text-right px-4 py-3">Action</th>
@@ -526,9 +651,8 @@ export function RenewalsRefreshDemo() {
                       <tr key={c.id} class="border-b border-[#f5f5f7] align-top">
                         <td class="px-4 py-3">
                           <div class="font-medium text-[#000000]">{c.firstName} {c.lastName}</div>
-                          <div class="text-[12px] text-[#666670]">{c.program}</div>
+                          <div class="text-[12px] text-[#666670]">{c.caseNumber} · {c.program}</div>
                         </td>
-                        <td class="px-4 py-3 font-mono text-[12px] text-[#000000]">{c.caseNumber}</td>
                         <td class="px-4 py-3">
                           <div class="text-[#000000]">{c.connector}</div>
                           <div class="text-[12px] text-[#666670]">{c.connectorKind === 'bank' ? 'assets' : 'income'}</div>
@@ -538,7 +662,8 @@ export function RenewalsRefreshDemo() {
                             <CredentialChip label="username" value={c.credential.username} />
                             <CredentialChip label="password" value={c.credential.password} />
                           </div>
-                          <div class="text-[12px] text-[#666670] leading-[1.45] max-w-[260px]">{c.credentialNote}</div>
+                          <div class="text-[12px] text-[#666670] leading-[1.45] max-w-[300px]">{c.credentialNote}</div>
+                          {c.credentialWarn && <div class="text-[12px] text-[#8A6200] font-medium leading-[1.45] max-w-[300px] mt-1">{c.credentialWarn}</div>}
                         </td>
                         <td class="px-4 py-3 text-right">
                           {c.connectedAt
@@ -576,15 +701,14 @@ export function RenewalsRefreshDemo() {
                   <span class="text-[13px] text-[#666670]">Click Connect on a row to start.</span>
                 )}
               </div>
+              <p class="text-[12px] text-[#666670] mt-4">On a projector or small laptop screen, choose Desktop at the top right so every button in the connection window fits.</p>
             </>
           )}
 
           {/* ---------------- Renewals desk ---------------- */}
           {screen === 'renewals' && (
             <>
-              <div class="flex items-center gap-2 mb-2">
-                <span class="text-[11px] font-semibold uppercase tracking-wider text-[#8A6200] bg-amber-50 px-2 py-0.5 rounded">Renewal time</span>
-              </div>
+              <Stepper current={1} />
               <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2 outline-none">Recertification is due</h2>
               <p class="text-[15px] text-[#666670] leading-[1.5] mb-5">
                 No one has contacted these applicants. Refresh the connections they already made
@@ -640,8 +764,7 @@ export function RenewalsRefreshDemo() {
   .join('\n\n') || 'POST /v1/orders/{order_id}/\n{ "products": ["income"] }'}</pre>
                 <p class="text-[12px] text-[#666670] mt-2 mb-0">
                   Server-side, no applicant contact. Truv returns a new order and refreshes through the
-                  applicant's authenticated session. Limited to 3 refreshes per order per 24 hours. If Bridge only just
-                  finished, the first attempt can be rejected for a few seconds, so this demo retries.
+                  applicant's authenticated session. Limited to 3 refreshes per order per 24 hours.
                 </p>
               </div>
 
@@ -655,75 +778,76 @@ export function RenewalsRefreshDemo() {
             </>
           )}
 
-          {/* ---------------- Watch: the divergence ---------------- */}
-          {(screen === 'watch' || screen === 'reauth') && (
+          {/* ---------------- Outcomes: watch, then re-engage on the same screen ---------------- */}
+          {screen === 'watch' && (
             <>
-              <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2 outline-none">
-                {screen === 'watch' ? 'Two outcomes' : 'Re-engage only who needs it'}
-              </h2>
+              <Stepper current={2} />
+              <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2 outline-none">Refresh outcomes</h2>
               <p class="text-[15px] text-[#666670] leading-[1.5] mb-5">
-                {screen === 'watch'
-                  ? 'Same call for every applicant. The authenticated session decides what happens next.'
-                  : (needsReauth.length
-                    ? 'Everyone else is already done. These applicants only need to clear one challenge. For a security challenge they do not re-enter their login.'
-                    : 'Every refresh is done. Nobody else needs to be contacted.')}
+                {!allResolved
+                  ? 'Truv is refreshing each connection. In the sandbox this takes a few seconds to about half a minute.'
+                  : (reengage
+                    ? `${needsReauth.length} of ${refreshed.length} needs the applicant. The rest are done and nobody else is contacted.`
+                    : 'Every refresh finished and nobody needed to act.')}
               </p>
 
               <div class="space-y-3 mb-6" aria-live="polite">
                 {refreshed.map(c => {
-                  const state = c.revealed ? (c.outcome?.state || 'refreshing') : 'refreshing';
-                  const display = OUTCOME_DISPLAY[state] || OUTCOME_DISPLAY.refreshing;
+                  const shown = c.revealed ? (c.outcome?.state || 'refreshing') : 'refreshing';
+                  const display = OUTCOME_DISPLAY[shown] || OUTCOME_DISPLAY.refreshing;
+                  const resolved = shown !== 'refreshing';
                   const reason = c.outcome?.reason;
-                  const detail = state === 'refreshed' && c.reauthDone
-                    ? 'Fresh data returned after the applicant cleared the challenge.'
-                    : display.detail;
+                  const plain = shown === 'refreshed'
+                    ? (c.reauthDone ? 'Fresh data returned after the applicant answered the challenge.' : 'Fresh data returned. The applicant did nothing.')
+                    : shown === 'reauth_required'
+                      ? 'Needs the applicant to answer a security challenge.'
+                      : display.detail;
                   return (
                     <div key={c.id} class="border border-[#d2d2d7] rounded-xl p-4 bg-white">
-                      <div class="flex flex-wrap items-start justify-between gap-3">
-                        <div class="min-w-0">
-                          <div class="flex items-center gap-2 flex-wrap">
+                      <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0 flex-1">
+                          <div class="flex items-baseline gap-x-2 gap-y-0.5 flex-wrap">
                             <span class="font-medium text-[#000000] text-[15px]">{c.firstName} {c.lastName}</span>
-                            <span class="text-[12px] text-[#666670] font-mono">{c.caseNumber}</span>
-                            <span class="text-[12px] text-[#666670]">·</span>
-                            <span class="text-[12px] text-[#666670]">{c.products.includes('assets') ? 'assets' : 'income'} · {c.connector}</span>
+                            <span class="text-[12px] text-[#666670]">{c.caseNumber} · {c.products.includes('assets') ? 'assets' : 'income'} · {c.connector}</span>
                           </div>
-                          <div class="text-[13px] text-[#5b5b60] mt-1.5">
-                            {state === 'refreshing'
-                              ? detail
-                              : <>{detail}{reason ? <> <span class="text-[#666670]">Reason:</span> <code class="font-mono text-[12px] bg-[#f5f5f7] px-1 py-0.5 rounded border border-[#d2d2d7]">{reason}</code>{REASON_COPY[reason] ? `. ${REASON_COPY[reason]}` : ''}</> : null}</>}
-                          </div>
-                          {c.slow && state === 'refreshing' && (
+                          <div class="text-[14px] text-[#444450] mt-1.5">{plain}</div>
+                          {c.slow && !resolved && (
                             <div class="text-[12px] text-[#8A6200] mt-1">This is taking longer than usual. Still checking.</div>
-                          )}
-                          {c.outcome?.errorMessage && c.revealed && (
-                            <div class="text-[12px] text-[#5b5b60] mt-1 italic">Provider said: “{c.outcome.errorMessage}”</div>
-                          )}
-                          {c.outcome?.source && c.revealed && (
-                            <div class="text-[12px] text-[#666670] mt-1">How we found out: {detectedBy(c)}</div>
                           )}
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
-                          {state === 'refreshing' && <span class="inline-block w-3.5 h-3.5 border-2 border-[#d2d2d7] border-t-[#666670] rounded-full animate-spin" />}
+                          {!resolved && <span class="inline-block w-3.5 h-3.5 border-2 border-[#d2d2d7] border-t-[#666670] rounded-full animate-spin" />}
                           <StatusPill tone={display.tone}>{display.label}</StatusPill>
                         </div>
                       </div>
 
-                      {/* Re-auth affordances appear once the row has resolved that way. */}
+                      {resolved && (reason || c.outcome?.errorMessage || c.outcome?.source) && (
+                        <details class="mt-2">
+                          <summary class="cursor-pointer text-[12px] text-[#666670]">Details</summary>
+                          <div class="mt-1.5 text-[12px] text-[#5b5b60] leading-[1.6]">
+                            {reason && <div>Reason: <code class="font-mono text-[12px] bg-[#f5f5f7] px-1 py-0.5 rounded border border-[#d2d2d7]">{reason}</code>{REASON_COPY[reason] ? `. ${REASON_COPY[reason]}` : ''}</div>}
+                            {c.outcome?.errorMessage && <div class="italic">Provider said: “{c.outcome.errorMessage}”</div>}
+                            <div>How we found out: {detectedBy(c)}</div>
+                          </div>
+                        </details>
+                      )}
+
+                      {/* The applicant's next step appears once the row has resolved that way. */}
                       {c.revealed && c.outcome?.state === 'reauth_required' && (
                         <div class="mt-3 pt-3 border-t border-[#f5f5f7]">
-                          <div class="text-[12px] font-semibold text-[#666670] uppercase tracking-wide mb-1.5">Link to send the applicant</div>
-                          {c.refresh?.share_url && (
-                            <a href={c.refresh.share_url} target="_blank" rel="noopener noreferrer" class="text-[12px] text-primary font-mono break-all hover:underline">{c.refresh.share_url}</a>
-                          )}
-                          <div class="mt-3">
+                          <div class="text-[13px] font-medium text-[#000000]">Next step: the applicant answers the challenge</div>
+                          <div class="mt-2 flex flex-wrap items-center gap-2">
                             <button
                               class="px-3 py-1.5 text-[13px] font-medium bg-primary text-white rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors"
                               onClick={() => reauthCase(c)}
                             >
-                              Complete as the applicant
+                              Act as the applicant
                             </button>
-                            <span class="text-[12px] text-[#666670] ml-2">Demo shortcut: mounts this refresh order's bridge token here so you can act as the applicant. Bridge resumes at the challenge.</span>
+                            {c.refresh?.share_url && <CopyLinkButton url={c.refresh.share_url} />}
                           </div>
+                          <p class="text-[12px] text-[#666670] mt-2 mb-0">
+                            In production you send them this link by text or email. Acting as the applicant opens the same screen here, and it asks only for the challenge.
+                          </p>
                         </div>
                       )}
                     </div>
@@ -751,39 +875,30 @@ export function RenewalsRefreshDemo() {
                 );
               })()}
 
-              {allResolved && needsReauth.length > 0 && <div class="mb-6"><StuckAtSentCallout /></div>}
-
-              {/* Live webhook feed: order-refresh-failed shows up here. */}
-              <div class="mb-6">
-                <div class="text-[13px] font-medium text-[#000000] mb-1">Webhook events</div>
-                <p class="text-[12px] text-[#666670] mb-3">
-                  Webhooks only appear here when Truv can reach this server. The outcomes above are read from
-                  the order and task records, so they do not depend on them.
-                </p>
-                <WebhookFeed webhooks={panel.webhooks} />
-              </div>
-
-              <div class="flex flex-wrap gap-3">
-                {allResolved && needsReauth.length > 0 && screen === 'watch' && (
-                  <button class="px-5 py-2.5 text-sm font-semibold bg-primary text-white rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors" onClick={() => setScreen('reauth')}>
-                    Re-engage {needsReauth.length} applicant{needsReauth.length === 1 ? '' : 's'}
-                  </button>
-                )}
-                {allResolved && (
+              {allResolved ? (
+                <div class="flex flex-wrap items-center gap-3 mb-6">
                   <button
-                    class="px-5 py-2.5 text-sm font-semibold border border-[#e8e8ed] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors"
+                    class={reengage
+                      ? 'px-5 py-2.5 text-sm font-semibold border border-[#d2d2d7] rounded-lg hover:border-[#c0c0c5] active:bg-[#e8e8ed] transition-colors'
+                      : 'px-5 py-2.5 text-sm font-semibold bg-primary text-white rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors'}
                     onClick={() => setScreen('results')}
                   >
-                    {needsReauth.length ? 'Skip ahead to results' : 'See the refreshed data'}
+                    {reengage ? 'Skip ahead to results' : 'See the refreshed data'}
                   </button>
-                )}
-              </div>
+                  {reengage && <span class="text-[13px] text-[#666670]">Or finish the step above first.</span>}
+                </div>
+              ) : (
+                <p class="text-[13px] text-[#666670] mb-6">Checking each connection. This page updates on its own.</p>
+              )}
+
+              <ItDetails webhooks={panel.webhooks} />
             </>
           )}
 
           {/* ---------------- Results ---------------- */}
           {screen === 'results' && (
             <>
+              <Stepper current={3} />
               <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2 outline-none">Refresh results</h2>
               <p class="text-[15px] text-[#666670] leading-[1.5] mb-2">
                 {(() => {
@@ -794,65 +909,48 @@ export function RenewalsRefreshDemo() {
                 })()}
               </p>
               <p class="text-[13px] text-[#666670] leading-[1.5] mb-5">
-                Each completed refresh creates its own order and report. The original order keeps its own report.
-                The sandbox returns fixed sample data, so names and figures in the reports will not match the applicants above.
-                This demo shows the mechanics with test data. It does not show how often refreshes succeed in production.
+                Each completed refresh creates its own order and report, and the original order keeps its own.
+                This demo shows the mechanics with test data, not how often refreshes succeed in production.
               </p>
 
-              <p class="text-[12px] text-[#666670] mb-2 md:hidden">Scroll the table sideways to reach the action buttons.</p>
-
-              <div class="border border-[#d2d2d7] rounded-xl overflow-hidden overflow-x-auto bg-white mb-6">
-                <table class="w-full min-w-[600px] text-[13px]">
-                  <thead>
-                    <tr class="border-b border-[#d2d2d7] bg-[#f5f5f7] text-[#666670] text-[13px] font-medium uppercase tracking-wide">
-                      <th scope="col" class="text-left px-4 py-3">Applicant</th>
-                      <th scope="col" class="text-left px-4 py-3">How it resolved</th>
-                      <th scope="col" class="text-left px-4 py-3">How we found out</th>
-                      <th scope="col" class="text-right px-4 py-3">Report</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {refreshed.map(c => {
-                      const display = OUTCOME_DISPLAY[c.outcome?.state] || OUTCOME_DISPLAY.refreshing;
-                      return (
-                        <tr key={c.id} class="border-b border-[#f5f5f7]">
-                          <td class="px-4 py-3">
-                            <div class="font-medium text-[#000000]">{c.firstName} {c.lastName}</div>
-                            <div class="text-[12px] text-[#666670]">{c.products.includes('assets') ? 'assets' : 'income'}</div>
-                          </td>
-                          <td class="px-4 py-3">
-                            <StatusPill tone={display.tone}>{display.label}</StatusPill>
-                            {c.reauthDone && c.outcome?.state === 'refreshed' && <div class="text-[12px] text-[#666670] mt-1">after the applicant cleared a challenge</div>}
-                          </td>
-                          <td class="px-4 py-3 text-[12px] text-[#5b5b60]">{detectedBy(c)}</td>
-                          <td class="px-4 py-3 text-right">
-                            {c.outcome?.state === 'refreshed'
-                              ? (
-                                <button class="px-3 py-1.5 text-[13px] font-medium border border-[#d2d2d7] rounded-lg hover:border-[#c0c0c5] transition-colors" onClick={() => loadReport(c)}>
-                                  Load
-                                </button>
-                              )
-                              : <span class="text-[12px] text-[#666670]">not refreshed</span>}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div class="space-y-3 mb-6">
+                {refreshed.map(c => {
+                  const display = OUTCOME_DISPLAY[c.outcome?.state] || OUTCOME_DISPLAY.refreshing;
+                  const type = c.products.includes('assets') ? 'assets' : 'income';
+                  const ui = reportUi[c.id] || {};
+                  return (
+                    <div key={c.id} class="border border-[#d2d2d7] rounded-xl bg-white">
+                      <div class="p-4 flex items-start justify-between gap-3">
+                        <div class="min-w-0 flex-1">
+                          <div class="flex items-baseline gap-x-2 gap-y-0.5 flex-wrap">
+                            <span class="font-medium text-[#000000] text-[15px]">{c.firstName} {c.lastName}</span>
+                            <span class="text-[12px] text-[#666670]">{type} · {c.connector}</span>
+                          </div>
+                          <div class="text-[13px] text-[#5b5b60] mt-1.5">How we found out: {detectedBy(c)}</div>
+                        </div>
+                        <div class="flex flex-col items-end gap-2 shrink-0">
+                          <StatusPill tone={display.tone}>{display.label}</StatusPill>
+                          {c.outcome?.state === 'refreshed' && (
+                            <button
+                              class="px-3 py-1.5 text-[13px] font-medium border border-[#d2d2d7] rounded-lg hover:border-[#c0c0c5] transition-colors disabled:opacity-60 whitespace-nowrap"
+                              aria-expanded={!!ui.open}
+                              disabled={!!ui.loading}
+                              onClick={() => toggleReport(c)}
+                            >
+                              {ui.loading ? 'Loading…' : ui.open ? 'Hide report' : 'View report'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {ui.open && (
+                        <div class="px-4 py-4 border-t border-[#f0f0f3] bg-[#fafafb] rounded-b-xl">
+                          <ReportPanel c={c} ui={ui} data={reports[c.id]?.[type]} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-
-              {Object.entries(reports).map(([caseId, byType]) => {
-                const c = cases.find(x => x.id === caseId);
-                return (
-                  <div key={caseId} class="border border-[#d2d2d7] rounded-xl p-6 bg-white mb-4">
-                    <h3 class="text-lg font-semibold text-[#000000] mb-4">Refreshed report for {c?.firstName} {c?.lastName}</h3>
-                    {byType.income && <VoieReport report={byType.income} />}
-                    {byType.assets && <AssetsReport report={byType.assets} />}
-                  </div>
-                );
-              })}
-
-              <div class="mb-6"><StuckAtSentCallout /></div>
             </>
           )}
 

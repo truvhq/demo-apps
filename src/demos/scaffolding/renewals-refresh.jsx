@@ -38,7 +38,7 @@ export const CASELOAD = [
     connector: 'Home Depot',
     connectorKind: 'payroll',
     credential: { username: 'goodlogin', password: 'goodpassword' },
-    credentialNote: 'Bridge pre-fills these in sandbox, so this connection is zero typing.',
+    credentialNote: 'Pre-filled in Bridge. Just sign in.',
     expect: 'silent',
     expectLabel: 'Refreshes silently, no applicant action',
   },
@@ -52,7 +52,8 @@ export const CASELOAD = [
     connector: 'Truv Bank (non-oAuth)',
     connectorKind: 'bank',
     credential: { username: 'goodlogin', password: 'mfa' },
-    credentialNote: 'Search "Truv Bank" and pick the non-oAuth entry. Bridge pre-fills a different password here, so replace it with mfa. Any MFA code is accepted. If you leave the pre-filled password, this refresh succeeds and there is no failure to show.',
+    credentialNote: 'Search "Truv Bank" and pick the non-oAuth entry. Replace the pre-filled password with mfa. Any code works.',
+    credentialWarn: 'Keep mfa. With the pre-filled password this refresh succeeds and there is no failure to show.',
     expect: 'reauth',
     expectLabel: 'Refresh fails, needs re-authorization',
   },
@@ -66,7 +67,7 @@ export const CASELOAD = [
     connector: 'Home Depot',
     connectorKind: 'payroll',
     credential: { username: 'goodlogin', password: 'mfa_captcha' },
-    credentialNote: 'Replace the pre-filled password with mfa_captcha and answer the captcha with 9M4BP. The re-authorization step asks for the captcha again.',
+    credentialNote: 'Replace the pre-filled password with mfa_captcha. Captcha: 9M4BP (it is asked again at re-authorization).',
     expect: 'reauth',
     expectLabel: 'Refresh fails, needs re-authorization',
     optional: true,
@@ -230,7 +231,7 @@ export const WALKTHROUGH_STAGES = [
 export const OUTCOME_DISPLAY = {
   refreshing: { label: 'Refreshing...', tone: 'pending', detail: 'Truv is refreshing the data through the applicant\'s authenticated session.' },
   refreshed: { label: 'Refreshed', tone: 'good', detail: 'Fresh data returned with no applicant action.' },
-  reauth_required: { label: 'Re-authorization required', tone: 'warn', detail: 'The authenticated session needs the applicant to clear a challenge.' },
+  reauth_required: { label: 'Needs the applicant', tone: 'warn', detail: 'The authenticated session needs the applicant to clear a challenge.' },
   failed_other: { label: 'Not fixed by signing in again', tone: 'neutral', detail: 'The provider returned nothing or reported a problem on its side, such as an outage or a locked account. A new login will not fix it, so do not send the refresh link. For a locked account the applicant has to unlock it with the provider. Never record no_data as $0 income.' },
 };
 
