@@ -6,7 +6,8 @@
  * Drives the public-sector renewals demo:
  *   1. Refresh an existing order        POST /api/renewals/refresh/:orderId
  *   2. Resolve each refresh's outcome   GET  /api/renewals/outcome/:refreshOrderId
- *   3. (diagnostic) list user tasks     GET  /api/renewals/tasks/:userId
+ *   3. Read the refresh's report        GET  /api/renewals/report/:refreshOrderId/:type
+ *   4. (diagnostic) list user tasks     GET  /api/renewals/tasks/:userId
  *
  * THE POINT OF THIS DEMO: reading a refresh result is harder than making the call.
  *
@@ -392,7 +393,21 @@ export function deriveOrderStatus(orderData) {
 }
 
 // Factory function: receives shared dependencies and returns a configured router
-export default function renewalsRefreshRoutes({ truv, db, apiLogger }) {
+// Which field on a refresh order names its report, and how to read that report by id.
+const REFRESH_REPORT_KINDS = {
+  income: {
+    orderField: 'voie_report_id',
+    get: (t, uid, rid) => t.getVoieReport(uid, rid),
+    path: (uid, rid) => `/v1/users/${uid}/reports/${rid}/`,
+  },
+  assets: {
+    orderField: 'voa_report_id',
+    get: (t, uid, rid) => t.getAssetsReport(uid, rid),
+    path: (uid, rid) => `/v1/users/${uid}/assets/reports/${rid}/`,
+  },
+};
+
+export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelaysMs = [0, 2000, 4000] }) {
   const router = Router();
 
   // POST /api/renewals/refresh/:orderId
@@ -546,6 +561,46 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger }) {
         voa_report_id: orderResult.data?.voa_report_id || null,
         _raw: { order: orderResult.data, refresh_tasks: tasksForOrder(tasks, refreshOrder.truv_order_id) },
       });
+    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error', detail: err?.message }); }
+  });
+
+  // GET /api/renewals/report/:refreshOrderId/:type   (type: income | assets)
+  // Reads the report a completed refresh already produced. No report is created:
+  // the refresh order carries its own report id (`voie_report_id` for income,
+  // `voa_report_id` for assets), so it is GET order, then GET report by that id.
+  router.get('/api/renewals/report/:refreshOrderId/:type', async (req, res) => {
+    try {
+      const truvClient = req.truv || truv;
+      if (!truvClient) return res.status(401).json({ error: 'session_required' });
+
+      const kind = REFRESH_REPORT_KINDS[req.params.type];
+      if (!kind) return res.status(400).json({ error: `Unknown report type: ${req.params.type}` });
+      const refreshOrder = db.getOrder(req.params.refreshOrderId);
+      if (!refreshOrder || !refreshOrder.truv_order_id) return res.status(404).json({ error: 'Refresh order not found' });
+      const userId = refreshOrder.user_id;
+
+      // The id can trail order completion by a moment, so ask again a few times.
+      let reportId = null;
+      let orderStatus = 200;
+      for (let i = 0; i < reportDelaysMs.length && !reportId; i++) {
+        if (reportDelaysMs[i]) await new Promise(r => setTimeout(r, reportDelaysMs[i]));
+        const orderResult = await truvClient.getOrder(refreshOrder.truv_order_id);
+        apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/orders/${refreshOrder.truv_order_id}/`, responseBody: orderResult.data, statusCode: orderResult.statusCode, durationMs: orderResult.durationMs });
+        orderStatus = orderResult.statusCode;
+        if (orderStatus >= 400) return res.status(orderStatus).json({ error: 'Failed to fetch refresh order', details: orderResult.data });
+        reportId = orderResult.data?.[kind.orderField] || null;
+      }
+      if (!reportId) return res.status(404).json({ error: 'report_not_ready', message: 'The refresh order does not have a report yet.' });
+
+      let result;
+      for (let i = 0; i < reportDelaysMs.length; i++) {
+        if (reportDelaysMs[i]) await new Promise(r => setTimeout(r, reportDelaysMs[i]));
+        result = await kind.get(truvClient, userId, reportId);
+        apiLogger.logApiCall({ userId, method: 'GET', endpoint: kind.path(userId, reportId), responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
+        if (result.statusCode < 400) break;
+      }
+      if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: 'Failed to retrieve report', details: result.data });
+      res.json(result.data);
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error', detail: err?.message }); }
   });
 

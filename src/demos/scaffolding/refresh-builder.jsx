@@ -203,6 +203,7 @@ export const BASICS = {
     { t: 'Wait before the first refresh', d: 'The order reads completed about 15 to 20 seconds before its connections can be refreshed. Retry a rejected refresh every few seconds for up to about a minute.' },
     { t: 'Refresh', d: 'POST /v1/orders/{original_order_id}/ with products, and optionally employers[] or financial_accounts[] to refresh only some connections. It returns a new order with its own id, user_id, bridge_token and share_url. To refresh one connection directly, POST /v1/refresh/tasks/ with its access_token and a product_type, then read GET /v1/refresh/tasks/{task_id}/. This page uses the order endpoint.' },
     { t: 'Read the results', d: 'GET /v1/tasks/?user_id={user_id} lists tasks, newest first, in pages (use the cursor and page_size parameters and follow "next"). Keep the ones for your refresh order and match them to your case file by link_id. Polling works with no public URL. Webhooks need a public HTTPS address.' },
+    { t: 'Read the report', d: 'You do not create a report for a refresh. A completed refresh order already has its own: GET /v1/orders/{refresh_order_id}/ and read voie_report_id (income) or voa_report_id (assets), then fetch it with GET /v1/users/{user_id}/reports/{report_id}/ or GET /v1/users/{user_id}/assets/reports/{report_id}/. The id can trail completion by a moment, so ask again if it is null. The original order keeps its own, older report id.' },
     { t: 'Webhooks, if you use them', d: 'Register an endpoint with POST /v1/webhooks/. Every delivery carries an X-WEBHOOK-SIGN header: "v1=" followed by an HMAC-SHA256 of the raw request body, keyed with your access secret. Verify it before you act on the event. Truv retries a 4xx or 5xx response up to 3 times, 30 seconds apart. GET /v1/webhook-requests/ lists the last 30 days of deliveries, which is the quickest way to see what was sent.' },
     { t: 'Rate limits', d: '300 requests a minute per secret key. Order creation has its own hourly budget. Refreshes are limited per connection: 1 initial request plus 3 refreshes in any 24 hours. A 429 response says how many seconds remain.' },
   ],
@@ -235,10 +236,14 @@ curl -s -X POST https://prod.truv.com/v1/orders/ORDER_ID/ \\
 curl -s "https://prod.truv.com/v1/tasks/?user_id=USER_ID" \\
   -H "X-Access-Client-Id: $TRUV_CLIENT_ID" -H "X-Access-Secret: $TRUV_SECRET"
 
-# 5. Generate the report.
-curl -s -X POST https://prod.truv.com/v1/users/USER_ID/reports/ \\
-  -H "X-Access-Client-Id: $TRUV_CLIENT_ID" -H "X-Access-Secret: $TRUV_SECRET" \\
-  -H "Content-Type: application/json" -d '{"is_voe":false}'`,
+# 5. Read the refresh order. A completed one names its own report:
+#    voie_report_id for income, voa_report_id for assets.
+curl -s https://prod.truv.com/v1/orders/REFRESH_ORDER_ID/ \\
+  -H "X-Access-Client-Id: $TRUV_CLIENT_ID" -H "X-Access-Secret: $TRUV_SECRET"
+
+# 6. Fetch that report. Nothing is created. For assets use /v1/users/USER_ID/assets/reports/REPORT_ID/
+curl -s https://prod.truv.com/v1/users/USER_ID/reports/REPORT_ID/ \\
+  -H "X-Access-Client-Id: $TRUV_CLIENT_ID" -H "X-Access-Secret: $TRUV_SECRET"`,
 };
 
 export const IDENTITY = {
@@ -246,7 +251,7 @@ export const IDENTITY = {
   body: 'This matters most over repeated renewals. A refresh creates a new order with new suborder ids, and the original order\'s refresh_order field is overwritten each time. It only points at the most recent refresh, so you cannot walk back through earlier ones.',
   keep: [
     { what: 'external_user_id', why: 'Yours. It makes a returning applicant the same Truv user, and lets a new order reuse their existing connections.' },
-    { what: 'user_id', why: 'Truv\'s id for the applicant. You need it to list tasks and to generate reports.' },
+    { what: 'user_id', why: 'Truv\'s id for the applicant. You need it to list tasks and to fetch reports.' },
     { what: 'the original order id', why: 'The id that never changes. Refresh against it, and scope with the employer ids on it.' },
     { what: 'link_id per employer', why: 'Stays the same across refreshes. Use it to match a refresh result to a job on the case.' },
     { what: 'each refresh order id, as you create it', why: 'If you want a history. Truv does not keep it for you.' },
@@ -374,7 +379,7 @@ export const OPEN_QUESTIONS = [
   'How often does not_supported happen on real payroll refreshes? It cannot be reproduced in sandbox.',
   'Webhook delivery guarantees were not tested: signing, retries, duplicate delivery and ordering. Check Truv\'s webhook documentation, and do not assume a failure notice arrives after you have saved your own record of the refresh.',
   'If the refresh request times out, was an order created? The limit of 3 refreshes per connection per 24 hours makes a blind retry costly. Not tested.',
-  'In the captured run a new report id appeared after each completed refresh, and POST /v1/users/{user_id}/reports/ returned the current state of every connection. Whether a refresh order\'s own report is the better one to read was not tested.',
+  'Reports were only read from refresh orders that had completed. Whether a refresh order where some connections failed ever gets a report id, and what that report would cover, was not tested.',
 ];
 
 // ---------------------------------------------------------------------------

@@ -8,7 +8,7 @@
  *   3. POST /api/renewals/refresh/:orderId       : recertification, server-side
  *   4. GET  /api/renewals/outcome/:refreshOrderId: resolve silent-success vs re-auth
  *   5. Bridge again, only for the failures       : applicant clears MFA, order completes
- *   6. GET  /api/users/:userId/reports/:type     : refreshed report
+ *   6. GET  /api/renewals/report/:refreshOrderId/:type : the refresh order's own report (read, never created)
  *
  * WHY THIS DEMO EXISTS: a refresh has two outcomes that look nothing alike on the
  * wire. When the authenticated session is still valid, the refresh order completes by
@@ -207,7 +207,7 @@ function ReportPanel({ c, ui, data }) {
     return (
       <div class="flex items-center gap-2 text-[13px] text-[#666670]" aria-live="polite">
         <span class="inline-block w-3.5 h-3.5 border-2 border-[#d2d2d7] border-t-[#666670] rounded-full animate-spin" />
-        Generating the report. This can take a few seconds.
+        Loading the report.
       </div>
     );
   }
@@ -533,11 +533,10 @@ export function RenewalsRefreshDemo() {
     const have = reports[c.id]?.[type];
     setReportUi(prev => ({ ...prev, [c.id]: { open: true, loading: !have, error: null } }));
     if (have) return;
-    const userId = c.refresh?.user_id || c.order?.user_id;
     const fail = (error) => setReportUi(prev => ({ ...prev, [c.id]: { open: true, loading: false, error } }));
-    if (!userId) { fail('There is no user to load a report for.'); return; }
+    if (!c.refresh?.order_id) { fail('There is no refresh to load a report for.'); return; }
     try {
-      const resp = await fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/reports/${type}`);
+      const resp = await fetch(`${API_BASE}/api/renewals/report/${encodeURIComponent(c.refresh.order_id)}/${type}`);
       const data = await resp.json();
       if (!resp.ok) { fail('Could not load the report. Try again.'); return; }
       setReports(prev => ({ ...prev, [c.id]: { ...(prev[c.id] || {}), [type]: data } }));

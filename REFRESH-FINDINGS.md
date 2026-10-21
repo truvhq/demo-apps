@@ -155,8 +155,12 @@ applicant nothing for the employers they already connected.
   it.
 - Each refresh-order completion minted a **new** report id (`613eef7f…`, then `46eb5789…`
   after the re-auth).
-- `POST /v1/users/{user_id}/reports/` returns the current state of every link, which is the
-  reliable way to read post-refresh data.
+- A completed refresh order already carries its own report id, `voie_report_id` for income
+  and `voa_report_id` for assets (re-checked 2026-10-21 on a sandbox assets refresh: the
+  refresh order and the original order each had a different `voa_report_id`). Read the
+  refresh order, then `GET` that report by id. Nothing needs to be created with `POST`.
+  (Earlier runs used `POST /v1/users/{user_id}/reports/`, which also works but makes a
+  report you did not need.)
 
 ## 9. Suborder `status` means different things in different places
 

@@ -229,10 +229,9 @@ export function RefreshGuide({ screen }) {
   }, [order, refreshable, bridge, api]);
 
   async function loadReport() {
-    const uid = refresh?.user_id || order?.user_id;
-    if (!uid) return;
+    if (!refresh?.order_id) return;
     setBusy('report');
-    const r = await api('GET', `/api/users/${encodeURIComponent(uid)}/reports/income`);
+    const r = await api('GET', `/api/renewals/report/${encodeURIComponent(refresh.order_id)}/income`);
     if (r.status === 200) setReport(r.res);
     setBusy(null);
   }
@@ -642,14 +641,14 @@ export function RefreshGuide({ screen }) {
                       <button class="rg-btn" disabled={!dropped.length || busy === 'refresh'} onClick={() => doRefresh({ scoped: true })}>
                         Re-refresh without {dropped.length ? dropped.join(', ') : 'the ended jobs'}
                       </button>
-                      <button class="rg-btn" disabled={busy === 'report'} onClick={loadReport}>{busy === 'report' ? 'Generating…' : 'Generate a fresh report'}</button>
+                      <button class="rg-btn" disabled={busy === 'report'} onClick={loadReport}>{busy === 'report' ? 'Loading…' : 'Read the refresh order\'s report'}</button>
                       <button class="rg-btn sm" onClick={reset}>Start over</button>
                     </div>
                     {report && (
                       <div class="rg-note good" style="margin-top:12px">
-                        <p>Report generated. A refresh updates the <strong>connection</strong> (<code>link_id</code>). The original
-                          order's <code>voie_report_id</code> still points at the pre-refresh report, so a
-                          new report is how you see what the refresh pulled.</p>
+                        <p>Report loaded. Nothing was created: the refresh order carries its own <code>voie_report_id</code>.
+                          The original order's <code>voie_report_id</code> still points at the pre-refresh report, so the
+                          refresh order's id is the one to read.</p>
                       </div>
                     )}
                   </div>

@@ -94,7 +94,7 @@ export const STEPS = [
   },
   {
     title: 'Read the refreshed data',
-    guide: '<pre>POST /v1/users/{user_id}/reports/</pre><p>Each completed refresh creates a new report id, and the original order keeps its own. Generating a fresh report returns the current state of every connection. In the sandbox the figures themselves came back unchanged, so this shows the mechanics, not changed numbers.</p>',
+    guide: '<pre>GET /v1/orders/{refresh_order_id}/\nGET /v1/users/{user_id}/assets/reports/{voa_report_id}/</pre><p>A completed refresh order already has its own report. Read its id from <code>voie_report_id</code> (income) or <code>voa_report_id</code> (assets) and fetch that report. Nothing needs to be created, and the original order keeps its own, older report. In the sandbox the figures themselves came back unchanged, so this shows the mechanics, not changed numbers.</p>',
   },
 ];
 

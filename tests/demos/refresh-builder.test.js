@@ -497,6 +497,13 @@ describe('Integration basics', () => {
     expect(BASICS.curl).not.toMatch(/sk_|secret_[a-z0-9]{8}/i);
   });
 
+  it('reads the refresh order\'s existing report instead of creating one', () => {
+    expect(BASICS.curl).toContain('/v1/orders/REFRESH_ORDER_ID/');
+    expect(BASICS.curl).toMatch(/voie_report_id/);
+    expect(BASICS.curl).not.toMatch(/-X POST https:\/\/prod\.truv\.com\/v1\/users\/USER_ID\/(assets\/)?reports/);
+    expect(BASICS.steps.map(s => s.t)).toContain('Read the report');
+  });
+
   it('keeps user_id on the list of what to store', () => {
     expect(IDENTITY.keep.map(k => k.what)).toContain('user_id');
   });

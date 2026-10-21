@@ -285,6 +285,7 @@ To re-check an applicant without asking for documents again, refresh the connect
 | Refresh only some connections | the same call with `employers: [{ id }]` or `financial_accounts: [{ id }]` from the original order |
 | Refresh one connection directly | `POST /v1/refresh/tasks/` with its `access_token` and a `product_type` |
 | Read each connection's result | `GET /v1/tasks/?user_id={user_id}`, matched to your case file by `link_id` |
+| Read the refreshed data | `GET /v1/orders/{refresh_order_id}/`, then `GET` the report named by its `voie_report_id` (income) or `voa_report_id` (assets). A completed refresh order already has its own report, so nothing is created |
 
 Refreshes are limited per connection: 1 initial request plus 3 refreshes in any 24 hours. A refresh sent right
 after Bridge finishes can be rejected for about 15 to 20 seconds, so retry. A connection that needs the

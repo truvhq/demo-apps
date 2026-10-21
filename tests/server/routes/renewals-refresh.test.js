@@ -38,6 +38,72 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map(s => new Promise(r => s.close(r))));
 });
 
+function startReports({ orderData, orderStatus = 200, report = { statusCode: 200, data: { report_id: 'r1' } } }) {
+  const orders = { refresh1: { id: 'refresh1', truv_order_id: 't-refresh', user_id: 'u1' } };
+  const truv = {
+    getOrder: vi.fn().mockResolvedValue({ statusCode: orderStatus, data: orderData, durationMs: 1 }),
+    getAssetsReport: vi.fn().mockResolvedValue({ durationMs: 1, ...report }),
+    getVoieReport: vi.fn().mockResolvedValue({ durationMs: 1, ...report }),
+    createAssetsReport: vi.fn(),
+    createVoieReport: vi.fn(),
+  };
+  const app = express();
+  app.use(renewalsRefreshRoutes({ truv, db: { getOrder: (id) => orders[id] }, apiLogger: createMockApiLogger(), reportDelaysMs: [0, 0, 0] }));
+  return new Promise((resolve) => {
+    const server = http.createServer(app);
+    servers.push(server);
+    server.listen(0, '127.0.0.1', () => resolve({ baseUrl: `http://127.0.0.1:${server.address().port}`, truv }));
+  });
+}
+
+async function getJson(url) {
+  const res = await fetch(url);
+  return { status: res.status, json: await res.json() };
+}
+
+describe('GET /api/renewals/report/:refreshOrderId/:type reads the existing report', () => {
+  it('fetches the assets report named by voa_report_id and never creates one', async () => {
+    const ctx = await startReports({ orderData: { voa_report_id: 'voa-9', voie_report_id: null } });
+    const { status, json } = await getJson(`${ctx.baseUrl}/api/renewals/report/refresh1/assets`);
+    expect(status).toBe(200);
+    expect(json.report_id).toBe('r1');
+    expect(ctx.truv.getOrder).toHaveBeenCalledWith('t-refresh');
+    expect(ctx.truv.getAssetsReport).toHaveBeenCalledWith('u1', 'voa-9');
+    expect(ctx.truv.createAssetsReport).not.toHaveBeenCalled();
+    expect(ctx.truv.createVoieReport).not.toHaveBeenCalled();
+  });
+
+  it('fetches the income report named by voie_report_id', async () => {
+    const ctx = await startReports({ orderData: { voie_report_id: 'voie-3', voa_report_id: null } });
+    const { status } = await getJson(`${ctx.baseUrl}/api/renewals/report/refresh1/income`);
+    expect(status).toBe(200);
+    expect(ctx.truv.getVoieReport).toHaveBeenCalledWith('u1', 'voie-3');
+    expect(ctx.truv.createVoieReport).not.toHaveBeenCalled();
+  });
+
+  it('asks the order again, then reports not ready if it never gets an id', async () => {
+    const ctx = await startReports({ orderData: { voie_report_id: null, voa_report_id: null } });
+    const { status, json } = await getJson(`${ctx.baseUrl}/api/renewals/report/refresh1/income`);
+    expect(status).toBe(404);
+    expect(json.error).toBe('report_not_ready');
+    expect(ctx.truv.getOrder).toHaveBeenCalledTimes(3);
+    expect(ctx.truv.createVoieReport).not.toHaveBeenCalled();
+  });
+
+  it('passes a report fetch failure through', async () => {
+    const ctx = await startReports({ orderData: { voa_report_id: 'voa-9' }, report: { statusCode: 404, data: { detail: 'Not Found.' } } });
+    const { status, json } = await getJson(`${ctx.baseUrl}/api/renewals/report/refresh1/assets`);
+    expect(status).toBe(404);
+    expect(json.error).toBe('Failed to retrieve report');
+  });
+
+  it('rejects an unknown type and an unknown refresh order', async () => {
+    const ctx = await startReports({ orderData: {} });
+    expect((await getJson(`${ctx.baseUrl}/api/renewals/report/refresh1/employment`)).status).toBe(400);
+    expect((await getJson(`${ctx.baseUrl}/api/renewals/report/nope/income`)).status).toBe(404);
+  });
+});
+
 describe('POST /api/renewals/refresh/:orderId error mapping', () => {
   it('creates a refresh order and persists it', async () => {
     const ctx = await start({ statusCode: 200, data: { id: 't-refresh', user_id: 'u1', bridge_token: 'bt', share_url: 'https://x/' } });
