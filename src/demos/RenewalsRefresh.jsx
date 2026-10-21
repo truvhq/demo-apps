@@ -14,8 +14,8 @@
  * wire. When the stored session is still good, the refresh order completes by
  * itself and emits `order-status-updated: completed`. When it needs the applicant,
  * the refresh TASK fails and the order's `completed_at` stays null, so no
- * completion arrives for that connection. `order-refresh-failed` is the only signal
- * that it failed.
+ * completion arrives for that connection. `order-refresh-failed` is the webhook
+ * that reports the failure (the reason and the stable link_id are on the task).
  *
  * Careful with the general claim, though: `order-status-updated` is emitted PER
  * SUBORDER and carries an `employer_id` (verified 2026-09-17, see
@@ -78,11 +78,11 @@ const STAGES = WALKTHROUGH_STAGES;
 // --- Helper: small status pill used across the renewals and watch tables ---
 function StatusPill({ tone, children }) {
   const cls = {
-    good: 'text-[#1C8F60] bg-green-50',
-    warn: 'text-[#C18D10] bg-amber-50',
-    pending: 'text-[#808080] bg-[#f5f5f7]',
+    good: 'text-[#167A50] bg-green-50',
+    warn: 'text-[#8A6200] bg-amber-50',
+    pending: 'text-[#666670] bg-[#f5f5f7]',
     neutral: 'text-[#5b5b60] bg-[#f5f5f7]',
-  }[tone] || 'text-[#808080] bg-[#f5f5f7]';
+  }[tone] || 'text-[#666670] bg-[#f5f5f7]';
   return <span class={`text-[13px] font-semibold px-2 py-0.5 rounded whitespace-nowrap ${cls}`}>{children}</span>;
 }
 
@@ -101,40 +101,77 @@ function CredentialChip({ label, value }) {
       }}
     >
       {value}
-      <span class="text-[10px] text-[#808080]">{copied ? 'copied' : 'copy'}</span>
+      <span class="text-[10px] text-[#666670]">{copied ? 'copied' : 'copy'}</span>
     </button>
   );
 }
 
 // --- Helper: the callout that names the anti-pattern this demo is about ---
 function StuckAtSentCallout() {
+  const code = 'font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]';
   return (
-    <div class="border border-[#C18D10]/30 bg-amber-50/60 rounded-xl p-4 text-[13px] leading-[1.55] text-[#000000]">
-      <div class="font-semibold mb-1">Why a failed refresh is easy to miss</div>
+    <div class="border border-[#8A6200]/30 bg-amber-50/60 rounded-xl p-4 text-[13px] leading-[1.55] text-[#000000]">
+      <div class="font-semibold mb-1">For your IT team: why a failed refresh is easy to miss</div>
       <p class="text-[#5b5b60]">
-        Each applicant here has one connection. For the rows above that need re-authorization, no further{' '}
-        <code class="font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]">order-status-updated</code>{' '}
-        arrives and the order stays unfinished. The webhook that reports the failure is{' '}
-        <code class="font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]">order-refresh-failed</code>,
-        which carries the reason in its <code class="font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]">status</code> field.
-        On an order with several employers, the connections that worked still send{' '}
-        <code class="font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]">completed</code>, so silence is the wrong thing to watch for.
-        Branch on the status: <code class="font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]">no_data</code> and{' '}
-        <code class="font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d2d2d7]">unavailable</code> fire the same event but are not
-        credential problems, so do not ask the applicant to do anything.
+        A refresh that needs the applicant does not announce itself. The case just stays unfinished. The webhook
+        that reports it is <code class={code}>order-refresh-failed</code>, which carries a status such as{' '}
+        <code class={code}>mfa_error</code> (the error text is on the task). On a case with several employers, the
+        connections that worked still send <code class={code}>completed</code>, so silence is the wrong thing to
+        watch for. Branch on the status: <code class={code}>no_data</code> and <code class={code}>unavailable</code> fire
+        the same event but are not credential problems, so do not ask the applicant to do anything.
       </p>
     </div>
   );
 }
 
+// Survive a page reload mid-demo. Cleared when the demo unmounts (leaving for the
+// hub, breadcrumb restart) or on Start Over, so re-entering always starts fresh.
+const STORE_KEY = 'truv_renewals_refresh_state';
+const RUNTIME_FIELDS = ['order', 'refresh', 'outcome', 'revealed', 'refreshDetail', 'reauthDone', 'failedReason', 'connectedAt', 'slow'];
+
+function loadSaved() {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(STORE_KEY) || 'null');
+    return v && Array.isArray(v.cases) ? v : null;
+  } catch { return null; }
+}
+
+function seedCases(saved) {
+  return CASELOAD.map(c => {
+    const base = { ...c, order: null, refresh: null, outcome: null, revealed: false };
+    const prev = saved?.cases.find(x => x.id === c.id);
+    if (!prev) return base;
+    const merged = { ...base };
+    for (const k of RUNTIME_FIELDS) if (prev[k] !== undefined) merged[k] = prev[k];
+    // Anything already resolved was revealed before the reload; the queue that
+    // reveals rows one at a time does not survive it.
+    if (merged.outcome && merged.outcome.state !== 'refreshing') merged.revealed = true;
+    return merged;
+  });
+}
+
+// What actually told us how this refresh ended, in words a reader can follow.
+function detectedBy(c) {
+  if (c.reauthDone && c.outcome?.state === 'refreshed') {
+    return `failed${c.failedReason ? ` (${c.failedReason})` : ''}, then the applicant cleared the challenge`;
+  }
+  switch (c.outcome?.source) {
+    case 'order-refresh-failed': return 'order-refresh-failed';
+    case 'task': return 'refresh task status';
+    case 'suborder': return 'connection status (last_task_status)';
+    default: return 'order status';
+  }
+}
+
 // --- Component: RenewalsRefreshDemo ---
 export function RenewalsRefreshDemo() {
-  const [screen, setScreen] = useState('walkthrough');
-  const [showOptional, setShowOptional] = useState(false);
+  const [saved] = useState(loadSaved);
+  const [screen, setScreen] = useState(saved?.screen && saved.screen !== 'walkthrough' ? saved.screen : 'walkthrough');
+  const [showOptional, setShowOptional] = useState(!!saved?.showOptional);
 
   // Runtime state per applicant, keyed by the seed id. Seeded from CASELOAD and
   // extended with order ids, refresh ids and resolved outcomes as the demo runs.
-  const [cases, setCases] = useState(() => CASELOAD.map(c => ({ ...c, order: null, refresh: null, outcome: null, revealed: false })));
+  const [cases, setCases] = useState(() => seedCases(saved));
 
   // Which case is currently inside Bridge, and for which purpose.
   const [active, setActive] = useState(null); // { id, mode: 'connect' | 'reauth', bridgeToken }
@@ -152,10 +189,32 @@ export function RenewalsRefreshDemo() {
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset: resetPanel } = usePanel();
 
   const visibleCases = cases.filter(c => !c.optional || showOptional);
-  const connected = visibleCases.filter(c => c.order);
+  // Connected means the applicant finished Bridge, not merely that an order exists.
+  const connected = visibleCases.filter(c => c.order && c.connectedAt);
   const refreshed = visibleCases.filter(c => c.refresh);
   const needsReauth = refreshed.filter(c => c.revealed && c.outcome?.state === 'reauth_required');
   const allResolved = refreshed.length > 0 && refreshed.every(c => c.revealed && c.outcome && c.outcome.state !== 'refreshing');
+
+  useEffect(() => {
+    try {
+      if (screen === 'walkthrough' && !cases.some(c => c.order)) { sessionStorage.removeItem(STORE_KEY); return; }
+      sessionStorage.setItem(STORE_KEY, JSON.stringify({
+        screen, showOptional,
+        cases: cases.map(c => ({ id: c.id, ...Object.fromEntries(RUNTIME_FIELDS.map(k => [k, c[k]])) })),
+      }));
+    } catch { /* storage unavailable: the demo still works, it just will not survive a reload */ }
+  }, [screen, showOptional, cases]);
+
+  useEffect(() => () => { try { sessionStorage.removeItem(STORE_KEY); } catch { /* ignore */ } }, []);
+
+  useEffect(() => {
+    document.title = 'Renewals & Data Refresh | Truv Demo Apps';
+  }, []);
+
+  // When the view swaps (screen change, Bridge closing), put keyboard focus on the new heading.
+  useEffect(() => {
+    if (!active && screen !== 'walkthrough') document.querySelector('[data-screen-heading]')?.focus({ preventScroll: true });
+  }, [screen, active]);
 
   // Keep the sidebar step indicator in step with the screen.
   useEffect(() => {
@@ -181,6 +240,13 @@ export function RenewalsRefreshDemo() {
 
   // --- Step 1: intake. Create the applicant's original order, then open Bridge. ---
   async function connectCase(c) {
+    // An order exists but Bridge was not finished: reopen it rather than create another.
+    if (c.order?.bridge_token && !c.connectedAt) {
+      completedRef.current = false;
+      if (c.order.user_id) startPolling(c.order.user_id);
+      setActive({ id: c.id, mode: 'connect', bridgeToken: c.order.bridge_token });
+      return;
+    }
     setBusy(c.id);
     setError(null);
     try {
@@ -241,9 +307,12 @@ export function RenewalsRefreshDemo() {
         patchCase(c.id, { waiting: false });
         // The per-order cap is its own signal, not a generic failure.
         const name = `${c.firstName} ${c.lastName}`;
-        setError(data.error === 'refresh_cap_reached' || data.error === 'no_connections_yet'
-          ? `${name}: ${data.message}`
-          : `${name}: ${data.error || 'Could not create the refresh order'}`);
+        const message = data.error === 'no_connections_yet'
+          ? 'Still not ready to refresh after about a minute. Check that the applicant clicked Submit connected accounts in the connection window, then try again.'
+          : data.error === 'refresh_cap_reached' || data.error === 'refresh_in_progress'
+            ? data.message
+            : (data.error || 'Could not create the refresh order');
+        setError(`${name}: ${message}`);
         setBusy(null);
         return false;
       }
@@ -311,6 +380,7 @@ export function RenewalsRefreshDemo() {
   // resumes at the challenge that broke the silent refresh. ---
   function reauthCase(c) {
     if (!c.refresh?.bridge_token) return;
+    patchCase(c.id, { failedReason: c.outcome?.reason || null });
     completedRef.current = false;
     if (c.order?.user_id) startPolling(c.order.user_id);
     setActive({ id: c.id, mode: 'reauth', bridgeToken: c.refresh.bridge_token });
@@ -370,6 +440,7 @@ export function RenewalsRefreshDemo() {
     resetPanel();
     revealQueueRef.current = [];
     pollCountRef.current = {};
+    try { sessionStorage.removeItem(STORE_KEY); } catch { /* ignore */ }
     runRef.current += 1;
     setBusy(null);
     setCases(CASELOAD.map(c => ({ ...c, order: null, refresh: null, outcome: null, revealed: false })));
@@ -398,6 +469,13 @@ export function RenewalsRefreshDemo() {
 
       {/* Bridge lives in the device frame whenever an applicant is acting. */}
       {active && (
+        <div class="px-4 pt-3 sm:px-8">
+          <button class="text-[13px] text-primary font-medium hover:underline" onClick={() => setActive(null)}>
+            &larr; Back without finishing
+          </button>
+        </div>
+      )}
+      {active && (
         <DeviceFrame url="benefits.example.gov">
           <iframe
             ref={iframeRef}
@@ -410,34 +488,37 @@ export function RenewalsRefreshDemo() {
       )}
 
       {!active && (
-        <div class="max-w-4xl mx-auto px-4 py-6 sm:px-8 sm:py-10">
+        <div class="max-w-4xl w-full min-w-0 mx-auto px-4 py-6 sm:px-8 sm:py-10">
 
           {error && (
-            <div class="mb-5 border border-red-200 bg-red-50 rounded-xl p-4 text-[13px] text-[#7f1d1d]">{error}</div>
+            <div role="alert" class="mb-5 border border-red-200 bg-red-50 rounded-xl p-4 text-[13px] text-[#7f1d1d]">{error}</div>
           )}
 
           {/* ---------------- Setup: connect the applicants ---------------- */}
           {screen === 'setup' && (
             <>
-              <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2">Connect the applicants</h2>
-              <p class="text-[15px] text-[#808080] leading-[1.5] mb-2">
+              <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2 outline-none">Connect the applicants</h2>
+              <p class="text-[15px] text-[#666670] leading-[1.5] mb-2">
                 Each applicant connects an employer or bank, the way they would at intake. Use the test
                 login shown on their row. The login decides what happens when the connection is refreshed
                 later, so you will see both outcomes.
               </p>
-              <p class="text-[13px] text-[#808080] leading-[1.5] mb-5">
+              <p class="text-[13px] text-[#666670] leading-[1.5] mb-5">
                 In the window that opens, finish the connection, then click <strong>Submit connected accounts</strong>.
+                On a projector or small laptop screen, choose <strong>Desktop</strong> at the top right so every button fits.
               </p>
+
+              <p class="text-[12px] text-[#666670] mb-2 md:hidden">Scroll the table sideways to reach the action buttons.</p>
 
               <div class="border border-[#d2d2d7] rounded-xl overflow-hidden overflow-x-auto bg-white mb-5">
                 <table class="w-full min-w-[720px] text-[13px]">
                   <thead>
-                    <tr class="border-b border-[#d2d2d7] bg-[#f5f5f7] text-[#808080] text-[13px] font-medium uppercase tracking-wide">
-                      <th class="text-left px-4 py-3">Applicant</th>
-                      <th class="text-left px-4 py-3">Case</th>
-                      <th class="text-left px-4 py-3">Connect to</th>
-                      <th class="text-left px-4 py-3">Test login (sandbox)</th>
-                      <th class="text-right px-4 py-3">Action</th>
+                    <tr class="border-b border-[#d2d2d7] bg-[#f5f5f7] text-[#666670] text-[13px] font-medium uppercase tracking-wide">
+                      <th scope="col" class="text-left px-4 py-3">Applicant</th>
+                      <th scope="col" class="text-left px-4 py-3">Case</th>
+                      <th scope="col" class="text-left px-4 py-3">Connect to</th>
+                      <th scope="col" class="text-left px-4 py-3">Test login (sandbox)</th>
+                      <th scope="col" class="text-right px-4 py-3">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -445,22 +526,22 @@ export function RenewalsRefreshDemo() {
                       <tr key={c.id} class="border-b border-[#f5f5f7] align-top">
                         <td class="px-4 py-3">
                           <div class="font-medium text-[#000000]">{c.firstName} {c.lastName}</div>
-                          <div class="text-[12px] text-[#808080]">{c.program}</div>
+                          <div class="text-[12px] text-[#666670]">{c.program}</div>
                         </td>
                         <td class="px-4 py-3 font-mono text-[12px] text-[#000000]">{c.caseNumber}</td>
                         <td class="px-4 py-3">
                           <div class="text-[#000000]">{c.connector}</div>
-                          <div class="text-[12px] text-[#808080]">{c.connectorKind === 'bank' ? 'assets' : 'income'}</div>
+                          <div class="text-[12px] text-[#666670]">{c.connectorKind === 'bank' ? 'assets' : 'income'}</div>
                         </td>
                         <td class="px-4 py-3">
                           <div class="flex flex-wrap gap-1.5 mb-1">
                             <CredentialChip label="username" value={c.credential.username} />
                             <CredentialChip label="password" value={c.credential.password} />
                           </div>
-                          <div class="text-[12px] text-[#808080] leading-[1.45] max-w-[260px]">{c.credentialNote}</div>
+                          <div class="text-[12px] text-[#666670] leading-[1.45] max-w-[260px]">{c.credentialNote}</div>
                         </td>
                         <td class="px-4 py-3 text-right">
-                          {c.order
+                          {c.connectedAt
                             ? <StatusPill tone="good">connected</StatusPill>
                             : (
                               <button
@@ -468,7 +549,7 @@ export function RenewalsRefreshDemo() {
                                 disabled={busy === c.id}
                                 onClick={() => connectCase(c)}
                               >
-                                {busy === c.id ? <span class="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Connect'}
+                                {busy === c.id ? <span class="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (c.order ? 'Resume' : 'Connect')}
                               </button>
                             )}
                         </td>
@@ -492,7 +573,7 @@ export function RenewalsRefreshDemo() {
                   {connected.length === 0 ? 'Connect at least one applicant' : `Continue with ${connected.length} connected`}
                 </button>
                 {connected.length === 0 && (
-                  <span class="text-[13px] text-[#808080]">Click Connect on a row to start.</span>
+                  <span class="text-[13px] text-[#666670]">Click Connect on a row to start.</span>
                 )}
               </div>
             </>
@@ -502,22 +583,24 @@ export function RenewalsRefreshDemo() {
           {screen === 'renewals' && (
             <>
               <div class="flex items-center gap-2 mb-2">
-                <span class="text-[11px] font-semibold uppercase tracking-wider text-[#C18D10] bg-amber-50 px-2 py-0.5 rounded">Renewal time</span>
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-[#8A6200] bg-amber-50 px-2 py-0.5 rounded">Renewal time</span>
               </div>
-              <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2">Recertification is due</h2>
-              <p class="text-[15px] text-[#808080] leading-[1.5] mb-5">
+              <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2 outline-none">Recertification is due</h2>
+              <p class="text-[15px] text-[#666670] leading-[1.5] mb-5">
                 No one has contacted these applicants. Refresh the connections they already made
                 and see which ones update without any action from them.
               </p>
 
+              <p class="text-[12px] text-[#666670] mb-2 md:hidden">Scroll the table sideways to reach the action buttons.</p>
+
               <div class="border border-[#d2d2d7] rounded-xl overflow-hidden overflow-x-auto bg-white mb-5">
                 <table class="w-full min-w-[680px] text-[13px]">
                   <thead>
-                    <tr class="border-b border-[#d2d2d7] bg-[#f5f5f7] text-[#808080] text-[13px] font-medium uppercase tracking-wide">
-                      <th class="text-left px-4 py-3">Applicant</th>
-                      <th class="text-left px-4 py-3">Connection</th>
-                      <th class="text-left px-4 py-3">Verified</th>
-                      <th class="text-right px-4 py-3">Action</th>
+                    <tr class="border-b border-[#d2d2d7] bg-[#f5f5f7] text-[#666670] text-[13px] font-medium uppercase tracking-wide">
+                      <th scope="col" class="text-left px-4 py-3">Applicant</th>
+                      <th scope="col" class="text-left px-4 py-3">Connection</th>
+                      <th scope="col" class="text-left px-4 py-3">Connected at intake</th>
+                      <th scope="col" class="text-right px-4 py-3">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -525,10 +608,10 @@ export function RenewalsRefreshDemo() {
                       <tr key={c.id} class="border-b border-[#f5f5f7]">
                         <td class="px-4 py-3">
                           <div class="font-medium text-[#000000]">{c.firstName} {c.lastName}</div>
-                          <div class="text-[12px] text-[#808080] font-mono">{c.caseNumber}</div>
+                          <div class="text-[12px] text-[#666670] font-mono">{c.caseNumber}</div>
                         </td>
                         <td class="px-4 py-3 text-[#000000]">{c.connector}</td>
-                        <td class="px-4 py-3"><StatusPill tone="warn">stale · {c.verifiedOn}</StatusPill></td>
+                        <td class="px-4 py-3"><StatusPill tone="neutral">{new Date(c.connectedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</StatusPill></td>
                         <td class="px-4 py-3 text-right">
                           {c.refresh
                             ? <StatusPill tone="pending">refresh requested</StatusPill>
@@ -551,11 +634,11 @@ export function RenewalsRefreshDemo() {
               </div>
 
               <div class="border border-[#d2d2d7] rounded-xl p-4 mb-5 bg-[#f5f5f7]">
-                <div class="text-[13px] font-semibold text-[#808080] uppercase tracking-wide mb-2">What the agency backend sends</div>
+                <div class="text-[13px] font-semibold text-[#666670] uppercase tracking-wide mb-2">What the agency backend sends</div>
                 <pre class="text-[12px] font-mono text-[#000000] whitespace-pre-wrap m-0">{[...new Set(connected.map(c => c.products.includes('assets') ? 'assets' : 'income'))]
   .map(p => `POST /v1/orders/{order_id}/\n{ "products": ["${p}"] }   // ${p === 'assets' ? 'bank connections' : 'payroll connections'}`)
   .join('\n\n') || 'POST /v1/orders/{order_id}/\n{ "products": ["income"] }'}</pre>
-                <p class="text-[12px] text-[#808080] mt-2 mb-0">
+                <p class="text-[12px] text-[#666670] mt-2 mb-0">
                   Server-side, no applicant contact. Truv returns a new order and reconnects with the
                   stored credentials. Limited to 3 refreshes per order per 24 hours. If Bridge only just
                   finished, the first attempt can be rejected for a few seconds, so this demo retries.
@@ -575,18 +658,18 @@ export function RenewalsRefreshDemo() {
           {/* ---------------- Watch: the divergence ---------------- */}
           {(screen === 'watch' || screen === 'reauth') && (
             <>
-              <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2">
+              <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2 outline-none">
                 {screen === 'watch' ? 'Two outcomes' : 'Re-engage only who needs it'}
               </h2>
-              <p class="text-[15px] text-[#808080] leading-[1.5] mb-5">
+              <p class="text-[15px] text-[#666670] leading-[1.5] mb-5">
                 {screen === 'watch'
                   ? 'Same call for every applicant. The stored session decides what happens next.'
                   : (needsReauth.length
-                    ? 'Everyone else is already done. These applicants only need to clear one challenge. They do not re-enter credentials.'
+                    ? 'Everyone else is already done. These applicants only need to clear one challenge. For a security challenge they do not re-enter their login.'
                     : 'Every refresh is done. Nobody else needs to be contacted.')}
               </p>
 
-              <div class="space-y-3 mb-6">
+              <div class="space-y-3 mb-6" aria-live="polite">
                 {refreshed.map(c => {
                   const state = c.revealed ? (c.outcome?.state || 'refreshing') : 'refreshing';
                   const display = OUTCOME_DISPLAY[state] || OUTCOME_DISPLAY.refreshing;
@@ -600,33 +683,27 @@ export function RenewalsRefreshDemo() {
                         <div class="min-w-0">
                           <div class="flex items-center gap-2 flex-wrap">
                             <span class="font-medium text-[#000000] text-[15px]">{c.firstName} {c.lastName}</span>
-                            <span class="text-[12px] text-[#808080] font-mono">{c.caseNumber}</span>
-                            <span class="text-[12px] text-[#808080]">·</span>
-                            <span class="text-[12px] text-[#808080]">{c.products.includes('assets') ? 'assets' : 'income'} · {c.connector}</span>
+                            <span class="text-[12px] text-[#666670] font-mono">{c.caseNumber}</span>
+                            <span class="text-[12px] text-[#666670]">·</span>
+                            <span class="text-[12px] text-[#666670]">{c.products.includes('assets') ? 'assets' : 'income'} · {c.connector}</span>
                           </div>
                           <div class="text-[13px] text-[#5b5b60] mt-1.5">
                             {state === 'refreshing'
                               ? detail
-                              : <>{detail}{reason ? <> <span class="text-[#808080]">Reason:</span> <code class="font-mono text-[12px] bg-[#f5f5f7] px-1 py-0.5 rounded border border-[#d2d2d7]">{reason}</code>{REASON_COPY[reason] ? `. ${REASON_COPY[reason]}` : ''}</> : null}</>}
+                              : <>{detail}{reason ? <> <span class="text-[#666670]">Reason:</span> <code class="font-mono text-[12px] bg-[#f5f5f7] px-1 py-0.5 rounded border border-[#d2d2d7]">{reason}</code>{REASON_COPY[reason] ? `. ${REASON_COPY[reason]}` : ''}</> : null}</>}
                           </div>
                           {c.slow && state === 'refreshing' && (
-                            <div class="text-[12px] text-[#C18D10] mt-1">This is taking longer than usual. Still checking.</div>
+                            <div class="text-[12px] text-[#8A6200] mt-1">This is taking longer than usual. Still checking.</div>
                           )}
                           {c.outcome?.errorMessage && c.revealed && (
                             <div class="text-[12px] text-[#5b5b60] mt-1 italic">Provider said: “{c.outcome.errorMessage}”</div>
                           )}
                           {c.outcome?.source && c.revealed && (
-                            <div class="text-[12px] text-[#808080] mt-1">
-                              Detected via {c.outcome.source === 'order-refresh-failed'
-                                ? <code class="font-mono bg-[#f5f5f7] px-1 rounded border border-[#d2d2d7]">order-refresh-failed</code>
-                                : c.outcome.source === 'task' ? 'the refresh task status (works without webhooks)'
-                                : c.outcome.source === 'suborder' ? 'the suborder\'s last_task_status'
-                                : 'the order status'}
-                            </div>
+                            <div class="text-[12px] text-[#666670] mt-1">How we found out: {detectedBy(c)}</div>
                           )}
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
-                          {state === 'refreshing' && <span class="inline-block w-3.5 h-3.5 border-2 border-[#d2d2d7] border-t-[#808080] rounded-full animate-spin" />}
+                          {state === 'refreshing' && <span class="inline-block w-3.5 h-3.5 border-2 border-[#d2d2d7] border-t-[#666670] rounded-full animate-spin" />}
                           <StatusPill tone={display.tone}>{display.label}</StatusPill>
                         </div>
                       </div>
@@ -634,7 +711,7 @@ export function RenewalsRefreshDemo() {
                       {/* Re-auth affordances appear once the row has resolved that way. */}
                       {c.revealed && c.outcome?.state === 'reauth_required' && (
                         <div class="mt-3 pt-3 border-t border-[#f5f5f7]">
-                          <div class="text-[12px] font-semibold text-[#808080] uppercase tracking-wide mb-1.5">Link for the applicant</div>
+                          <div class="text-[12px] font-semibold text-[#666670] uppercase tracking-wide mb-1.5">Link to send the applicant</div>
                           {c.refresh?.share_url && (
                             <a href={c.refresh.share_url} target="_blank" rel="noopener noreferrer" class="text-[12px] text-primary font-mono break-all hover:underline">{c.refresh.share_url}</a>
                           )}
@@ -645,7 +722,7 @@ export function RenewalsRefreshDemo() {
                             >
                               Complete as the applicant
                             </button>
-                            <span class="text-[12px] text-[#808080] ml-2">Bridge resumes at the challenge, no credentials re-entered</span>
+                            <span class="text-[12px] text-[#666670] ml-2">Demo shortcut: mounts this refresh order's bridge token here so you can act as the applicant. Bridge resumes at the challenge.</span>
                           </div>
                         </div>
                       )}
@@ -655,17 +732,34 @@ export function RenewalsRefreshDemo() {
               </div>
 
               {connected.some(c => !c.refresh) && (
-                <div class="mb-6 border border-[#C18D10]/30 bg-amber-50/60 rounded-xl p-4 text-[13px] text-[#000000]">
+                <div class="mb-6 border border-[#8A6200]/30 bg-amber-50/60 rounded-xl p-4 text-[13px] text-[#000000]">
                   {connected.filter(c => !c.refresh).map(c => c.firstName).join(', ')} {connected.filter(c => !c.refresh).length === 1 ? 'was' : 'were'} not refreshed.{' '}
                   <button class="text-primary font-medium hover:underline" onClick={() => setScreen('renewals')}>Back to the renewals list</button>
                 </div>
               )}
 
+              {(() => {
+                const unexpected = refreshed.filter(c => c.expect === 'reauth' && c.outcome?.state === 'refreshed' && !c.reauthDone);
+                if (!allResolved || needsReauth.length > 0 || !unexpected.length) return null;
+                return (
+                  <div class="mb-6 border border-[#8A6200]/30 bg-amber-50/60 rounded-xl p-4 text-[13px] text-[#000000]">
+                    {unexpected.map(c => c.firstName).join(' and ')} refreshed without needing re-authorization. If you expected a
+                    failure, they probably kept the pre-filled password (<code class="font-mono text-[12px]">goodpassword</code>),
+                    which connects a healthy account. Click Start Over and connect again, this time replacing the password with
+                    the test login shown on the setup screen.
+                  </div>
+                );
+              })()}
+
               {allResolved && needsReauth.length > 0 && <div class="mb-6"><StuckAtSentCallout /></div>}
 
               {/* Live webhook feed: order-refresh-failed shows up here. */}
               <div class="mb-6">
-                <div class="text-[13px] font-medium text-[#000000] mb-3">Webhook events</div>
+                <div class="text-[13px] font-medium text-[#000000] mb-1">Webhook events</div>
+                <p class="text-[12px] text-[#666670] mb-3">
+                  Webhooks only appear here when Truv can reach this server. The outcomes above are read from
+                  stored state, so they do not depend on them.
+                </p>
                 <WebhookFeed webhooks={panel.webhooks} />
               </div>
 
@@ -690,20 +784,31 @@ export function RenewalsRefreshDemo() {
           {/* ---------------- Results ---------------- */}
           {screen === 'results' && (
             <>
-              <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2">Refreshed and current</h2>
-              <p class="text-[15px] text-[#808080] leading-[1.5] mb-5">
-                Each refresh creates its own order and report. The original order is not changed,
-                so it stays as the record of the first verification.
+              <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000] mb-2 outline-none">Refresh results</h2>
+              <p class="text-[15px] text-[#666670] leading-[1.5] mb-2">
+                {(() => {
+                  const alone = refreshed.filter(c => c.outcome?.state === 'refreshed' && !c.reauthDone).length;
+                  const after = refreshed.filter(c => c.outcome?.state === 'refreshed' && c.reauthDone).length;
+                  const not = refreshed.length - alone - after;
+                  return `${alone + after} of ${refreshed.length} refreshed: ${alone} on their own, ${after} after the applicant cleared a challenge${not ? `, ${not} not refreshed` : ''}.`;
+                })()}
+              </p>
+              <p class="text-[13px] text-[#666670] leading-[1.5] mb-5">
+                Each completed refresh creates its own order and report. The original order keeps its own report.
+                The sandbox returns fixed sample data, so names and figures in the reports will not match the applicants above.
+                This demo shows the mechanics with test data. It does not show how often refreshes succeed in production.
               </p>
 
-              <div class="border border-[#d2d2d7] rounded-xl overflow-hidden bg-white mb-6">
+              <p class="text-[12px] text-[#666670] mb-2 md:hidden">Scroll the table sideways to reach the action buttons.</p>
+
+              <div class="border border-[#d2d2d7] rounded-xl overflow-hidden overflow-x-auto bg-white mb-6">
                 <table class="w-full min-w-[600px] text-[13px]">
                   <thead>
-                    <tr class="border-b border-[#d2d2d7] bg-[#f5f5f7] text-[#808080] text-[13px] font-medium uppercase tracking-wide">
-                      <th class="text-left px-4 py-3">Applicant</th>
-                      <th class="text-left px-4 py-3">How it resolved</th>
-                      <th class="text-left px-4 py-3">Detected by</th>
-                      <th class="text-right px-4 py-3">Report</th>
+                    <tr class="border-b border-[#d2d2d7] bg-[#f5f5f7] text-[#666670] text-[13px] font-medium uppercase tracking-wide">
+                      <th scope="col" class="text-left px-4 py-3">Applicant</th>
+                      <th scope="col" class="text-left px-4 py-3">How it resolved</th>
+                      <th scope="col" class="text-left px-4 py-3">How we found out</th>
+                      <th scope="col" class="text-right px-4 py-3">Report</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -713,19 +818,21 @@ export function RenewalsRefreshDemo() {
                         <tr key={c.id} class="border-b border-[#f5f5f7]">
                           <td class="px-4 py-3">
                             <div class="font-medium text-[#000000]">{c.firstName} {c.lastName}</div>
-                            <div class="text-[12px] text-[#808080]">{c.products.includes('assets') ? 'assets' : 'income'}</div>
+                            <div class="text-[12px] text-[#666670]">{c.products.includes('assets') ? 'assets' : 'income'}</div>
                           </td>
                           <td class="px-4 py-3">
                             <StatusPill tone={display.tone}>{display.label}</StatusPill>
-                            {c.reauthDone && <div class="text-[12px] text-[#808080] mt-1">after one applicant action</div>}
+                            {c.reauthDone && c.outcome?.state === 'refreshed' && <div class="text-[12px] text-[#666670] mt-1">after the applicant cleared a challenge</div>}
                           </td>
-                          <td class="px-4 py-3 font-mono text-[12px] text-[#5b5b60]">
-                            {c.outcome?.source === 'order-refresh-failed' ? 'order-refresh-failed' : c.outcome?.source === 'task' ? 'task status' : 'order-status-updated'}
-                          </td>
+                          <td class="px-4 py-3 text-[12px] text-[#5b5b60]">{detectedBy(c)}</td>
                           <td class="px-4 py-3 text-right">
-                            <button class="px-3 py-1.5 text-[13px] font-medium border border-[#d2d2d7] rounded-lg hover:border-[#c0c0c5] transition-colors" onClick={() => loadReport(c)}>
-                              Load
-                            </button>
+                            {c.outcome?.state === 'refreshed'
+                              ? (
+                                <button class="px-3 py-1.5 text-[13px] font-medium border border-[#d2d2d7] rounded-lg hover:border-[#c0c0c5] transition-colors" onClick={() => loadReport(c)}>
+                                  Load
+                                </button>
+                              )
+                              : <span class="text-[12px] text-[#666670]">not refreshed</span>}
                           </td>
                         </tr>
                       );

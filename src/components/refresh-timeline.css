@@ -5,16 +5,16 @@
 .rt-axis, .rt-lane { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .rt-axis { height: 26px; }
 .rt-lane { min-height: 46px; }
-.rt-lane-order .rt-lane-name { color: #808080; font-weight: 500; }
+.rt-lane-order .rt-lane-name { color: #666670; font-weight: 500; }
 
 .rt-axis-label { flex: 0 0 186px; min-width: 0; text-align: right; }
 .rt-lane-name { font-weight: 600; color: #000; line-height: 1.2; }
 /* Credentials are the copy-paste payload; breaking them mid-token makes them
    unreadable. Wrap only at the separator. */
-.rt-lane-cred { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; color: #a0a0a0; line-height: 1.35; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rt-lane-cred { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; color: #6b6b78; line-height: 1.35; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .rt-axis-track { position: relative; flex: 1 1 auto; height: 100%; min-height: 26px; }
-.rt-tick { position: absolute; top: 0; transform: translateX(-50%); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px; color: #a0a0a0; }
+.rt-tick { position: absolute; top: 0; transform: translateX(-50%); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px; color: #6b6b78; }
 .rt-rule { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #e8e8ed; }
 
 .rt-dot-wrap { position: absolute; top: 50%; transform: translateY(-50%); margin-left: -6.5px; width: 13px; height: 13px; display: flex; align-items: center; justify-content: center; white-space: nowrap; }
@@ -25,21 +25,21 @@
 .rt-dot-label { position: absolute; top: 50%; transform: translateY(-50%); font-size: 11.5px; font-weight: 600; font-family: 'JetBrains Mono', ui-monospace, monospace; }
 .rt-dot-label-right { left: 20px; }
 .rt-dot-label-left { right: 20px; }
-.rt-off { opacity: .18; }
+.rt-off { opacity: .45; text-decoration: line-through; }
 
 .rt-verdict { flex: 0 0 150px; min-width: 0; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
-.rt-verdict-good { color: #1C8F60; }
-.rt-verdict-warn { color: #C18D10; }
-.rt-verdict-unknown { color: #b0b0b0; font-weight: 500; text-transform: none; letter-spacing: 0; font-style: italic; }
+.rt-verdict-good { color: #167A50; }
+.rt-verdict-warn { color: #8A6200; }
+.rt-verdict-unknown { color: #6b6b78; font-weight: 500; text-transform: none; letter-spacing: 0; font-style: italic; }
 
 .rt-log { border: 1px solid #e8e8ed; border-radius: 12px; overflow: hidden; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; }
 .rt-log-row { display: flex; gap: 10px; padding: 5px 12px; border-bottom: 1px solid #f2f2f5; align-items: baseline; }
 .rt-log-row:last-child { border-bottom: 0; }
-.rt-log-t { flex: 0 0 38px; color: #a0a0a0; text-align: right; }
+.rt-log-t { flex: 0 0 38px; color: #6b6b78; text-align: right; }
 .rt-log-ev { flex: 0 0 168px; color: #000; }
 .rt-log-st { flex: 0 0 96px; font-weight: 600; }
-.rt-log-lane { flex: 0 0 88px; color: #808080; }
-.rt-log-note { flex: 1 1 auto; color: #a0a0a0; }
+.rt-log-lane { flex: 0 0 88px; color: #666670; }
+.rt-log-note { flex: 1 1 auto; color: #6b6b78; }
 
 /* Stack the label above the track on narrow screens; a 132px gutter plus a
    150px verdict leaves no usable axis on a phone. */

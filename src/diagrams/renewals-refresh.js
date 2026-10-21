@@ -5,9 +5,9 @@
  *   RENEWALS_DIAGRAM  - the whole recertification loop, both outcomes
  *   REFRESH_FORK_DIAGRAM - just the fork, for the walkthrough's "two paths" stage
  *
- * The load-bearing detail in both: on the failure path the order never completes,
- * so no completion arrives for that connection and `order-refresh-failed` is the
- * only signal it failed.
+ * The load-bearing detail in both: on the failure path that connection does not
+ * complete until the applicant acts, and `order-refresh-failed` is the webhook that
+ * reports it (the reason and the stable link_id are on the task).
  *
  * Note the limit of that: `order-status-updated` is emitted PER SUBORDER and carries
  * an `employer_id`. Each applicant in this demo has a single connection, so a
@@ -33,7 +33,7 @@ export const RENEWALS_DIAGRAM = `sequenceDiagram
   else Re-authorization needed
     P-->>Truv: MFA challenge / credentials changed
     Truv->>BE: order-refresh-failed (mfa_error)
-    Note right of BE: this connection never completes
+    Note right of BE: this connection does not complete until the applicant acts
     BE->>A: send the refresh order's share_url
     A->>Truv: clears MFA only (no credentials re-entered)
     Truv->>BE: order-status-updated (completed)
@@ -45,6 +45,6 @@ export const REFRESH_FORK_DIAGRAM = `flowchart TD
   R["POST /v1/orders/{id}/<br/>refresh requested"] --> T{"Stored session<br/>still valid?"}
   T -->|Yes| S["order-status-updated: completed<br/>fresh data, no applicant action"]
   T -->|No| F["order-refresh-failed<br/>status: mfa_error / login_error"]
-  F --> W["This connection never completes<br/>order-refresh-failed is the only signal"]
+  F --> W["This connection does not complete until the applicant acts<br/>order-refresh-failed reports the failure"]
   W --> A["Applicant clears MFA<br/>via the refresh order's own link"]
   A --> S`;

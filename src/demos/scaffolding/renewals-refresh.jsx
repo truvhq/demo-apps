@@ -9,7 +9,7 @@
  * on a specific, verified outcome. Credentials were confirmed end to end in sandbox
  * on 2026-08-19/20:
  *
- *   goodlogin / goodpassword   payroll  -> refresh completes silently in ~13-15s
+ *   goodlogin / goodpassword   payroll  -> refresh completes silently in ~13-20s
  *   goodlogin / mfa            bank     -> refresh fails, order-refresh-failed (assets)
  *   goodlogin / mfa_captcha    payroll  -> refresh fails, order-refresh-failed (income)
  *
@@ -41,7 +41,6 @@ export const CASELOAD = [
     credentialNote: 'Bridge pre-fills these in sandbox, so this connection is zero typing.',
     expect: 'silent',
     expectLabel: 'Refreshes silently, no applicant action',
-    verifiedOn: 'Aug 2025',
   },
   {
     id: 'dana',
@@ -53,10 +52,9 @@ export const CASELOAD = [
     connector: 'Truv Bank (non-oAuth)',
     connectorKind: 'bank',
     credential: { username: 'goodlogin', password: 'mfa' },
-    credentialNote: 'Search "Truv Bank" and pick the non-oAuth entry. Any MFA code is accepted. Overwrite the pre-filled password. Bridge fills in goodpassword, which connects a healthy account and the refresh would succeed.',
+    credentialNote: 'Search "Truv Bank" and pick the non-oAuth entry. Bridge pre-fills a different password here, so replace it with mfa. Any MFA code is accepted. If you leave the pre-filled password, this refresh succeeds and there is no failure to show.',
     expect: 'reauth',
     expectLabel: 'Refresh fails, needs re-authorization',
-    verifiedOn: 'Aug 2025',
   },
   {
     id: 'marcus',
@@ -68,10 +66,9 @@ export const CASELOAD = [
     connector: 'Home Depot',
     connectorKind: 'payroll',
     credential: { username: 'goodlogin', password: 'mfa_captcha' },
-    credentialNote: 'Answer the captcha with 9M4BP on this first connection.',
+    credentialNote: 'Replace the pre-filled password with mfa_captcha and answer the captcha with 9M4BP. The re-authorization step asks for the captcha again.',
     expect: 'reauth',
     expectLabel: 'Refresh fails, needs re-authorization',
-    verifiedOn: 'Aug 2025',
     optional: true,
   },
 ];
@@ -92,11 +89,11 @@ export const STEPS = [
   },
   {
     title: 'Re-engage only who needs it',
-    guide: '<p>The failed refresh order carries its own share_url. Send that. Bridge <strong>skips username and password</strong> because credentials are already stored on the link, so the applicant only clears the MFA challenge that broke the silent refresh.</p><p>Verified in sandbox: after the applicant clears MFA, the refresh order itself flips to <code>completed</code> and produces a fresh report id.</p>',
+    guide: '<p>The failed refresh order carries its own share_url. Send that. for an MFA challenge Bridge <strong>skips username and password</strong> because credentials are already stored on the link, so the applicant only answers that challenge.</p><p>Tested in the sandbox: after the applicant clears MFA, that connection reports <code>completed</code> and produces a fresh report id. The order as a whole completes once every connection has.</p>',
   },
   {
     title: 'Read the refreshed data',
-    guide: '<pre>POST /v1/users/{user_id}/reports/</pre><p>Each completed refresh creates a new report id, so the "current as of" date moves forward. The original order keeps its own report and stays as the record of the first verification. Generating a fresh report returns the current state of every connection.</p>',
+    guide: '<pre>POST /v1/users/{user_id}/reports/</pre><p>Each completed refresh creates a new report id, and the original order keeps its own. Generating a fresh report returns the current state of every connection. In the sandbox the figures themselves came back unchanged, so this shows the mechanics, not changed numbers.</p>',
   },
 ];
 
@@ -110,7 +107,7 @@ export const WALKTHROUGH_STAGES = [
     mark: 'Public Sector · Renewals',
     title: 'Verification that stays current',
     heroTitle: 'Recertify without asking for documents again',
-    lead: 'Every renewal, review and redetermination asks the eligibility question again. Today that usually means sending the household back for another round of pay stubs and bank statements. This demo shows how your system can re-check income through the connection the applicant already made at intake.',
+    lead: 'Every renewal, review and redetermination asks the eligibility question again. Today that can mean sending the household back for another round of pay stubs and bank statements. This demo shows how your system can re-check income through the connection the applicant already made at intake.',
     bullets: [
       'What a renewal looks like when the connection still works',
       'What happens when it does not, and how you find out',
@@ -128,12 +125,12 @@ export const WALKTHROUGH_STAGES = [
       title: 'Collect everything again',
       body: 'Request documents, wait, chase, re-key, re-review. Applicants who do not respond can lose benefits they still qualify for.',
       rows: [
-        'The connection from intake is usually still there',
+        'The connection from intake may still be there',
         'A stored payroll or bank session may still work at the next review',
         'When it does, one API call refreshes the data with no applicant contact',
       ],
     },
-    chips: [['1 request', 'to refresh a case'], ['0 actions', 'for the applicant when it works'], ['3 per day', 'refreshes allowed per case']],
+    chips: [['1 request', 'to refresh a case'], ['0 actions', 'for the applicant when the session still works'], ['3 per 24 hours', 'refreshes allowed per case']],
   },
   {
     n: '03',
@@ -151,7 +148,7 @@ export const WALKTHROUGH_STAGES = [
       {
         tag: 'Bank connection',
         title: 'Assets',
-        body: 'Balances and deposits from the applicant\'s bank account. This is where self-employment income and benefit payments show up.',
+        body: 'Balances and deposits from the applicant\'s bank account.',
         code: '"products": ["assets"]',
       },
     ],
@@ -165,7 +162,7 @@ export const WALKTHROUGH_STAGES = [
     name: 'The fork',
     kind: 'split',
     title: 'A refresh either completes or needs the applicant',
-    lead: 'When a refresh works, the new data simply arrives. When it fails, your system gets a separate failure notice (a webhook). It is easy to miss if your software only watches for completions.',
+    lead: 'When a refresh works, the new data arrives. When it fails, your system gets a separate failure notice (a webhook). It is easy to miss if your software only watches for completions.',
     lanes: [
       {
         tone: 'good',
@@ -178,7 +175,7 @@ export const WALKTHROUGH_STAGES = [
         tone: 'warn',
         tag: 'Re-authorization needed',
         title: 'Stays open until the applicant acts',
-        body: 'The connection needs a security challenge (MFA) answered. The case stays unfinished and your system gets an order-refresh-failed notice. On a case with several employers, the ones that worked still report completed, so a completed message does not mean everything refreshed.',
+        body: 'The connection needs a security challenge (MFA) answered. This connection does not finish until the applicant acts, and your system gets an order-refresh-failed notice. On a case with several employers, one can report completed while another has failed, so a completed message alone does not mean everything refreshed.',
         code: 'order-refresh-failed: mfa_error',
       },
     ],
@@ -192,8 +189,8 @@ export const WALKTHROUGH_STAGES = [
     lead: 'The failed refresh comes with its own link. It opens Bridge, Truv\'s connection screen, at the step that broke, so the applicant only answers the security challenge (MFA).',
     card: {
       eyebrow: 'Tested in the Truv sandbox',
-      title: 'No login re-entered',
-      body: 'Opening the link shows the existing connection already in place. Bridge skips the username and password because they are already stored, and goes straight to the security challenge. Once it is answered, that same refresh completes and produces a fresh report.',
+      title: 'No login re-entered for a security challenge',
+      body: 'Opening the link shows the existing connection already in place. When the problem is a security challenge (MFA), Bridge skips the username and password because they are already stored, and goes straight to the challenge, such as a code texted to the applicant. Once it is answered, that connection completes and produces a fresh report.',
       rows: [
         'Send the link that came with the failed refresh, not a brand-new request',
         'Only applicants whose refresh failed are contacted',
@@ -207,7 +204,7 @@ export const WALKTHROUGH_STAGES = [
     name: 'Try it',
     kind: 'split',
     title: 'Run a renewal cycle yourself',
-    lead: 'Connect two applicants, jump ahead to recertification, refresh both, and watch one finish and one fail. These are test logins in Truv\'s sandbox. Use the ones shown and each applicant always gets the result described.',
+    lead: 'Connect two applicants, jump ahead to recertification, refresh both, and watch one finish and one fail. These are test logins in Truv\'s sandbox. Use the ones shown and each applicant gets the result described.',
     lanes: [
       {
         tone: 'good',
@@ -234,7 +231,7 @@ export const OUTCOME_DISPLAY = {
   refreshing: { label: 'Refreshing...', tone: 'pending', detail: 'Truv is reconnecting with the stored credentials.' },
   refreshed: { label: 'Refreshed', tone: 'good', detail: 'Fresh data returned with no applicant action.' },
   reauth_required: { label: 'Re-authorization required', tone: 'warn', detail: 'The stored session needs the applicant to clear a challenge.' },
-  failed_other: { label: 'Connected, no data returned', tone: 'neutral', detail: 'The connection worked and the provider returned nothing, or the provider itself errored. This is not a credential problem, so do not prompt the applicant. Never record no_data as $0 income.' },
+  failed_other: { label: 'Not fixed by signing in again', tone: 'neutral', detail: 'The provider returned nothing or reported a problem on its side, such as an outage or a locked account. A new login will not fix it, so do not send the refresh link. For a locked account the applicant has to unlock it with the provider. Never record no_data as $0 income.' },
 };
 
 // Human-readable reason strings for the statuses this demo can produce.

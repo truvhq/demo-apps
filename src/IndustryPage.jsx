@@ -39,12 +39,12 @@ function DemoCard({ demo, industryId, index, tile }) {
           <div class="flex-1 min-w-0 flex flex-col">
             <div class="flex items-center justify-between mb-1">
               <h3 class="text-[17px] font-semibold tracking-[-0.02em] text-[#000000] group-hover:text-primary transition-colors">{demo.name}</h3>
-              <svg class="w-4 h-4 text-[#808080] opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+              <svg class="w-4 h-4 text-[#666670] opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
             </div>
-            <p class="text-[15px] text-[#808080] leading-[1.5] mb-3">{demo.desc}</p>
+            <p class="text-[15px] text-[#666670] leading-[1.5] mb-3">{demo.desc}</p>
             <div class="flex flex-wrap gap-1.5 mt-auto">
               {demo.tags.map(t => (
-                <span key={t} class="text-[11px] font-medium text-[#808080] bg-[#f5f5f7] px-2.5 py-1 rounded-md font-mono">{t}</span>
+                <span key={t} class="text-[11px] font-medium text-[#666670] bg-[#f5f5f7] px-2.5 py-1 rounded-md font-mono">{t}</span>
               ))}
             </div>
           </div>
@@ -61,7 +61,7 @@ function Section({ title, blurb, items, industryId, offset }) {
     <section class="mb-12">
       <div class="mb-5">
         <h2 class="text-[22px] font-semibold tracking-[-0.02em] text-[#000000]">{title}</h2>
-        <p class="text-[15px] text-[#808080] mt-1">{blurb}</p>
+        <p class="text-[15px] text-[#666670] mt-1">{blurb}</p>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
         {items.map((d, i) => (
@@ -89,7 +89,7 @@ export function IndustryPage({ industry }) {
               All Industries
             </a>
             <h1 class="text-[28px] sm:text-[40px] font-semibold tracking-[-0.03em] text-[#000000] leading-[1.1] mb-3">{industry.name}</h1>
-            <p class="text-[17px] text-[#808080] leading-[1.5]">{industry.desc}</p>
+            <p class="text-[17px] text-[#666670] leading-[1.5]">{industry.desc}</p>
           </div>
           {sectioned ? (
             <>

@@ -91,12 +91,12 @@ export const LISTENER_MODES = [
 export const CORRELATION = [
   {
     n: 1, title: 'order-refresh-failed says a refresh failed, but it cannot be matched to your case file',
-    body: 'Its employer_id is new on every refresh order, and it ships link_id: null. That is enough to know a connection failed, and that it was a refresh rather than an initial connect. It does not carry the reason, and it cannot be joined to the employer on your case file.',
+    body: 'Its employer_id is new on every refresh order, and it ships link_id: null. That is enough to know a connection failed, and that it was a refresh rather than an initial connect. It carries a status such as mfa_error, but not the error text, and it cannot be joined to the employer on your case file.',
     code: null,
   },
   {
     n: 2, title: 'task-status-updated carries the stable link_id and the reason',
-    body: 'Act on this event. It arrives in the same second as the failure event and carries the final status and the link_id, which stays the same across refreshes.',
+    body: 'Act on this event. It arrives in the same second as the failure event and carries the final status and the link_id, which stays the same across refreshes. It also fires for steps along the way (login, parse, full_parse), so act only on a final status such as done, login_error or mfa_error.',
     code: 'listen: task-status-updated\n  → task.link_id  is your join key\n  → task.status   is the branch',
   },
   {
@@ -106,7 +106,7 @@ export const CORRELATION = [
   },
   {
     n: 4, title: 'Poll the tasks endpoint if you cannot receive webhooks',
-    body: 'GET /v1/tasks/?user_id= filtered to the refresh order returns the same statuses plus error_message. You need it if you cannot receive inbound webhooks. It is also the only way to reach a failed suborder, which has no link_id on the refresh order itself.',
+    body: 'GET /v1/tasks/?user_id= filtered to the refresh order returns the same statuses plus error_message. You need it if you cannot receive inbound webhooks. It is also a way to get the link_id of a failed connection, which has none on the refresh order itself.',
     code: 'GET /v1/tasks/?user_id={user_id}\n  → keep task.order_id == {refresh_order_id}',
   },
   {
@@ -175,7 +175,7 @@ export const SCOPING = {
 
 // 4-connection order in, 2-suborder refresh order out.
 // Omit "employers" to refresh everything.`,
-  caveat: 'Verified 2026-09-17: a 4-connection order refreshed with two ids produced a refresh order with exactly those two suborders.',
+  caveat: 'Verified 2026-09-17: the same order, which by then had a fourth employer added by an earlier test, refreshed with two ids and produced a refresh order with exactly those two suborders.',
 };
 
 export const NEW_ORDER_PROOF = {
@@ -204,15 +204,15 @@ export const GATES = [
   { when: 'They picked up a new job', then: 'New order', call: 'POST /v1/orders/', why: 'A refresh cannot add a connection the order never had. Employers they already connected carry over.' },
   { when: 'The connection came from a document upload', then: 'New order', call: 'POST /v1/orders/', why: 'No credential was stored, so there is nothing to pull again.' },
   { when: 'Credentials are past your retention window', then: 'New order', call: 'POST /v1/orders/', why: 'Government tenants keep stored credentials for 13 months (GOVERNMENT_CREDS_RETENTION_PERIOD in Truv\'s platform config). The default for other tenants is about 6 months, and it can be set per client. After that, only a new connection works. Confirm the figure for your own tenant.' },
-  { when: 'A refresh failed on credentials and they still work there', then: 'Send the refresh order\'s link', call: 'refresh_order.share_url', why: 'Opens on the challenge with credentials already stored. The applicant takes one action instead of starting over.' },
+  { when: 'A refresh failed with mfa_error, login_error or session_expired and they still work there', then: 'Send the refresh order\'s link', call: 'refresh_order.share_url', why: 'For an MFA challenge (tested) it opens on the challenge with credentials already stored, so the applicant answers one prompt. For login_error the stored credentials were rejected, so expect the applicant to sign in again (not tested).' },
   { when: 'A refresh returned no_data, or the provider errored', then: 'Do not contact the applicant', call: 'document upload, or retry later', why: 'Nothing the applicant does will change the result.' },
 ];
 
 // Limits that will shape any real design, and are easy to discover the hard way.
 export const LIMITS = [
-  { what: '3 refreshes per order per 24 hours', then: 'Truv\'s docs say the next request returns 429. In the captured run, a second refresh on an order whose first refresh was unfinished returned 200 and created another refresh order, so do not rely on a rejection to stop duplicates. Disable the button while one is running.' },
+  { what: '3 refreshes per order per 24 hours', then: 'The 4th refresh within 24 hours returned 429 ("Order refresh limit exceeded", with the number of seconds until it is available again). A refresh sent while another is still running on the order returned 400 "Refresh already in progress". One sent after the earlier refresh had stopped running (finished, or waiting on the applicant) returned 200 even though that order was still incomplete. Disable the button while one is running.' },
   { what: 'Refresh-eligible shortly after Bridge finishes', then: 'The order reads completed before its connections can be refreshed. Refreshing too early returns 400 "Can not find any employers connected to refresh the data". Wait for a suborder with an access_token and status completed.' },
-  { what: '300 API requests per minute', then: 'Requests over the limit return 429. Order creation is metered separately. Bound the concurrency of any batch.' },
+  { what: '300 API requests per minute (Truv docs)', then: 'Requests over the limit return 429. Order creation is metered separately. Bound the concurrency of any batch.' },
   { what: 'Every refresh bills as a verification', then: 'Per Truv\'s published pricing. Whether a fully failed refresh also bills is unconfirmed, so get it in writing.' },
 ];
 
@@ -238,7 +238,7 @@ export const DELIVERY = [
       { call: 'onEvent("COMPLETED", …, "order")', note: 'the applicant is done in Bridge. Then check each connection\'s result' },
     ],
     pro: 'The applicant fixes it while they are already in your portal.',
-    con: 'The successful refresh in the captured run took about 20 seconds. Show the previous data with a "last refreshed" date and update it in place. Do not block the screen while you wait.',
+    con: 'In the captured run the success event arrived about 20 seconds after the request (the task itself finished after about 8). Show the previous data with a "last refreshed" date and update it in place. Do not block the screen while you wait.',
   },
   {
     key: 'sms',
@@ -293,7 +293,7 @@ export const NO_DATA_WARNING = 'no_data means the provider connected and returne
 // ---------------------------------------------------------------------------
 
 export const ANSWERED = [
-  { q: 'If a refresh order can never complete, am I stuck?', a: 'No. Refreshing the original order again returned 200 and created a second refresh order, with the first still incomplete.' },
+  { q: 'If a refresh order can never complete, am I stuck?', a: 'Not for long. Refreshing the original order again returned 200 and created a second refresh order, with the first still incomplete, as long as the first was no longer running. A refresh sent while another is still running is rejected.' },
   { q: 'Which order id do I keep on the case file?', a: 'The original. Its refresh_order field is overwritten each time and only points at the latest refresh, so store refresh ids yourself if you need a history.' },
   { q: 'Does a re-auth fix the connection for next time?', a: 'No. Kroger was re-authenticated successfully, then failed again with mfa_error on the next refresh minutes later. A re-auth clears the order in front of you and does not make later refreshes work.' },
   { q: 'Does the original order change when I refresh it?', a: 'Only its refresh_order pointer. Its data and report id stay the same, so reading them after a refresh gives you the values from before the refresh.' },
@@ -303,7 +303,7 @@ export const ANSWERED = [
 // What the capture did NOT cover. Stated so nobody reads the guide as broader than
 // the evidence behind it.
 export const SCOPE_LIMITS = [
-  'This run was income only, on payroll connections. Bank and asset connections use financial_accounts[] instead of employers[]. An earlier sandbox run (2026-08-19/20) saw a bank refresh fail with an MFA challenge, but it is not part of the evidence on this page, and a bank refresh that succeeds was not captured. Do not assume the timings, the per-connection shape, or the re-auth path are the same without testing them.',
+  'This run was income only, on payroll connections. Bank and asset connections use financial_accounts[] instead of employers[]. A later bank run (REFRESH-FINDINGS.md section 16, 2026-10-21) saw a bank refresh succeed with no applicant action and another fail with an MFA challenge that a code-only re-authorization cleared, but timings and the per-connection shape were not captured. Do not assume the timings, the per-connection shape, or the re-auth path are the same without testing them.',
   'One product per refresh request. A mixed income and employment order was not tested.',
   'Assets refresh uses a 90-day transaction window unless request_extended_history is set to true. The full window is up to 2 years (Truv docs).',
 ];
@@ -325,9 +325,9 @@ export const OPEN_QUESTIONS = [
 
 export const PROGRAM_TABLE = [
   { outcome: 'Income came back current',              who: 'Nobody',                          does: 'Pass straight to eligibility',                  contact: 'None' },
-  { outcome: 'Their saved sign-in stopped working',   who: 'The applicant',                   does: 'Send one link. It resumes where it broke.',       contact: '1 message' },
+  { outcome: 'Their saved sign-in stopped working',   who: 'The applicant',                   does: 'Send one link. They may need to sign in again.',   contact: '1 message' },
   { outcome: 'A security challenge needs answering',  who: 'The applicant',                   does: 'Send one link. They answer the challenge only.',  contact: '1 message' },
-  { outcome: 'The job may have ended',                who: 'The applicant',                   does: 'Ask which it is, then re-verify without that job', contact: '1 message' },
+  { outcome: 'The job may have ended',                who: 'The applicant',                   does: 'Ask which it is. If the job ended, refresh again for the remaining employers only', contact: '1 message' },
   { outcome: 'Locked out at their payroll provider',  who: 'The applicant + their provider',  does: 'Document upload if the deadline is close',        contact: 'Varies' },
   { outcome: 'Connected, no records returned',        who: 'A caseworker',                    does: 'Document or self-certify. Never record as $0.',  contact: 'Varies' },
   { outcome: 'Provider outage',                       who: 'Nobody',                          does: 'Retry later',                                    contact: 'None' },
@@ -340,7 +340,7 @@ export const PROGRAM_CALENDAR = {
   body: 'Saved payroll credentials are kept for 13 months on a government tenant and about 6 otherwise. With a 12-month renewal cycle, a renewal that slips more than a month finds the saved credential gone, and that household starts from scratch.',
   marks: [
     { at: 0,  label: 'Verified at application' },
-    { at: 11, label: 'Open the refresh window' },
+    { at: 11, label: 'Suggested: start refreshing' },
     { at: 12, label: 'Renewal due' },
     { at: 13, label: 'Credentials deleted' },
   ],
@@ -349,7 +349,7 @@ export const PROGRAM_CALENDAR = {
 
 export const PROGRAM_RISKS = [
   { risk: '"No records found" treated as no income', impact: 'A wrong determination that can be appealed, with a system-generated record behind it.', do: 'Make it impossible to record. Reaching the payroll account and finding nothing is not proof of zero earnings.' },
-  { risk: 'An applicant stuck on a screen they cannot finish', impact: 'They give up and lose coverage, or they call your center.',  do: 'Never put an employer they may have left on an order that requires every connection. Re-verify with a new order instead.' },
+  { risk: 'An applicant stuck on a screen they cannot finish', impact: 'They give up and lose coverage, or they call your center.',  do: 'Never add an employer they may have left to an order that requires every connection. If a job ended, refresh again scoped to the employers that remain.' },
   { risk: 'A partial refresh reported as complete', impact: 'Stale income drives eligibility and shows up as an audit finding.',        do: 'Require per-connection results before accepting a renewal.' },
   { risk: 'Every re-check is billed',      impact: 'How often you re-check drives cost.',       do: 'Price the cycle before choosing quarterly or annual. Truv\'s published pricing bills each re-check as its own verification. Whether a failed attempt is also billed is not confirmed, so get that in writing.' },
   { risk: 'Whether the original consent covers a silent re-pull', impact: 'Reusing a saved sign-in long after application, with nobody present, may go beyond what the applicant agreed to.', do: 'Ask your counsel before you schedule anything. This is a legal question.' },
@@ -357,7 +357,7 @@ export const PROGRAM_RISKS = [
 ];
 
 export const PROGRAM_SCRIPTS = [
-  { title: 'Reconnect request', body: 'We checked your income with {employer} and need you to sign in again to finish. Tap this link. You will not need to re-enter your employer, just confirm it is you.' },
+  { title: 'Reconnect request', body: 'We checked your income with {employer} and need you to sign in again to finish. Tap this link. You may only need to confirm it is you.' },
   { title: 'Did the job end?', body: 'We could not reach your {employer} account. If you still work there, tap this link to reconnect. If you no longer work there, reply NO and we will update your case and verify your current job instead.' },
 ];
 
@@ -389,7 +389,7 @@ GET /v1/tasks/        → same, when you
   {
     title: 'Get the applicant to re-authorize',
     guide: `<p>The failed suborder on a refresh order has <code>link_id: null</code> and <code>access_token: null</code>, so there is nothing on it to re-authenticate with.</p>
-<p>Use the refresh order's own <code>share_url</code> (send it) or its <code>bridge_token</code> (mount it inline). Verified: it opens on the challenge with credentials already stored.</p>`,
+<p>Use the refresh order's own <code>share_url</code> (send it) or its <code>bridge_token</code> (mount it inline). Verified for an MFA challenge: it opens on the challenge with credentials already stored.</p>`,
   },
   {
     title: 'Every outcome',

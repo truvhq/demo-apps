@@ -181,9 +181,13 @@ export function Walkthrough({
   // Keyboard nav. Left/Right move stages; Enter on the last stage launches.
   useEffect(() => {
     const onKey = (e) => {
+      // Browser shortcuts (Cmd+Arrow = back/forward) and Enter on a focused control
+      // (e.g. the Back button) must not also drive the stages.
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const onControl = e.target instanceof Element && e.target.closest('button, a, input, select, textarea');
       if (e.key === 'ArrowRight') { if (isLast) launch(); else go(p => p + 1); }
       else if (e.key === 'ArrowLeft') go(p => p - 1);
-      else if (e.key === 'Enter' && isLast) launch();
+      else if (e.key === 'Enter' && isLast && !onControl) launch();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -208,7 +212,7 @@ export function Walkthrough({
             </span>
           )}
         </div>
-        <div class="twt-step">
+        <div class="twt-step" aria-live="polite">
           <div class="twt-k">Stage {stage.n || String(i + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}</div>
           <div class="twt-nm">{stage.name || ''}</div>
         </div>
@@ -220,7 +224,7 @@ export function Walkthrough({
 
       {/* Body: illustrative surface + narrative rail. Both remount on stage change
           so their one-shot entrance animations replay. */}
-      <div class="twt-body">
+      <main class="twt-body">
         <div class="twt-stage">
           {ambient && (
             <div class="twt-ambient" aria-hidden="true">
@@ -251,7 +255,7 @@ export function Walkthrough({
           )}
           {stage.api && <div class="twt-api" dangerouslySetInnerHTML={{ __html: stage.api }} />}
         </div>
-      </div>
+      </main>
 
       {/* Footer nav: dots + back/next, with the CTA replacing Next on the last stage */}
       <footer class="twt-nav">

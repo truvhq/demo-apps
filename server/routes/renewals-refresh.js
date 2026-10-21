@@ -417,10 +417,23 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger }) {
     // The per-order refresh cap is 3 per 24h. Surface it as its own signal so the UI
     // can say what happened instead of showing a generic failure.
     if (result.statusCode === 429) {
+      // Truv's body names when the order can be refreshed again:
+      // "Order refresh limit exceeded Expected available in 86315 seconds."
+      const waitSeconds = Number((JSON.stringify(truvData || {}).match(/available in (\d+) seconds/i) || [])[1]) || null;
+      const wait = waitSeconds ? ` It can be refreshed again in about ${Math.max(1, Math.round(waitSeconds / 3600))} hour${Math.round(waitSeconds / 3600) === 1 ? '' : 's'}.` : '';
       return { statusCode: 429, payload: {
         error: 'refresh_cap_reached',
-        message: 'Truv rejected the refresh with a rate limit (429). Refreshes are limited to 3 per order per 24 hours, so this order may have hit that cap.',
-        retry_after: result.retryAfter ?? null,
+        message: `Truv limits refreshes to 3 per order per 24 hours, and this order has reached that limit.${wait}`,
+        retry_after: result.retryAfter ?? waitSeconds,
+        details: truvData,
+      } };
+    }
+    // A refresh sent while another is still running on the same order is rejected.
+    // Observed 2026-10-21: 400 {"error":{"code":"invalid","message":"Refresh already in progress"}}.
+    if (result.statusCode === 400 && /already in progress/i.test(truvData?.error?.message || '')) {
+      return { statusCode: 409, payload: {
+        error: 'refresh_in_progress',
+        message: 'A refresh is already running for this order. Wait for it to finish before starting another.',
         details: truvData,
       } };
     }

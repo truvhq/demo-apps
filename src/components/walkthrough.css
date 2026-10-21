@@ -40,7 +40,7 @@
   --twt-brand-soft: #dae0de;
   --twt-accent: #044533;
   --twt-good: #1f7a5c;
-  --twt-warn: #b3730d;
+  --twt-warn: #8a5a00;
   --twt-stage-from: #f4f7f5;
   --twt-stage-mid: #e8eeeb;
   --twt-stage-to: #e2e9e5;
@@ -151,7 +151,7 @@
 .twt-api .mth { color: #7ee0b8; font-weight: 600; }
 .twt-api .k { color: #8ea6d6; }
 .twt-api .s { color: #e6b980; }
-.twt-api .c { color: #6b7a99; font-style: italic; }
+.twt-api .c { color: #8a99b8; font-style: italic; }
 
 /* ---------------- footer nav ---------------- */
 .twt-nav { height: 66px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; background: var(--twt-panel); border-top: 1px solid var(--twt-line); position: sticky; bottom: 0; z-index: 5; }

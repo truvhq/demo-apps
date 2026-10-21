@@ -14,15 +14,15 @@
 .rg {
   --rg-ink: #0b0b0f;
   --rg-ink-2: #5b5b66;
-  --rg-ink-3: #8e8e99;
+  --rg-ink-3: #666672;
   --rg-line: #e6e6ec;
   --rg-line-2: #d3d3dc;
   --rg-bg: #ffffff;
   --rg-bg-2: #f7f7fa;
   --rg-accent: #2C64E3;
-  --rg-good: #1C8F60;
+  --rg-good: #167A50;
   --rg-good-bg: #eefaf4;
-  --rg-warn: #B7791F;
+  --rg-warn: #8A5A12;
   --rg-warn-bg: #fdf6e7;
   --rg-bad: #b42318;
   --rg-bad-bg: #fdf1f0;
@@ -39,12 +39,12 @@
 .rg-top { border-bottom: 1px solid var(--rg-line); padding: 18px 28px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; position: sticky; top: 0; z-index: 30; background: rgba(255,255,255,.92); backdrop-filter: saturate(180%) blur(8px); }
 .rg-back { font-size: 13px; color: var(--rg-accent); text-decoration: none; font-weight: 500; }
 .rg-back:hover { text-decoration: underline; }
-.rg-top-title { font-weight: 650; letter-spacing: -.01em; }
+.rg-top-title { font-weight: 650; letter-spacing: -.01em; font-size: 15px; line-height: inherit; margin: 0; }
 .rg-top-sub { color: var(--rg-ink-3); font-size: 13px; }
 .rg-top-spacer { flex: 1 1 auto; }
 
 .rg-body { display: grid; grid-template-columns: 216px minmax(0, 1fr); gap: 40px; max-width: 1180px; margin: 0 auto; padding: 36px 28px 120px; }
-.rg-rail { position: sticky; top: 86px; align-self: start; }
+.rg-rail { position: sticky; top: 108px; align-self: start; }
 .rg-rail a { display: block; padding: 5px 0 5px 12px; border-left: 2px solid var(--rg-line); color: var(--rg-ink-2); text-decoration: none; font-size: 13.5px; }
 .rg-rail a:hover { color: var(--rg-ink); }
 .rg-rail a.on { border-left-color: var(--rg-accent); color: var(--rg-ink); font-weight: 600; }
@@ -52,7 +52,7 @@
 .rg-rail-h:first-child { margin-top: 0; }
 
 .rg-main { min-width: 0; }
-.rg-sec { scroll-margin-top: 92px; margin-bottom: 64px; }
+.rg-sec { scroll-margin-top: 112px; margin-bottom: 64px; }
 .rg-sec > h2 { font-size: 27px; line-height: 1.22; letter-spacing: -.022em; font-weight: 650; margin: 0 0 10px; }
 .rg-sec > h3 { font-size: 17px; letter-spacing: -.01em; font-weight: 650; margin: 32px 0 10px; }
 .rg-lede { color: var(--rg-ink-2); font-size: 16px; max-width: 68ch; margin: 0 0 22px; }
@@ -110,8 +110,8 @@
 
 /* ---- the live console ---- */
 .rg-console { position: fixed; right: 0; top: 0; bottom: 0; width: 420px; max-width: 92vw; background: #101017; color: #d8d8e4; z-index: 40; display: flex; flex-direction: column; box-shadow: -8px 0 32px rgba(0,0,0,.22); transform: translateX(100%); transition: transform .22s cubic-bezier(.2,.8,.3,1); }
-.rg-console:not(.open) { box-shadow: none; }
-.rg-console.open { transform: translateX(0); }
+.rg-console:not(.open) { box-shadow: none; visibility: hidden; transition: transform .22s cubic-bezier(.2,.8,.3,1), visibility 0s linear .22s; }
+.rg-console.open { transform: translateX(0); visibility: visible; transition-delay: 0s; }
 .rg-console-h { padding: 14px 16px; border-bottom: 1px solid #262633; display: flex; align-items: center; gap: 10px; font-size: 13px; }
 .rg-console-b { flex: 1 1 auto; overflow-y: auto; padding: 10px 12px; font-family: var(--rg-mono); font-size: 11.5px; }
 .rg-call { border: 1px solid #262633; border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
@@ -154,3 +154,8 @@
   .rg-sec > h2 { font-size: 23px; }
   .rg-top { padding: 14px 18px; }
 }
+
+/* Below 900px the sticky top bar wraps to two or three lines, so jump targets need more clearance. */
+@media (max-width: 900px) { .rg-sec { scroll-margin-top: 160px; } }
+@media (max-width: 600px) { .rg-sec { scroll-margin-top: 200px; } }
+@media (prefers-reduced-motion: reduce) { .rg-console, .rg-console:not(.open) { transition: none; } .animate-spin { animation: none; } }

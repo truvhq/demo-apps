@@ -93,7 +93,9 @@ export function RefreshGuide({ screen }) {
   const [report, setReport] = useState(null);
 
   const iframeRef = useRef(null);
+  const bridgeBoxRef = useRef(null);
   const completedRef = useRef(false);
+  const reduceMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   const rows = triage?.connections || [];
   const surviving = rows.filter(r => !dropped.includes(r.company_name));
@@ -125,7 +127,7 @@ export function RefreshGuide({ screen }) {
   // route's screen segment with replaceState (no hashchange, no remount).
   const goTo = id => e => {
     e.preventDefault();
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById(id)?.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' });
     setActive(id);
     history.replaceState(null, '', `${GUIDE_PATH}/${id}`);
   };
@@ -134,6 +136,25 @@ export function RefreshGuide({ screen }) {
   useEffect(() => {
     if (SECTIONS.some(s => s.id === screen)) document.getElementById(screen)?.scrollIntoView();
   }, []);
+
+  // The console opening reflows the page, so bring the Bridge window back into view.
+  useEffect(() => {
+    if (!bridge) return;
+    const t = setTimeout(() => bridgeBoxRef.current?.scrollIntoView({ block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth' }), 400);
+    return () => clearTimeout(t);
+  }, [bridge]);
+
+  useEffect(() => {
+    document.title = 'Orders & Refresh Lifecycle | Truv Demo Apps';
+  }, []);
+
+  // Escape closes the console drawer.
+  useEffect(() => {
+    if (!consoleOpen) return;
+    const onKey = e => { if (e.key === 'Escape') { setConsoleOpen(false); document.querySelector('.rg-console-toggle')?.focus(); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [consoleOpen]);
 
   // scroll-spy for the rail
   useEffect(() => {
@@ -162,8 +183,17 @@ export function RefreshGuide({ screen }) {
     if (!order) return;
     setBusy('refresh'); setErr(null);
     // Scoping is how "I no longer work there" is answered: pass only the employer
-    // ids that remain and the dropped one is absent from the refresh order.
-    const employers = scoped ? surviving.filter(r => r.kind === 'employer' && r.id).map(r => ({ id: r.id })) : undefined;
+    // ids that remain and the dropped one is absent from the refresh order. The ids
+    // must come from the ORIGINAL order. The refresh order's own rows carry new ids
+    // that Truv does not recognise on the original, and answers 400.
+    let employers;
+    if (scoped) {
+      const keep = new Set(surviving.map(r => r.company_name));
+      const orig = await api('GET', `/api/renewals/triage/${encodeURIComponent(order.order_id)}`);
+      employers = (orig.res?.connections || [])
+        .filter(c => c.kind === 'employer' && c.id && keep.has(c.company_name))
+        .map(c => ({ id: c.id }));
+    }
     const r = await api('POST', `/api/renewals/refresh/${encodeURIComponent(order.order_id)}`,
       { products: ['income'], ...(employers?.length ? { employers } : {}) });
     if (r.status !== 200) { setErr(r.res?.message || r.res?.error || 'Could not refresh'); setBusy(null); return; }
@@ -229,18 +259,18 @@ export function RefreshGuide({ screen }) {
     <div class={`rg${consoleOpen ? ' console-open' : ''}`}>
       <div class="rg-top">
         <a class="rg-back" href="#public-sector">&larr; Public Sector</a>
-        <span class="rg-top-title">Orders &amp; Refresh</span>
+        <h1 class="rg-top-title">Orders &amp; Refresh</h1>
         <span class="rg-top-sub">When to refresh, when to start a new order, and what to do when one connection breaks</span>
         <span class="rg-top-spacer" />
-        <span class="rg-top-sub">Captured against Truv sandbox, {RUN_META.when}</span>
+        <span class="rg-top-sub">Captured against Truv sandbox, {RUN_META.when}, with spot checks on 2026-10-21</span>
       </div>
 
       <div class="rg-body">
-        <nav class="rg-rail">
+        <nav class="rg-rail" aria-label="Sections">
           {SECTIONS.map((s, i) => (
             <>
               {(i === 0 || SECTIONS[i - 1].group !== s.group) && <div class="rg-rail-h" key={s.group}>{s.group}</div>}
-              <a key={s.id} href={`${GUIDE_PATH}/${s.id}`} onClick={goTo(s.id)} class={active === s.id ? 'on' : ''}>{s.label}</a>
+              <a key={s.id} href={`${GUIDE_PATH}/${s.id}`} onClick={goTo(s.id)} aria-current={active === s.id ? 'true' : undefined} class={active === s.id ? 'on' : ''}>{s.label}</a>
             </>
           ))}
         </nav>
@@ -252,8 +282,8 @@ export function RefreshGuide({ screen }) {
             <h2>Reusing a verification you already have</h2>
             <p class="rg-lede">
               When someone verifies their income, Truv keeps a live connection to their payroll or
-              bank. Months later you can pull from it again, often without involving the person at
-              all. This page covers which call to make, what comes back, and what to do when part
+              bank. Months later you can pull from it again, and when the saved session still works that
+              needs nothing from the person. This page covers which call to make, what comes back, and what to do when part
               of it fails.
             </p>
             <div class="rg-card">
@@ -263,6 +293,16 @@ export function RefreshGuide({ screen }) {
                 employers changes. An employer they already connected shows as connected. <code>POST /v1/orders/</code></div>
               <div class="rg-row"><strong>Do not</strong> add an employer to an order that already exists.
                 In testing it reset a completed order's <code>completed_at</code> to <code>null</code>.</div>
+            </div>
+            <div class="rg-note">
+              <div class="rg-note-t">Terms used on this page</div>
+              <p><strong>Order</strong>: one verification request for one person.{' '}
+                <strong>Connection</strong> (Truv calls it a suborder): one employer or bank on that order, identified
+                by a stable <code>link_id</code>.{' '}
+                <strong>Bridge</strong>: Truv's connection screen, where the person signs in to their employer or bank.{' '}
+                <strong>Refresh order</strong>: the new order a refresh creates.{' '}
+                <strong>share_url</strong>: the link you send the person.{' '}
+                <strong>Case file</strong>: your own record for the household.</p>
             </div>
             <div class="rg-note">
               <div class="rg-note-t">How to read this page</div>
@@ -279,7 +319,7 @@ export function RefreshGuide({ screen }) {
 
             <div class="rg-scroll">
               <table class="rg-table">
-                <thead><tr><th>What changed</th><th>Do this</th><th>Why</th></tr></thead>
+                <thead><tr><th scope="col">What changed</th><th scope="col">Do this</th><th scope="col">Why</th></tr></thead>
                 <tbody>
                   {GATES.map((g, i) => (
                     <tr key={i}>
@@ -302,7 +342,7 @@ export function RefreshGuide({ screen }) {
             <h3>Side by side</h3>
             <div class="rg-scroll">
               <table class="rg-table">
-                <thead><tr><th /><th>Refresh the order</th><th>New order, same person</th></tr></thead>
+                <thead><tr><th /><th scope="col">Refresh the order</th><th scope="col">New order, same person</th></tr></thead>
                 <tbody>
                   {REFRESH_VS_NEW.map((r, i) => (
                     <tr key={i}>
@@ -346,7 +386,7 @@ export function RefreshGuide({ screen }) {
               <span style="font-size:13.5px;font-weight:600">What are you subscribed to?</span>
               <div class="rg-seg">
                 {LISTENER_MODES.map(m => (
-                  <button key={m.key} type="button" class={mode === m.key ? 'on' : ''} onClick={() => setMode(m.key)}>{m.label}</button>
+                  <button key={m.key} type="button" class={mode === m.key ? 'on' : ''} aria-pressed={mode === m.key} onClick={() => setMode(m.key)}>{m.label}</button>
                 ))}
               </div>
             </div>
@@ -400,17 +440,16 @@ export function RefreshGuide({ screen }) {
             </p>
 
             <div class="rg-note warn">
-              <div class="rg-note-t">No status means “I no longer work there”</div>
+              <div class="rg-note-t">The status cannot tell you whether the job ended</div>
               <p>
-                A changed password and a job that ended can both come back as <code>login_error</code>,
-                and <code>is_active</code> on the employment is not a reliable answer at renewal time.
-                Ask the person, and offer both answers.
+                A changed password and a job that ended can look the same from the status alone, so ask the
+                person and offer both answers.
               </p>
             </div>
 
             <div class="rg-scroll">
               <table class="rg-table">
-                <thead><tr><th>Connection came back</th><th>They still work there</th><th>The job ended</th></tr></thead>
+                <thead><tr><th scope="col">Connection came back</th><th scope="col">They still work there</th><th scope="col">The job ended</th></tr></thead>
                 <tbody>
                   <tr>
                     <td><span class="rg-pill good">refreshed</span><div style="margin-top:6px;color:var(--rg-ink-2)">Nothing to do.</div></td>
@@ -419,13 +458,13 @@ export function RefreshGuide({ screen }) {
                   <tr>
                     <td><span class="rg-pill warn">credential class</span>
                       <div style="margin-top:6px;color:var(--rg-ink-2)"><code>login_error</code> · <code>mfa_error</code> · <code>session_expired</code></div></td>
-                    <td><strong>Send the refresh order's link.</strong><div style="color:var(--rg-ink-2);margin-top:4px">It opens on the challenge with credentials already stored, so the applicant does one thing instead of starting over.</div></td>
+                    <td><strong>Send the refresh order's link.</strong><div style="color:var(--rg-ink-2);margin-top:4px">For an MFA challenge it opens on the challenge with credentials already stored, so the applicant answers one prompt. For <code>login_error</code> expect them to sign in again.</div></td>
                     <td><strong>Re-refresh, scoped.</strong><div style="color:var(--rg-ink-2);margin-top:4px">Pass only the employer ids that remain. The dropped one is absent from the new refresh order, so it can complete with nobody contacted.</div></td>
                   </tr>
                   <tr>
                     <td><span class="rg-pill mute">provider / no data</span>
-                      <div style="margin-top:6px;color:var(--rg-ink-2)"><code>no_data</code> · <code>unavailable</code> · <code>account_locked</code> …</div></td>
-                    <td colspan="2" style="color:var(--rg-ink-2)"><strong>Do not contact the applicant.</strong> Nothing they do changes the result. Retry later, or route to a document.</td>
+                      <div style="margin-top:6px;color:var(--rg-ink-2)"><code>no_data</code> · <code>unavailable</code> · <code>error</code> …</div></td>
+                    <td colspan="2" style="color:var(--rg-ink-2)"><strong>Do not send the refresh link.</strong> Nothing the applicant does in Bridge changes the result. Retry later, or route to a document. For <code>account_locked</code> they first have to unlock the account with their provider.</td>
                   </tr>
                 </tbody>
               </table>
@@ -466,17 +505,17 @@ export function RefreshGuide({ screen }) {
               console, which you can open from the bottom right.
             </p>
 
-            {err && <div class="rg-note bad"><p>{err}</p></div>}
+            {err && <div class="rg-note bad" role="alert"><p>{err}</p></div>}
 
             {bridge ? (
-              <div class="rg-card" style="padding:16px">
+              <div class="rg-card" style="padding:16px" ref={bridgeBoxRef}>
                 <div style="font-weight:600;margin-bottom:8px">Connect the employers</div>
                 <div style="max-width:420px;margin:0 auto">
                   <iframe ref={iframeRef} src="/preview.html" title="Truv Bridge" style="width:100%;height:640px;border:1px solid var(--rg-line);border-radius:12px" />
                 </div>
                 <div style="text-align:center;margin-top:10px">
                   <button class="rg-btn sm" onClick={() => setBridge(null)}>Back without finishing</button>
-                  <div style="font-size:12px;color:var(--rg-ink-3);margin-top:4px">The order completes when you tap “Submit connected accounts”.</div>
+                  <div style="font-size:12px;color:var(--rg-ink-3);margin-top:4px">The order completes when you tap “Submit connected accounts”. Walmart asks you to pick a store location and enter a store number (1234 was accepted) before its login screen.</div>
                 </div>
               </div>
             ) : (
@@ -559,7 +598,7 @@ export function RefreshGuide({ screen }) {
                   <div class="rg-step-n">4</div>
                   <div>
                     <div class="rg-step-t">Resolve the failures</div>
-                    <div class="rg-step-d">Two ways to resolve a failure. You can use both.</div>
+                    <div class="rg-step-d">Re-refresh without the jobs the person left, or generate a fresh report from what connected.</div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
                       {refresh?.share_url && (
                         <>
@@ -575,7 +614,7 @@ export function RefreshGuide({ screen }) {
                     </div>
                     {report && (
                       <div class="rg-note good" style="margin-top:12px">
-                        <p>Report generated. A refresh updates the <strong>link</strong>. The original
+                        <p>Report generated. A refresh updates the <strong>connection</strong> (<code>link_id</code>). The original
                           order's <code>voie_report_id</code> still points at the pre-refresh report, so a
                           new report is how you see what the refresh pulled.</p>
                       </div>
@@ -599,7 +638,7 @@ export function RefreshGuide({ screen }) {
             </div>
             <div class="rg-scroll">
               <table class="rg-table">
-                <thead><tr><th style="min-width:150px">What happened</th><th>Status</th><th>Who acts</th><th style="min-width:200px">What you do</th><th>Sandbox</th></tr></thead>
+                <thead><tr><th scope="col" style="min-width:150px">What happened</th><th scope="col">Status</th><th scope="col">Who acts</th><th scope="col" style="min-width:200px">What you do</th><th scope="col">Sandbox</th></tr></thead>
                 <tbody>
                   {OUTCOMES.map(o => (
                     <tr key={o.status} style={o.danger ? 'background:var(--rg-bad-bg)' : ''}>
@@ -697,7 +736,7 @@ export function RefreshGuide({ screen }) {
             <h3>What can happen at renewal</h3>
             <div class="rg-scroll">
               <table class="rg-table">
-                <thead><tr><th>What happened</th><th>Who has to act</th><th>What we do</th><th>Applicant contact</th></tr></thead>
+                <thead><tr><th scope="col">What happened</th><th scope="col">Who has to act</th><th scope="col">What we do</th><th scope="col">Applicant contact</th></tr></thead>
                 <tbody>
                   {PROGRAM_TABLE.map((r, i) => (
                     <tr key={i}><td>{r.outcome}</td><td style="color:var(--rg-ink-2)">{r.who}</td><td style="color:var(--rg-ink-2)">{r.does}</td><td style="color:var(--rg-ink-2)">{r.contact}</td></tr>
@@ -732,13 +771,13 @@ export function RefreshGuide({ screen }) {
       </div>
 
       {/* ---- live console ---- */}
-      <button type="button" class="rg-console-toggle" onClick={() => setConsoleOpen(o => !o)}>
+      <button type="button" class="rg-console-toggle" aria-expanded={consoleOpen} aria-controls="rg-console" onClick={() => setConsoleOpen(o => !o)}>
         {consoleOpen ? 'Hide' : 'Console'}{calls.length ? ` · ${calls.length}` : ''}
       </button>
-      <aside class={`rg-console${consoleOpen ? ' open' : ''}`}>
+      <aside id="rg-console" aria-label="Live requests" class={`rg-console${consoleOpen ? ' open' : ''}`}>
         <div class="rg-console-h">
           <strong>Live requests</strong>
-          <span style="color:#8e8e99">every call this page makes</span>
+          <span style="color:#8e8e99">every request this page sends to its server, which calls Truv</span>
           <span style="margin-left:auto"><button class="rg-btn sm" style="background:#1b1b26;color:#d8d8e4;border-color:#2c2c3a" onClick={() => setCalls([])}>Clear</button></span>
         </div>
         <div class="rg-console-b">

@@ -171,7 +171,7 @@ So `suborder.status` is not a per-connection progress signal during collection.
 
 ## 10. A refresh CAN drop an employer. It cannot add one.
 
-Refreshed the original 4-connection order scoped to two employer ids:
+Refreshed the original order (by now four connections: it had gained Instacart from the §7 test) scoped to two employer ids:
 
 ```
 POST /v1/orders/4272acbd…/
@@ -280,3 +280,32 @@ run. Do not use this capture to answer "did the number actually change".
 5. For a job that ended: **refresh scoped** to the employers that remain (§10). For a
    new job: **a new order**. Either way, never `POST /orders/{id}/employers/`.
 6. Read refreshed data from a freshly generated report, not from the original order.
+
+---
+
+## 16. Observed 2026-10-21 (QA pass against sandbox)
+
+Separate runs from the 2026-09-17 capture above. Income and assets, one order at a time.
+
+- **Cap.** On one order, three refreshes succeeded and the fourth returned `429` with code
+  `throttled`: "Order refresh limit exceeded Expected available in 86315 seconds."
+- **Refresh already running.** A refresh sent while another was still running on the same
+  order returned `400` `{"error":{"code":"invalid","message":"Refresh already in progress"}}`.
+  Another sent about 30 seconds later, after the first had stopped running, returned `200`
+  even though that order was still incomplete (consistent with §11).
+- **Too early.** A refresh sent immediately after Bridge finished returned `400`
+  "Can not find any employers connected to refresh the data" (payroll) and the equivalent
+  for `financial_accounts` (bank). The same call succeeded within about 5 to 10 seconds.
+- **Bank.** `Truv Bank (non-oAuth)` with `goodlogin` / `mfa`: the refresh failed with
+  `mfa_error`. Re-opening the refresh order's link went straight to a code prompt
+  ("a text message to phone number ending in ..."), with no username or password field.
+  After the code was entered the refresh completed and an assets report loaded.
+- **Payroll captcha.** `goodlogin` / `mfa_captcha` on Home Depot: the re-authorization step
+  asked for the captcha (`9M4BP`) again.
+- **Bridge.** Walmart asks the applicant to select a store location, then enter a Store/Club Number (`1234` was accepted), before its login screen.
+- **Bridge pre-fill.** For a payroll employer Bridge pre-fills the sandbox login
+  `goodlogin` / `goodpassword`. For `Truv Bank (non-oAuth)` it pre-fills the same password,
+  which must be replaced with `mfa` to get the MFA failure. With `goodpassword` left in place the
+  bank refresh completed with no applicant action (a bank silent success).
+- **MFA code.** Any code was accepted at the bank code prompt (`123456` was used).
+
