@@ -488,9 +488,17 @@ function FilePreview({ asset, onClose }) {
       </div>
 
       {p.type === 'page' && (
-        <div class="bt-prev-page">
-          <img src={p.src} alt={`First page of ${asset.name}`}
-               width="695" height="900" decoding="async" />
+        <div class="bt-prev-body">
+          <div class="bt-prev-page">
+            <img src={p.src} alt={`First page of ${asset.name}`}
+                 width="695" height="900" decoding="async" />
+          </div>
+          {asset.inside && (
+            <div class="bt-prev-side">
+              <div class="bt-prev-sub">What's inside</div>
+              <ul class="bt-prev-list">{asset.inside.map(x => <li>{x}</li>)}</ul>
+            </div>
+          )}
         </div>
       )}
 
@@ -553,7 +561,7 @@ function FilePreview({ asset, onClose }) {
         </>
       )}
 
-      {asset.inside && (
+      {asset.inside && p.type !== 'page' && (
         <>
           <div class="bt-prev-sub">What's inside</div>
           <ul class="bt-prev-list">{asset.inside.map(x => <li>{x}</li>)}</ul>

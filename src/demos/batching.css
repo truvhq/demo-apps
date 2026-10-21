@@ -1002,4 +1002,14 @@
   .bt-prev > .bt-prev-page { flex: 0 1 auto; min-height: 0; display: flex; }
   .bt-prev-page img { width: auto; max-width: 100%; height: auto; max-height: 100%; object-fit: contain; object-position: top; margin: 0 auto; }
 }
-.bt-prev-list { display: grid; grid-template-rows: repeat(4, auto); grid-auto-flow: column; column-gap: 28px; }
+
+/* Page previews: the page on the left at full rail height, "What's inside" in
+   the column beside it, so a tall page doesn't leave empty bands either side. */
+@media (min-width: 901px) {
+  .bt-prev > .bt-prev-body { flex: 1 1 auto; min-height: 0; display: flex; gap: 24px; margin-top: 14px; }
+  .bt-prev-body > .bt-prev-page { margin-top: 0; flex: 0 1 auto; min-height: 0; display: flex; }
+  .bt-prev-body .bt-prev-page img { width: auto; height: 100%; max-height: 100%; max-width: 100%; }
+  .bt-prev-side { flex: 1 0 170px; min-width: 0; }
+  .bt-prev-side .bt-prev-sub { margin-top: 2px; }
+  .bt-prev-side .bt-prev-list li { margin-bottom: 7px; }
+}
