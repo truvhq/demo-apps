@@ -54,7 +54,7 @@ import { $ } from '../utils/formatters.js';
 import './renewals-refresh.css';
 
 // --- Imports: scaffolding (caseload, guide steps, walkthrough stages, copy) ---
-import { CASELOAD, STEPS, WALKTHROUGH_STAGES, OUTCOME_DISPLAY, REASON_COPY } from './scaffolding/renewals-refresh.jsx';
+import { CASELOAD, extraApplicant, STEPS, WALKTHROUGH_STAGES, OUTCOME_DISPLAY, REASON_COPY } from './scaffolding/renewals-refresh.jsx';
 
 const DEMO_ID = 'renewals-refresh';
 
@@ -126,6 +126,10 @@ function StuckAtSentCallout() {
   );
 }
 
+// --- Helpers: how a case describes itself ---
+const KIND_LABEL = { payroll: 'income', bank: 'assets', any: 'income and assets' };
+const productsLabel = (c) => c.products.map(p => (p === 'assets' ? 'assets' : 'income')).join(' and ');
+
 // --- Helper: four-step progress strip shown above every screen heading ---
 const FLOW = ['Connect', 'Renew', 'Outcomes', 'Results'];
 function Stepper({ current }) {
@@ -181,56 +185,80 @@ function ItDetails({ webhooks }) {
 }
 
 // --- Helper: the few facts worth reading first from a refreshed report ---
-function reportFacts(c, data) {
+// Returns one group per thing worth reading: the bank report is one group, an income
+// report has one group per employer, so two payroll connections read as two blocks.
+function reportGroups(type, data) {
   if (!data) return [];
-  if (c.products.includes('assets')) {
+  if (type === 'assets') {
     const accounts = (data.links || []).flatMap(l => l.accounts || []);
-    return [
-      ['Total balance', data.summary?.balance != null ? $(data.summary.balance) : '-'],
-      ['Accounts', String(accounts.length)],
-      ['As of', data.as_of_date || '-'],
-    ];
+    return [{
+      title: null,
+      facts: [
+        ['Total balance', data.summary?.balance != null ? $(data.summary.balance) : '-'],
+        ['Accounts', String(accounts.length)],
+        ['As of', data.as_of_date || '-'],
+      ],
+    }];
   }
-  const emp = (data.links || []).flatMap(l => l.employments || [])[0];
-  if (!emp) return [];
-  const stmts = emp.statements || [];
-  return [
-    ['Employer', emp.company?.name || data.links?.[0]?.provider_name || '-'],
-    ['Job title', emp.job_title || '-'],
-    ['Annual income', emp.income != null ? $(emp.income) : '-'],
-    ['Latest pay date', stmts[0]?.pay_date || '-'],
-    ['Pay statements', String(stmts.length)],
-  ];
+  const emps = (data.links || []).flatMap(l => (l.employments || []).map(e => ({ e, link: l })));
+  return emps.map(({ e, link }) => {
+    const stmts = e.statements || [];
+    const name = e.company?.name || link.provider_name || '-';
+    return {
+      title: emps.length > 1 ? (link.provider_name || name) : null,
+      facts: [
+        ['Employer', name],
+        ['Job title', e.job_title || '-'],
+        ['Annual income', e.income != null ? $(e.income) : '-'],
+        ['Latest pay date', stmts[0]?.pay_date || '-'],
+        ['Pay statements', String(stmts.length)],
+      ],
+    };
+  });
 }
+
+const REPORT_TITLE = { income: 'Income report', assets: 'Assets report' };
+const reportTypes = (c) => c.products.map(p => (p === 'assets' ? 'assets' : 'income'));
 
 function ReportPanel({ c, ui, data }) {
   if (ui.loading) {
     return (
       <div class="flex items-center gap-2 text-[13px] text-[#474c52]" aria-live="polite">
-        <span class="inline-block w-3.5 h-3.5 border-2 border-[#d8dee5] border-t-[#666670] rounded-full animate-spin" />
+        <span class="inline-block w-3.5 h-3.5 border-2 border-[#d8dee5] border-t-[#474c52] rounded-full animate-spin" />
         Loading the report.
       </div>
     );
   }
   if (ui.error) return <div role="alert" class="text-[13px] text-[#7f1d1d]">{ui.error}</div>;
-  const facts = reportFacts(c, data);
+  const types = reportTypes(c);
   return (
-    <div>
-      {facts.length > 0 && (
-        <dl class="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 mb-3 m-0">
-          {facts.map(([k, v]) => (
-            <div key={k}>
-              <dt class="text-[11px] uppercase tracking-wide text-[#474c52]">{k}</dt>
-              <dd class="text-[15px] font-semibold text-[#1b1c1f] m-0">{v}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-      <p class="text-[12px] text-[#474c52] mb-2">Sandbox sample data. The name and figures will not match {c.firstName}.</p>
-      <details>
-        <summary class="cursor-pointer text-[13px] ck-link">Show the full report</summary>
-        <div class="mt-3">{c.products.includes('assets') ? <AssetsReport report={data} /> : <VoieReport report={data} />}</div>
-      </details>
+    <div class="space-y-5">
+      {types.map(type => {
+        const groups = reportGroups(type, data?.[type]);
+        return (
+          <div key={type}>
+            {types.length > 1 && <h3 class="text-[13px] font-semibold text-[#1b1c1f] uppercase tracking-wide m-0 mb-3">{REPORT_TITLE[type]}</h3>}
+            {groups.map((g, gi) => (
+              <div key={gi} class="mb-3">
+                {g.title && <div class="text-[14px] font-medium text-[#1b1c1f] mb-1.5">{g.title}</div>}
+                <dl class="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 m-0">
+                  {g.facts.map(([k, v]) => (
+                    <div key={k}>
+                      <dt class="text-[11px] uppercase tracking-wide text-[#474c52]">{k}</dt>
+                      <dd class="text-[15px] font-semibold text-[#1b1c1f] m-0">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            ))}
+            <details>
+              <summary class="cursor-pointer text-[13px] ck-link">Show the full {type === 'assets' ? 'assets' : 'income'} report</summary>
+              <div class="mt-3">{type === 'assets' ? <AssetsReport report={data?.[type]} /> : <VoieReport report={data?.[type]} />}</div>
+            </details>
+          </div>
+        );
+      })}
+      <p class="text-[12px] text-[#474c52] m-0">Sandbox sample data. The name and figures will not match {c.firstName}.</p>
     </div>
   );
 }
@@ -252,7 +280,8 @@ function loadSaved() {
 }
 
 function seedCases(saved) {
-  return CASELOAD.map(c => {
+  const extras = Array.from({ length: saved?.extras || 0 }, (_, i) => extraApplicant(i));
+  return [...CASELOAD, ...extras].map(c => {
     const base = { ...c, order: null, refresh: null, outcome: null, revealed: false };
     const prev = saved?.cases.find(x => x.id === c.id);
     if (!prev) return base;
@@ -294,7 +323,8 @@ export function RenewalsRefreshDemo() {
     } catch { return false; }
   });
   const [screen, setScreen] = useState(saved?.screen && saved.screen !== 'walkthrough' ? (saved.screen === 'reauth' ? 'watch' : saved.screen) : 'walkthrough');
-  const [showOptional, setShowOptional] = useState(!!saved?.showOptional);
+  // How many sample applicants have been added with "Add more applicants".
+  const [extras, setExtras] = useState(saved?.extras || 0);
 
   // Runtime state per applicant, keyed by the seed id. Seeded from CASELOAD and
   // extended with order ids, refresh ids and resolved outcomes as the demo runs.
@@ -316,7 +346,7 @@ export function RenewalsRefreshDemo() {
   // Panel hook: sidebar (Guide / API / Bridge / Webhooks) + per-user polling.
   const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset: resetPanel } = usePanel();
 
-  const visibleCases = cases.filter(c => !c.optional || showOptional);
+  const visibleCases = cases;
   // Connected means the applicant finished Bridge, not merely that an order exists.
   const connected = visibleCases.filter(c => c.order && c.connectedAt);
   const refreshed = visibleCases.filter(c => c.refresh);
@@ -329,11 +359,11 @@ export function RenewalsRefreshDemo() {
     try {
       if (screen === 'walkthrough' && !cases.some(c => c.order)) { sessionStorage.removeItem(STORE_KEY); return; }
       sessionStorage.setItem(STORE_KEY, JSON.stringify({
-        screen, showOptional,
+        screen, extras,
         cases: cases.map(c => ({ id: c.id, ...Object.fromEntries(RUNTIME_FIELDS.map(k => [k, c[k]])) })),
       }));
     } catch { /* storage unavailable: the demo still works, it just will not survive a reload */ }
-  }, [screen, showOptional, cases]);
+  }, [screen, extras, cases]);
 
   useEffect(() => {
     const clear = () => { try { sessionStorage.removeItem(STORE_KEY); } catch { /* ignore */ } };
@@ -382,6 +412,13 @@ export function RenewalsRefreshDemo() {
     setCases(prev => prev.map(c => (c.id === id ? { ...c, ...(typeof patch === 'function' ? patch(c) : patch) } : c)));
   }, []);
 
+  // Appends one sample applicant who verifies income and assets and connects whatever the presenter picks.
+  function addApplicant() {
+    const n = extras;
+    setExtras(n + 1);
+    setCases(prev => [...prev, { ...extraApplicant(n), order: null, refresh: null, outcome: null, revealed: false }]);
+  }
+
   // --- Step 1: intake. Create the applicant's original order, then open Bridge. ---
   async function connectCase(c) {
     // An order exists but Bridge was not finished: reopen it rather than create another.
@@ -402,10 +439,9 @@ export function RenewalsRefreshDemo() {
           demo_id: DEMO_ID,
           first_name: c.firstName,
           last_name: c.lastName,
-          // Pre-selects the employer for payroll connections so the applicant lands
-          // straight on the login screen. Bank connections have no equivalent
-          // pre-selection, so the applicant searches for "Truv Bank" in Bridge.
-          ...(c.connectorKind === 'payroll' ? { employer: c.connector } : {}),
+          // Deeplinks the payroll employers so the applicant lands straight on the login
+          // screen. Banks are not deeplinked: the applicant picks any bank in Bridge.
+          ...(c.employers?.length ? { employers: c.employers } : {}),
         }),
       });
       const data = await resp.json();
@@ -530,21 +566,23 @@ export function RenewalsRefreshDemo() {
     setActive({ id: c.id, mode: 'reauth', bridgeToken: c.refresh.bridge_token });
   }
 
-  // --- Step 6: read the refreshed report for one applicant. ---
+  // --- Step 6: read the refreshed report(s) for one applicant: one per product. ---
   async function toggleReport(c) {
     const ui = reportUi[c.id];
     if (ui?.open) { setReportUi(prev => ({ ...prev, [c.id]: { ...ui, open: false } })); return; }
-    const type = c.products.includes('assets') ? 'assets' : 'income';
-    const have = reports[c.id]?.[type];
-    setReportUi(prev => ({ ...prev, [c.id]: { open: true, loading: !have, error: null } }));
-    if (have) return;
+    const missing = reportTypes(c).filter(t => !reports[c.id]?.[t]);
+    setReportUi(prev => ({ ...prev, [c.id]: { open: true, loading: missing.length > 0, error: null } }));
+    if (!missing.length) return;
     const fail = (error) => setReportUi(prev => ({ ...prev, [c.id]: { open: true, loading: false, error } }));
     if (!c.refresh?.order_id) { fail('There is no refresh to load a report for.'); return; }
     try {
-      const resp = await fetch(`${API_BASE}/api/renewals/report/${encodeURIComponent(c.refresh.order_id)}/${type}`);
-      const data = await resp.json();
-      if (!resp.ok) { fail('Could not load the report. Try again.'); return; }
-      setReports(prev => ({ ...prev, [c.id]: { ...(prev[c.id] || {}), [type]: data } }));
+      const results = await Promise.all(missing.map(async (type) => {
+        const resp = await fetch(`${API_BASE}/api/renewals/report/${encodeURIComponent(c.refresh.order_id)}/${type}`);
+        return { type, ok: resp.ok, data: await resp.json() };
+      }));
+      const failed = results.find(r => !r.ok);
+      if (failed) { fail(`Could not load the ${failed.type} report. Try again.`); return; }
+      setReports(prev => ({ ...prev, [c.id]: { ...(prev[c.id] || {}), ...Object.fromEntries(results.map(r => [r.type, r.data])) } }));
       setReportUi(prev => ({ ...prev, [c.id]: { open: true, loading: false, error: null } }));
     } catch (e) {
       console.error(e);
@@ -598,11 +636,11 @@ export function RenewalsRefreshDemo() {
     runRef.current += 1;
     setBusy(null);
     setCases(CASELOAD.map(c => ({ ...c, order: null, refresh: null, outcome: null, revealed: false })));
+    setExtras(0);
     setActive(null);
     setReports({});
     setReportUi({});
     setError(null);
-    setShowOptional(false);
     setScreen('walkthrough');
   }
 
@@ -663,13 +701,14 @@ export function RenewalsRefreshDemo() {
               <Stepper current={0} />
               <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#1b1c1f] mb-2 outline-none">Connect the applicants</h2>
               <p class="text-[15px] text-[#474c52] leading-[1.5] mb-4">
-                Each applicant connects an employer or bank, the way they would at intake. The test login on
-                each row decides what happens at renewal, so you will see both outcomes.
+                Each applicant connects an employer, a bank, or both, the way they would at intake. The test login on
+                each row decides what happens at renewal, so you will see applicants who refresh on their own, applicants
+                who need to act, and applicants where only one connection needs them.
               </p>
               <ol class="mb-5 text-[13px] text-[#2e3035] leading-[1.6] list-decimal pl-5 space-y-0.5">
                 <li>Click <strong>Connect</strong> on a row and use that row's test login.</li>
                 <li>Sign in. If you change the password, press <strong>Enter</strong> to sign in.</li>
-                <li>When it says done, click <strong>Submit connected accounts</strong>.</li>
+                <li>When it says done, click <strong>Submit connected accounts</strong>. With two connections the buttons are <strong>Review connected accounts</strong>, then <strong>Verify and submit</strong>.</li>
               </ol>
 
               <p class="text-[12px] text-[#474c52] mb-2 md:hidden">Scroll the table sideways to reach the action buttons.</p>
@@ -689,19 +728,28 @@ export function RenewalsRefreshDemo() {
                       <tr key={c.id} class="border-b border-[#f0f2f5] align-top">
                         <td class="px-4 py-3">
                           <div class="font-medium text-[#1b1c1f]">{c.firstName} {c.lastName}</div>
-                          <div class="text-[12px] text-[#474c52]">{c.caseNumber} · {c.program}</div>
+                          <div class="text-[12px] text-[#474c52]">{c.scenario}</div>
                         </td>
                         <td class="px-4 py-3">
-                          <div class="text-[#1b1c1f]">{c.connector}</div>
-                          <div class="text-[12px] text-[#474c52]">{c.connectorKind === 'bank' ? 'assets' : 'income'}</div>
+                          {c.connections.map(x => (
+                            <div key={x.name} class="mb-2 last:mb-0">
+                              <div class="text-[#1b1c1f]">{x.name}</div>
+                              <div class="text-[12px] text-[#474c52]">{KIND_LABEL[x.kind]}</div>
+                            </div>
+                          ))}
                         </td>
                         <td class="px-4 py-3">
-                          <div class="flex flex-wrap gap-1.5 mb-1">
-                            <CredentialChip label="username" value={c.credential.username} />
-                            <CredentialChip label="password" value={c.credential.password} />
-                          </div>
-                          <div class="text-[12px] text-[#474c52] leading-[1.45] max-w-[300px]">{c.credentialNote}</div>
-                          {c.credentialWarn && <div class="text-[12px] text-[#8A6200] font-medium leading-[1.45] max-w-[300px] mt-1">{c.credentialWarn}</div>}
+                          {c.connections.map(x => (
+                            <div key={x.name} class="mb-3 last:mb-0">
+                              {c.connections.length > 1 && <div class="text-[12px] font-medium text-[#1b1c1f] mb-1">{x.name}</div>}
+                              <div class="flex flex-wrap gap-1.5 mb-1">
+                                <CredentialChip label="username" value={x.username} />
+                                <CredentialChip label="password" value={x.password} />
+                              </div>
+                              <div class="text-[12px] text-[#474c52] leading-[1.45] max-w-[300px]">{x.note}</div>
+                              {x.warn && <div class="text-[12px] text-[#8A6200] font-medium leading-[1.45] max-w-[300px] mt-1">{x.warn}</div>}
+                            </div>
+                          ))}
                         </td>
                         <td class="px-4 py-3 text-right">
                           {c.connectedAt
@@ -723,11 +771,9 @@ export function RenewalsRefreshDemo() {
               </div>
 
               <div class="flex flex-wrap items-center gap-3">
-                {!showOptional && (
-                  <button class="px-4 py-2 text-[13px] font-medium ck-btn ghost" onClick={() => setShowOptional(true)}>
-                    Add a third applicant
-                  </button>
-                )}
+                <button class="px-4 py-2 text-[13px] font-medium ck-btn ghost" onClick={addApplicant}>
+                  Add more Applicants
+                </button>
                 <button
                   class="px-5 py-2.5 text-sm font-semibold ck-btn primary disabled:opacity-40"
                   disabled={connected.length === 0}
@@ -770,9 +816,11 @@ export function RenewalsRefreshDemo() {
                       <tr key={c.id} class="border-b border-[#f0f2f5]">
                         <td class="px-4 py-3">
                           <div class="font-medium text-[#1b1c1f]">{c.firstName} {c.lastName}</div>
-                          <div class="text-[12px] text-[#474c52] font-mono">{c.caseNumber}</div>
+                          <div class="text-[12px] text-[#474c52]">{c.scenario}</div>
                         </td>
-                        <td class="px-4 py-3 text-[#1b1c1f]">{c.connector}</td>
+                        <td class="px-4 py-3 text-[#1b1c1f]">
+                          {c.connections.map(x => <div key={x.name}>{x.name === 'Any employer and any bank' ? 'What they connected' : x.name}</div>)}
+                        </td>
                         <td class="px-4 py-3"><StatusPill tone="neutral">{new Date(c.connectedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</StatusPill></td>
                         <td class="px-4 py-3 text-right">
                           {c.refresh
@@ -797,8 +845,12 @@ export function RenewalsRefreshDemo() {
 
               <div class="border border-[#d8dee5] rounded-xl p-4 mb-5 bg-[#f0f2f5]">
                 <div class="text-[13px] font-semibold text-[#474c52] uppercase tracking-wide mb-2">What the agency backend sends</div>
-                <pre class="text-[12px] font-mono text-[#1b1c1f] whitespace-pre-wrap m-0">{[...new Set(connected.map(c => c.products.includes('assets') ? 'assets' : 'income'))]
-  .map(p => `POST /v1/orders/{order_id}/\n{ "products": ["${p}"] }   // ${p === 'assets' ? 'bank connections' : 'payroll connections'}`)
+                <pre class="text-[12px] font-mono text-[#1b1c1f] whitespace-pre-wrap m-0">{[...new Set(connected.map(c => JSON.stringify(c.products)))]
+  .map(ps => {
+    const list = JSON.parse(ps);
+    const what = list.length > 1 ? 'payroll and bank connections' : list[0] === 'assets' ? 'bank connections' : 'payroll connections';
+    return `POST /v1/orders/{order_id}/\n{ "products": ${ps.replace(/","/g, '", "')} }   // ${what}`;
+  })
   .join('\n\n') || 'POST /v1/orders/{order_id}/\n{ "products": ["income"] }'}</pre>
                 <p class="text-[12px] text-[#474c52] mt-2 mb-0">
                   Server-side, no applicant contact. Truv returns a new order and refreshes through the
@@ -826,7 +878,9 @@ export function RenewalsRefreshDemo() {
                   ? 'Truv is refreshing each connection. In the sandbox this takes a few seconds to about half a minute.'
                   : (reengage
                     ? `${needsReauth.length} of ${refreshed.length} needs the applicant. The rest are done and nobody else is contacted.`
-                    : 'Every refresh finished and nobody needed to act.')}
+                    : refreshed.some(c => c.reauthDone)
+                      ? 'Every refresh finished. Applicants who needed to act did, and nobody else was contacted.'
+                      : 'Every refresh finished and nobody needed to act.')}
               </p>
 
               <div class="space-y-3 mb-6" aria-live="polite">
@@ -835,10 +889,16 @@ export function RenewalsRefreshDemo() {
                   const display = OUTCOME_DISPLAY[shown] || OUTCOME_DISPLAY.refreshing;
                   const resolved = shown !== 'refreshing';
                   const reason = c.outcome?.reason;
+                  const conns = c.refreshDetail?.connections || null;
+                  const needing = conns ? conns.filter(x => x.state === 'reauth_required').length : 0;
                   const plain = shown === 'refreshed'
-                    ? (c.reauthDone ? 'Fresh data returned after the applicant answered the challenge.' : 'Fresh data returned. The applicant did nothing.')
+                    ? (c.reauthDone
+                      ? 'Fresh data returned after the applicant answered the challenge.'
+                      : conns ? 'Fresh data returned for every connection. The applicant did nothing.' : 'Fresh data returned. The applicant did nothing.')
                     : shown === 'reauth_required'
-                      ? 'Needs the applicant to answer a security challenge.'
+                      ? (conns && conns.length > 1
+                        ? `${needing} of ${conns.length} connections need the applicant to answer a security challenge. The rest refreshed.`
+                        : 'Needs the applicant to answer a security challenge.')
                       : display.detail;
                   return (
                     <div key={c.id} class="border border-[#d8dee5] rounded-xl p-4 bg-white">
@@ -846,9 +906,22 @@ export function RenewalsRefreshDemo() {
                         <div class="min-w-0 flex-1">
                           <div class="flex items-baseline gap-x-2 gap-y-0.5 flex-wrap">
                             <span class="font-medium text-[#1b1c1f] text-[15px]">{c.firstName} {c.lastName}</span>
-                            <span class="text-[12px] text-[#474c52]">{c.caseNumber} · {c.products.includes('assets') ? 'assets' : 'income'} · {c.connector}</span>
+                            <span class="text-[12px] text-[#474c52]">{c.scenario} · {productsLabel(c)}</span>
                           </div>
                           <div class="text-[14px] text-[#2e3035] mt-1.5">{plain}</div>
+                          {resolved && c.refreshDetail?.connections?.length > 1 && !c.reauthDone && (
+                            <ul class="mt-2 mb-0 p-0 list-none space-y-1">
+                              {c.refreshDetail.connections.map((x, i) => {
+                                const d = OUTCOME_DISPLAY[x.state] || OUTCOME_DISPLAY.refreshing;
+                                return (
+                                  <li key={x.id || i} class="flex items-center gap-2 text-[13px] text-[#2e3035]">
+                                    <StatusPill tone={d.tone}>{d.label}</StatusPill>
+                                    <span>{x.company_name || (x.kind === 'financial_account' ? 'Bank account' : 'Employer')}</span>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
                           {c.slow && !resolved && (
                             <div class="text-[12px] text-[#8A6200] mt-1">This is taking longer than usual. Still checking.</div>
                           )}
@@ -954,7 +1027,6 @@ export function RenewalsRefreshDemo() {
               <div class="space-y-3 mb-6">
                 {refreshed.map(c => {
                   const display = OUTCOME_DISPLAY[c.outcome?.state] || OUTCOME_DISPLAY.refreshing;
-                  const type = c.products.includes('assets') ? 'assets' : 'income';
                   const ui = reportUi[c.id] || {};
                   return (
                     <div key={c.id} class="border border-[#d8dee5] rounded-xl bg-white">
@@ -962,7 +1034,7 @@ export function RenewalsRefreshDemo() {
                         <div class="min-w-0 flex-1">
                           <div class="flex items-baseline gap-x-2 gap-y-0.5 flex-wrap">
                             <span class="font-medium text-[#1b1c1f] text-[15px]">{c.firstName} {c.lastName}</span>
-                            <span class="text-[12px] text-[#474c52]">{type} · {c.connector}</span>
+                            <span class="text-[12px] text-[#474c52]">{c.scenario} · {productsLabel(c)}</span>
                           </div>
                           <div class="text-[13px] text-[#474c52] mt-1.5">How we found out: {detectedBy(c)}</div>
                         </div>
@@ -982,7 +1054,7 @@ export function RenewalsRefreshDemo() {
                       </div>
                       {ui.open && (
                         <div class="px-4 py-4 border-t border-[#f0f2f5] bg-[#f8f8f8] rounded-b-xl">
-                          <ReportPanel c={c} ui={ui} data={reports[c.id]?.[type]} />
+                          <ReportPanel c={c} ui={ui} data={reports[c.id]} />
                         </div>
                       )}
                     </div>

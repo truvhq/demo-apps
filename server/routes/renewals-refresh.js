@@ -366,6 +366,29 @@ export function rollupRefreshOutcome(rows = []) {
 }
 
 /**
+ * Collapses per-connection verdicts into the one verdict a case-level screen needs.
+ *
+ * Nothing is reported until EVERY connection has an answer, so a screen never shows
+ * "needs the applicant" while another connection is still running. Then the worst
+ * result wins: a connection the applicant can fix outranks one they cannot, and any
+ * failure outranks success. Use `classifyRefreshOutcome` instead when an order has a
+ * single connection; this exists because that function returns the first failure it
+ * sees, which is too coarse once an order carries several.
+ *
+ * @returns {{state: string, reason: string|null, product: string|null, source: string, errorMessage: string|null}}
+ */
+export function outcomeFromConnections(rows = []) {
+  if (!rows.length || rows.some(r => r.state === 'refreshing')) {
+    return { state: 'refreshing', reason: null, product: null, source: 'pending' };
+  }
+  const worst = rows.find(r => r.state === 'reauth_required') || rows.find(r => r.state === 'failed_other');
+  if (worst) {
+    return { state: worst.state, reason: worst.reason || null, product: worst.product || null, source: worst.source || 'task', errorMessage: worst.errorMessage || null };
+  }
+  return { state: 'refreshed', reason: null, product: null, source: 'order' };
+}
+
+/**
  * Derives an order's status from its connections.
  *
  * The Order object has **no top-level `status` field** — verified against a live
@@ -547,11 +570,34 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
         }
       }
 
+      // More than one connection on this refresh: resolve each on its own and roll up.
+      // Single-connection refreshes keep the order-level answer above.
+      let connections = null;
+      if (suborders(orderResult.data).length > 1 && userId) {
+        if (!tasks.length) {
+          const tasksResult = await truvClient.getUserTasks(userId);
+          apiLogger.logApiCall({ userId, method: 'GET', endpoint: `/v1/tasks/?user_id=${userId}`, responseBody: tasksResult.data, statusCode: tasksResult.statusCode, durationMs: tasksResult.durationMs });
+          if (tasksResult.statusCode < 400) {
+            tasks = tasksResult.data?.results || tasksResult.data || [];
+            if (!Array.isArray(tasks)) tasks = [];
+          }
+        }
+        let originalOrderData = null;
+        const initialId = orderResult.data?.initial_order;
+        if (initialId) {
+          const origResult = await truvClient.getOrder(initialId);
+          if (origResult.statusCode < 400) originalOrderData = origResult.data;
+        }
+        connections = classifyRefreshOutcomePerSuborder({ truvOrderId: refreshOrder.truv_order_id, orderData: orderResult.data, originalOrderData, webhooks, tasks });
+        outcome = outcomeFromConnections(connections);
+      }
+
       res.json({
         order_id: refreshOrder.id,
         truv_order_id: refreshOrder.truv_order_id,
         user_id: userId,
         outcome,
+        connections: connections && connections.map(({ id, kind, company_name, product_type, state, reason, errorMessage }) => ({ id, kind, company_name, product_type, state, reason, errorMessage })),
         suborder_statuses: suborderStatuses(orderResult.data),
         // Present on the refresh order itself; used to re-engage only the applicants
         // whose refresh actually failed.

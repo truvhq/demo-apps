@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { classifyRefreshOutcome, classifyRefreshOutcomePerSuborder, tasksForOrder, REAUTH_STATUSES, NON_REAUTH_FAILURE_STATUSES } from '../../server/routes/renewals-refresh.js';
-import { CASELOAD, STEPS, WALKTHROUGH_STAGES, OUTCOME_DISPLAY } from '../../src/demos/scaffolding/renewals-refresh.jsx';
+import { classifyRefreshOutcome, classifyRefreshOutcomePerSuborder, outcomeFromConnections, tasksForOrder, REAUTH_STATUSES, NON_REAUTH_FAILURE_STATUSES } from '../../server/routes/renewals-refresh.js';
+import { CASELOAD, extraApplicant, STEPS, WALKTHROUGH_STAGES, OUTCOME_DISPLAY } from '../../src/demos/scaffolding/renewals-refresh.jsx';
 import { RENEWALS_DIAGRAM, REFRESH_FORK_DIAGRAM } from '../../src/diagrams/renewals-refresh.js';
 
 // ---------------------------------------------------------------------------
@@ -303,18 +303,62 @@ describe('RenewalsRefresh scaffolding', () => {
     expect(outcomes.has('reauth')).toBe(true);
   });
 
-  it('the two default cases alone still cover both axes, so a presenter needs only two connects', () => {
-    const defaults = CASELOAD.filter(c => !c.optional);
-    expect(defaults.length).toBe(2);
-    expect(new Set(defaults.map(c => c.expect))).toEqual(new Set(['silent', 'reauth']));
-    expect(new Set(defaults.flatMap(c => c.products))).toEqual(new Set(['income', 'assets']));
+  it('always shows four default applicants, one per order shape', () => {
+    expect(CASELOAD.map(c => c.scenario)).toEqual(['Payroll only', 'Assets only', 'Payroll and assets', 'Two employers']);
+    const shapes = CASELOAD.map(c => JSON.stringify(c.products) + c.employers.length);
+    expect(new Set(shapes).size).toBe(4);
   });
 
-  it('bank cases use the mfa credential, never mfa_captcha (the bank sandbox rejects it)', () => {
-    for (const c of CASELOAD) {
-      if (c.connectorKind !== 'bank') continue;
-      expect(c.credential.password).toBe('mfa');
+  it('the two-employer case deeplinks Home Depot and Walmart on one income order', () => {
+    const c = CASELOAD.find(x => x.id === 'priya');
+    expect(c.products).toEqual(['income']);
+    expect(c.employers).toEqual(['Home Depot', 'Walmart']);
+    expect(c.connections.map(x => x.name)).toEqual(['Home Depot', 'Walmart']);
+  });
+
+  it('the combined case verifies income and assets and connects payroll plus a bank', () => {
+    const c = CASELOAD.find(x => x.id === 'marcus');
+    expect(c.products).toEqual(['income', 'assets']);
+    expect(c.connections.map(x => x.kind)).toEqual(['payroll', 'bank']);
+  });
+
+  it('the assets-only case lets the applicant pick any bank', () => {
+    const c = CASELOAD.find(x => x.id === 'dana');
+    expect(c.employers).toEqual([]);
+    expect(c.connections[0].name).toBe('Any bank');
+    expect(c.connections[0].note).not.toMatch(/Truv Bank/);
+  });
+
+  it('every case lists a test login for each of its connections', () => {
+    for (const c of [...CASELOAD, extraApplicant(0)]) {
+      expect(c.connections.length, c.id).toBeGreaterThan(0);
+      for (const x of c.connections) {
+        expect(x.username, `${c.id} ${x.name}`).toBeTruthy();
+        expect(x.password, `${c.id} ${x.name}`).toBeTruthy();
+      }
     }
+  });
+
+  it('bank connections use the mfa credential, never mfa_captcha (the bank sandbox rejects it)', () => {
+    for (const c of CASELOAD) {
+      for (const x of c.connections) if (x.kind === 'bank') expect(x.password).toBe('mfa');
+    }
+  });
+
+  it('no row shows a benefits program or a case number', () => {
+    const text = JSON.stringify([...CASELOAD, extraApplicant(0)]);
+    expect(text).not.toMatch(/SNAP|Medicaid|caseNumber|program/);
+  });
+
+  it('added applicants verify income and assets with no scripted outcome, and never repeat a name', () => {
+    const rows = Array.from({ length: 20 }, (_, i) => extraApplicant(i));
+    for (const r of rows) {
+      expect(r.products).toEqual(['income', 'assets']);
+      expect(r.employers).toEqual([]);
+      expect(r.expect).toBeNull();
+    }
+    expect(new Set(rows.map(r => r.id)).size).toBe(20);
+    expect(new Set(rows.map(r => `${r.firstName} ${r.lastName}`)).size).toBe(20);
   });
 
   it('every classifier state has display copy, so no row can render unlabeled', () => {
@@ -351,5 +395,32 @@ describe('RenewalsRefresh keeps progress across a remount', () => {
   it('still resets on Start Over and on a breadcrumb restart', () => {
     expect(code).toMatch(/function resetDemo\(\)[\s\S]*?removeItem\(STORE_KEY\)/);
     expect(code).toMatch(/addEventListener\('truv:restart-view', clear\)/);
+  });
+});
+
+describe('outcomeFromConnections (one verdict for a case with several connections)', () => {
+  const row = (state, extra = {}) => ({ state, reason: null, product: null, source: 'task', errorMessage: null, ...extra });
+
+  it('says nothing is known until every connection has an answer', () => {
+    expect(outcomeFromConnections([]).state).toBe('refreshing');
+    expect(outcomeFromConnections([row('reauth_required'), row('refreshing')]).state).toBe('refreshing');
+  });
+
+  it('reports success only when every connection refreshed', () => {
+    expect(outcomeFromConnections([row('refreshed'), row('refreshed')]).state).toBe('refreshed');
+    expect(outcomeFromConnections([row('refreshed'), row('failed_other')]).state).not.toBe('refreshed');
+  });
+
+  it('puts a connection the applicant can fix ahead of one they cannot, and carries its reason', () => {
+    const out = outcomeFromConnections([
+      row('failed_other', { reason: 'no_data' }),
+      row('reauth_required', { reason: 'mfa_error', errorMessage: 'unanswered question' }),
+      row('refreshed'),
+    ]);
+    expect(out).toMatchObject({ state: 'reauth_required', reason: 'mfa_error', errorMessage: 'unanswered question' });
+  });
+
+  it('falls back to the not-fixable-by-signing-in state when that is the only failure', () => {
+    expect(outcomeFromConnections([row('refreshed'), row('failed_other', { reason: 'no_data' })]).state).toBe('failed_other');
   });
 });

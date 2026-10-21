@@ -13,32 +13,33 @@
  *   goodlogin / mfa            bank     -> refresh fails, order-refresh-failed (assets)
  *   goodlogin / mfa_captcha    payroll  -> refresh fails, order-refresh-failed (income)
  *
- * Two applicants are shown by default (one silent, one re-auth, one payroll, one
- * bank) so a presenter only connects twice while still covering both axes. The
- * third is opt-in for the fuller story.
+ * Four applicants are always shown, one per shape an order can take: payroll only,
+ * assets only, payroll and assets together, and two payroll connections deeplinked
+ * on one order. "Add more applicants" appends free-form rows that verify income and
+ * assets and let the presenter connect whatever they like.
  *
  * NOTE the bank credential: the sandbox bank connector rejects `mfa_captcha`
  * ("Username or Password is incorrect"). Bank MFA is `mfa`, any code accepted.
  * The universal-credentials table in the docs does not currently carve this out.
  */
 
-// --- Config: seeded caseload. `optional: true` rows start hidden. ---
-// products    -> what the original order verifies, and what gets refreshed
-// credential  -> displayed to the presenter, with a copy button, because the
-//                whole point is that the outcome is credential-driven
-// expect      -> the verified outcome, used for the "what should happen" hint
+// --- Config: seeded caseload. ---
+// products     -> what the original order verifies, and what gets refreshed
+// employers    -> payroll employers deeplinked into Bridge (none: the applicant picks)
+// connections  -> what the presenter connects, each with the test login to use. The
+//                 outcome is credential-driven, so the logins are shown with a copy button.
+// expect       -> the verified outcome, used for the "what should happen" hint
 export const CASELOAD = [
   {
     id: 'ana',
     firstName: 'Ana',
     lastName: 'Silva',
-    caseNumber: 'SNAP-4417',
-    program: 'SNAP',
+    scenario: 'Payroll only',
     products: ['income'],
-    connector: 'Home Depot',
-    connectorKind: 'payroll',
-    credential: { username: 'goodlogin', password: 'goodpassword' },
-    credentialNote: 'Pre-filled in Bridge. Just sign in.',
+    employers: ['Home Depot'],
+    connections: [
+      { kind: 'payroll', name: 'Home Depot', username: 'goodlogin', password: 'goodpassword', note: 'Pre-filled in Bridge. Just sign in.' },
+    ],
     expect: 'silent',
     expectLabel: 'Refreshes silently, no applicant action',
   },
@@ -46,14 +47,16 @@ export const CASELOAD = [
     id: 'dana',
     firstName: 'Dana',
     lastName: 'Cole',
-    caseNumber: 'MED-2093',
-    program: 'Medicaid',
+    scenario: 'Assets only',
     products: ['assets'],
-    connector: 'Truv Bank (non-oAuth)',
-    connectorKind: 'bank',
-    credential: { username: 'goodlogin', password: 'mfa' },
-    credentialNote: 'Search "Truv Bank" and pick the non-oAuth entry. Replace the pre-filled password with mfa. Any code works.',
-    credentialWarn: 'Keep mfa. With the pre-filled password this refresh succeeds and there is no failure to show.',
+    employers: [],
+    connections: [
+      {
+        kind: 'bank', name: 'Any bank', username: 'goodlogin', password: 'mfa',
+        note: 'Pick any bank in Bridge. Replace the pre-filled password with mfa. Any code works.',
+        warn: 'Keep mfa. With the pre-filled password this refresh succeeds and there is no failure to show.',
+      },
+    ],
     expect: 'reauth',
     expectLabel: 'Refresh fails, needs re-authorization',
   },
@@ -61,18 +64,67 @@ export const CASELOAD = [
     id: 'marcus',
     firstName: 'Marcus',
     lastName: 'Webb',
-    caseNumber: 'SNAP-5120',
-    program: 'SNAP',
-    products: ['income'],
-    connector: 'Home Depot',
-    connectorKind: 'payroll',
-    credential: { username: 'goodlogin', password: 'mfa_captcha' },
-    credentialNote: 'Replace the pre-filled password with mfa_captcha. Captcha: 9M4BP (it is asked again at re-authorization).',
+    scenario: 'Payroll and assets',
+    products: ['income', 'assets'],
+    employers: ['Home Depot'],
+    connections: [
+      { kind: 'payroll', name: 'Home Depot', username: 'goodlogin', password: 'goodpassword', note: 'Pre-filled in Bridge. Just sign in.' },
+      {
+        kind: 'bank', name: 'Any bank', username: 'goodlogin', password: 'mfa',
+        note: 'Pick any bank in Bridge. Replace the pre-filled password with mfa. Any code works.',
+        warn: 'Keep mfa so the bank connection fails while payroll still refreshes.',
+      },
+    ],
     expect: 'reauth',
-    expectLabel: 'Refresh fails, needs re-authorization',
-    optional: true,
+    expectLabel: 'Payroll refreshes, the bank connection needs re-authorization',
+  },
+  {
+    id: 'priya',
+    firstName: 'Priya',
+    lastName: 'Shah',
+    scenario: 'Two employers',
+    products: ['income'],
+    employers: ['Home Depot', 'Walmart'],
+    connections: [
+      { kind: 'payroll', name: 'Home Depot', username: 'goodlogin', password: 'goodpassword', note: 'Pre-filled in Bridge. Just sign in.' },
+      {
+        kind: 'payroll', name: 'Walmart', username: 'goodlogin', password: 'mfa_captcha',
+        note: 'Replace the pre-filled password with mfa_captcha. Captcha: 9M4BP (it is asked again at re-authorization).',
+        warn: 'Keep mfa_captcha so Walmart fails while Home Depot still refreshes.',
+      },
+    ],
+    expect: 'reauth',
+    expectLabel: 'Home Depot refreshes, Walmart needs re-authorization',
   },
 ];
+
+// Sample applicants for "Add more applicants". Each verifies income and assets and lets
+// the presenter connect any employer and any bank, so there is no scripted outcome.
+const EXTRA_NAMES = [
+  ['Lena', 'Ortiz'], ['Omar', 'Haddad'], ['Grace', 'Kim'], ['Samuel', 'Okoye'],
+  ['Elena', 'Petrova'], ['Noah', 'Fischer'], ['Aisha', 'Bello'], ['Tomas', 'Reyes'],
+];
+
+export function extraApplicant(n) {
+  const [firstName, lastName] = EXTRA_NAMES[n % EXTRA_NAMES.length];
+  const round = Math.floor(n / EXTRA_NAMES.length);
+  return {
+    id: `extra-${n}`,
+    firstName,
+    lastName: round ? `${lastName} ${round + 1}` : lastName,
+    scenario: 'Your choice',
+    products: ['income', 'assets'],
+    employers: [],
+    connections: [
+      {
+        kind: 'any', name: 'Any employer and any bank', username: 'goodlogin', password: 'goodpassword',
+        note: 'Connect whatever you like. goodpassword refreshes without the applicant. To force a failure, use mfa as a bank password or mfa_captcha as a payroll password.',
+      },
+    ],
+    expect: null,
+    expectLabel: 'Depends on what you connect',
+  };
+}
 
 // --- Config: sidebar Guide steps (Panel > Guide tab) ---
 export const STEPS = [
@@ -205,20 +257,20 @@ export const WALKTHROUGH_STAGES = [
     name: 'Try it',
     kind: 'split',
     title: 'Run a renewal cycle yourself',
-    lead: 'Connect two applicants, jump ahead to recertification, refresh both, and watch one finish and one fail. These are test logins in Truv\'s sandbox. Use the ones shown and each applicant gets the result described.',
+    lead: 'Four applicants are ready, one for each shape an order can take: payroll only, assets only, payroll and assets together, and two employers on one order. Connect any of them, jump ahead to recertification, refresh, and see which finish on their own and which need the applicant. These are test logins in Truv\'s sandbox. Use the ones shown and each applicant gets the result described.',
     lanes: [
       {
         tone: 'good',
-        tag: 'Ana Silva · payroll',
+        tag: 'Ana Silva · payroll only',
         title: 'Will refresh without the applicant',
         body: 'goodlogin / goodpassword. Bridge pre-fills it, so this connection takes no typing.',
         code: 'products: ["income"]',
       },
       {
         tone: 'warn',
-        tag: 'Dana Cole · bank',
+        tag: 'Dana Cole · assets',
         title: 'Will need re-authorization',
-        body: 'goodlogin / mfa on Truv Bank (non-oAuth). Any MFA code is accepted.',
+        body: 'goodlogin / mfa at any bank you pick. Any MFA code is accepted.',
         code: 'products: ["assets"]',
       },
     ],

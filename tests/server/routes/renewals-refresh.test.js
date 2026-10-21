@@ -104,6 +104,77 @@ describe('GET /api/renewals/report/:refreshOrderId/:type reads the existing repo
   });
 });
 
+function startOutcome({ refreshOrder, originalOrder, tasks }) {
+  const orders = { refresh1: { id: 'refresh1', truv_order_id: 't-refresh', user_id: 'u1' } };
+  const truv = {
+    getOrder: vi.fn(async (id) => ({ statusCode: 200, durationMs: 1, data: id === 't-refresh' ? refreshOrder : originalOrder })),
+    getUserTasks: vi.fn().mockResolvedValue({ statusCode: 200, durationMs: 1, data: { results: tasks } }),
+  };
+  const db = { getOrder: (id) => orders[id], getWebhookEventsByUserId: () => [] };
+  const app = express();
+  app.use(renewalsRefreshRoutes({ truv, db, apiLogger: createMockApiLogger() }));
+  return new Promise((resolve) => {
+    const server = http.createServer(app);
+    servers.push(server);
+    server.listen(0, '127.0.0.1', () => resolve({ baseUrl: `http://127.0.0.1:${server.address().port}`, truv }));
+  });
+}
+
+describe('GET /api/renewals/outcome/:refreshOrderId with more than one connection', () => {
+  const original = {
+    employers: [{ id: 'o1', company_name: 'Home Depot', link_id: 'L1', status: 'completed' }, { id: 'o2', company_name: 'Walmart', link_id: 'L2', status: 'completed' }],
+  };
+
+  it('waits while one connection is still running, even though the other already failed', async () => {
+    const ctx = await startOutcome({
+      refreshOrder: { initial_order: 'orig', employers: [{ id: 'e1', company_name: 'Home Depot', status: 'sent' }, { id: 'e2', company_name: 'Walmart', status: 'sent' }] },
+      originalOrder: original,
+      tasks: [{ order_id: 't-refresh', link_id: 'L2', status: 'mfa_error', product_type: 'income', error_message: 'Session expired' }],
+    });
+    const { status, json } = await getJson(`${ctx.baseUrl}/api/renewals/outcome/refresh1`);
+    expect(status).toBe(200);
+    expect(json.outcome.state).toBe('refreshing');
+    expect(json.connections.map(c => c.state)).toEqual(['refreshing', 'reauth_required']);
+  });
+
+  it('rolls up to reauth_required once everything has an answer, naming each connection', async () => {
+    const ctx = await startOutcome({
+      refreshOrder: { initial_order: 'orig', employers: [{ id: 'e1', company_name: 'Home Depot', status: 'completed', link_id: 'L1' }, { id: 'e2', company_name: 'Walmart', status: 'sent' }] },
+      originalOrder: original,
+      tasks: [{ order_id: 't-refresh', link_id: 'L2', status: 'mfa_error', product_type: 'income', error_message: 'Session expired' }],
+    });
+    const { json } = await getJson(`${ctx.baseUrl}/api/renewals/outcome/refresh1`);
+    expect(json.outcome).toMatchObject({ state: 'reauth_required', reason: 'mfa_error' });
+    expect(json.connections.map(c => [c.company_name, c.state])).toEqual([['Home Depot', 'refreshed'], ['Walmart', 'reauth_required']]);
+  });
+
+  it('covers a payroll connection and a bank connection on the same order', async () => {
+    const ctx = await startOutcome({
+      refreshOrder: {
+        initial_order: 'orig',
+        employers: [{ id: 'e1', company_name: 'Home Depot', status: 'completed', link_id: 'L1' }],
+        financial_accounts: [{ id: 'f1', provider: { name: 'Some Bank' }, status: 'completed', link_id: 'L3' }],
+      },
+      originalOrder: original,
+      tasks: [],
+    });
+    const { json } = await getJson(`${ctx.baseUrl}/api/renewals/outcome/refresh1`);
+    expect(json.outcome.state).toBe('refreshed');
+    expect(json.connections.map(c => c.kind)).toEqual(['employer', 'financial_account']);
+  });
+
+  it('leaves a single-connection refresh on the order-level answer, with no connection list', async () => {
+    const ctx = await startOutcome({
+      refreshOrder: { initial_order: 'orig', employers: [{ id: 'e1', company_name: 'Home Depot', status: 'completed', link_id: 'L1' }] },
+      originalOrder: original,
+      tasks: [],
+    });
+    const { json } = await getJson(`${ctx.baseUrl}/api/renewals/outcome/refresh1`);
+    expect(json.outcome.state).toBe('refreshed');
+    expect(json.connections).toBeFalsy();
+  });
+});
+
 describe('POST /api/renewals/refresh/:orderId error mapping', () => {
   it('creates a refresh order and persists it', async () => {
     const ctx = await start({ statusCode: 200, data: { id: 't-refresh', user_id: 'u1', bridge_token: 'bt', share_url: 'https://x/' } });

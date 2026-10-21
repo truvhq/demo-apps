@@ -24,7 +24,7 @@ Demos are organized by industry. Each starts with a split intro screen (business
 | **Customer Portal** | An applicant applies for benefits and verifies income through a self-service portal |
 | **Document Processing** | Process pay stubs, W-2s, and tax returns for benefit eligibility decisions |
 | **Case Worker Portal** | A Case Worker creates verification orders using applicant data on file |
-| **Renewals & Data Refresh** | Guided walkthrough plus a live recertification cycle: refresh existing payroll and bank connections via `POST /v1/orders/{id}/`, then see the two outcomes. A refresh that needs re-authorization emits `order-refresh-failed`, and that connection does not complete until the applicant acts, so listening only for `order-status-updated` will not tell you it failed |
+| **Renewals & Data Refresh** | Guided walkthrough plus a live recertification cycle with four ready-made applicants (payroll only, assets only, payroll and assets, two employers) and an Add more Applicants button: refresh existing payroll and bank connections via `POST /v1/orders/{id}/`, then see each connection's outcome. A refresh that needs re-authorization emits `order-refresh-failed`, and that connection does not complete until the applicant acts, so listening only for `order-status-updated` will not tell you it failed |
 
 ### Consumer Credit
 

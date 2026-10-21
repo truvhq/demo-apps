@@ -342,3 +342,30 @@ checked against Truv's published documentation where it covers the point.
 - **`provider.name` can differ from the employer you asked for** (it read "Workday" and "Oracle HCM" for Home
   Depot and Kroger). The requested name is in `company_name`.
 
+
+## 18. Orders with more than one connection, observed 2026-10-21 in sandbox
+
+Four applicants were connected through Bridge and refreshed in one run: one payroll, one bank, one order with
+both, and one order with two deeplinked employers (Home Depot and Walmart).
+
+- **A combined income and assets order refreshes with one call.** `POST /v1/orders/{id}/` with
+  `{"products": ["income", "assets"]}` refreshed the payroll and the bank connection together. They resolved
+  independently: with `goodpassword` on payroll and `mfa` on the bank, payroll finished on its own and the bank
+  connection failed with `mfa_error`.
+- **The refresh order carries one report id per product.** Both `voie_report_id` and `voa_report_id` were
+  readable from the one refresh order, and both reports loaded.
+- **Two employers on one order refresh independently.** Home Depot finished and Walmart (`mfa_captcha`) failed
+  and needed the applicant to answer the captcha again. Walmart honors the same test logins, but asks for a store
+  location first ("Homeoffice" works).
+- **Which employer Bridge offers first is not fixed.** Walmart came first in some runs and Home Depot in others.
+  Anything driving Bridge must read the screen rather than assume an order.
+- **An oAuth bank accepts the same test login.** `goodlogin` / `mfa` in the bank's sign-in popup (Chase Bank) went
+  to the same texted-code challenge as the non-oAuth test bank, and its refresh then failed with `mfa_error`.
+  Picking Truv Bank is not required.
+- **Bridge adds a review step when an order has more than one connection.** The last button reads "Review
+  connected accounts", then "Verify and submit", instead of "Submit connected accounts".
+- **Per-connection state is needed for these orders.** Reading one verdict for the whole refresh order reports the
+  first failure it sees, which is wrong while another connection is still running. The demo resolves each
+  connection (`classifyRefreshOutcomePerSuborder`) and shows nothing for the applicant until all have an answer.
+- **Test-script pitfall:** the re-authorization screen lists "Chase Bank - Previously connected on ...". A
+  selector that matches the text "Connect" matches that row first and the real Connect button is never clicked.
