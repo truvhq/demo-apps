@@ -32,7 +32,6 @@ import { POSApplicationDemo } from './demos/POSApplication.jsx';
 import { POSTasksDemo } from './demos/POSTasks.jsx';
 import { CaseWorkerPortalDemo } from './demos/CaseWorkerPortal.jsx';
 import { RenewalsRefreshDemo } from './demos/RenewalsRefresh.jsx';
-import { RefreshGuide } from './demos/RefreshGuide.jsx';
 import { DocumentProcessingDemo } from './demos/DocumentProcessing.jsx';
 import { LOSDemo } from './demos/LOS.jsx';
 import { CustomerPortalDemo } from './demos/CustomerPortal.jsx';
@@ -70,9 +69,8 @@ export const INDUSTRIES = [
       { id: 'customer-portal', name: 'Customer Portal', component: CustomerPortalDemo, desc: 'An applicant applies for benefits and verifies their income and employment through a self-service portal.', tags: ['Company Search', 'Orders', 'Bridge', 'Reports'] },
       { id: 'documents', name: 'Document Processing', component: PSDocumentProcessingDemo, desc: 'Process pay stubs, W-2s, and tax returns to verify income for benefit eligibility decisions.', tags: ['Document Collections', 'Finalize', 'Parsed Data'] },
       { id: 'verifier-portal', name: 'Case Worker Portal', component: CaseWorkerPortalDemo, desc: 'A Case Worker creates verification orders using applicant data on file and sends verification links via email or SMS.', tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'] },
-      { id: 'batching', kind: 'guide', name: 'Batching', component: BatchingWalkthrough, noSession: true, desc: 'Animated walkthrough of bulk order intake: staff drop a CSV into a folder and a scheduled job creates one order per row. Ends with the setup guides and the runnable kit to hand to a customer.', tags: ['Guided', 'Bulk', 'CSV', 'Orders', 'Webhooks'] },
+      { id: 'batching', name: 'Batching', component: BatchingWalkthrough, noSession: true, desc: 'Animated walkthrough of bulk order intake: staff drop a CSV into a folder and a scheduled job creates one order per row. Ends with the setup guides and the runnable kit to hand to a customer.', tags: ['Guided', 'Bulk', 'CSV', 'Orders', 'Webhooks'] },
       { id: 'renewals-refresh', name: 'Renewals & Data Refresh', component: RenewalsRefreshDemo, desc: 'Recertify without asking for documents again. Refresh the payroll and bank connections applicants already made, see which refreshes finish on their own and which need the applicant, and contact only those applicants.', tags: ['Guided', 'Orders', 'Refresh', 'Webhooks'] },
-      { id: 'refresh-guide', kind: 'guide', name: 'Orders & Refresh Lifecycle', component: RefreshGuide, desc: 'A guide with a live sandbox attached. It covers when to refresh and when to start a new order, what a refresh returns for each connection, and what to do when one connection fails and the others succeed. Based on a captured sandbox run.', tags: ['Orders', 'Refresh', 'Live API'] },
     ],
   },
   {

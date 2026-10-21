@@ -317,7 +317,7 @@ Separate runs from the 2026-09-17 capture above. Income and assets, one order at
 
 ## 17. Observed 2026-10-21 by two outside-engineer proofs of concept, and a standalone script
 
-Two engineers new to Truv built working proofs of concept from the guide, the demo and the public repo, and a
+Two engineers new to Truv built working proofs of concept from the demo and the public repo, and a
 minimal standalone script (`examples/refresh-minimal.mjs`) was run against real sandbox orders. What they saw,
 checked against Truv's published documentation where it covers the point.
 

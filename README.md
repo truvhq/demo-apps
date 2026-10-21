@@ -25,7 +25,6 @@ Demos are organized by industry. Each starts with a split intro screen (business
 | **Document Processing** | Process pay stubs, W-2s, and tax returns for benefit eligibility decisions |
 | **Case Worker Portal** | A Case Worker creates verification orders using applicant data on file |
 | **Renewals & Data Refresh** | Guided walkthrough plus a live recertification cycle: refresh existing payroll and bank connections via `POST /v1/orders/{id}/`, then see the two outcomes. A refresh that needs re-authorization emits `order-refresh-failed`, and that connection does not complete until the applicant acts, so listening only for `order-status-updated` will not tell you it failed |
-| **Orders & Refresh Lifecycle** | A guide with a live sandbox playground: when to refresh versus start a new order, what a refresh returns for each connection (with a captured timeline), what to do when one connection fails and the others succeed, all 11 terminal statuses with what to do for each, and a plain-language section for people who are not writing the code |
 
 ### Consumer Credit
 
@@ -217,14 +216,13 @@ server/
     session.js           Hosted mode: bring-your-own-keys session routes
 
 src/
-  App.jsx                Router and industry/demo registry (INDUSTRIES). A demo with kind: 'guide' is listed under Guides.
+  App.jsx                Router and industry/demo registry (INDUSTRIES).
   Home.jsx               Home page with industry cards
-  IndustryPage.jsx       Demos and Guides for one industry
+  IndustryPage.jsx       Demos for one industry
   demos/                 One file per demo. scaffolding/ holds each demo's copy and config.
     SmartRouting.jsx       Best starting point for Consumer Credit (Bridge flow)
     POSApplication.jsx     Best starting point for Mortgage (Orders flow)
     RenewalsRefresh.jsx    Public Sector: renewals and data refresh (live flow)
-    RefreshGuide.jsx       Orders and refresh lifecycle guide with a sandbox playground
     Batching.jsx           Guided walkthrough of bulk order intake
     BankIncome.jsx, PayrollIncome.jsx, DirectDepositSwitch.jsx, PaycheckLinkedLoans.jsx,
     IncomePLLChained.jsx   Consumer Credit and Retail Banking demos
@@ -290,8 +288,7 @@ To re-check an applicant without asking for documents again, refresh the connect
 Refreshes are limited per connection: 1 initial request plus 3 refreshes in any 24 hours. A refresh sent right
 after Bridge finishes can be rejected for about 15 to 20 seconds, so retry. A connection that needs the
 applicant again fails with `login_error`, `mfa_error` or `session_expired`; send the applicant the refresh
-order's `share_url`. The full guide is the **Orders & Refresh Lifecycle** page in the Public Sector demos, and
-`examples/refresh-minimal.mjs` shows the calls in one file.
+order's `share_url`. `examples/refresh-minimal.mjs` shows the calls in one file.
 
 ### Webhooks
 
