@@ -1,0 +1,30 @@
+/*
+ * Renewals & Data Refresh: Checkr look, matching the Batching flow
+ * (src/demos/batching.css, "Checkr rebrand"): near-black and cool greys, black
+ * primary button, grey outline button, both turning aqua on hover.
+ *
+ * `html.ck-brand` is set only while this demo is mounted. It re-points the app's
+ * shared primary color, so the header and side panel match without touching any
+ * other demo. The .ck-* classes are used by this demo's own buttons and links.
+ */
+html.ck-brand {
+  --color-primary: #1b1c1f;
+  --color-primary-hover: #23deff;
+  --color-primary-active: #1ac5e3;
+  --color-primary-light: #f0f2f5;
+}
+html.ck-brand .hover\:bg-primary-hover:hover,
+html.ck-brand .active\:bg-primary-active:active { color: #1b1c1f; }
+
+.ck-btn { border-radius: 6px; transition: background .4s, border-color .4s, color .4s; }
+.ck-btn.primary { background: #1b1c1f; color: #fff; border: 1px solid transparent; }
+.ck-btn.ghost { background: transparent; color: #474c52; border: 1px solid #474c52; }
+.ck-btn.primary:not(:disabled):hover, .ck-btn.ghost:not(:disabled):hover,
+.ck-btn.primary:not(:disabled):focus-visible, .ck-btn.ghost:not(:disabled):focus-visible {
+  background: #23deff; border-color: #23deff; color: #1b1c1f;
+}
+.ck-btn.primary:not(:disabled):active, .ck-btn.ghost:not(:disabled):active { background: #1ac5e3; border-color: #1ac5e3; color: #1b1c1f; }
+.ck-btn:disabled { cursor: default; }
+
+.ck-link { color: #1b1c1f; font-weight: 500; }
+.ck-link:hover { text-decoration: underline 2px; text-underline-offset: 6px; }

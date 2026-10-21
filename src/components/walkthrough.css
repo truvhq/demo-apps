@@ -251,3 +251,68 @@
 .twt-card .twt-ul li { display: flex; gap: 12px; align-items: baseline; }
 .twt-card-k { flex: 0 0 auto; font-weight: 600; color: var(--twt-ink); }
 .twt-card-v { flex: 1 1 auto; color: var(--twt-ink-2); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12.5px; }
+
+/* ============================================================================
+ * THEME: checkr
+ * The Checkr look used by the Batching walkthrough (src/demos/batching.css,
+ * "Checkr rebrand"): near-black and cool greys, flat surfaces, black primary
+ * button, grey outline button, and both turn aqua on hover.
+ * ========================================================================= */
+.twt.twt-theme-checkr {
+  --twt-ink: #1b1c1f;
+  --twt-ink-2: #2e3035;
+  --twt-muted: #474c52;
+  --twt-muted-2: #8a9099;
+  --twt-line: #d8dee5;
+  --twt-line-2: #f0f2f5;
+  --twt-bg: #f8f8f8;
+  --twt-panel: #fff;
+  --twt-brand: #1b1c1f;
+  --twt-brand-2: #000;
+  --twt-brand-soft: #f0f2f5;
+  --twt-accent: #474c52;
+  --twt-good: #197d58;
+  --twt-warn: #8a5a00;
+  --twt-stage-from: #f8f8f8;
+  --twt-stage-mid: #f8f8f8;
+  --twt-stage-to: #f8f8f8;
+  --twt-orb: 27, 28, 31;
+  --twt-sans: "National 2", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --twt-display: "National 2", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --ck-aqua: #23deff;
+  --ck-ease: cubic-bezier(.39, .575, .565, 1);
+}
+.twt-theme-checkr .twt-ambient { display: none; }
+.twt-theme-checkr .twt-stage { background: #f8f8f8; }
+.twt-theme-checkr .twt-stage-inner { animation: twt-ck-in .4s var(--ck-ease) both; }
+.twt-theme-checkr .twt-context { animation-timing-function: var(--ck-ease); animation-duration: .3s; }
+@keyframes twt-ck-in { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+.twt-theme-checkr .twt-progress i { background: #1b1c1f; }
+.twt-theme-checkr .twt-brand .twt-partner { color: var(--twt-ink); }
+.twt-theme-checkr .twt-step .twt-k,
+.twt-theme-checkr .twt-eyebrow,
+.twt-theme-checkr .twt-hero-mark { color: var(--twt-muted); }
+
+.twt-theme-checkr .twt-btn,
+.twt-theme-checkr .twt-cta { border-radius: 6px; font-weight: 500; transition: background .4s, border-color .4s, color .4s; }
+.twt-theme-checkr .twt-btn.primary { background: #1b1c1f; color: #fff; border-color: transparent; }
+.twt-theme-checkr .twt-btn.ghost,
+.twt-theme-checkr .twt-cta { background: transparent; color: var(--twt-muted); border: 1px solid var(--twt-muted); }
+.twt-theme-checkr .twt-btn.primary:hover,
+.twt-theme-checkr .twt-btn.ghost:hover,
+.twt-theme-checkr .twt-cta:hover,
+.twt-theme-checkr .twt-btn.primary:focus-visible,
+.twt-theme-checkr .twt-btn.ghost:focus-visible,
+.twt-theme-checkr .twt-cta:focus-visible { background: var(--ck-aqua); border-color: var(--ck-aqua); color: #1b1c1f; }
+.twt-theme-checkr .twt-btn:active { transform: none; }
+
+.twt-theme-checkr .twt-dot.active { background: #1b1c1f; }
+.twt-theme-checkr .twt-dot:hover { background: var(--twt-muted); }
+.twt-theme-checkr .twt-card,
+.twt-theme-checkr .twt-diagram { border-radius: 12px; box-shadow: 0 1px 2px rgba(27, 28, 31, .04); }
+.twt-theme-checkr .twt-chip { border-radius: 8px; }
+.twt-theme-checkr a:hover { text-decoration: underline 2px; text-underline-offset: 6px; }
+.twt-theme-checkr .twt-api { background: #1b1c1f; border-color: #2e3035; }
+.twt-theme-checkr .twt-api .mth { color: #fff; }
+.twt-theme-checkr .twt-api .k { color: #a9b0ba; }
+.twt-theme-checkr .twt-api .c { color: #8a9099; }
