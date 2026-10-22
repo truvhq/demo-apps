@@ -257,7 +257,7 @@ export const WALKTHROUGH_STAGES = [
     name: 'Try it',
     kind: 'split',
     title: 'Run a renewal cycle yourself',
-    lead: 'Four applicants are ready, one for each shape an order can take: payroll only, assets only, payroll and assets together, and two employers on one order. Connect any of them, jump ahead to recertification, refresh, and see which finish on their own and which need the applicant. These are test logins in Truv\'s sandbox. Use the ones shown and each applicant gets the result described.',
+    lead: 'Four applicants are ready, one for each shape an order can take: payroll only, assets only, payroll and assets together, and two employers on one order. Connect any of them, jump ahead to recertification, refresh, and see which finish on their own and which need the applicant. These are test logins in Truv\'s sandbox. Use the ones shown on each row and that applicant gets the result described.',
     lanes: [
       {
         tone: 'good',

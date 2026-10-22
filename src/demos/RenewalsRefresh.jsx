@@ -19,10 +19,11 @@
  *
  * Careful with the general claim, though: `order-status-updated` is emitted PER
  * SUBORDER and carries an `employer_id` (verified 2026-09-17, see
- * REFRESH-FINDINGS.md). Each applicant here has a single connection, so a failure
- * does look like silence. On an order with several employers you still receive
- * `completed` for each one that worked — so "watch for silence" is the wrong
+ * REFRESH-FINDINGS.md). On an applicant with a single connection a failure does
+ * look like silence. On an order with several connections you still receive
+ * `completed` for each one that worked, so "watch for silence" is the wrong
  * detector, and a `completed` does not mean the refresh as a whole succeeded.
+ * Applicants with more than one connection are therefore resolved per connection.
  *
  * TIMING NOTE (measured in sandbox, 2026-08-19/20): failures arrive 0.2-5.5s after
  * the refresh POST, silent successes take ~13-15s. The failure therefore usually
@@ -279,8 +280,11 @@ function loadSaved() {
   } catch { return null; }
 }
 
+const MAX_EXTRAS = 24;
+const savedExtras = (saved) => Math.min(MAX_EXTRAS, Math.max(0, Math.floor(Number(saved?.extras) || 0)));
+
 function seedCases(saved) {
-  const extras = Array.from({ length: saved?.extras || 0 }, (_, i) => extraApplicant(i));
+  const extras = Array.from({ length: savedExtras(saved) }, (_, i) => extraApplicant(i));
   return [...CASELOAD, ...extras].map(c => {
     const base = { ...c, order: null, refresh: null, outcome: null, revealed: false };
     const prev = saved?.cases.find(x => x.id === c.id);
@@ -324,7 +328,8 @@ export function RenewalsRefreshDemo() {
   });
   const [screen, setScreen] = useState(saved?.screen && saved.screen !== 'walkthrough' ? (saved.screen === 'reauth' ? 'watch' : saved.screen) : 'walkthrough');
   // How many sample applicants have been added with "Add more applicants".
-  const [extras, setExtras] = useState(saved?.extras || 0);
+  const [extras, setExtras] = useState(() => savedExtras(saved));
+  const [addedNote, setAddedNote] = useState('');
 
   // Runtime state per applicant, keyed by the seed id. Seeded from CASELOAD and
   // extended with order ids, refresh ids and resolved outcomes as the demo runs.
@@ -415,8 +420,16 @@ export function RenewalsRefreshDemo() {
   // Appends one sample applicant who verifies income and assets and connects whatever the presenter picks.
   function addApplicant() {
     const n = extras;
+    const added = extraApplicant(n);
     setExtras(n + 1);
-    setCases(prev => [...prev, { ...extraApplicant(n), order: null, refresh: null, outcome: null, revealed: false }]);
+    setCases(prev => [...prev, { ...added, order: null, refresh: null, outcome: null, revealed: false }]);
+    setAddedNote(`Added ${added.firstName} ${added.lastName}.`);
+    // The row lands below the fold on most screens, so bring it into view and put focus on its button.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const row = document.querySelector(`[data-case="${added.id}"]`);
+      row?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      row?.querySelector('[data-connect]')?.focus({ preventScroll: true });
+    }));
   }
 
   // --- Step 1: intake. Create the applicant's original order, then open Bridge. ---
@@ -637,6 +650,7 @@ export function RenewalsRefreshDemo() {
     setBusy(null);
     setCases(CASELOAD.map(c => ({ ...c, order: null, refresh: null, outcome: null, revealed: false })));
     setExtras(0);
+    setAddedNote('');
     setActive(null);
     setReports({});
     setReportUi({});
@@ -725,7 +739,7 @@ export function RenewalsRefreshDemo() {
                   </thead>
                   <tbody>
                     {visibleCases.map(c => (
-                      <tr key={c.id} class="border-b border-[#f0f2f5] align-top">
+                      <tr key={c.id} data-case={c.id} class="border-b border-[#f0f2f5] align-top">
                         <td class="px-4 py-3">
                           <div class="font-medium text-[#1b1c1f]">{c.firstName} {c.lastName}</div>
                           <div class="text-[12px] text-[#474c52]">{c.scenario}</div>
@@ -756,6 +770,7 @@ export function RenewalsRefreshDemo() {
                             ? <StatusPill tone="good">connected</StatusPill>
                             : (
                               <button
+                                data-connect
                                 class="px-3 py-1.5 text-[13px] font-medium ck-btn primary disabled:opacity-40"
                                 disabled={busy === c.id}
                                 onClick={() => connectCase(c)}
@@ -774,6 +789,7 @@ export function RenewalsRefreshDemo() {
                 <button class="px-4 py-2 text-[13px] font-medium ck-btn ghost" onClick={addApplicant}>
                   Add more Applicants
                 </button>
+                <span class="sr-only" role="status" aria-live="polite">{addedNote}</span>
                 <button
                   class="px-5 py-2.5 text-sm font-semibold ck-btn primary disabled:opacity-40"
                   disabled={connected.length === 0}
@@ -1074,3 +1090,7 @@ export function RenewalsRefreshDemo() {
     </Layout>
   );
 }
+
+// hmr probe
+
+// hmr probe
