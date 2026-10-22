@@ -36,4 +36,3 @@ export { ApplicationForm } from './ApplicationForm.jsx';
 export { TERMINAL_FILE_STATUSES } from './collectionStatus.js';
 export { FileProcessingErrors } from './FileProcessingErrors.jsx';
 export { default as InternalCallout } from './InternalCallout.jsx';
-export { RefreshTimeline, RefreshEventLog } from './RefreshTimeline.jsx';

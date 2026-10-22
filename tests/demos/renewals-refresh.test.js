@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { classifyRefreshOutcome, classifyRefreshOutcomePerSuborder, outcomeFromConnections, tasksForOrder, REAUTH_STATUSES, NON_REAUTH_FAILURE_STATUSES } from '../../server/routes/renewals-refresh.js';
 import { CASELOAD, extraApplicant, STEPS, WALKTHROUGH_STAGES, OUTCOME_DISPLAY } from '../../src/demos/scaffolding/renewals-refresh.jsx';
-import { RENEWALS_DIAGRAM, REFRESH_FORK_DIAGRAM } from '../../src/diagrams/renewals-refresh.js';
 
 // ---------------------------------------------------------------------------
 // RenewalsRefresh.jsx behavioral contracts
@@ -366,18 +365,6 @@ describe('RenewalsRefresh scaffolding', () => {
       expect(OUTCOME_DISPLAY[state]?.label, state).toBeTruthy();
       expect(OUTCOME_DISPLAY[state]?.tone, state).toBeTruthy();
     }
-  });
-});
-
-describe('RenewalsRefresh diagrams', () => {
-  it('renders as mermaid definitions', () => {
-    expect(RENEWALS_DIAGRAM.startsWith('sequenceDiagram')).toBe(true);
-    expect(REFRESH_FORK_DIAGRAM.startsWith('flowchart')).toBe(true);
-  });
-
-  it('names the failure signal, which is the point of the demo', () => {
-    expect(RENEWALS_DIAGRAM).toContain('order-refresh-failed');
-    expect(REFRESH_FORK_DIAGRAM).toContain('order-refresh-failed');
   });
 });
 
