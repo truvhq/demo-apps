@@ -546,11 +546,6 @@ function FilePreview({ asset, onClose }) {
         </>
       )}
 
-      {asset.kind !== 'zip' && (
-        <a class="wt-btn primary bt-prev-dl" href={asset.href} download={fileName(asset.href)}>
-          Download this file ↓
-        </a>
-      )}
     </div>
   );
 }
