@@ -220,6 +220,8 @@ src/
   Home.jsx               Home page with industry cards
   IndustryPage.jsx       Demos for one industry
   industry/              Public Sector page: Demos and Guides cards (DemoHub.jsx lists the guides and tools).
+  guides/                Guide content. embedded-orders/guide-source.html is the Embedded Orders guide as
+                         published: replace that file to update the page.
                          A demo flagged `guide: true` in App.jsx is a guide, not a demo card.
   demos/                 One file per demo. scaffolding/ holds each demo's copy and config.
     SmartRouting.jsx       Best starting point for Consumer Credit (Bridge flow)

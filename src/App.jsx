@@ -16,6 +16,7 @@
  *   #consumer-credit/smart-routing           -> Demo intro screen
  *   #public-sector                           -> Public Sector page (Demos + Guides cards)
  *   #public-sector/batching                  -> the Batching guide (a demo flagged `guide`)
+ *   #public-sector/embedded-orders[/<id>]    -> the Embedded Orders guide, optionally at a section or rule
  *   #consumer-credit/smart-routing/bridge/id -> Demo active screen
  *
  * Each demo component receives { screen, param } props from the router.
@@ -40,6 +41,7 @@ import { LOSDemo } from './demos/LOS.jsx';
 import { CustomerPortalDemo } from './demos/CustomerPortal.jsx';
 import { PSDocumentProcessingDemo } from './demos/PSDocumentProcessing.jsx';
 import { BatchingWalkthrough } from './demos/Batching.jsx';
+import { EmbeddedOrdersGuide } from './demos/EmbeddedOrdersGuide.jsx';
 import { PublicSectorHub } from './industry/PublicSectorHub.jsx';
 import { SmartRoutingDemo } from './demos/SmartRouting.jsx';
 import { BankIncomeDemo } from './demos/BankIncome.jsx';
@@ -74,6 +76,7 @@ export const INDUSTRIES = [
       { id: 'documents', name: 'Document Processing', component: PSDocumentProcessingDemo, desc: 'Process pay stubs, W-2s, and tax returns to verify income for benefit eligibility decisions.', tags: ['Document Collections', 'Finalize', 'Parsed Data'] },
       { id: 'verifier-portal', name: 'Case Worker Portal', component: CaseWorkerPortalDemo, desc: 'A Case Worker creates verification orders using applicant data on file and sends verification links via email or SMS.', tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'] },
       { id: 'batching', name: 'Batching', component: BatchingWalkthrough, guide: true, desc: 'Animated walkthrough of bulk order intake: staff drop a CSV into a folder and a scheduled job creates one order per row. Ends with the setup guides and the runnable kit to hand to a customer.', tags: ['Guided', 'Bulk', 'CSV', 'Orders', 'Webhooks'] },
+      { id: 'embedded-orders', name: 'Embedded Orders Field Guide', component: EmbeddedOrdersGuide, guide: true, desc: 'How to put the Truv order page inside a benefits application: where it goes, nine rules with the reasons, the settings to check, and a pre-launch checklist.', tags: ['Guide'] },
       { id: 'renewals-refresh', name: 'Renewals & Data Refresh', component: RenewalsRefreshDemo, desc: 'Recertify without asking for documents again. Refresh the payroll and bank connections applicants already made, see which refreshes finish on their own and which need the applicant, and contact only those applicants.', tags: ['Guided', 'Orders', 'Refresh', 'Webhooks'] },
     ],
   },
