@@ -64,7 +64,7 @@ export const INDUSTRIES = [
       { id: 'customer-portal', name: 'Customer Portal', component: CustomerPortalDemo, desc: 'An applicant applies for benefits and verifies their income and employment through a self-service portal.', tags: ['Company Search', 'Orders', 'Bridge', 'Reports'] },
       { id: 'documents', name: 'Document Processing', component: PSDocumentProcessingDemo, desc: 'Process pay stubs, W-2s, and tax returns to verify income for benefit eligibility decisions.', tags: ['Document Collections', 'Finalize', 'Parsed Data'] },
       { id: 'verifier-portal', name: 'Case Worker Portal', component: CaseWorkerPortalDemo, desc: 'A Case Worker creates verification orders using applicant data on file and sends verification links via email or SMS.', tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'] },
-      { id: 'batching', name: 'Batching', component: BatchingWalkthrough, noSession: true, guide: true, desc: 'Animated walkthrough of bulk order intake: staff drop a CSV into a folder and a scheduled job creates one order per row. Ends with the setup guides and the runnable kit to hand to a customer.', tags: ['Guided', 'Bulk', 'CSV', 'Orders', 'Webhooks'] },
+      { id: 'batching', name: 'Batching', component: BatchingWalkthrough, guide: true, desc: 'Animated walkthrough of bulk order intake: staff drop a CSV into a folder and a scheduled job creates one order per row. Ends with the setup guides and the runnable kit to hand to a customer.', tags: ['Guided', 'Bulk', 'CSV', 'Orders', 'Webhooks'] },
       { id: 'renewals-refresh', name: 'Renewals & Data Refresh', component: RenewalsRefreshDemo, desc: 'Recertify without asking for documents again. Refresh the payroll and bank connections applicants already made, see which refreshes finish on their own and which need the applicant, and contact only those applicants.', tags: ['Guided', 'Orders', 'Refresh', 'Webhooks'] },
     ],
   },
@@ -212,24 +212,10 @@ export function App() {
   // Gate: BYO credentials must be configured before any demo can be reached.
   if (session.loading || ssoCallbackBusy) return null;
 
-  // Exception: a direct link to a page flagged `noSession` (the Batching guide)
-  // opens without sign-in. It makes no API calls at all, it is a static, animated
-  // explainer plus file downloads, so the gate would only get in the way of a
-  // shared link. Everything else, including the home page, waits for sign-in.
-  // `?configure` still wins, so the entry screen stays reachable for styling.
-  if (!forceConfigure && route.industry && route.demo) {
-    const noSessionDemo = INDUSTRIES
-      .find(i => i.id === route.industry)?.demos
-      .find(d => d.id === route.demo && d.noSession);
-    if (noSessionDemo) {
-      const PublicDemo = noSessionDemo.component;
-      return <PublicDemo key={`${route.industry}/${route.demo}/${restartNonce}`} screen={route.screen} param={route.param} />;
-    }
-  }
-
-  // Sign-in comes first: nothing else is shown until the session has API keys.
-  // The hash is unchanged, so after signing in the visitor lands on the page they
-  // asked for.
+  // Sign-in comes first: nothing is shown until the session has API keys, not even
+  // the home page or the Batching guide. The hash is unchanged, so after signing in
+  // the visitor lands on the page they asked for. `?configure` forces this screen
+  // even when signed in, so it can be styled.
   if (forceConfigure || !session.authenticated) {
     return <ConfigureScreen onSubmit={session.submit} ssoError={ssoError} />;
   }

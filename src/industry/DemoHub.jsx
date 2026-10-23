@@ -29,7 +29,7 @@ function DemoTile({ item, index }) {
     <a class="psh-tile" href={`#${industryId}/${demo.id}`} style={{ '--i': index }}>
       <div class="psh-tile-top">
         <span class="psh-ic" aria-hidden="true">{Icon && <Icon size={20} />}</span>
-        <span class="psh-mode">{demo.noSession ? 'Walkthrough · no keys' : 'Live API demo'}</span>
+        <span class="psh-mode">Live API demo</span>
       </div>
       {label && <div class="psh-usecase">{label}</div>}
       <h3 class="psh-tile-name">{demo.name}</h3>

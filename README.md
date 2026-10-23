@@ -225,7 +225,7 @@ src/
     SmartRouting.jsx       Best starting point for Consumer Credit (Bridge flow)
     POSApplication.jsx     Best starting point for Mortgage (Orders flow)
     RenewalsRefresh.jsx    Public Sector: renewals and data refresh (live flow)
-    Batching.jsx           Guide: walkthrough of bulk order intake (no API keys needed)
+    Batching.jsx           Guide: walkthrough of bulk order intake
     BankIncome.jsx, PayrollIncome.jsx, DirectDepositSwitch.jsx, PaycheckLinkedLoans.jsx,
     IncomePLLChained.jsx   Consumer Credit and Retail Banking demos
     POSTasks.jsx, LOS.jsx, DocumentProcessing.jsx   Mortgage demos

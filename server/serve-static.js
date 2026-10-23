@@ -14,6 +14,14 @@ import { existsSync, readFileSync } from 'fs';
 // URL baked into the built HTML; replaced at serve time when BRIDGE_URL overrides it.
 const BUILT_IN_BRIDGE_URL = 'https://cdn.truv.com/bridge.js';
 
+// Rejects the request unless it has a session. `req.truv` is set by the session
+// middleware for a signed-in visitor (and for everyone in local mode), the same
+// rule /api/session/status uses.
+export function requireSession(req, res, next) {
+  if (req.truv) return next();
+  res.status(401).json({ error: 'session_required' });
+}
+
 // Mounts the SPA from dist/ if it exists. No-op for local dev (Vite serves the
 // frontend). The catch-all must be the last route registered on the app.
 export function mountStaticIfBuilt(app, config) {
@@ -37,6 +45,9 @@ export function mountStaticIfBuilt(app, config) {
 
   // Serve injected HTML explicitly; static serves only hashed assets.
   if (previewHtml) app.get('/preview.html', (_req, res) => res.type('html').send(previewHtml));
+  // The Batching guide's downloads (PDFs, kit zip, CSV) are behind sign-in like the
+  // page itself. Anything else in dist/ is public: the sign-in screen needs it.
+  app.use('/batching', requireSession);
   app.use(express.static(distPath, { index: false }));
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) return next();
