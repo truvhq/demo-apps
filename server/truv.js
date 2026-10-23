@@ -87,12 +87,20 @@ export class TruvClient {
   // Creates a Bridge token for a Truv user. The token is used by the frontend
   // to launch the Truv Bridge widget. Optionally deeplinks to a specific employer
   // or financial institution so the user skips the search screen.
-  async createUserBridgeToken(userId, productType, { data_sources, company_mapping_id, provider_id } = {}) {
+  async createUserBridgeToken(userId, productType, { data_sources, company_mapping_id, provider_id, access_token } = {}) {
     const payload = {
       product_type: productType,
       client_name: 'Truv Demo Apps',
       tracking_info: '1338-0111-A', // Replace with your internal reference (e.g. loan number)
     };
+
+    // Bridge Update Mode. Passing the access_token of a connection that already
+    // exists tells Bridge to skip employer search and credential entry and resume
+    // at whatever the provider is now asking for, usually an MFA challenge. Use it
+    // when a refresh failed with login_error, mfa_error or session_expired: the
+    // applicant does one thing and the same link is reused. Do not use it for
+    // no_data or provider outages, since there is nothing for the applicant to do.
+    if (access_token) payload.access_token = access_token;
 
     if (data_sources && data_sources.length > 0) {
       payload.data_sources = data_sources;
@@ -209,7 +217,17 @@ export class TruvClient {
       }
     } else {
       // Payroll products use employers: [{ company_mapping_id }]
-      if (params.company_mapping_id) {
+      //
+      // `employers` (plural) creates an order with several jobs at once. The renewals
+      // demo needs it because real cases often have more than one employer and the
+      // refresh result differs per connection. Each entry can have a
+      // company_mapping_id or a company_name. The singular `employer` is still
+      // supported for older callers.
+      if (Array.isArray(params.employers) && params.employers.length) {
+        payload.employers = params.employers.map(e => (
+          typeof e === 'string' ? { company_name: e } : e
+        ));
+      } else if (params.company_mapping_id) {
         payload.employers = [{ company_mapping_id: params.company_mapping_id }];
       } else if (params.employer) {
         payload.employers = [{ company_name: params.employer }];
@@ -238,9 +256,63 @@ export class TruvClient {
     return this._request('GET', `orders/${truvOrderId}/`);
   }
 
-  // Triggers a refresh of an existing order. Used when re-pulling data for an order.
-  async refreshOrder(truvOrderId) {
-    return this._request('POST', `orders/${truvOrderId}/refresh/`);
+  // --- Data refresh (renewals / recertification) ---
+  // Re-pulls data from the connections an existing order already made.
+  // POSTing to the order's own path (not a /refresh/ sub-path) creates the refresh:
+  // Truv returns a new order with its own id, share_url and bridge_token, and pulls
+  // the data using the session the applicant already authorized.
+  //
+  // Two outcomes, and the caller must handle both:
+  //   - session still valid  -> the new order completes on its own, no applicant action
+  //   - session needs MFA /
+  //     credentials changed  -> the refresh task fails, the new order never completes,
+  //                             and Truv fires `order-refresh-failed`
+  //
+  // `products` narrows what gets refreshed ('income' | 'employment' | 'assets' | ...).
+  // One product per request: income orders may refresh `income` or `employment`;
+  // employment orders may only refresh `employment`.
+  //
+  // `employers` / `financial_accounts` limit the refresh to some of the order's
+  // existing connections. Each entry is `{ id }` or `{ suborder_number }` from the
+  // original order; leave them out to refresh every connection. They cannot add a
+  // connection, because adding a new employer is a separate call. Leaving a
+  // connection out is also how you handle "I don't work there anymore" without
+  // deleting the earlier verification.
+  //
+  // `request_extended_history` matters for assets: a refresh pulls only 90 days of
+  // transactions by default, however much the original connection pulled. Pass true
+  // for the full 730 days, otherwise the data is cut off with no warning.
+  //
+  // Rate limit: counted per connection (access_token), 1 initial request plus 3
+  // refreshes per 24h, then Truv returns 429.
+  async createRefreshOrder(truvOrderId, { products, employers, financial_accounts, request_extended_history } = {}) {
+    const payload = {};
+    if (products && products.length) payload.products = products;
+    if (employers && employers.length) payload.employers = employers;
+    if (financial_accounts && financial_accounts.length) payload.financial_accounts = financial_accounts;
+    if (request_extended_history) payload.request_extended_history = true;
+    return this._request('POST', `orders/${truvOrderId}/`, { json: payload });
+  }
+
+  // Reads a refresh task created by the token-refresh path (POST /v1/refresh/tasks/).
+  //
+  // A `session_expired` refresh task does not appear in GET /v1/tasks/?user_id=;
+  // this endpoint is the only place to see it. That only helps if you have a refresh
+  // task id, and the order-refresh path never returns one. For that path,
+  // `order-refresh-failed` is the signal.
+  async getRefreshTask(taskId) {
+    return this._request('GET', `refresh/tasks/${taskId}/`);
+  }
+
+  // Permanently deletes a link and all its data, then fires `link-deleted`.
+  // Returns 204 with an empty body on success.
+  //
+  // This cannot be undone and is usually not what you want. If someone says "I
+  // don't work there anymore", leave that employer out of the refresh and mark it
+  // inactive in your own system. That keeps the earlier verification in the case
+  // file. Use this only for a real deletion request.
+  async deleteLink(linkId) {
+    return this._request('DELETE', `links/${linkId}/`);
   }
 
   // --- Income + PLL chained order flow ---

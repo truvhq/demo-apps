@@ -24,6 +24,7 @@ Demos are organized by industry. Each starts with a split intro screen (business
 | **Customer Portal** | An applicant applies for benefits and verifies income through a self-service portal |
 | **Document Processing** | Process pay stubs, W-2s, and tax returns for benefit eligibility decisions |
 | **Case Worker Portal** | A Case Worker creates verification orders using applicant data on file |
+| **Renewals & Data Refresh** | Guided walkthrough plus a live recertification cycle with four ready-made applicants (payroll only, assets only, payroll and assets, two employers) and an Add more Applicants button: refresh existing payroll and bank connections via `POST /v1/orders/{id}/`, then see each connection's outcome. If a refresh needs the applicant, Truv sends `order-refresh-failed` and that connection stays unfinished until they act. Listening only for `order-status-updated` will not tell you it failed |
 
 ### Consumer Credit
 
@@ -78,7 +79,7 @@ Frontend                    Backend                     Truv API
 
 Best for workflows where you collect applicant data upfront. The server creates an order with PII, Truv returns a `bridge_token`, and reports are fetched by user ID.
 
-**Key files:** `server/routes/orders.js`, `server/routes/user-reports.js`, `src/demos/Application.jsx`
+**Key files:** `server/routes/orders.js`, `server/routes/user-reports.js`, `src/demos/POSApplication.jsx`
 
 ### Bridge / User+Token (Consumer Credit, Retail Banking)
 
@@ -151,10 +152,26 @@ When a demo launches Bridge, connect a provider with the sandbox login:
 | Login | `goodlogin` |
 | Password | `goodpassword` |
 
+### Environment variables
+
+Only the first two are needed to run locally.
+
+| Variable | Default | What it does |
+|----------|---------|--------------|
+| `API_CLIENT_ID`, `API_SECRET` | none | Your Truv sandbox keys |
+| `NGROK_URL` | none | A public HTTPS address for this server, so Truv can deliver webhooks. Any tunnel works (ngrok, cloudflared). The name is historical. |
+| `TRUV_API_URL` | `https://prod.truv.com/v1/` | API base URL. It must end in `/v1/`. Sandbox keys use this same host. |
+| `TRUV_ENV_TYPE` | `sandbox` | Which environment's webhooks the server registers for |
+| `PORT` | `3000` | Backend port |
+| `BRIDGE_URL` | `https://cdn.truv.com/bridge.js` | Where the browser loads Bridge from |
+
+Hosting variables (`PUBLIC_BASE_URL`, `SESSION_COOKIE_SECRET`, SSO) are covered in
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ### Receiving webhooks (optional)
 
 The demos run end-to-end for outbound API calls without any extra setup. To
-also receive inbound webhooks on `localhost`, point a tunnel at port 3000 and
+also receive inbound webhooks on `localhost`, point a tunnel (ngrok, cloudflared, or similar) at port 3000 and
 set `NGROK_URL` in `.env`:
 
 ```sh
@@ -175,50 +192,51 @@ any of it for local development.
 
 ```
 server/
-  index.js               Express entry point, webhooks, company/provider search
-  config.js              All settings & run mode (local by default; deployment knobs live here)
-  serve-static.js        Production static-file serving (no-op locally)
-  truv.js                Truv API client with all v1 endpoint wrappers
+  index.js               Express entry point: wires routes, webhooks, company/provider search
+  config.js              Settings and run mode (local by default; deployment settings live here)
+  serve-static.js        Production static-file serving (deployment only)
+  truv.js                Truv API client with a wrapper for each v1 endpoint the demos use
   db.js                  SQLite (local, ephemeral) for orders, logs, webhooks
   api-logger.js          API call logging with PII redaction
-  webhooks.js            HMAC-SHA256 webhook signature verification
-  webhook-setup.js       Registers the shared webhook on startup (local mode)
+  webhooks.js            Webhook signature verification (HMAC-SHA256)
+  webhook-setup.js       Registers the shared webhook on startup when NGROK_URL is set
+  dashboard.js           Dashboard backend client (server to server)
+  sessions/              Hosted mode only: signed session cookies and per-visitor key store
+  lib/csv.js             CSV parser and serializer for the coverage demos
   routes/
-    orders.js            Orders API (Mortgage, Public Sector demos)
-    user-reports.js      Unified report fetching by userId and reportType
-    reports.js           Legacy order-based report fetching
-    bridge.js            Bridge Token flow (Consumer Credit, Retail Banking demos)
+    orders.js            Orders API (Mortgage, Public Sector)
+    renewals-refresh.js  Renewals and data refresh: create a refresh, resolve each connection's outcome
+                         (the pure classifier functions at the top are the reusable part)
+    user-reports.js      Unified report fetching by user id and report type
+    reports.js           Legacy order-based report fetching with caching
+    bridge.js            Bridge token flow (Consumer Credit, Retail Banking)
+    voie-pll.js          Income then paycheck-linked-loan chained orders
     upload-documents.js  Document collections
+    coverage-analysis.js Bulk coverage lookups
+    session.js           Hosted mode: bring-your-own-keys session routes
 
 src/
-  App.jsx                Router + industry/demo registry (INDUSTRIES config)
+  App.jsx                Router and industry/demo registry (INDUSTRIES).
   Home.jsx               Home page with industry cards
-  IndustryPage.jsx       Demo list for a selected industry
-  demos/
-    SmartRouting.jsx      Best starting point for Consumer Credit (Bridge flow)
-    Application.jsx       Best starting point for Mortgage (Orders flow)
-    BankIncome.jsx        Bank income via financial_accounts
-    PayrollIncome.jsx     Payroll income via payroll data source
-    DepositSwitch.jsx     Direct deposit switch
-    PaycheckLinkedLoans.jsx  PLL with dual reports (income + deposit switch)
-    FollowUp.jsx          Multi-task verification with shared external_user_id
-    LOS.jsx               Loan Processor creates orders, sends verification links
-    EmployeePortal.jsx    Case Worker portal (same as LOS, government context)
-    CustomerPortal.jsx    Self-service verification (same as Application, government context)
-    UploadDocuments.jsx   Document processing via Document Collections API
-    PSDocuments.jsx       Document processing (same as UploadDocuments, government context)
-  components/
-    Header.jsx            Shared header bar with Truv logo
-    ApplicationForm.jsx   Shared PII form (handles employer vs bank search)
-    CompanySearch.jsx     Typeahead search for employers or financial institutions
-    IntroSlide.jsx        Split intro layout (text left, diagram right)
-    Layout.jsx            App shell with Header and optional sidebar Panel
-    Panel.jsx             Sidebar tabs (Guide, API, Bridge, Webhooks)
-    hooks.js              usePanel() hook for sidebar state and polling
-    Icons.jsx             SVG icon library including Truv wordmark
-    MermaidDiagram.jsx    Renders architecture diagrams as inline SVG
-    reports/              Typed report renderers (VoieReport, AssetsReport, DDSReport, etc.)
-    screens/              Shared demo screens (BridgeScreen, OrderWaitingScreen)
+  IndustryPage.jsx       Demos for one industry
+  demos/                 One file per demo. scaffolding/ holds each demo's copy and config.
+    SmartRouting.jsx       Best starting point for Consumer Credit (Bridge flow)
+    POSApplication.jsx     Best starting point for Mortgage (Orders flow)
+    RenewalsRefresh.jsx    Public Sector: renewals and data refresh (live flow)
+    Batching.jsx           Guided walkthrough of bulk order intake
+    BankIncome.jsx, PayrollIncome.jsx, DirectDepositSwitch.jsx, PaycheckLinkedLoans.jsx,
+    IncomePLLChained.jsx   Consumer Credit and Retail Banking demos
+    POSTasks.jsx, LOS.jsx, DocumentProcessing.jsx   Mortgage demos
+    CustomerPortal.jsx, CaseWorkerPortal.jsx, PSDocumentProcessing.jsx   Public Sector and Retail Banking demos
+    PayrollCoverage.jsx, BankCoverage.jsx   Coverage Analysis
+  diagrams/              Mermaid architecture diagrams, one per demo
+  components/            Shared UI: Layout, Panel (Guide/API/Bridge/Webhooks tabs), Walkthrough,
+                         DeviceFrame, WebhookFeed, CompanySearch, IntroSlide, and more
+    reports/             Report renderers (VoieReport, AssetsReport, DDSReport, ...)
+    screens/             Shared screens (OrderWaitingScreen)
+
+examples/
+  refresh-minimal.mjs    Standalone script (no dependencies): refresh an order and print each connection's result
 ```
 
 ## Key concepts
@@ -255,11 +273,29 @@ All reports are fetched via the user reports endpoints (never link reports):
 | Income Insights | `POST /v1/users/{id}/income_insights/reports/` |
 | Deposit Switch | `GET /v1/users/{id}/deposit_switch/report/` |
 
+### Refresh
+
+To re-check an applicant without asking for documents again, refresh the connections they already made.
+
+| Step | Call |
+|------|------|
+| Refresh every connection on an order | `POST /v1/orders/{original_order_id}/` with `{ "products": ["income"] }` |
+| Refresh only some connections | the same call with `employers: [{ id }]` or `financial_accounts: [{ id }]` from the original order |
+| Refresh one connection directly | `POST /v1/refresh/tasks/` with its `access_token` and a `product_type` |
+| Read each connection's result | `GET /v1/tasks/?user_id={user_id}`, matched to your case file by `link_id` |
+| Read the refreshed data | `GET /v1/orders/{refresh_order_id}/`, then `GET` the report named by its `voie_report_id` (income) or `voa_report_id` (assets). A completed refresh order already has its own report, so nothing is created |
+
+Refreshes are limited per connection: 1 initial request plus 3 refreshes in any 24 hours. A refresh sent right
+after Bridge finishes can be rejected for about 15 to 20 seconds, so retry. A connection that needs the
+applicant again fails with `login_error`, `mfa_error` or `session_expired`; send the applicant the refresh
+order's `share_url`. `examples/refresh-minimal.mjs` shows the calls in one file.
+
 ### Webhooks
 
 All demos wait for webhooks before fetching reports. The key events are:
 - `task-status-updated` with status `done` (Bridge flow)
-- `order-status-updated` with status `completed` (Orders flow)
+- `order-status-updated` with status `completed` (Orders flow). On a refresh it covers one connection, so it does not mean the whole refresh worked.
+- `order-refresh-failed` when a refresh needs the applicant. It carries a status such as `mfa_error`, but not the error text and not a `link_id` you can match; read those from the task.
 
 The server verifies webhook signatures via HMAC-SHA256.
 

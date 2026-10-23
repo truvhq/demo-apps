@@ -1,0 +1,318 @@
+/*
+ * Walkthrough shell - the guided, narrated intro that runs BEFORE a live demo.
+ *
+ * Two-pane stage: a visual on the left and the text on the right, a fixed header
+ * and footer, dot navigation plus arrow keys, and a button that hands off to the
+ * interactive demo.
+ *
+ * PREFIX: every class is `twt-*` and every rule is scoped under `.twt`.
+ * The pattern started in demo-apps-private as `.wt` (walkthrough.css) and was
+ * renamed there to `.bt` (batching.css) so the two branches would not collide in
+ * one bundle. Public `main` syncs into that repo's `base`, so a third `.wt` sheet
+ * here would sit next to the first two at the same specificity, and which one
+ * wins would be unpredictable. The `twt-` prefix keeps this shell separate from both.
+ *
+ * THEMING: the palette is CSS variables on `.twt`. Pass `theme="<name>"` to the
+ * component to add `.twt-theme-<name>` and override only the variables. No brand
+ * color is hardcoded outside the variable block.
+ *
+ * MOTION: each stage animation plays once and replays because Walkthrough.jsx
+ * remounts the stage and text when the key changes. With prefers-reduced-motion
+ * the durations shrink to almost nothing instead of hiding content, so the final
+ * state is always visible.
+ */
+
+/* ============================================================================
+ * SHELL
+ * ========================================================================= */
+.twt {
+  /* Default palette: Truv public-sector forest green + cool mist. */
+  --twt-ink: #0c1a14;
+  --twt-ink-2: #3d4f47;
+  --twt-muted: #5c6b64;
+  --twt-muted-2: #8a9690;
+  --twt-line: #d5ddd9;
+  --twt-line-2: #e8eeeb;
+  --twt-bg: #f3f6f4;
+  --twt-panel: #fff;
+  --twt-brand: #044533;
+  --twt-brand-2: #033528;
+  --twt-brand-soft: #dae0de;
+  --twt-accent: #044533;
+  --twt-good: #1f7a5c;
+  --twt-warn: #8a5a00;
+  --twt-stage-from: #f4f7f5;
+  --twt-stage-mid: #e8eeeb;
+  --twt-stage-to: #e2e9e5;
+  --twt-orb: 4, 69, 51;
+  --twt-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --twt-display: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--twt-bg);
+  color: var(--twt-ink);
+  font-family: var(--twt-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Fixed height so the header and footer nav stay in the viewport and the
+     right-hand text scrolls on its own. With min-height, long text would grow the
+     page on short displays and push the Next button below the fold. */
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+.twt * { box-sizing: border-box; }
+
+/* Alternate palette: indigo (matches the original Merida walkthrough). */
+.twt.twt-theme-indigo {
+  --twt-ink: #171a2b;
+  --twt-ink-2: #3a4058;
+  --twt-muted: #6b7280;
+  --twt-line: #e6e8ef;
+  --twt-line-2: #eef0f6;
+  --twt-bg: #f5f6fb;
+  --twt-brand: #28307d;
+  --twt-brand-2: #1e2461;
+  --twt-brand-soft: #eaecf8;
+  --twt-accent: #465ad9;
+  --twt-good: #2e9e5b;
+  --twt-stage-from: #f7f8fc;
+  --twt-stage-mid: #eef0f8;
+  --twt-stage-to: #e8ebf6;
+  --twt-orb: 40, 48, 125;
+}
+
+/* ---------------- header ---------------- */
+.twt-top { height: 58px; flex: none; display: flex; align-items: center; padding: 0 22px; background: var(--twt-panel); border-bottom: 1px solid var(--twt-line); position: relative; z-index: 5; }
+.twt-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--twt-line-2); overflow: hidden; }
+.twt-progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--twt-brand), var(--twt-good)); transition: width .45s cubic-bezier(.2, .75, .25, 1); }
+.twt-brand { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.twt-brand .twt-product { font-weight: 800; letter-spacing: -.02em; font-size: 16px; color: var(--twt-ink); }
+.twt-brand .twt-rule { width: 1px; height: 20px; background: var(--twt-line); }
+.twt-brand .twt-partner { font-weight: 700; color: var(--twt-brand); letter-spacing: -.01em; }
+.twt-brand .twt-partner .twt-dept { display: block; font-size: 9.5px; font-weight: 600; color: var(--twt-muted); letter-spacing: .02em; }
+.twt-step { position: absolute; left: 50%; transform: translateX(-50%); text-align: center; }
+.twt-step .twt-k { font-size: 9.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--twt-accent); }
+.twt-step .twt-nm { font-size: 13px; font-weight: 650; color: var(--twt-ink); margin-top: 1px; }
+.twt-cta { margin-left: auto; font-size: 12.5px; font-weight: 650; color: var(--twt-brand); border: 1px solid var(--twt-line-2); background: #fff; border-radius: 999px; padding: 8px 15px; cursor: pointer; font-family: var(--twt-sans); }
+.twt-cta:hover { border-color: var(--twt-brand); background: var(--twt-brand-soft); }
+
+/* ---------------- body split ---------------- */
+.twt-body { flex: 1; display: grid; grid-template-columns: 1.52fr 1fr; min-height: 0; }
+.twt-stage { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 44px 40px; background: linear-gradient(165deg, var(--twt-stage-from) 0%, var(--twt-stage-mid) 48%, var(--twt-stage-to) 100%); }
+
+/* ---------------- animated background (optional) ---------------- */
+.twt-ambient { position: absolute; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.twt-orb { position: absolute; border-radius: 50%; filter: blur(48px); will-change: transform; }
+.twt-orb.o1 { width: 42%; aspect-ratio: 1; left: -8%; top: -12%; background: radial-gradient(circle, rgba(var(--twt-orb), .16) 0%, rgba(var(--twt-orb), 0) 70%); animation: twt-drift-a 28s ease-in-out infinite; }
+.twt-orb.o2 { width: 36%; aspect-ratio: 1; right: -6%; bottom: -10%; background: radial-gradient(circle, rgba(var(--twt-orb), .08) 0%, rgba(var(--twt-orb), 0) 68%); animation: twt-drift-b 34s ease-in-out infinite; }
+.twt-orb.o3 { width: 28%; aspect-ratio: 1; left: 38%; top: 42%; background: radial-gradient(circle, rgba(var(--twt-orb), .08) 0%, rgba(var(--twt-orb), 0) 72%); animation: twt-drift-c 22s ease-in-out infinite; }
+.twt-grid { position: absolute; inset: -20%; background-image: radial-gradient(rgba(var(--twt-orb), .07) 1px, transparent 1px); background-size: 22px 22px; opacity: .55; mask-image: radial-gradient(ellipse 70% 65% at 50% 45%, #000 20%, transparent 75%); -webkit-mask-image: radial-gradient(ellipse 70% 65% at 50% 45%, #000 20%, transparent 75%); animation: twt-grid-pan 48s linear infinite; }
+.twt-ring { position: absolute; border-radius: 50%; border: 1px solid rgba(var(--twt-orb), .1); pointer-events: none; }
+.twt-ring.r1 { width: min(72vw, 560px); aspect-ratio: 1; right: -18%; top: -22%; animation: twt-spin 80s linear infinite; }
+.twt-ring.r2 { width: min(48vw, 380px); aspect-ratio: 1; left: -12%; bottom: -18%; border-color: rgba(var(--twt-orb), .08); animation: twt-spin 110s linear infinite reverse; }
+.twt-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse 72% 68% at 50% 48%, transparent 35%, var(--twt-bg) 100%); opacity: .55; pointer-events: none; }
+@keyframes twt-drift-a { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(6%, 4%) scale(1.06); } }
+@keyframes twt-drift-b { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-5%, -3%) scale(1.08); } }
+@keyframes twt-drift-c { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(3%, -5%); } }
+@keyframes twt-grid-pan { 0% { transform: translate(0, 0); } 100% { transform: translate(22px, 22px); } }
+@keyframes twt-spin { to { transform: rotate(360deg); } }
+
+/* ---------------- left visual + right-hand text ---------------- */
+.twt-stage-inner { position: relative; z-index: 1; width: 100%; display: flex; align-items: center; justify-content: center; animation: twt-shell-in .65s cubic-bezier(.2, .75, .25, 1) both; }
+@keyframes twt-shell-in { from { opacity: 0; filter: blur(8px); transform: translateX(28px) scale(.985); } to { opacity: 1; filter: blur(0); transform: none; } }
+.twt-context { background: var(--twt-panel); border-left: 1px solid var(--twt-line); padding: 56px 48px; display: flex; flex-direction: column; justify-content: center; overflow-y: auto; animation: twt-ctx-in .55s cubic-bezier(.2, .75, .25, 1) both; animation-delay: .08s; }
+@keyframes twt-ctx-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.twt-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--twt-accent); margin-bottom: 16px; }
+.twt-title { font-family: var(--twt-display); font-size: 32px; font-weight: 600; line-height: 1.1; letter-spacing: -.01em; margin: 0 0 18px; text-wrap: balance; }
+.twt-lead { font-size: 15.5px; line-height: 1.6; color: var(--twt-ink-2); margin: 0 0 14px; max-width: 44ch; }
+.twt-lead strong { color: var(--twt-ink); font-weight: 650; }
+.twt-ul { margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 11px; }
+.twt-ul li { position: relative; padding-left: 22px; font-size: 14.5px; line-height: 1.5; color: var(--twt-ink-2); }
+.twt-ul li::before { content: ""; position: absolute; left: 0; top: 7px; width: 8px; height: 8px; border-radius: 2px; background: var(--twt-accent); transform: rotate(45deg); }
+
+/* ---------------- stat chips ---------------- */
+.twt-chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+.twt-chip { border: 1px solid var(--twt-line); border-radius: 10px; padding: 10px 13px; background: var(--twt-bg); min-width: 96px; }
+.twt-chip b { display: block; font-family: var(--twt-display); font-size: 19px; font-weight: 650; letter-spacing: -.01em; color: var(--twt-brand); line-height: 1.15; }
+.twt-chip span { display: block; font-size: 11.5px; color: var(--twt-muted); margin-top: 2px; }
+
+/* ---------------- buttons ---------------- */
+.twt-btn { font-family: var(--twt-sans); font-size: 13.5px; font-weight: 650; border-radius: 999px; padding: 11px 20px; cursor: pointer; border: 1px solid transparent; display: inline-flex; align-items: center; gap: 8px; transition: background .15s, border-color .15s, transform .08s; text-decoration: none; }
+.twt-btn.primary { background: var(--twt-brand); color: #fff; }
+.twt-btn.primary:hover { background: var(--twt-brand-2); }
+.twt-btn.ghost { background: #fff; color: var(--twt-brand); border-color: var(--twt-line); }
+.twt-btn.ghost:hover { border-color: var(--twt-brand); }
+.twt-btn:active { transform: translateY(1px); }
+
+/* ---------------- API snippet ---------------- */
+.twt-api { margin-top: 22px; background: #0d1526; border: 1px solid #1c2740; border-radius: 12px; padding: 14px 16px; font-family: ui-monospace, "JetBrains Mono", Menlo, monospace; font-size: 11.5px; line-height: 1.65; color: #c7d2e6; overflow-x: auto; white-space: pre; }
+.twt-api .mth { color: #7ee0b8; font-weight: 600; }
+.twt-api .k { color: #8ea6d6; }
+.twt-api .s { color: #e6b980; }
+.twt-api .c { color: #8a99b8; font-style: italic; }
+
+/* ---------------- footer nav ---------------- */
+.twt-nav { height: 66px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; background: var(--twt-panel); border-top: 1px solid var(--twt-line); position: sticky; bottom: 0; z-index: 5; }
+.twt-dots { display: flex; align-items: center; gap: 9px; }
+.twt-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--twt-line); border: none; padding: 0; cursor: pointer; transition: background .2s, transform .2s; }
+.twt-dot.done { background: var(--twt-muted-2); }
+.twt-dot.active { background: var(--twt-brand); transform: scale(1.35); }
+.twt-navbtns { display: flex; gap: 10px; }
+.twt-nav .twt-btn.primary { padding: 11px 24px; }
+.twt-nav .twt-btn[disabled] { opacity: .4; cursor: default; pointer-events: none; }
+
+/* ============================================================================
+ * BUILT-IN SURFACES
+ * Generic left-pane visuals, so a walkthrough works without custom artwork.
+ * Pass the `surfaces` prop to replace or add to them.
+ * ========================================================================= */
+
+/* hero: oversized statement + supporting line */
+.twt-hero { text-align: center; max-width: 620px; }
+.twt-hero-mark { font-size: 12px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--twt-accent); margin-bottom: 20px; }
+.twt-hero h1 { font-family: var(--twt-display); font-size: 46px; font-weight: 600; line-height: 1.08; letter-spacing: -.02em; margin: 0 0 18px; color: var(--twt-ink); text-wrap: balance; }
+.twt-hero p { font-size: 16.5px; line-height: 1.55; color: var(--twt-ink-2); margin: 0 auto; max-width: 46ch; }
+
+/* card: a framed panel used for problem statements and comparisons */
+.twt-card { background: var(--twt-panel); border: 1px solid var(--twt-line); border-radius: 16px; padding: 26px 28px; box-shadow: 0 1px 2px rgba(0, 0, 0, .03), 0 12px 32px rgba(0, 0, 0, .05); max-width: 560px; width: 100%; }
+.twt-card-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--twt-muted); margin-bottom: 14px; }
+.twt-card h3 { font-family: var(--twt-display); font-size: 21px; font-weight: 620; margin: 0 0 10px; color: var(--twt-ink); letter-spacing: -.01em; }
+.twt-card p { font-size: 14px; line-height: 1.55; color: var(--twt-ink-2); margin: 0; }
+
+/* split: two outcome columns side by side */
+.twt-split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 620px; width: 100%; }
+.twt-lane { background: var(--twt-panel); border: 1px solid var(--twt-line); border-radius: 14px; padding: 20px; position: relative; overflow: hidden; }
+.twt-lane::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--twt-muted-2); }
+.twt-lane.good::before { background: var(--twt-good); }
+.twt-lane.warn::before { background: var(--twt-warn); }
+.twt-lane-tag { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--twt-muted); margin-bottom: 10px; }
+.twt-lane.good .twt-lane-tag { color: var(--twt-good); }
+.twt-lane.warn .twt-lane-tag { color: var(--twt-warn); }
+.twt-lane h4 { font-family: var(--twt-display); font-size: 16px; font-weight: 620; margin: 0 0 8px; color: var(--twt-ink); line-height: 1.25; }
+.twt-lane p { font-size: 13px; line-height: 1.5; color: var(--twt-ink-2); margin: 0 0 12px; }
+.twt-lane code { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; background: var(--twt-bg); border: 1px solid var(--twt-line-2); border-radius: 6px; padding: 2px 6px; color: var(--twt-ink); display: inline-block; }
+
+/* diagram: wraps a MermaidDiagram in the stage panel */
+.twt-diagram { background: var(--twt-panel); border: 1px solid var(--twt-line); border-radius: 16px; padding: 24px; max-width: 640px; width: 100%; max-height: 100%; display: flex; box-shadow: 0 1px 2px rgba(0, 0, 0, .03), 0 12px 32px rgba(0, 0, 0, .05); }
+.twt-diagram > div { margin: 0; width: 100%; min-height: 0; }
+/* MermaidDiagram sets width:100% and height:auto inline, so a tall top-down
+   flowchart scales to the panel's width, runs past the fixed-height stage, and
+   gets cut off by overflow:hidden on .twt-stage. Capping both width and height
+   and letting the viewBox keep the aspect ratio makes the diagram fit whichever
+   limit it hits first. !important is needed because the inline style would
+   otherwise win. */
+.twt-diagram svg { width: auto !important; height: auto !important; max-width: 100% !important; max-height: min(58vh, 460px) !important; margin: 0 auto; display: block; }
+
+/* ============================================================================
+ * RESPONSIVE + MOTION
+ * ========================================================================= */
+@media (max-height: 860px) {
+  .twt-stage { padding: 26px 30px; }
+  .twt-context { padding: 30px 36px; }
+  .twt-title { font-size: 26px; margin-bottom: 13px; }
+  .twt-lead { font-size: 14.2px; margin-bottom: 11px; }
+  .twt-ul { gap: 8px; }
+  .twt-ul li { font-size: 13.2px; }
+  .twt-hero h1 { font-size: 36px; }
+  .twt-hero p { font-size: 15px; }
+}
+@media (max-height: 700px) {
+  .twt-top { height: 48px; }
+  .twt-nav { height: 54px; }
+  .twt-context { padding: 22px 30px; }
+  .twt-title { font-size: 22px; line-height: 1.14; margin-bottom: 10px; }
+  .twt-lead { font-size: 13.4px; }
+  .twt-eyebrow { margin-bottom: 10px; font-size: 9.6px; }
+  .twt-hero h1 { font-size: 30px; }
+}
+/* Narrow viewports: stack the text under the visual instead of squeezing both. */
+@media (max-width: 900px) {
+  .twt { height: auto; min-height: 100dvh; overflow: visible; }
+  .twt-body { grid-template-columns: 1fr; }
+  .twt-stage { padding: 28px 20px; }
+  .twt-context { border-left: none; border-top: 1px solid var(--twt-line); padding: 28px 24px; }
+  .twt-step { display: none; }
+  .twt-split { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .twt *,
+  .twt *::after,
+  .twt *::before {
+    animation-duration: .01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* Card rows given as {k, v} show as a label and a value instead of one run of text. */
+.twt-card .twt-ul li { display: flex; gap: 12px; align-items: baseline; }
+.twt-card-k { flex: 0 0 auto; font-weight: 600; color: var(--twt-ink); }
+.twt-card-v { flex: 1 1 auto; color: var(--twt-ink-2); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12.5px; }
+
+/* ============================================================================
+ * THEME: checkr
+ * The Checkr look used by the Batching walkthrough (src/demos/batching.css,
+ * "Checkr rebrand"): near-black and cool greys, flat surfaces, black primary
+ * button, grey outline button, and both turn aqua on hover.
+ * ========================================================================= */
+.twt.twt-theme-checkr {
+  --twt-ink: #1b1c1f;
+  --twt-ink-2: #2e3035;
+  --twt-muted: #474c52;
+  --twt-muted-2: #8a9099;
+  --twt-line: #d8dee5;
+  --twt-line-2: #f0f2f5;
+  --twt-bg: #f8f8f8;
+  --twt-panel: #fff;
+  --twt-brand: #1b1c1f;
+  --twt-brand-2: #000;
+  --twt-brand-soft: #f0f2f5;
+  --twt-accent: #474c52;
+  --twt-good: #197d58;
+  --twt-warn: #8a5a00;
+  --twt-stage-from: #f8f8f8;
+  --twt-stage-mid: #f8f8f8;
+  --twt-stage-to: #f8f8f8;
+  --twt-orb: 27, 28, 31;
+  --twt-sans: "National 2", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --twt-display: "National 2", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --ck-aqua: #23deff;
+  --ck-ease: cubic-bezier(.39, .575, .565, 1);
+}
+.twt-theme-checkr .twt-ambient { display: none; }
+.twt-theme-checkr .twt-stage { background: #f8f8f8; }
+.twt-theme-checkr .twt-stage-inner { animation: twt-ck-in .4s var(--ck-ease) both; }
+.twt-theme-checkr .twt-context { animation-timing-function: var(--ck-ease); animation-duration: .3s; }
+@keyframes twt-ck-in { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+.twt-theme-checkr .twt-progress i { background: #1b1c1f; }
+.twt-theme-checkr .twt-brand .twt-partner { color: var(--twt-ink); }
+.twt-theme-checkr .twt-step .twt-k,
+.twt-theme-checkr .twt-eyebrow,
+.twt-theme-checkr .twt-hero-mark { color: var(--twt-muted); }
+
+.twt-theme-checkr .twt-btn,
+.twt-theme-checkr .twt-cta { border-radius: 6px; font-weight: 500; transition: background .4s, border-color .4s, color .4s; }
+.twt-theme-checkr .twt-btn.primary { background: #1b1c1f; color: #fff; border-color: transparent; }
+.twt-theme-checkr .twt-btn.ghost,
+.twt-theme-checkr .twt-cta { background: transparent; color: var(--twt-muted); border: 1px solid var(--twt-muted); }
+.twt-theme-checkr .twt-btn.primary:hover,
+.twt-theme-checkr .twt-btn.ghost:hover,
+.twt-theme-checkr .twt-cta:hover,
+.twt-theme-checkr .twt-btn.primary:focus-visible,
+.twt-theme-checkr .twt-btn.ghost:focus-visible,
+.twt-theme-checkr .twt-cta:focus-visible { background: var(--ck-aqua); border-color: var(--ck-aqua); color: #1b1c1f; }
+.twt-theme-checkr .twt-btn:active { transform: none; }
+
+.twt-theme-checkr .twt-dot.active { background: #1b1c1f; }
+.twt-theme-checkr .twt-dot:hover { background: var(--twt-muted); }
+.twt-theme-checkr .twt-card,
+.twt-theme-checkr .twt-diagram { border-radius: 12px; box-shadow: 0 1px 2px rgba(27, 28, 31, .04); }
+.twt-theme-checkr .twt-chip { border-radius: 8px; }
+.twt-theme-checkr a:hover { text-decoration: underline 2px; text-underline-offset: 6px; }
+.twt-theme-checkr .twt-api { background: #1b1c1f; border-color: #2e3035; }
+.twt-theme-checkr .twt-api .mth { color: #fff; }
+.twt-theme-checkr .twt-api .k { color: #a9b0ba; }
+.twt-theme-checkr .twt-api .c { color: #8a9099; }

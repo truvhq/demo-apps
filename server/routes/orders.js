@@ -49,6 +49,7 @@ export default function ordersRoutes({ truv, db, apiLogger }) {
         products: data.products,
         external_user_id: data.external_user_id,
         employer: data.employer,
+        employers: data.employers,
         company_mapping_id: data.company_mapping_id,
         provider_id: data.provider_id,
         data_sources: data.data_sources,
