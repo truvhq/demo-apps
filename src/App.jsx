@@ -239,10 +239,10 @@ export function App() {
   if (!industry) return <Home />;
 
   // Public Sector has its own Demos + Guides page; every other industry keeps IndustryPage.
-  // #public-sector/demos and /guides scroll to that section of the page.
+  // #public-sector/demos, /guides and /tools scroll to that section of the page.
   const Landing = industry.id === 'public-sector' ? PublicSectorHub : IndustryPage;
   if (!route.demo) return <Landing key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
-  if (route.demo === 'demos' || route.demo === 'guides') {
+  if (route.demo === 'demos' || route.demo === 'guides' || route.demo === 'tools') {
     return <Landing key={`industry/${route.industry}/${route.demo}/${restartNonce}`} industry={industry} section={route.demo} />;
   }
 

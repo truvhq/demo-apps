@@ -219,7 +219,7 @@ src/
   App.jsx                Router and industry/demo registry (INDUSTRIES).
   Home.jsx               Home page with industry cards
   IndustryPage.jsx       Demos for one industry
-  industry/              Public Sector page: Demos and Guides cards (DemoHub.jsx lists the guides).
+  industry/              Public Sector page: Demos and Guides cards (DemoHub.jsx lists the guides and tools).
                          A demo flagged `guide: true` in App.jsx is a guide, not a demo card.
   demos/                 One file per demo. scaffolding/ holds each demo's copy and config.
     SmartRouting.jsx       Best starting point for Consumer Credit (Bridge flow)

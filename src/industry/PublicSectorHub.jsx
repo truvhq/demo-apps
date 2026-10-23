@@ -7,7 +7,8 @@ import { DemoHub } from './DemoHub.jsx';
 // Use-case label on each demo card, and the display order (self-service first,
 // then caseworker-led, then renewals, then documents). Ids match the registry in
 // App.jsx; a demo missing here still shows, last and unlabelled. Demos flagged
-// `guide` in the registry (Batching) are listed under Guides instead.
+// `guide` in the registry (Batching) are listed under Guides instead; the coverage
+// tools are listed under Tools (see DemoHub.jsx).
 const USE_CASE = {
   'customer-portal': 'Applicant self-service',
   'verifier-portal': 'Caseworker request',

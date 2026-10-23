@@ -68,9 +68,7 @@ export const CP_PRODUCTS = [
 
 // --- Component: CPIntroScreen. Product bundle picker with diagram. Calls onStart(bundleId). ---
 export function CPIntroScreen({ onStart }) {
-  // One card: income (VOIE). Assets work the same way, so the note says so
-  // instead of repeating the flow as a second card.
-  const [selected, setSelected] = useState('income');
+  const [selected, setSelected] = useState(null);
 
   return (
     <IntroSlide
@@ -90,7 +88,7 @@ export function CPIntroScreen({ onStart }) {
       }
     >
       <div class="grid gap-3 text-left">
-        {CP_PRODUCTS.filter(p => p.id === 'income').map(p => (
+        {CP_PRODUCTS.map(p => (
           <div
             key={p.id}
             onClick={() => setSelected(p.id)}
@@ -101,16 +99,13 @@ export function CPIntroScreen({ onStart }) {
             }`}
           >
             <div class="flex items-center justify-between">
-              <h3 class="text-[14px] font-semibold text-[#000000]">{p.name}*</h3>
+              <h3 class="text-[14px] font-semibold text-[#000000]">{p.name}</h3>
               <span class="text-[10px] font-medium text-[#808080] font-mono">{p.report}</span>
             </div>
             <p class="text-[13px] text-[#808080] leading-[1.5] mt-0.5">{p.desc}</p>
           </div>
         ))}
       </div>
-      <p class="text-[13px] text-[#808080] leading-[1.5] mt-3">
-        * Income and assets can each be verified on their own, or together in one order. This demo shows income.
-      </p>
     </IntroSlide>
   );
 }

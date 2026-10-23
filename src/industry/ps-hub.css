@@ -38,7 +38,7 @@
 
 /* tiles */
 .psh-tiles { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; align-content:start; }
-.psh-tile { position:relative; display:flex; flex-direction:column; min-height:240px; padding:22px 22px 20px;
+.psh-tile { position:relative; display:flex; flex-direction:column; padding:22px 22px 20px;
   background:#fff; border:1px solid var(--ck-lighter-gray); border-radius:8px; text-decoration:none; color:inherit;
   transition:border-color .4s var(--ck-ease), box-shadow .4s var(--ck-ease);
   opacity:0; animation:psh-in .4s var(--ck-ease) forwards; animation-delay:calc(var(--i) * 60ms + 100ms); }
@@ -52,9 +52,6 @@
   border:1px solid var(--ck-lighter-gray); border-radius:999px; padding:4px 10px; white-space:nowrap; }
 .psh-tile-name { font-size:18px; font-weight:500; letter-spacing:-.01em; margin:0 0 8px; }
 .psh-tile-desc { font-size:14px; line-height:1.55; color:var(--ck-dark-gray); margin:0 0 16px; }
-.psh-tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:auto; }
-.psh-tag { font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:10.5px; color:var(--ck-dark-gray);
-  background:var(--ck-lightest-gray); border-radius:4px; padding:3px 8px; }
 
 @keyframes psh-in { from { opacity:0; transform:translateX(12px); } to { opacity:1; transform:none; } }
 

@@ -16,10 +16,14 @@ const DEMO_ICONS = {
   'documents': Icons.upload,
 };
 
-// Guides: walkthroughs and tools that are not an applicant flow.
+// Guides: step-by-step walkthroughs.
 export const GUIDES = [
   { id: 'batching', name: 'Batching', icon: 'layers', href: '#public-sector/batching', mode: 'Walkthrough',
     desc: 'Bulk order intake: staff drop a CSV into a folder and a scheduled job creates one order per row. Includes the setup guides and a runnable kit.' },
+];
+
+// Tools: things you run on your own data, not an applicant flow.
+export const TOOLS = [
   { id: 'payroll-coverage', name: 'Payroll Coverage', icon: 'barChart', href: '#coverage-analysis/payroll-coverage', mode: 'Coverage tool',
     desc: 'Upload a CSV of up to 10,000 employers and see which ones Truv supports for income, employment, deposit-switch, or paycheck-linked-loans.' },
   { id: 'bank-coverage', name: 'Financial Accounts Coverage', icon: 'search', href: '#coverage-analysis/bank-coverage', mode: 'Coverage tool',
@@ -38,14 +42,11 @@ function DemoTile({ item, index }) {
       {label && <div class="psh-usecase">{label}</div>}
       <h3 class="psh-tile-name">{demo.name}</h3>
       <p class="psh-tile-desc">{demo.desc}</p>
-      <div class="psh-tags">
-        {(demo.tags || []).map(t => <span class="psh-tag" key={t}>{t}</span>)}
-      </div>
     </a>
   );
 }
 
-function GuideTile({ guide, index }) {
+function LinkTile({ guide, index }) {
   const Icon = Icons[guide.icon];
   return (
     <a class="psh-tile" href={guide.href} style={{ '--i': index }}>
@@ -61,7 +62,7 @@ function GuideTile({ guide, index }) {
 
 /**
  * items  : [{ key, demo, industryId, label }]
- * section: 'demos' | 'guides' - scroll to that section on mount
+ * section: 'demos' | 'guides' | 'tools' - scroll to that section on mount
  */
 export function DemoHub({ trail, back, eyebrow, title, lead, items, section }) {
   useEffect(() => {
@@ -103,7 +104,17 @@ export function DemoHub({ trail, back, eyebrow, title, lead, items, section }) {
             <span class="psh-count">{GUIDES.length}</span>
           </div>
           <div class="psh-grid">
-            {GUIDES.map((g, i) => <GuideTile key={g.id} guide={g} index={i} />)}
+            {GUIDES.map((g, i) => <LinkTile key={g.id} guide={g} index={i} />)}
+          </div>
+        </section>
+
+        <section class="psh-section-block" id="psh-tools" aria-labelledby="psh-tools-h">
+          <div class="psh-section-head">
+            <h2 class="psh-section-title" id="psh-tools-h">Tools</h2>
+            <span class="psh-count">{TOOLS.length}</span>
+          </div>
+          <div class="psh-grid">
+            {TOOLS.map((g, i) => <LinkTile key={g.id} guide={g} index={i} />)}
           </div>
         </section>
       </main>
