@@ -83,12 +83,6 @@
 .psh-section-name { font-size:28px; font-weight:500; letter-spacing:-.02em; margin:0 0 10px; }
 .psh-section .psh-tile-desc { font-size:15px; max-width:44ch; }
 
-/* placeholder tiles: visible, not clickable */
-.psh-tile.is-soon { cursor:default; background:#fff; border-style:dashed; }
-.psh-tile.is-soon:hover { border-color:var(--ck-lighter-gray); box-shadow:none; }
-.psh-tile.is-soon:hover .psh-ic { background:var(--ck-lightest-gray); }
-.psh-tile.is-soon .psh-tile-name { color:var(--ck-dark-gray); }
-
 @media (max-width: 900px) { .psh-landing { grid-template-columns:1fr; } .psh-section { min-height:0; } }
 
 /* flat layout: Demos and Guides sections on one page */

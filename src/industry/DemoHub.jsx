@@ -11,10 +11,8 @@ import { Icons } from '../components/Icons.jsx';
 import { DEMO_ICONS } from '../IndustryPage.jsx';
 import './ps-hub.css';
 
-// Guides: step-by-step walkthroughs and tools that are not an applicant flow.
-// Ones with an href are live; the rest are placeholders until the content is
-// written, so they stay visible but not clickable and nobody lands on an empty page.
-// `only` limits a guide to those industry pages (it always shows on the home page).
+// Guides: walkthroughs and tools that are not an applicant flow. `only` limits a
+// guide to those industry pages (it always shows on the home page).
 export const GUIDES = [
   { id: 'batching', name: 'Batching', icon: 'layers', href: '#public-sector/batching', mode: 'Walkthrough', only: ['public-sector'],
     desc: 'Bulk order intake: staff drop a CSV into a folder and a scheduled job creates one order per row. Includes the setup guides and a runnable kit.' },
@@ -22,12 +20,6 @@ export const GUIDES = [
     desc: 'Upload a CSV of up to 10,000 employers and see which ones Truv supports for income, employment, deposit-switch, or paycheck-linked-loans.' },
   { id: 'bank-coverage', name: 'Financial Accounts Coverage', icon: 'search', href: '#coverage-analysis/bank-coverage', mode: 'Coverage tool',
     desc: 'Upload a CSV of up to 10,000 financial accounts and see which ones Truv can connect to for transactions or assets data.' },
-  { id: 'best-practices', name: 'Best practices', icon: 'shieldCheck',
-    desc: 'How teams set up verification for the best applicant experience and fewest manual reviews.' },
-  { id: 'faq', name: 'FAQ', icon: 'search',
-    desc: 'Answers to the questions operations, IT and product teams ask most.' },
-  { id: 'scenarios', name: 'Scenarios', icon: 'users',
-    desc: 'Worked examples for real situations, step by step.' },
 ];
 
 function DemoTile({ item, index }) {
@@ -51,27 +43,15 @@ function DemoTile({ item, index }) {
 
 function GuideTile({ guide, index }) {
   const Icon = Icons[guide.icon];
-  if (guide.href) {
-    return (
-      <a class="psh-tile" href={guide.href} style={{ '--i': index }}>
-        <div class="psh-tile-top">
-          <span class="psh-ic" aria-hidden="true">{Icon && <Icon size={20} />}</span>
-          <span class="psh-mode">{guide.mode}</span>
-        </div>
-        <h3 class="psh-tile-name">{guide.name}</h3>
-        <p class="psh-tile-desc">{guide.desc}</p>
-      </a>
-    );
-  }
   return (
-    <div class="psh-tile is-soon" style={{ '--i': index }} aria-disabled="true">
+    <a class="psh-tile" href={guide.href} style={{ '--i': index }}>
       <div class="psh-tile-top">
         <span class="psh-ic" aria-hidden="true">{Icon && <Icon size={20} />}</span>
-        <span class="psh-mode">Coming soon</span>
+        <span class="psh-mode">{guide.mode}</span>
       </div>
       <h3 class="psh-tile-name">{guide.name}</h3>
       <p class="psh-tile-desc">{guide.desc}</p>
-    </div>
+    </a>
   );
 }
 

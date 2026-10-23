@@ -1,6 +1,6 @@
 /**
  * FILE SUMMARY: Industry page for every industry without a custom page - the
- * shared DemoHub with that industry's demos and the placeholder guides.
+ * shared DemoHub with that industry's demos and the guides.
  * Route: #<industry-id>
  */
 import { DemoHub } from './DemoHub.jsx';
