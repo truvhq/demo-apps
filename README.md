@@ -24,7 +24,7 @@ Demos are organized by industry. Each starts with a split intro screen (business
 | **Customer Portal** | An applicant applies for benefits and verifies income through a self-service portal |
 | **Document Processing** | Process pay stubs, W-2s, and tax returns for benefit eligibility decisions |
 | **Case Worker Portal** | A Case Worker creates verification orders using applicant data on file |
-| **Renewals & Data Refresh** | Guided walkthrough plus a live recertification cycle with four ready-made applicants (payroll only, assets only, payroll and assets, two employers) and an Add more Applicants button: refresh existing payroll and bank connections via `POST /v1/orders/{id}/`, then see each connection's outcome. A refresh that needs re-authorization emits `order-refresh-failed`, and that connection does not complete until the applicant acts, so listening only for `order-status-updated` will not tell you it failed |
+| **Renewals & Data Refresh** | Guided walkthrough plus a live recertification cycle with four ready-made applicants (payroll only, assets only, payroll and assets, two employers) and an Add more Applicants button: refresh existing payroll and bank connections via `POST /v1/orders/{id}/`, then see each connection's outcome. If a refresh needs the applicant, Truv sends `order-refresh-failed` and that connection stays unfinished until they act. Listening only for `order-status-updated` will not tell you it failed |
 
 ### Consumer Credit
 
@@ -294,7 +294,7 @@ order's `share_url`. `examples/refresh-minimal.mjs` shows the calls in one file.
 
 All demos wait for webhooks before fetching reports. The key events are:
 - `task-status-updated` with status `done` (Bridge flow)
-- `order-status-updated` with status `completed` (Orders flow). On a refresh it describes one connection, so do not read it as "the whole refresh worked".
+- `order-status-updated` with status `completed` (Orders flow). On a refresh it covers one connection, so it does not mean the whole refresh worked.
 - `order-refresh-failed` when a refresh needs the applicant. It carries a status such as `mfa_error`, but not the error text and not a `link_id` you can match; read those from the task.
 
 The server verifies webhook signatures via HMAC-SHA256.

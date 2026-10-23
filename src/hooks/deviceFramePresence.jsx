@@ -3,15 +3,14 @@
  * tree, so the Layout's mobile/desktop toggle can show only when relevant.
  *
  * DeviceFrame instances call useRegisterDeviceFrame() in mount/unmount; a
- * module-level counter keeps the signal right for multiple frames or quick
+ * module-level counter keeps the count right with multiple frames or quick
  * remounts. Layout reads useHasDeviceFrame() and conditionally renders the
  * DeviceToggle. Demos don't need to do anything — registration is automatic.
  *
- * The count lives outside React state on purpose. Registering a frame must
- * re-render only the components that read it, never the provider's children:
- * when the provider owned the state, every frame mount re-rendered the whole
- * App from the top, and in a dev tab that had hot-reloaded that remounted the
- * App and closed the Bridge window that had just opened.
+ * The count is kept outside React state. When the provider held it in state,
+ * every frame mount re-rendered the whole App, and in a dev tab that had
+ * hot-reloaded that remounted the App and closed the Bridge window that had just
+ * opened. Now only the components that read the count re-render.
  */
 
 import { useEffect, useState } from 'preact/hooks';

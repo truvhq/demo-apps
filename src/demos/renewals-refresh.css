@@ -3,9 +3,9 @@
  * (src/demos/batching.css, "Checkr rebrand"): near-black and cool greys, black
  * primary button, grey outline button, both turning aqua on hover.
  *
- * `html.ck-brand` is set only while this demo is mounted. It re-points the app's
- * shared primary color, so the header and side panel match without touching any
- * other demo. The .ck-* classes are used by this demo's own buttons and links.
+ * `html.ck-brand` is set only while this demo is mounted. It overrides the app's
+ * shared primary color so the header and side panel match, without changing any
+ * other demo. The .ck-* classes are for this demo's own buttons and links.
  */
 html.ck-brand {
   --color-primary: #1b1c1f;

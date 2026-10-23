@@ -5,30 +5,28 @@
  * Exports presentation config consumed by RenewalsRefresh.jsx: walkthrough stages,
  * sidebar Guide steps, and the seeded caseload.
  *
- * THE CASELOAD IS THE SCRIPT. Each seeded applicant is chosen so its refresh lands
- * on a specific, verified outcome. The test logins were confirmed end to end in sandbox
- * on 2026-08-19/20:
+ * The four applicants below are picked so each one's refresh ends a known way. These test
+ * logins were confirmed end to end in the sandbox on 2026-08-19/20:
  *
- *   goodlogin / goodpassword   payroll  -> refresh completes silently in ~13-20s
+ *   goodlogin / goodpassword   payroll  -> refresh completes on its own in ~13-20s
  *   goodlogin / mfa            bank     -> refresh fails, order-refresh-failed (assets)
  *   goodlogin / mfa_captcha    payroll  -> refresh fails, order-refresh-failed (income)
  *
- * Four applicants are always shown, one per shape an order can take: payroll only,
- * assets only, payroll and assets together, and two payroll connections deeplinked
- * on one order. "Add more applicants" appends free-form rows that verify income and
- * assets and let the presenter connect whatever they like.
+ * Four applicants are always shown: payroll only, assets only, payroll and assets
+ * together, and two payroll employers on one order. "Add more applicants" adds rows that
+ * verify income and assets and let the presenter connect whatever they like.
  *
  * NOTE the bank credential: the sandbox bank connector rejects `mfa_captcha`
  * ("Username or Password is incorrect"). Bank MFA is `mfa`, any code accepted.
- * The universal-credentials table in the docs does not currently carve this out.
+ * The universal-credentials table in the docs does not mention this exception.
  */
 
 // --- Config: seeded caseload. ---
 // products     -> what the original order verifies, and what gets refreshed
-// employers    -> payroll employers deeplinked into Bridge (none: the applicant picks)
+// employers    -> payroll employers pre-selected in Bridge (none: the applicant picks)
 // connections  -> what the presenter connects, each with the test login to use. The
-//                 outcome is credential-driven, so the logins are shown with a copy button.
-// expect       -> the verified outcome, used for the "what should happen" hint
+//                 outcome is decided by the test login, so each one has a copy button.
+// expect       -> the outcome we tested, used for the "what should happen" hint
 export const CASELOAD = [
   {
     id: 'ana',
@@ -41,7 +39,7 @@ export const CASELOAD = [
       { kind: 'payroll', name: 'Home Depot', username: 'goodlogin', password: 'goodpassword', note: 'Pre-filled in Bridge. Just sign in.' },
     ],
     expect: 'silent',
-    expectLabel: 'Refreshes silently, no applicant action',
+    expectLabel: 'Refreshes on its own',
   },
   {
     id: 'dana',
@@ -58,7 +56,7 @@ export const CASELOAD = [
       },
     ],
     expect: 'reauth',
-    expectLabel: 'Refresh fails, needs re-authorization',
+    expectLabel: 'Needs the applicant at renewal',
   },
   {
     id: 'marcus',
@@ -76,7 +74,7 @@ export const CASELOAD = [
       },
     ],
     expect: 'reauth',
-    expectLabel: 'Payroll refreshes, the bank connection needs re-authorization',
+    expectLabel: 'Payroll refreshes, the bank connection needs the applicant',
   },
   {
     id: 'priya',
@@ -89,17 +87,17 @@ export const CASELOAD = [
       { kind: 'payroll', name: 'Home Depot', username: 'goodlogin', password: 'goodpassword', note: 'Pre-filled in Bridge. Just sign in.' },
       {
         kind: 'payroll', name: 'Walmart', username: 'goodlogin', password: 'mfa_captcha',
-        note: 'Replace the pre-filled password with mfa_captcha. Captcha: 9M4BP (it is asked again at re-authorization).',
+        note: 'Replace the pre-filled password with mfa_captcha. Captcha: 9M4BP (you are asked for it again when the applicant comes back).',
         warn: 'Keep mfa_captcha so Walmart fails while Home Depot still refreshes.',
       },
     ],
     expect: 'reauth',
-    expectLabel: 'Home Depot refreshes, Walmart needs re-authorization',
+    expectLabel: 'Home Depot refreshes, Walmart needs the applicant',
   },
 ];
 
 // Sample applicants for "Add more applicants". Each verifies income and assets and lets
-// the presenter connect any employer and any bank, so there is no scripted outcome.
+// the presenter connect any employer and any bank, so the outcome is not set in advance.
 const EXTRA_NAMES = [
   ['Lena', 'Ortiz'], ['Omar', 'Haddad'], ['Grace', 'Kim'], ['Samuel', 'Okoye'],
   ['Elena', 'Petrova'], ['Noah', 'Fischer'], ['Aisha', 'Bello'], ['Tomas', 'Reyes'],
@@ -134,19 +132,19 @@ export const STEPS = [
   },
   {
     title: 'Recertification comes due',
-    guide: '<p>Refresh the existing order instead of collecting documents again. POST to the order\'s own path:</p><pre>POST /v1/orders/{order_id}/\n{ "products": ["income"] }</pre><p>Truv returns a <strong>new order</strong> with its own id, share_url and bridge_token, then attempts the pull server-side through the applicant\'s authenticated session. Limit: 1 initial request plus 3 refreshes per connection in any 24 hours.</p>',
+    guide: '<p>Refresh the existing order instead of collecting documents again. POST to the order\'s own path:</p><pre>POST /v1/orders/{order_id}/\n{ "products": ["income"] }</pre><p>Truv returns a <strong>new order</strong> with its own id, share_url and bridge_token, and pulls the data using the session the applicant already authorized. Each connection allows 1 initial request plus 3 refreshes in any 24 hours.</p>',
   },
   {
     title: 'A refresh completes or it fails',
-    guide: '<p><strong>Session still valid:</strong> the refresh order completes on its own. You get <code>order-status-updated: completed</code> and fresh data. No applicant action at all.</p><p><strong>Re-auth needed:</strong> the refresh task fails and the order&rsquo;s <code>completed_at</code> stays null. The webhook that tells you it failed is:</p><pre>{\n  "event_type": "order-refresh-failed",\n  "order_id": "...",\n  "employer_id": "...",\n  "status": "mfa_error",\n  "link_id": null\n}</pre><p>It says a refresh failed. The reason for each connection is on the task, which carries the stable <code>link_id</code>.</p><p><strong>Do not detect this by watching for silence.</strong> <code>order-status-updated</code> is emitted <em>per connection</em> and carries an <code>employer_id</code>; on an order with several employers you still receive <code>completed</code> for each one that worked, so absence of events is the wrong signal and a <code>completed</code> does not mean the refresh as a whole succeeded. Subscribe to <code>order-refresh-failed</code> and branch on <code>status</code>. Statuses like <code>no_data</code> and <code>unavailable</code> fire the same event but are not something the applicant can fix by signing in again, so they should not prompt anyone to re-authenticate.</p>',
+    guide: '<p><strong>Session still valid:</strong> the refresh order completes on its own. You get <code>order-status-updated: completed</code> and fresh data, and the applicant does nothing.</p><p><strong>Applicant needed:</strong> the refresh fails and the order&rsquo;s <code>completed_at</code> stays null. This webhook tells you:</p><pre>{\n  "event_type": "order-refresh-failed",\n  "order_id": "...",\n  "employer_id": "...",\n  "status": "mfa_error",\n  "link_id": null\n}</pre><p>It only says a refresh failed. The reason is on the task for that connection, which also has the stable <code>link_id</code>.</p><p>Don&rsquo;t use a quiet order as your failure signal. <code>order-status-updated</code> is sent <em>per connection</em> with an <code>employer_id</code>, so on an order with several employers you still get <code>completed</code> for each one that worked, and that doesn&rsquo;t mean the whole refresh worked. Listen for <code>order-refresh-failed</code> and branch on <code>status</code>. Statuses like <code>no_data</code> and <code>unavailable</code> fire the same event, but signing in again won&rsquo;t fix them, so don&rsquo;t send the applicant a link.</p>',
   },
   {
-    title: 'Re-engage only who needs it',
-    guide: '<p>The failed refresh order carries its own share_url. Send that. for an MFA challenge Bridge <strong>skips username and password</strong> because the connection is already authorized, so the applicant only answers that challenge.</p><p>Tested in the sandbox: after the applicant clears MFA, that connection reports <code>completed</code> and produces a fresh report id. The order as a whole completes once every connection has.</p>',
+    title: 'Contact only who needs it',
+    guide: '<p>The failed refresh order has its own share_url. Send the applicant that link. For an MFA challenge, Bridge <strong>skips the username and password</strong> because the connection is already authorized, so they only answer the challenge.</p><p>In the sandbox, once the applicant clears MFA, that connection reports <code>completed</code> with a new report id. The order completes once every connection has.</p>',
   },
   {
     title: 'Read the refreshed data',
-    guide: '<pre>GET /v1/orders/{refresh_order_id}/\nGET /v1/users/{user_id}/reports/{report_id}/</pre><p>A completed refresh order already has its own report. Read its id from <code>voie_report_id</code> (income) or <code>voa_report_id</code> (assets) and fetch that report. Assets reports live under <code>/assets/reports/</code>. Nothing needs to be created, and the original order keeps its own, older report. In the sandbox the figures themselves came back unchanged, so this shows the mechanics, not changed numbers.</p>',
+    guide: '<pre>GET /v1/orders/{refresh_order_id}/\nGET /v1/users/{user_id}/reports/{report_id}/</pre><p>A completed refresh order already has its own report. Read its id from <code>voie_report_id</code> (income) or <code>voa_report_id</code> (assets) and fetch that report. Assets reports live under <code>/assets/reports/</code>. Nothing needs to be created, and the original order keeps its own, older report. In the sandbox the figures came back unchanged, so this shows the flow, not changed numbers.</p>',
   },
 ];
 
@@ -179,7 +177,7 @@ export const WALKTHROUGH_STAGES = [
       body: 'Request documents, wait, chase, re-key, re-review. Applicants who do not respond can lose benefits they still qualify for.',
       rows: [
         'The connection from intake may still be there',
-        'An authenticated payroll or bank session may still be valid at the next review',
+        'The payroll or bank login the applicant used may still work at the next review',
         'When it does, one API call refreshes the data with no applicant contact',
       ],
     },
@@ -212,10 +210,10 @@ export const WALKTHROUGH_STAGES = [
   },
   {
     n: '04',
-    name: 'The fork',
+    name: 'Two outcomes',
     kind: 'split',
     title: 'A refresh either completes or needs the applicant',
-    lead: 'When a refresh works, the new data arrives. When it fails, your system gets a separate failure notice (a webhook). It is easy to miss if your software only watches for completions.',
+    lead: 'When a refresh works, the new data comes back. When it needs the applicant, your system gets a separate failure webhook. If your software only listens for completions, it misses that.',
     lanes: [
       {
         tone: 'good',
@@ -226,24 +224,24 @@ export const WALKTHROUGH_STAGES = [
       },
       {
         tone: 'warn',
-        tag: 'Re-authorization needed',
-        title: 'Stays open until the applicant acts',
-        body: 'The connection needs a security challenge (MFA) answered. This connection does not finish until the applicant acts, and your system gets an order-refresh-failed notice. On a case with several employers, one can report completed while another has failed, so a completed message alone does not mean everything refreshed.',
+        tag: 'Applicant needed',
+        title: 'Waits for the applicant',
+        body: 'The connection needs a security challenge (MFA) answered, so it cannot finish until the applicant does it. Your system gets an order-refresh-failed webhook. On a case with several employers, one can report completed while another has failed, so a completed webhook alone does not mean everything refreshed.',
         code: 'order-refresh-failed: mfa_error',
       },
     ],
-    api: '<span class="c">// the failure notice (a webhook)</span>\n{\n  <span class="k">"event_type"</span>: <span class="s">"order-refresh-failed"</span>,\n  <span class="k">"order_id"</span>: <span class="s">"..."</span>,\n  <span class="k">"employer_id"</span>: <span class="s">"..."</span>,\n  <span class="k">"link_id"</span>: <span class="k">null</span>,\n  <span class="k">"status"</span>: <span class="s">"mfa_error"</span>\n}',
+    api: '<span class="c">// the failure webhook</span>\n{\n  <span class="k">"event_type"</span>: <span class="s">"order-refresh-failed"</span>,\n  <span class="k">"order_id"</span>: <span class="s">"..."</span>,\n  <span class="k">"employer_id"</span>: <span class="s">"..."</span>,\n  <span class="k">"link_id"</span>: <span class="k">null</span>,\n  <span class="k">"status"</span>: <span class="s">"mfa_error"</span>\n}',
   },
   {
     n: '05',
-    name: 'Re-engage',
+    name: 'Applicant steps in',
     kind: 'card',
     title: 'The applicant clears one challenge',
     lead: 'The failed refresh comes with its own link. It opens Bridge, Truv\'s connection screen, at the step that broke, so the applicant only answers the security challenge (MFA).',
     card: {
       eyebrow: 'Tested in the Truv sandbox',
-      title: 'No login re-entered for a security challenge',
-      body: 'Opening the link shows the existing connection already in place. When the problem is a security challenge (MFA), Bridge skips the username and password because the connection is already authorized, and goes straight to the challenge, such as a code texted to the applicant. Once it is answered, that connection completes and produces a fresh report.',
+      title: 'No second login for an MFA challenge',
+      body: 'The link opens with the existing connection already in place. For an MFA challenge, Bridge skips the username and password and goes straight to the challenge, such as a code texted to the applicant. Once it is answered, that connection completes and produces a fresh report.',
       rows: [
         'Send the link that came with the failed refresh, not a brand-new request',
         'Only applicants whose refresh failed are contacted',
@@ -257,7 +255,7 @@ export const WALKTHROUGH_STAGES = [
     name: 'Try it',
     kind: 'split',
     title: 'Run a renewal cycle yourself',
-    lead: 'Four applicants are ready, one for each shape an order can take: payroll only, assets only, payroll and assets together, and two employers on one order. Connect any of them, jump ahead to recertification, refresh, and see which finish on their own and which need the applicant. These are test logins in Truv\'s sandbox. Use the ones shown on each row and that applicant gets the result described.',
+    lead: 'Four applicants are ready: payroll only, assets only, payroll and assets together, and two employers on one order. Connect them, run the renewal, and see which refresh on their own and which need the applicant. The logins are Truv sandbox test logins. Use the ones shown on each row to get the result described.',
     lanes: [
       {
         tone: 'good',
@@ -268,8 +266,8 @@ export const WALKTHROUGH_STAGES = [
       },
       {
         tone: 'warn',
-        tag: 'Dana Cole · assets',
-        title: 'Will need re-authorization',
+        tag: 'Dana Cole · assets only',
+        title: 'Will need the applicant',
         body: 'goodlogin / mfa at any bank you pick. Any MFA code is accepted.',
         code: 'products: ["assets"]',
       },
@@ -281,22 +279,22 @@ export const WALKTHROUGH_STAGES = [
 // Kept here (not in the component) so the test suite can assert the mapping and
 // the demo copy stays in one place.
 export const OUTCOME_DISPLAY = {
-  refreshing: { label: 'Refreshing...', tone: 'pending', detail: 'Truv is refreshing the data through the applicant\'s authenticated session.' },
+  refreshing: { label: 'Refreshing...', tone: 'pending', detail: 'Truv is refreshing the data using the applicant\'s existing connection.' },
   refreshed: { label: 'Refreshed', tone: 'good', detail: 'Fresh data returned with no applicant action.' },
-  reauth_required: { label: 'Needs the applicant', tone: 'warn', detail: 'The authenticated session needs the applicant to clear a challenge.' },
-  failed_other: { label: 'Not fixed by signing in again', tone: 'neutral', detail: 'The provider returned nothing or reported a problem on its side, such as an outage or a locked account. A new login will not fix it, so do not send the refresh link. For a locked account the applicant has to unlock it with the provider. Never record no_data as $0 income.' },
+  reauth_required: { label: 'Needs the applicant', tone: 'warn', detail: 'The applicant has to answer a security challenge before this connection can refresh.' },
+  failed_other: { label: 'Not fixed by signing in again', tone: 'neutral', detail: 'The provider returned no data or reported a problem on its side, like an outage or a locked account. Signing in again will not fix it, so do not send the refresh link. A locked account has to be unlocked with the provider. Do not record no_data as $0 income.' },
 };
 
 // Human-readable reason strings for the statuses this demo can produce.
 export const REASON_COPY = {
-  mfa_error: 'Provider asked for MFA that cannot be answered without the applicant',
+  mfa_error: 'The provider asked for an MFA code only the applicant can give',
   login_error: 'The employer or bank rejected the previous sign-in',
-  session_expired: 'The authenticated session expired',
-  account_locked: 'Provider locked the account',
+  session_expired: 'The saved session expired',
+  account_locked: 'The provider locked the account',
   unable_to_reset: 'Connection could not be re-established',
-  unavailable: 'Provider was unavailable',
-  config_error: 'Provider configuration issue',
-  error: 'Provider returned an error',
-  no_data: 'Provider connected and returned no records. This is not a verified $0 income',
+  unavailable: 'The provider was unavailable',
+  config_error: 'The provider has a configuration problem',
+  error: 'The provider returned an error',
+  no_data: 'The provider connected but returned no records. That is not a verified $0 income',
   not_supported: 'Refresh is not supported for this connection',
 };

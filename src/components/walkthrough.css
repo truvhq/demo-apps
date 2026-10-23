@@ -1,25 +1,25 @@
 /*
  * Walkthrough shell - the guided, narrated intro that runs BEFORE a live demo.
  *
- * Two-pane stage: an illustrative surface on the left, the narrative rail on the
- * right, fixed chrome top and bottom, dot nav + arrow keys, and a CTA that hands
- * off to the interactive demo.
+ * Two-pane stage: a visual on the left and the text on the right, a fixed header
+ * and footer, dot navigation plus arrow keys, and a button that hands off to the
+ * interactive demo.
  *
- * NAMESPACE: every class is `twt-*` and every rule is scoped under `.twt`.
- * This is deliberate. The pattern originated in demo-apps-private as `.wt`
- * (walkthrough.css) and was re-scoped there to `.bt` (batching.css) so the two
- * branches could not collide in one bundle. Public `main` syncs down into that
- * repo's `base`, so a third `.wt` sheet here would land next to the first two at
- * identical specificity and win nondeterministically. `twt-` keeps this shell
- * independent of both.
+ * PREFIX: every class is `twt-*` and every rule is scoped under `.twt`.
+ * The pattern started in demo-apps-private as `.wt` (walkthrough.css) and was
+ * renamed there to `.bt` (batching.css) so the two branches would not collide in
+ * one bundle. Public `main` syncs into that repo's `base`, so a third `.wt` sheet
+ * here would sit next to the first two at the same specificity, and which one
+ * wins would be unpredictable. The `twt-` prefix keeps this shell separate from both.
  *
  * THEMING: the palette is CSS variables on `.twt`. Pass `theme="<name>"` to the
- * component to add `.twt-theme-<name>` and override only the variables. Nothing
- * below hardcodes a brand color outside the variable block.
+ * component to add `.twt-theme-<name>` and override only the variables. No brand
+ * color is hardcoded outside the variable block.
  *
- * MOTION: stage animations are one-shots that replay because Walkthrough.jsx
- * remounts the stage/rail on a key change. prefers-reduced-motion collapses the
- * durations rather than hiding content, so the end state is always visible.
+ * MOTION: each stage animation plays once and replays because Walkthrough.jsx
+ * remounts the stage and text when the key changes. With prefers-reduced-motion
+ * the durations shrink to almost nothing instead of hiding content, so the final
+ * state is always visible.
  */
 
 /* ============================================================================
@@ -55,9 +55,9 @@
   color: var(--twt-ink);
   font-family: var(--twt-sans);
   -webkit-font-smoothing: antialiased;
-  /* Fixed-height shell so the chrome and footer nav stay in the viewport and the
-     narrative rail scrolls inside itself. With min-height the rail's content grows
-     the page on short displays and pushes the Next button below the fold. */
+  /* Fixed height so the header and footer nav stay in the viewport and the
+     right-hand text scrolls on its own. With min-height, long text would grow the
+     page on short displays and push the Next button below the fold. */
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
@@ -83,7 +83,7 @@
   --twt-orb: 40, 48, 125;
 }
 
-/* ---------------- top chrome ---------------- */
+/* ---------------- header ---------------- */
 .twt-top { height: 58px; flex: none; display: flex; align-items: center; padding: 0 22px; background: var(--twt-panel); border-bottom: 1px solid var(--twt-line); position: relative; z-index: 5; }
 .twt-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--twt-line-2); overflow: hidden; }
 .twt-progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--twt-brand), var(--twt-good)); transition: width .45s cubic-bezier(.2, .75, .25, 1); }
@@ -102,7 +102,7 @@
 .twt-body { flex: 1; display: grid; grid-template-columns: 1.52fr 1fr; min-height: 0; }
 .twt-stage { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 44px 40px; background: linear-gradient(165deg, var(--twt-stage-from) 0%, var(--twt-stage-mid) 48%, var(--twt-stage-to) 100%); }
 
-/* ---------------- ambient atmosphere (optional) ---------------- */
+/* ---------------- animated background (optional) ---------------- */
 .twt-ambient { position: absolute; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
 .twt-orb { position: absolute; border-radius: 50%; filter: blur(48px); will-change: transform; }
 .twt-orb.o1 { width: 42%; aspect-ratio: 1; left: -8%; top: -12%; background: radial-gradient(circle, rgba(var(--twt-orb), .16) 0%, rgba(var(--twt-orb), 0) 70%); animation: twt-drift-a 28s ease-in-out infinite; }
@@ -119,7 +119,7 @@
 @keyframes twt-grid-pan { 0% { transform: translate(0, 0); } 100% { transform: translate(22px, 22px); } }
 @keyframes twt-spin { to { transform: rotate(360deg); } }
 
-/* ---------------- stage surface + narrative rail ---------------- */
+/* ---------------- left visual + right-hand text ---------------- */
 .twt-stage-inner { position: relative; z-index: 1; width: 100%; display: flex; align-items: center; justify-content: center; animation: twt-shell-in .65s cubic-bezier(.2, .75, .25, 1) both; }
 @keyframes twt-shell-in { from { opacity: 0; filter: blur(8px); transform: translateX(28px) scale(.985); } to { opacity: 1; filter: blur(0); transform: none; } }
 .twt-context { background: var(--twt-panel); border-left: 1px solid var(--twt-line); padding: 56px 48px; display: flex; flex-direction: column; justify-content: center; overflow-y: auto; animation: twt-ctx-in .55s cubic-bezier(.2, .75, .25, 1) both; animation-delay: .08s; }
@@ -165,8 +165,8 @@
 
 /* ============================================================================
  * BUILT-IN SURFACES
- * Generic left-pane surfaces so a caller can ship a walkthrough without writing
- * any bespoke art. Callers override or extend via the `surfaces` prop.
+ * Generic left-pane visuals, so a walkthrough works without custom artwork.
+ * Pass the `surfaces` prop to replace or add to them.
  * ========================================================================= */
 
 /* hero: oversized statement + supporting line */
@@ -181,7 +181,7 @@
 .twt-card h3 { font-family: var(--twt-display); font-size: 21px; font-weight: 620; margin: 0 0 10px; color: var(--twt-ink); letter-spacing: -.01em; }
 .twt-card p { font-size: 14px; line-height: 1.55; color: var(--twt-ink-2); margin: 0; }
 
-/* split: two outcome columns side by side (the fork surface) */
+/* split: two outcome columns side by side */
 .twt-split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 620px; width: 100%; }
 .twt-lane { background: var(--twt-panel); border: 1px solid var(--twt-line); border-radius: 14px; padding: 20px; position: relative; overflow: hidden; }
 .twt-lane::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--twt-muted-2); }
@@ -197,12 +197,12 @@
 /* diagram: wraps a MermaidDiagram in the stage panel */
 .twt-diagram { background: var(--twt-panel); border: 1px solid var(--twt-line); border-radius: 16px; padding: 24px; max-width: 640px; width: 100%; max-height: 100%; display: flex; box-shadow: 0 1px 2px rgba(0, 0, 0, .03), 0 12px 32px rgba(0, 0, 0, .05); }
 .twt-diagram > div { margin: 0; width: 100%; min-height: 0; }
-/* MermaidDiagram sets width:100%/height:auto inline, which makes a tall top-down
-   flowchart scale to the panel's WIDTH and then overflow the fixed-height stage —
-   .twt-stage clips with overflow:hidden, so the bottom of the graph just vanishes.
-   Bounding both axes and letting the viewBox preserve the aspect ratio makes the
-   diagram fit whichever dimension runs out first. !important is required because
-   the inline style would otherwise win. */
+/* MermaidDiagram sets width:100% and height:auto inline, so a tall top-down
+   flowchart scales to the panel's width, runs past the fixed-height stage, and
+   gets cut off by overflow:hidden on .twt-stage. Capping both width and height
+   and letting the viewBox keep the aspect ratio makes the diagram fit whichever
+   limit it hits first. !important is needed because the inline style would
+   otherwise win. */
 .twt-diagram svg { width: auto !important; height: auto !important; max-width: 100% !important; max-height: min(58vh, 460px) !important; margin: 0 auto; display: block; }
 
 /* ============================================================================
@@ -227,7 +227,7 @@
   .twt-eyebrow { margin-bottom: 10px; font-size: 9.6px; }
   .twt-hero h1 { font-size: 30px; }
 }
-/* Narrow viewports: stack the rail under the stage rather than crushing both. */
+/* Narrow viewports: stack the text under the visual instead of squeezing both. */
 @media (max-width: 900px) {
   .twt { height: auto; min-height: 100dvh; overflow: visible; }
   .twt-body { grid-template-columns: 1fr; }
@@ -247,7 +247,7 @@
   }
 }
 
-/* Card rows given as {k, v} render as a label/value pair rather than one blob. */
+/* Card rows given as {k, v} show as a label and a value instead of one run of text. */
 .twt-card .twt-ul li { display: flex; gap: 12px; align-items: baseline; }
 .twt-card-k { flex: 0 0 auto; font-weight: 600; color: var(--twt-ink); }
 .twt-card-v { flex: 1 1 auto; color: var(--twt-ink-2); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12.5px; }

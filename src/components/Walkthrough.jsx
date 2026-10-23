@@ -3,22 +3,22 @@
  * DATA FLOW: Pure presentation. No backend calls, no Truv API, no session needed.
  * INTEGRATION PATTERN: Wraps any demo. Renders stages, then hands off via onLaunch().
  *
- * A walkthrough is a short, arrow-key navigable slide sequence that explains what a
- * demo is about before the viewer starts clicking. Two panes per stage: an
- * illustrative surface on the left, the narrative on the right.
+ * A walkthrough is a short slide sequence, navigable with the arrow keys, that explains
+ * what a demo is about before the viewer starts clicking. Each stage has two panes: a
+ * visual on the left and the text on the right.
  *
- * ORIGIN: this generalizes the `.wt` shell built in demo-apps-private
+ * ORIGIN: this is a shared version of the `.wt` shell built in demo-apps-private
  * (`demo/public-sector-demo` -> Walkthrough.jsx, then `demo/batching` ->
  * Batching.jsx, which added the progress bar, the 100dvh footer anchor, and the
- * ambient layer). Those two copies each re-implemented the shell and re-scoped the
- * CSS to avoid colliding with each other. This is the shared version: styles live
- * in walkthrough.css under a `twt-` namespace, copy comes in as data, and the left
- * surfaces are injectable so no demo has to fork the shell again.
+ * ambient layer). Each of those two copies rebuilt the shell and renamed the CSS
+ * so the two would not collide. Here the styles live in walkthrough.css under a
+ * `twt-` prefix, the copy is passed in as data, and the left-pane visuals can be
+ * swapped out, so no demo needs its own copy of the shell.
  *
  * USAGE:
  *   const STAGES = [
  *     { n: '01', name: 'Welcome', kind: 'hero', title: '...', lead: '...', bullets: [...] },
- *     { n: '02', name: 'The fork', kind: 'split', title: '...', lead: '...',
+ *     { n: '02', name: 'Two outcomes', kind: 'split', title: '...', lead: '...',
  *       api: 'POST /v1/orders/{id}/', chips: [['3', 'per 24h']],
  *       lanes: [{ tone: 'good', tag: '...', title: '...', body: '...', code: '...' }] },
  *   ];
@@ -30,17 +30,17 @@
  *   />
  *
  * STAGE FIELDS (all optional except kind/title):
- *   n, name          chrome labels ("Stage 02 / 06", "The fork")
+ *   n, name          header labels ("Stage 02 / 06", "Two outcomes")
  *   kind             selects the left surface from `surfaces`
- *   title, lead      narrative rail heading and lead paragraph
- *   bullets[]        narrative rail list
- *   chips[[b, s]]    stat tiles under the narrative
- *   api              code block under the narrative (string, pre-formatted)
- *   ...anything      passed through to the surface component as `stage`
+ *   title, lead      heading and intro paragraph in the right-hand text
+ *   bullets[]        bullet list in the right-hand text
+ *   chips[[b, s]]    stat tiles under the text
+ *   api              code block under the text (string, pre-formatted)
+ *   ...anything      passed to the surface component as `stage`
  *
  * SURFACES: `surfaces` maps kind -> component receiving ({ stage, index, total }).
  * Built-in kinds: hero, card, split, diagram. Pass your own map to add or replace
- * any of them; unknown kinds render nothing rather than throwing.
+ * any of them. An unknown kind renders nothing instead of throwing.
  *
  * WHAT TO COPY (for your own integration): nothing here talks to Truv. Copy this
  * only if you want the presentation pattern.
@@ -56,8 +56,8 @@ import { MermaidDiagram } from './MermaidDiagram.jsx';
 import './walkthrough.css';
 
 // --- Built-in surface: hero. Oversized statement, centered. ---
-// `heroLead` is deliberately NOT defaulted to `stage.lead`: the rail already
-// renders the lead, and echoing it here just prints the same paragraph twice.
+// `heroLead` does not default to `stage.lead`, because the right-hand text already
+// shows the lead and it would print twice.
 function HeroSurface({ stage }) {
   return (
     <div class="twt-hero">
@@ -78,9 +78,9 @@ function CardSurface({ stage }) {
       {card.body && <p>{card.body}</p>}
       {Array.isArray(card.rows) && card.rows.length > 0 && (
         <ul class="twt-ul" style="margin-top:16px">
-          {/* Rows come in two shapes: a plain string, or a {k, v} pair for a
-              label/value line. Rendering the object directly makes Preact emit
-              nothing, which silently produced a list of empty bullets. */}
+          {/* A row is either a plain string or a {k, v} pair for a label and value.
+              Rendering the object directly makes Preact print nothing, which gave a
+              list of empty bullets. */}
           {card.rows.map((r, i) => (
             <li key={i}>
               {r && typeof r === 'object'
@@ -143,9 +143,9 @@ export function Walkthrough({
 }) {
   const total = stages.length;
 
-  // Resume support: when a walkthrough hands off to a live demo and the viewer
-  // comes back, land on the stage they left from. The key is a prop rather than a
-  // module constant so two walkthroughs in one build cannot clobber each other.
+  // Resume: when a walkthrough hands off to a live demo and the viewer comes back,
+  // go back to the stage they left from. The key is a prop, not a module constant,
+  // so two walkthroughs in one build do not overwrite each other's saved stage.
   const [i, setI] = useState(() => {
     if (!returnKey) return 0;
     try {
@@ -163,7 +163,7 @@ export function Walkthrough({
   const stage = stages[i] || {};
   const isLast = i >= total - 1;
 
-  // Hand off to the live demo, remembering where we were.
+  // Hand off to the live demo and remember the current stage.
   const launch = useCallback(() => {
     if (returnKey) {
       try { sessionStorage.setItem(returnKey, String(i)); } catch { /* non-fatal */ }
@@ -200,7 +200,7 @@ export function Walkthrough({
   return (
     <div class={`twt${theme ? ` twt-theme-${theme}` : ''}`}>
 
-      {/* Top chrome: brand, stage label, skip-ahead */}
+      {/* Header: brand, stage label, skip button */}
       <header class="twt-top">
         <div class="twt-brand">
           <span class="twt-product">{brand.product || 'truv'}</span>
@@ -222,8 +222,8 @@ export function Walkthrough({
         <div class="twt-progress"><i style={{ width: `${((i + 1) / total) * 100}%` }} /></div>
       </header>
 
-      {/* Body: illustrative surface + narrative rail. Both remount on stage change
-          so their one-shot entrance animations replay. */}
+      {/* Body: visual on the left, text on the right. Both remount on stage change
+          so their entrance animations play again. */}
       <main class="twt-body">
         <div class="twt-stage">
           {ambient && (
@@ -257,7 +257,7 @@ export function Walkthrough({
         </div>
       </main>
 
-      {/* Footer nav: dots + back/next, with the CTA replacing Next on the last stage */}
+      {/* Footer nav: dots and back/next, with the launch button replacing Next on the last stage */}
       <footer class="twt-nav">
         <div class="twt-dots">
           {stages.map((s, di) => (

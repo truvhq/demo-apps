@@ -1,41 +1,39 @@
 /**
  * FILE SUMMARY: Public Sector: Renewals & Data Refresh demo.
- * INTEGRATION PATTERN: Orders flow, then data refresh on the connections they made.
+ * INTEGRATION PATTERN: Orders flow, then a data refresh on the connections those orders made.
  *
  * DATA FLOW:
  *   1. POST /api/orders                          : one order per applicant (intake)
  *   2. Bridge in the preview iframe              : applicant connects payroll or bank
  *   3. POST /api/renewals/refresh/:orderId       : recertification, server-side
- *   4. GET  /api/renewals/outcome/:refreshOrderId: resolve silent-success vs re-auth
+ *   4. GET  /api/renewals/outcome/:refreshOrderId: get each refresh's result
  *   5. Bridge again, only for the failures       : applicant clears MFA, order completes
  *   6. GET  /api/renewals/report/:refreshOrderId/:type : the refresh order's own report (read, never created)
  *
- * WHY THIS DEMO EXISTS: a refresh has two outcomes that look nothing alike on the
- * wire. When the authenticated session is still valid, the refresh order completes by
- * itself and emits `order-status-updated: completed`. When it needs the applicant,
- * the refresh TASK fails and the order's `completed_at` stays null, so no
- * completion arrives for that connection. `order-refresh-failed` is the webhook
- * that reports the failure (the reason and the stable link_id are on the task).
+ * HOW A REFRESH ENDS: there are two outcomes and they look very different on the wire.
+ * If the applicant's session is still valid, the refresh order completes by itself and
+ * Truv sends `order-status-updated: completed`. If it needs the applicant, the refresh
+ * task fails, the order's `completed_at` stays null, and that connection never gets a
+ * completed event. `order-refresh-failed` is the webhook that reports the failure (the
+ * reason and the stable link_id are on the task).
  *
- * Careful with the general claim, though: `order-status-updated` is emitted PER
- * SUBORDER and carries an `employer_id` (verified 2026-09-17, see
- * REFRESH-FINDINGS.md). On an applicant with a single connection a failure does
- * look like silence. On an order with several connections you still receive
- * `completed` for each one that worked, so "watch for silence" is the wrong
- * detector, and a `completed` does not mean the refresh as a whole succeeded.
- * Applicants with more than one connection are therefore resolved per connection.
+ * One caveat: `order-status-updated` is sent per suborder and carries an `employer_id`
+ * (tested 2026-09-17, see REFRESH-FINDINGS.md). With a single connection a failure looks
+ * like silence. With several connections you still get `completed` for each one that
+ * worked, so waiting for silence does not work, and a `completed` does not mean the whole
+ * refresh succeeded. Applicants with more than one connection are resolved per connection.
  *
- * TIMING NOTE (measured in sandbox, 2026-08-19/20): failures arrive 0.2-5.5s after
- * the refresh POST, silent successes take ~13-15s. The failure therefore usually
- * resolves before the screen that wants to show it has even mounted. So the watch
- * screen renders from recorded state (see classifyRefreshOutcome on the server) and
- * reveals rows on a timer, instead of trying to observe live transitions.
+ * TIMING (measured in sandbox, 2026-08-19/20): failures come back 0.2-5.5s after the
+ * refresh POST, and successful refreshes take about 13-15s. A failure is usually done
+ * before the watch screen has loaded, so that screen reads the recorded result from the
+ * server (see classifyRefreshOutcome) and shows rows one at a time on a timer, instead of
+ * trying to catch changes live.
  *
  * Scaffolding: ./scaffolding/renewals-refresh.jsx
  *
  * WHAT TO COPY (for your own Truv integration):
  *   - refreshCase()        : POST to the order's own path to create a refresh
- *   - pollOutcomes()       : resolve a refresh without relying on webhooks alone
+ *   - pollOutcomes()       : get a refresh's result without relying only on webhooks
  *   - the reauth screen    : reuse the FAILED refresh order's own bridge_token
  *   - OUTCOME_DISPLAY      : branch on `status`, not on the event type
  */
@@ -44,7 +42,7 @@
 import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 
 // --- Imports: shared layout, components, hooks, and API base URL ---
-import { Layout, WebhookFeed, usePanel, API_BASE, Walkthrough } from '../components/index.js';
+import { Layout, usePanel, API_BASE, Walkthrough } from '../components/index.js';
 import { DeviceFrame } from '../components/DeviceFrame.jsx';
 import { usePreviewIframe } from '../hooks/usePreviewIframe.js';
 
@@ -59,21 +57,20 @@ import { CASELOAD, extraApplicant, STEPS, WALKTHROUGH_STAGES, OUTCOME_DISPLAY, R
 
 const DEMO_ID = 'renewals-refresh';
 
-// Screen order. Forward-only in practice, but the presenter can step back to the
-// renewals desk from the results screen via Start Over.
+// Screens in order. The flow mostly moves forward; Start Over goes back to the walkthrough.
 const SCREENS = ['walkthrough', 'setup', 'renewals', 'watch', 'reauth', 'results'];
 
-// How often the watch screen asks the server to resolve each refresh.
+// How often the watch screen asks the server for each refresh's result.
 const OUTCOME_POLL_MS = 3000;
-// Gap between revealing one resolved row and the next, so the divergence reads as
-// a sequence on screen instead of everything flipping at once.
+// Pause between showing one finished row and the next, so results appear one at a
+// time instead of all at once.
 const REVEAL_STAGGER_MS = 900;
-// Truv rejects a refresh for a short while after Bridge finishes, because the order
-// reads complete before its connections are refresh-eligible. Retry instead of
-// asking the presenter to do it by hand.
+// Truv rejects a refresh for a short while after Bridge finishes: the order shows
+// complete before its connections can be refreshed. Retry automatically instead of
+// making the presenter click again.
 const REFRESH_RETRY_MS = 4000;
 const REFRESH_RETRY_MAX = 12;
-// After this many outcome polls with no result, say so instead of spinning silently.
+// After this many checks with no result, say it is slow instead of spinning forever.
 const SLOW_AFTER_POLLS = 60;
 
 const STAGES = WALKTHROUGH_STAGES;
@@ -89,7 +86,7 @@ function StatusPill({ tone, children }) {
   return <span class={`text-[13px] font-semibold px-2 py-0.5 rounded whitespace-nowrap ${cls}`}>{children}</span>;
 }
 
-// --- Helper: copy-to-clipboard chip for the scripted sandbox credentials ---
+// --- Helper: click-to-copy chip for the sandbox test logins ---
 function CredentialChip({ label, value }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -109,25 +106,7 @@ function CredentialChip({ label, value }) {
   );
 }
 
-// --- Helper: the callout that names the anti-pattern this demo is about ---
-function StuckAtSentCallout() {
-  const code = 'font-mono text-[12px] bg-white px-1 py-0.5 rounded border border-[#d8dee5]';
-  return (
-    <div class="border border-[#8A6200]/30 bg-amber-50/60 rounded-xl p-4 text-[13px] leading-[1.55] text-[#1b1c1f]">
-      <div class="font-semibold mb-1">Why a failed refresh is easy to miss</div>
-      <p class="text-[#474c52]">
-        A refresh that needs the applicant does not announce itself. The case just stays unfinished. The webhook
-        that reports it is <code class={code}>order-refresh-failed</code>, which carries a status such as{' '}
-        <code class={code}>mfa_error</code> (the error text is on the task). On a case with several employers, the
-        connections that worked still send <code class={code}>completed</code>, so silence is the wrong thing to
-        watch for. Branch on the status: <code class={code}>no_data</code> and <code class={code}>unavailable</code> fire
-        the same event but cannot be fixed by the applicant signing in again, so do not ask them to do anything.
-      </p>
-    </div>
-  );
-}
-
-// --- Helpers: how a case describes itself ---
+// --- Helpers: labels for a case ---
 const KIND_LABEL = { payroll: 'income', bank: 'assets', any: 'income and assets' };
 const productsLabel = (c) => c.products.map(p => (p === 'assets' ? 'assets' : 'income')).join(' and ');
 
@@ -167,27 +146,9 @@ function CopyLinkButton({ url }) {
   );
 }
 
-// --- Helper: the technical material for an IT audience, collapsed by default ---
-function ItDetails({ webhooks }) {
-  return (
-    <details class="mb-6 border border-[#d8dee5] rounded-xl bg-white">
-      <summary class="cursor-pointer px-4 py-3 text-[13px] font-medium text-[#1b1c1f]">For your IT team: how a failure shows up</summary>
-      <div class="px-4 pb-4">
-        <StuckAtSentCallout />
-        <div class="text-[13px] font-medium text-[#1b1c1f] mt-4 mb-1">Webhook events</div>
-        <p class="text-[12px] text-[#474c52] mb-3">
-          Webhooks only appear here when Truv can reach this server. The outcomes above are read from
-          the order and task records, so they do not depend on them.
-        </p>
-        <WebhookFeed webhooks={webhooks} />
-      </div>
-    </details>
-  );
-}
-
-// --- Helper: the few facts worth reading first from a refreshed report ---
-// Returns one group per thing worth reading: the bank report is one group, an income
-// report has one group per employer, so two payroll connections read as two blocks.
+// --- Helper: the main facts from a refreshed report ---
+// Returns one group for a bank report, and one group per employer for an income report,
+// so two payroll connections show as two blocks.
 function reportGroups(type, data) {
   if (!data) return [];
   if (type === 'assets') {
@@ -264,11 +225,10 @@ function ReportPanel({ c, ui, data }) {
   );
 }
 
-// Survive a page reload or a remount mid-demo. Cleared when the presenter leaves this demo,
-// restarts the view from the breadcrumb, or clicks Start Over, so re-entering starts fresh.
-// It is deliberately NOT cleared when the component unmounts: a hot code update or any other
-// remount would otherwise throw away the applicants already connected and send the presenter
-// back to the walkthrough.
+// Keeps progress through a page reload or remount. Cleared when the presenter leaves the
+// demo, restarts from the breadcrumb, or clicks Start Over, so coming back starts fresh.
+// Not cleared on unmount, because a hot code update would otherwise wipe the connected
+// applicants and send the presenter back to the walkthrough.
 const STORE_KEY = 'truv_renewals_refresh_state';
 const UNMOUNT_KEY = 'truv_renewals_refresh_unmounted_at';
 const RUNTIME_FIELDS = ['order', 'refresh', 'outcome', 'revealed', 'refreshDetail', 'reauthDone', 'failedReason', 'connectedAt', 'slow'];
@@ -291,14 +251,14 @@ function seedCases(saved) {
     if (!prev) return base;
     const merged = { ...base };
     for (const k of RUNTIME_FIELDS) if (prev[k] !== undefined) merged[k] = prev[k];
-    // Anything already resolved was revealed before the reload; the queue that
-    // reveals rows one at a time does not survive it.
+    // Rows that already had a result were shown before the reload. The queue that
+    // shows rows one at a time is lost on reload.
     if (merged.outcome && merged.outcome.state !== 'refreshing') merged.revealed = true;
     return merged;
   });
 }
 
-// What actually told us how this refresh ended, in words a reader can follow.
+// Plain-words description of how we found out how this refresh ended.
 function detectedBy(c) {
   if (c.reauthDone && c.outcome?.state === 'refreshed') {
     return `failed${c.failedReason ? ` (${c.failedReason})` : ''}, then the applicant cleared the challenge`;
@@ -401,11 +361,10 @@ export function RenewalsRefreshDemo() {
     setCurrentStep(stepMap[screen] ?? 0);
   }, [screen, reengage, setCurrentStep]);
 
-  // Point the panel's webhook feed at the most instructive user for the current
-  // screen. The panel inspects one Truv user at a time, and this demo creates one
-  // per applicant, so during the watch and reauth screens we follow whichever
-  // applicant's refresh failed. That is the feed where `order-refresh-failed`
-  // actually shows up.
+  // Point the panel's webhook feed at the most useful user for each screen. The panel
+  // follows one Truv user at a time and this demo creates one per applicant, so on the
+  // watch screen we follow the first applicant whose refresh failed. That is where
+  // `order-refresh-failed` shows up.
   useEffect(() => {
     if (screen !== 'watch' && screen !== 'reauth') return;
     const focus = needsReauth[0] || refreshed[0];
@@ -424,7 +383,7 @@ export function RenewalsRefreshDemo() {
     setExtras(n + 1);
     setCases(prev => [...prev, { ...added, order: null, refresh: null, outcome: null, revealed: false }]);
     setAddedNote(`Added ${added.firstName} ${added.lastName}.`);
-    // The row lands below the fold on most screens, so bring it into view and put focus on its button.
+    // The new row is usually below the visible area, so scroll to it and focus its button.
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const row = document.querySelector(`[data-case="${added.id}"]`);
       row?.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -452,8 +411,8 @@ export function RenewalsRefreshDemo() {
           demo_id: DEMO_ID,
           first_name: c.firstName,
           last_name: c.lastName,
-          // Deeplinks the payroll employers so the applicant lands straight on the login
-          // screen. Banks are not deeplinked: the applicant picks any bank in Bridge.
+          // Pre-selects the payroll employers so Bridge opens on their login screen.
+          // Banks are not pre-selected: the applicant picks any bank in Bridge.
           ...(c.employers?.length ? { employers: c.employers } : {}),
         }),
       });
@@ -498,7 +457,7 @@ export function RenewalsRefreshDemo() {
           continue;
         }
         patchCase(c.id, { waiting: false });
-        // The per-connection refresh limit is its own signal, not a generic failure.
+        // Hitting the per-connection refresh limit gets its own message, not a generic error.
         const name = `${c.firstName} ${c.lastName}`;
         const message = data.error === 'no_connections_yet'
           ? 'Still not ready to refresh after about a minute. Check that the applicant clicked Submit connected accounts in the connection window, then try again.'
@@ -529,8 +488,8 @@ export function RenewalsRefreshDemo() {
     if (created) setScreen('watch');
   }
 
-  // --- Step 4: resolve outcomes. Server consults the webhook, then the refresh
-  // task, then the order. Runs until every refresh has a terminal state. ---
+  // --- Step 4: get each refresh's result. The server checks the webhook, then the
+  // refresh task, then the order. Keeps polling until every refresh is finished. ---
   const pollOutcomes = useCallback(async () => {
     const pending = cases.filter(c => c.refresh && (!c.outcome || c.outcome.state === 'refreshing'));
     if (!pending.length) return;
@@ -542,9 +501,8 @@ export function RenewalsRefreshDemo() {
         if (!resp.ok) return;
         const data = await resp.json();
         if (!data.outcome || data.outcome.state === 'refreshing') return;
-        // Resolved. Queue it for a staggered reveal rather than flipping instantly:
-        // failures land in under a second and would otherwise all appear at once,
-        // before the viewer has read the row.
+        // Got a result. Queue it so rows appear one at a time. Failures come back in
+        // under a second and would otherwise all show at once, before anyone has read them.
         patchCase(c.id, { outcome: data.outcome, refreshDetail: data });
         if (!revealQueueRef.current.includes(c.id)) revealQueueRef.current.push(c.id);
       } catch { /* transient, next tick retries */ }
@@ -558,7 +516,7 @@ export function RenewalsRefreshDemo() {
     return () => clearInterval(t);
   }, [screen, pollOutcomes]);
 
-  // Drain the reveal queue one row at a time.
+  // Show queued rows one at a time.
   useEffect(() => {
     if (screen !== 'watch' && screen !== 'reauth') return;
     const t = setInterval(() => {
@@ -568,9 +526,9 @@ export function RenewalsRefreshDemo() {
     return () => clearInterval(t);
   }, [screen, patchCase]);
 
-  // --- Step 5: re-engage. Reuse the FAILED refresh order's own bridge_token.
-  // Bridge skips username and password (the connection is already authorized) and
-  // resumes at the challenge that broke the silent refresh. ---
+  // --- Step 5: send the applicant back to Bridge. Use the FAILED refresh order's own
+  // bridge_token. Bridge skips the username and password (the connection is already
+  // authorized) and goes straight to the challenge that stopped the refresh. ---
   function reauthCase(c) {
     if (!c.refresh?.bridge_token) return;
     patchCase(c.id, { failedReason: c.outcome?.reason || null });
@@ -620,9 +578,9 @@ export function RenewalsRefreshDemo() {
         if (mode === 'connect') {
           patchCase(finishedId, { connectedAt: Date.now() });
         } else {
-          // A re-authorized refresh completes the refresh order itself. Clear the
-          // resolved outcome so the poller re-reads it and the row flips to
-          // "Refreshed" from the same state machine as the silent path.
+          // Once the applicant clears the challenge the refresh order completes. Clear the
+          // stored result so polling reads it again and the row changes to "Refreshed"
+          // the same way an automatic refresh does.
           patchCase(finishedId, { outcome: { state: 'refreshing' }, revealed: false, reauthDone: true });
         }
       }
@@ -634,7 +592,7 @@ export function RenewalsRefreshDemo() {
     },
   });
 
-  // Drive the iframe from host state.
+  // Send the current state to the iframe.
   useEffect(() => {
     if (!active) return;
     if (active.bridgeToken) sendPreview('bridge', { bridgeToken: active.bridgeToken, isOrder: true, inline: true });
@@ -658,7 +616,7 @@ export function RenewalsRefreshDemo() {
     setScreen('walkthrough');
   }
 
-  // The walkthrough owns the full viewport, so the demo chrome is suppressed there.
+  // The walkthrough fills the whole page, so the demo header and side panel are hidden there.
   if (screen === 'walkthrough') {
     return (
       <Walkthrough
@@ -715,9 +673,9 @@ export function RenewalsRefreshDemo() {
               <Stepper current={0} />
               <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#1b1c1f] mb-2 outline-none">Connect the applicants</h2>
               <p class="text-[15px] text-[#474c52] leading-[1.5] mb-4">
-                Each applicant connects an employer, a bank, or both, the way they would at intake. The test login on
-                each row decides what happens at renewal, so you will see applicants who refresh on their own, applicants
-                who need to act, and applicants where only one connection needs them.
+                Each applicant connects an employer, a bank, or both, like they would at intake. The test login on
+                each row decides what happens at renewal: some refresh on their own, some need the applicant, and
+                some need them for only one of their connections.
               </p>
               <ol class="mb-5 text-[13px] text-[#2e3035] leading-[1.6] list-decimal pl-5 space-y-0.5">
                 <li>Click <strong>Connect</strong> on a row and use that row's test login.</li>
@@ -860,7 +818,7 @@ export function RenewalsRefreshDemo() {
               </div>
 
               <div class="border border-[#d8dee5] rounded-xl p-4 mb-5 bg-[#f0f2f5]">
-                <div class="text-[13px] font-semibold text-[#474c52] uppercase tracking-wide mb-2">What the agency backend sends</div>
+                <div class="text-[13px] font-semibold text-[#474c52] uppercase tracking-wide mb-2">What your system sends</div>
                 <pre class="text-[12px] font-mono text-[#1b1c1f] whitespace-pre-wrap m-0">{[...new Set(connected.map(c => JSON.stringify(c.products)))]
   .map(ps => {
     const list = JSON.parse(ps);
@@ -869,8 +827,8 @@ export function RenewalsRefreshDemo() {
   })
   .join('\n\n') || 'POST /v1/orders/{order_id}/\n{ "products": ["income"] }'}</pre>
                 <p class="text-[12px] text-[#474c52] mt-2 mb-0">
-                  Server-side, no applicant contact. Truv returns a new order and refreshes through the
-                  applicant's authenticated session. Limited to 3 refreshes per connection per 24 hours.
+                  Sent from your server with no applicant contact. Truv returns a new order and refreshes using the
+                  session the applicant already set up. Each connection can be refreshed 3 times per 24 hours.
                 </p>
               </div>
 
@@ -884,7 +842,7 @@ export function RenewalsRefreshDemo() {
             </>
           )}
 
-          {/* ---------------- Outcomes: watch, then re-engage on the same screen ---------------- */}
+          {/* ---------------- Outcomes: watch, then send applicants back on the same screen ---------------- */}
           {screen === 'watch' && (
             <>
               <Stepper current={2} />
@@ -893,7 +851,7 @@ export function RenewalsRefreshDemo() {
                 {!allResolved
                   ? 'Truv is refreshing each connection. In the sandbox this takes a few seconds to about half a minute.'
                   : (reengage
-                    ? `${needsReauth.length} of ${refreshed.length} needs the applicant. The rest are done and nobody else is contacted.`
+                    ? `${needsReauth.length} of ${refreshed.length} ${needsReauth.length === 1 ? 'needs' : 'need'} the applicant. The rest are done and nobody else is contacted.`
                     : refreshed.some(c => c.reauthDone)
                       ? 'Every refresh finished. Applicants who needed to act did, and nobody else was contacted.'
                       : 'Every refresh finished and nobody needed to act.')}
@@ -994,7 +952,7 @@ export function RenewalsRefreshDemo() {
                 if (!allResolved || needsReauth.length > 0 || !unexpected.length) return null;
                 return (
                   <div class="mb-6 border border-[#8A6200]/30 bg-amber-50/60 rounded-xl p-4 text-[13px] text-[#1b1c1f]">
-                    {unexpected.map(c => c.firstName).join(' and ')} refreshed without needing re-authorization. If you expected a
+                    {unexpected.map(c => c.firstName).join(' and ')} refreshed without needing the applicant. If you expected a
                     failure, they probably kept the pre-filled password (<code class="font-mono text-[12px]">goodpassword</code>),
                     which connects a healthy account. Click Start Over and connect again, this time replacing the password with
                     the test login shown on the setup screen.
@@ -1018,7 +976,6 @@ export function RenewalsRefreshDemo() {
                 <p class="text-[13px] text-[#474c52] mb-6">Checking each connection. This page updates on its own.</p>
               )}
 
-              <ItDetails webhooks={panel.webhooks} />
             </>
           )}
 
@@ -1036,8 +993,8 @@ export function RenewalsRefreshDemo() {
                 })()}
               </p>
               <p class="text-[13px] text-[#474c52] leading-[1.5] mb-5">
-                Each completed refresh creates its own order and report, and the original order keeps its own.
-                This demo shows the mechanics with test data, not how often refreshes succeed in production.
+                Each completed refresh gets its own order and report, and the original order keeps its report.
+                This is test data, so it says nothing about how often refreshes succeed in production.
               </p>
 
               <div class="space-y-3 mb-6">
@@ -1090,7 +1047,3 @@ export function RenewalsRefreshDemo() {
     </Layout>
   );
 }
-
-// hmr probe
-
-// hmr probe
