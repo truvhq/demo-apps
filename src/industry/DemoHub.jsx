@@ -18,6 +18,8 @@ const DEMO_ICONS = {
 
 // Guides: step-by-step walkthroughs.
 export const GUIDES = [
+  { id: 'embedded-orders', name: 'Embedded Orders Field Guide', icon: 'fileText', href: '#public-sector/embedded-orders', mode: 'Guide',
+    desc: 'For state agencies and the teams that build their applications. How to put the page where applicants connect their payroll or bank account inside the application itself: where it goes, nine rules with the reasons, the settings to check, and a pre-launch checklist.' },
   { id: 'batching', name: 'Batching', icon: 'layers', href: '#public-sector/batching', mode: 'Walkthrough',
     desc: 'Bulk order intake: staff drop a CSV into a folder and a scheduled job creates one order per row. Includes the setup guides and a runnable kit.' },
 ];
