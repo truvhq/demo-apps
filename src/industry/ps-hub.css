@@ -99,21 +99,6 @@
 @media (max-width: 1100px) { .psh-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width: 600px) { .psh-grid { grid-template-columns:1fr; } }
 
-/* industry filter chips (home) */
-.psh-filters { display:flex; flex-wrap:wrap; gap:8px; margin:-4px 0 20px; }
-.psh-chip { font-family:var(--sans); font-size:13px; font-weight:500; color:var(--ck-dark-gray); background:#fff;
-  border:1px solid var(--ck-lighter-gray); border-radius:999px; padding:6px 14px; cursor:pointer;
-  transition:background .4s var(--ck-ease), border-color .4s var(--ck-ease), color .4s var(--ck-ease); }
-.psh-chip:hover { border-color:var(--ck-aqua); background:var(--ck-aqua); color:var(--ck-black); }
-.psh-chip.on { background:var(--ck-black); border-color:var(--ck-black); color:#fff; }
-.psh-chip:focus-visible { outline:2px solid var(--ck-aqua); outline-offset:2px; }
-
-/* outline button (hero) - checkr.com secondary style */
-.psh-btn-outline { margin-top:22px; font-family:var(--sans); font-size:13px; font-weight:500; color:var(--ck-dark-gray);
-  background:transparent; border:1px solid var(--ck-dark-gray); border-radius:6px; padding:9px 16px; cursor:pointer;
-  transition:background .4s var(--ck-ease), border-color .4s var(--ck-ease), color .4s var(--ck-ease); }
-.psh-btn-outline:hover { background:var(--ck-aqua); border-color:var(--ck-aqua); color:var(--ck-black); }
-
 /* Checkr Brand Guidelines 1.0: headlines National 2 Narrow Medium, 100% line
    height, -1% letter spacing; subheads 120%; body 130%. */
 .psh-title, .psh-section-title, .psh-section-name { font-family:var(--headline); font-weight:500; line-height:1; letter-spacing:-.01em; }

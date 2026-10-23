@@ -10,8 +10,6 @@
  * the input value is cleared and the rest of the app loads.
  */
 import { useState } from 'preact/hooks';
-import { BrandLogo } from './BrandLogo.jsx';
-import { DotField } from './DotField.jsx';
 import { Icons } from './Icons.jsx';
 import { signIn, isSsoConfigured } from '../auth/auth0Client.js';
 import { DASHBOARD_KEYS_URL } from '../config.js';
@@ -170,7 +168,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
   }
 
   return (
-    <div class="ck-theme ck-signin min-h-screen relative grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] bg-white">
+    <div class="min-h-screen relative flex items-center justify-center px-6 overflow-hidden bg-[#fafafa]">
       {/* Soft background ambience: pastel radial blooms drifting behind the card. */}
       <div aria-hidden="true" class="pointer-events-none absolute inset-0">
         <div class="config-bloom-a absolute -top-32 left-1/2 w-[640px] h-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(94,92,230,0.13),transparent_60%)]" />
@@ -182,18 +180,16 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
         href="https://truv.com/contact-sales"
         target="_blank"
         rel="noreferrer"
-        class="absolute top-5 right-6 z-10 text-[13px] font-medium text-[#1b1c1f] bg-white border border-[#d8dee5] rounded-[6px] px-3.5 py-1.5 hover:bg-[#23deff] hover:border-[#23deff] transition-colors duration-[400ms]"
+        class="absolute top-5 right-6 z-10 text-[13px] font-medium text-white bg-primary rounded-lg px-3.5 py-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.06)] hover:bg-primary-hover active:bg-primary-active hover:shadow-[0_2px_6px_rgba(94,92,230,0.25)] transition-all"
       >
         Contact sales
       </a>
 
-      {/* Left: sign-in */}
-      <div class="relative flex items-center justify-center px-6 py-16">
       <div class="relative w-full max-w-[420px] animate-slideUp">
-        <div class="gradient-ring relative bg-white border border-[#e8e8ed]/80 rounded-[20px] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_12px_40px_rgba(16,24,40,0.10)] px-8 py-9">
+        <div class="gradient-ring relative bg-white border border-[#e8e8ed]/80 rounded-[20px] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_12px_40px_rgba(16,24,40,0.10),0_2px_8px_rgba(94,92,230,0.05)] px-8 py-9">
           {/* Header */}
           <div class="flex flex-col items-center gap-3 mb-6">
-            <BrandLogo height={44} />
+            <Icons.truvLogo height={29} className="text-text" />
             <h1 class="text-[22px] font-semibold tracking-[-0.025em] text-[#000000]">Personalize your demo</h1>
             <p class="text-[13px] text-[#808080] text-center leading-[1.55] max-w-[340px]">
               Add your Truv keys to run the demos on your own account. Real users, real API calls, live reports in your dashboard.
@@ -214,7 +210,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
                 type="button"
                 onClick={handleSsoClick}
                 disabled={ssoBusy}
-                class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-lg shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary-hover active:bg-primary-active hover:-translate-y-px hover:shadow-[0_6px_16px_rgba(27,28,31,0.15)] active:translate-y-0 disabled:bg-[#d1d1d6] disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-150 inline-flex items-center justify-center gap-2"
+                class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-lg shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary-hover active:bg-primary-active hover:-translate-y-px hover:shadow-[0_6px_16px_rgba(94,92,230,0.30)] active:translate-y-0 disabled:bg-[#d1d1d6] disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-150 inline-flex items-center justify-center gap-2"
               >
                 {ssoBusy ? (
                   <>
@@ -261,7 +257,7 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
                 <button
                   type="submit"
                   disabled={busy || !clientId || !secret}
-                  class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-lg shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary-hover active:bg-primary-active hover:-translate-y-px hover:shadow-[0_6px_16px_rgba(27,28,31,0.15)] active:translate-y-0 disabled:bg-[#d1d1d6] disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-150"
+                  class="w-full py-2.5 text-[14px] font-medium text-white bg-primary rounded-lg shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_-1px_0_rgba(0,0,0,0.08)] hover:bg-primary-hover active:bg-primary-active hover:-translate-y-px hover:shadow-[0_6px_16px_rgba(94,92,230,0.30)] active:translate-y-0 disabled:bg-[#d1d1d6] disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed transition-all duration-150"
                 >
                   {busy ? (
                     <span class="inline-flex items-center gap-2">
@@ -308,9 +304,9 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
         {/* What you'll verify — a quiet preview of what the demos surface. */}
         <div class="flex items-center justify-center gap-2 mt-4">
           {[
-            { label: 'Income', dot: '#23DEFF' },
-            { label: 'Employment', dot: '#1B1C1F' },
-            { label: 'Assets', dot: '#7A828C' },
+            { label: 'Income', dot: '#34c759' },
+            { label: 'Employment', dot: '#2C64E3' },
+            { label: 'Assets', dot: '#8b5cf6' },
           ].map((chip, i) => (
             <span
               key={chip.label}
@@ -322,74 +318,6 @@ export function ConfigureScreen({ onSubmit, ssoError }) {
           ))}
         </div>
       </div>
-      </div>
-
-      {/* Right: product and proof panel (wide screens only) */}
-      <ProofPanel />
     </div>
-  );
-}
-
-// Proof panel beside the sign-in card. Quotes, names, titles and agency logos
-// are taken verbatim from truv.com/public-sector (approved by Marketing as the
-// source). Product screens are real captures of these demos.
-const QUOTES = [
-  {
-    quote: 'During a 3-month side-by-side evaluation of Truv against our instant database solution, Truv not only matched the data quality of the database but outperformed it with data on gig economy workers—solving a critical gap in our verifications.',
-    name: 'Jake Parlett', title: 'Systems Manager, Utah DWS', photo: '/brand/people/jake-parlett.png',
-  },
-  {
-    quote: "In our partnership with Truv, we've seen a significant financial impact on the verification with Truv. It is a significant decrease in cost per hit.",
-    name: 'Wesley Merritt', title: 'Assistant Deputy Commissioner of Quality & Vendor Relations, GA DHS', photo: '/brand/people/wesley-merritt.png',
-  },
-];
-const AGENCY_LOGOS = [
-  { src: '/brand/logos/CA-Department.png', alt: 'California Department of Social Services' },
-  { src: '/brand/logos/Oklahoma-DHS-logo.png', alt: 'Oklahoma DHS' },
-  { src: '/brand/logos/Washington-DSHS.png', alt: 'Washington DSHS' },
-  { src: '/brand/logos/UT-DWS.png', alt: 'Utah Department of Workforce Services' },
-];
-
-function ProofPanel() {
-  return (
-    <aside class="ck-proof relative hidden lg:flex flex-col justify-center overflow-hidden px-14 py-12">
-      <DotField class="absolute inset-0" />
-      <div class="ck-proof-content relative z-10 max-w-[620px] w-full mx-auto">
-        <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-[#474c52] mb-4">Truv by Checkr · Public Sector</div>
-        <h2 class="ck-proof-title text-[36px] mb-3">Income and employment verification, straight from the source</h2>
-        <p class="text-[15px] leading-[1.5] text-[#474c52] mb-7 max-w-[52ch]">
-          Applicants connect their payroll provider, and agencies receive income and employment data directly - no re-keying documents.
-        </p>
-
-        <div class="ck-proof-shots relative h-[250px] mb-7">
-          <img src="/brand/screens/caseworker-applicants.png" alt="Case Worker Portal: applicants and verification status"
-               class="absolute left-0 top-8 w-[76%] rounded-[8px] border border-[#d8dee5] bg-white shadow-[0_24px_48px_-28px_rgba(27,28,31,0.45)]" />
-          <img src="/brand/screens/phone-application.png" alt="Applicant verification form on a phone"
-               class="absolute right-2 top-0 h-[250px] w-auto drop-shadow-[0_20px_32px_rgba(27,28,31,0.35)]" />
-        </div>
-
-        <div class="grid grid-cols-2 gap-4 mb-7">
-          {QUOTES.map(q => (
-            <figure key={q.name} class="rounded-[8px] border border-[#d8dee5] bg-white/90 backdrop-blur-sm p-4">
-              <blockquote class="text-[13px] leading-[1.45] text-[#1b1c1f]">“{q.quote}”</blockquote>
-              <figcaption class="mt-3 flex items-center gap-2.5">
-                <img src={q.photo} alt="" class="w-8 h-8 rounded-full object-cover object-top bg-[#f0f2f5]" />
-                <span class="text-[12px] leading-[1.3]">
-                  <span class="block font-medium text-[#1b1c1f]">{q.name}</span>
-                  <span class="block text-[#474c52]">{q.title}</span>
-                </span>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-
-        <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7a828c] mb-3">Trusted by state agencies</div>
-        <div class="flex items-center gap-8">
-          {AGENCY_LOGOS.map(l => (
-            <img key={l.src} src={l.src} alt={l.alt} class="h-9 w-auto object-contain" />
-          ))}
-        </div>
-      </div>
-    </aside>
   );
 }

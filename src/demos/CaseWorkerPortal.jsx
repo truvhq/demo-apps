@@ -106,6 +106,7 @@ export function CaseWorkerPortalDemo({ screen, param }) {
       {/* Intro slide: architecture diagram and feature overview */}
       {showIntro && (
         <IntroSlide
+          theme="checkr"
           label="Public Sector . Case Worker Portal"
           title="Verify without the applicant present"
           subtitle="A case worker creates verification orders using applicant data on file and sends verification links via email or SMS. Track completion from a dashboard."

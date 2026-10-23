@@ -74,6 +74,7 @@ export function CPIntroScreen({ onStart }) {
 
   return (
     <IntroSlide
+      theme="checkr"
       label="Public Sector · Customer Portal"
       title={<>Verify income for<br />benefit eligibility</>}
       subtitle="An applicant applies for benefits and verifies their income and employment through a self-service portal. No document uploads needed."

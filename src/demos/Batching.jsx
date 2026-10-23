@@ -12,7 +12,7 @@ import { useState, useEffect } from 'preact/hooks';
 // dependency on any other demo's stylesheet and deploys on its own branch.
 import './batching.css';
 import { Header } from '../components/Header.jsx';
-import { Icons } from '../components/Icons.jsx';
+import { PhosphorIcons as Icons } from '../components/PhosphorIcons.jsx';
 
 /* ---------- shared bits ---------- */
 
@@ -664,7 +664,7 @@ export function BatchingWalkthrough({ screen }) {
 
   return (
     <div class="wt bt">
-      <Header trail={[{ label: 'Public Sector', href: '#public-sector' },
+      <Header theme="checkr" trail={[{ label: 'Public Sector', href: '#public-sector' },
                       { label: 'Batching', href: '#public-sector/batching' }]} />
       <header class="wt-top">
         <div class="wt-brand">

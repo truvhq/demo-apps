@@ -53,7 +53,7 @@ describe('Breadcrumb', () => {
     const current = anchors.find(a => a.props.href === '#mortgage/pos-tasks');
     expect(current).toBeTruthy();
     expect(current.props['aria-current']).toBe('page');
-    expect(current.props.class).toContain('text-[#474c52]');
+    expect(current.props.class).toContain('text-muted');
     expect(textOf(current)).toBe('POS Tasks');
   });
 

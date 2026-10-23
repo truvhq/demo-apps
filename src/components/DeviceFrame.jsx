@@ -49,7 +49,10 @@ const segActive = 'bg-white shadow-sm text-gray-900';
 const segInactive = 'text-gray-500 hover:text-gray-700';
 const segGroup = 'flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-lg';
 
-export function DeviceFrame({ children, url = 'demo.example.com' }) {
+// variant: 'phone' draws a realistic iPhone (bezel, island, status bar) in mobile mode;
+// the default keeps the original plain bezel. Only the Public Sector demos pass 'phone'.
+export function DeviceFrame({ children, url = 'demo.example.com', variant }) {
+  const phone = variant === 'phone';
   const [mode] = useDeviceMode();
   const isNarrow = useIsNarrow();
   // Below sm there is no room for a phone bezel or a desktop browser window, and
@@ -81,22 +84,30 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
   // Width follows from aspect-ratio. Desktop: invisible flex passthrough so
   // the inner "screen" fills the column.
   const frameClass = isMobile
-    ? (isNarrow ? 'relative w-full flex-1 min-h-0 max-w-full' : 'dvc-phone')
+    ? (phone
+      ? (isNarrow ? 'relative w-full flex-1 min-h-0 max-w-full' : 'dvc-phone')
+      : 'relative w-full flex-1 min-h-0 max-w-full sm:w-auto sm:flex-none sm:bg-gray-900 sm:rounded-[2.75rem] sm:p-3 sm:shadow-2xl sm:h-[804px] sm:min-h-[480px] sm:max-h-full sm:aspect-[414/804]')
     : 'flex flex-1 w-full';
   const overlayTopClass = isMobile
-    ? (isNarrow ? 'hidden' : 'dvc-island')
+    ? (phone
+      ? (isNarrow ? 'hidden' : 'dvc-island')
+      : 'hidden sm:block absolute top-5 left-1/2 -translate-x-1/2 w-32 h-7 bg-black rounded-full z-10')
     : 'hidden';
   // Mobile: white phone screen filling the bezel (size driven by frame above);
   // below sm it reads as a plain bordered card instead of a phone screen.
   // Desktop: browser window chrome — fills outer's height exactly so any scroll
   // happens inside the iframe rather than on the host page.
   const screenClass = isMobile
-    ? (isNarrow ? 'bg-white rounded-xl border border-gray-200 overflow-hidden h-full w-full flex flex-col relative' : 'dvc-screen')
+    ? (phone
+      ? (isNarrow ? 'bg-white rounded-xl border border-gray-200 overflow-hidden h-full w-full flex flex-col relative' : 'dvc-screen')
+      : 'bg-white rounded-xl border border-gray-200 sm:rounded-[2.25rem] sm:border-0 overflow-hidden h-full w-full flex flex-col relative')
     : 'bg-gray-100 rounded-xl shadow-2xl overflow-hidden w-full border border-gray-200 flex flex-col flex-1 min-h-0';
   // Mobile: empty status-bar reserve (only when the bezel chrome is shown).
   // Desktop: traffic lights + URL bar (rendered below).
   const chromeBarClass = isMobile
-    ? (isNarrow ? 'h-0 flex-shrink-0' : 'dvc-status')
+    ? (phone
+      ? (isNarrow ? 'h-0 flex-shrink-0' : 'dvc-status')
+      : 'h-0 sm:h-12 flex-shrink-0')
     : 'bg-gray-200 px-4 py-2.5 flex items-center gap-3 border-b border-gray-300 flex-shrink-0';
   // `content` is a flex column so the inner wrap (a flex item with flex-1)
   // gets a definite height — necessary for h-full on iframe children to resolve.
@@ -109,13 +120,15 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
   // the iframe document handles its own scrolling, so a host-side scroll would
   // just be redundant (and at extreme sizes can cause a double scrollbar).
   const contentClass = isMobile
-    ? 'flex flex-col flex-1 min-h-0'
+    ? (phone ? 'flex flex-col flex-1 min-h-0' : 'flex flex-col flex-1')
     : 'bg-white flex flex-col flex-1';
   // Both modes: fill the full content area horizontally and vertically. The
   // iframe inside owns its own internal max-width for forms.
   const innerWrapClass = 'flex-1 w-full';
   const overlayBottomClass = isMobile
-    ? (isNarrow ? 'hidden' : 'dvc-home')
+    ? (phone
+      ? (isNarrow ? 'hidden' : 'dvc-home')
+      : 'hidden sm:block absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-black rounded-full')
     : 'hidden';
 
   return (
@@ -124,7 +137,7 @@ export function DeviceFrame({ children, url = 'demo.example.com' }) {
         <div class={overlayTopClass} aria-hidden="true" />
         <div class={screenClass}>
           <div class={chromeBarClass} aria-hidden={isMobile ? 'true' : undefined}>
-            {isMobile && !isNarrow && <StatusBar />}
+            {isMobile && phone && !isNarrow && <StatusBar />}
             {!isMobile && (
               <>
                 <div class="flex gap-1.5">

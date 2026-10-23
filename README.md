@@ -217,10 +217,10 @@ server/
 
 src/
   App.jsx                Router and industry/demo registry (INDUSTRIES).
-  Home.jsx               Home page: demo cards (filter by industry) and guide cards
-  IndustryPage.jsx       Icons for each demo
-  industry/              DemoHub (the shared Demos + Guides card page), plus one wrapper per industry page.
-                         Guides are listed in DemoHub.jsx; a demo flagged `guide: true` in App.jsx is a guide, not a demo card.
+  Home.jsx               Home page with industry cards
+  IndustryPage.jsx       Demos for one industry
+  industry/              Public Sector page: Demos and Guides cards (DemoHub.jsx lists the guides).
+                         A demo flagged `guide: true` in App.jsx is a guide, not a demo card.
   demos/                 One file per demo. scaffolding/ holds each demo's copy and config.
     SmartRouting.jsx       Best starting point for Consumer Credit (Bridge flow)
     POSApplication.jsx     Best starting point for Mortgage (Orders flow)

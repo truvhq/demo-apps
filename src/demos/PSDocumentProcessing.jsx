@@ -173,6 +173,7 @@ export function PSDocumentProcessingDemo() {
       {/* Intro slide: feature overview and architecture diagram */}
       {screen === 'intro' && (
         <IntroSlide
+          theme="checkr"
           label={INTRO_SLIDE_CONFIG.label}
           title={INTRO_SLIDE_CONFIG.title}
           subtitle={INTRO_SLIDE_CONFIG.subtitle}

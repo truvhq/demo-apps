@@ -57,9 +57,7 @@ export const PRODUCTS = [
 
 // --- Component: IntroScreen. Product picker with diagram. Calls onStart(productId). ---
 export function IntroScreen({ onStart }) {
-  // One card: income (VOIE). Assets work the same way, so the note says so
-  // instead of repeating the flow as a second card.
-  const [selected, setSelected] = useState('income');
+  const [selected, setSelected] = useState(null);
 
   return (
     <IntroSlide
@@ -78,7 +76,7 @@ export function IntroScreen({ onStart }) {
       }
     >
       <div class="grid gap-3 text-left">
-        {PRODUCTS.filter(p => p.id === 'income').map(p => (
+        {PRODUCTS.map(p => (
           <div
             key={p.id}
             onClick={() => setSelected(p.id)}
@@ -89,7 +87,7 @@ export function IntroScreen({ onStart }) {
             }`}
           >
             <div class="flex items-start justify-between mb-1">
-              <h3 class="text-[15px] font-semibold text-[#000000]">{p.name}*</h3>
+              <h3 class="text-[15px] font-semibold text-[#000000]">{p.name}</h3>
               <span class="text-[11px] font-medium text-[#808080] bg-[#f5f5f7] px-2 py-0.5 rounded-md font-mono">{p.report}</span>
             </div>
             <p class="text-[14px] text-[#808080] leading-[1.5] mb-2">{p.desc}</p>
@@ -97,9 +95,6 @@ export function IntroScreen({ onStart }) {
           </div>
         ))}
       </div>
-      <p class="text-[13px] text-[#808080] leading-[1.5] mt-3">
-        * Income and assets can each be verified on their own, or together in one order. This demo shows income.
-      </p>
     </IntroSlide>
   );
 }

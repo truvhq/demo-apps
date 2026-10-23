@@ -14,6 +14,8 @@
  *   #                                        -> Home (industry picker)
  *   #consumer-credit                         -> IndustryPage (list of demos)
  *   #consumer-credit/smart-routing           -> Demo intro screen
+ *   #public-sector                           -> Public Sector page (Demos + Guides cards)
+ *   #public-sector/batching                  -> the Batching guide (a demo flagged `guide`)
  *   #consumer-credit/smart-routing/bridge/id -> Demo active screen
  *
  * Each demo component receives { screen, param } props from the router.
@@ -26,6 +28,7 @@ import { useState, useEffect } from 'preact/hooks';
 import { Home } from './Home.jsx';
 import { IndustryPage } from './IndustryPage.jsx';
 import { ConfigureScreen } from './components/ConfigureScreen.jsx';
+import { PublicSectorSignIn } from './components/PublicSectorSignIn.jsx';
 import { useSession } from './hooks/useSession.js';
 import { hasCallbackParams, handleCallback, getIdToken } from './auth/auth0Client.js';
 import { POSApplicationDemo } from './demos/POSApplication.jsx';
@@ -37,6 +40,7 @@ import { LOSDemo } from './demos/LOS.jsx';
 import { CustomerPortalDemo } from './demos/CustomerPortal.jsx';
 import { PSDocumentProcessingDemo } from './demos/PSDocumentProcessing.jsx';
 import { BatchingWalkthrough } from './demos/Batching.jsx';
+import { PublicSectorHub } from './industry/PublicSectorHub.jsx';
 import { SmartRoutingDemo } from './demos/SmartRouting.jsx';
 import { BankIncomeDemo } from './demos/BankIncome.jsx';
 import { PayrollIncomeDemo } from './demos/PayrollIncome.jsx';
@@ -69,7 +73,7 @@ export const INDUSTRIES = [
       { id: 'customer-portal', name: 'Customer Portal', component: CustomerPortalDemo, desc: 'An applicant applies for benefits and verifies their income and employment through a self-service portal.', tags: ['Company Search', 'Orders', 'Bridge', 'Reports'] },
       { id: 'documents', name: 'Document Processing', component: PSDocumentProcessingDemo, desc: 'Process pay stubs, W-2s, and tax returns to verify income for benefit eligibility decisions.', tags: ['Document Collections', 'Finalize', 'Parsed Data'] },
       { id: 'verifier-portal', name: 'Case Worker Portal', component: CaseWorkerPortalDemo, desc: 'A Case Worker creates verification orders using applicant data on file and sends verification links via email or SMS.', tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'] },
-      { id: 'batching', name: 'Batching', component: BatchingWalkthrough, desc: 'Animated walkthrough of bulk order intake: staff drop a CSV into a folder and a scheduled job creates one order per row. Ends with the setup guides and the runnable kit to hand to a customer.', tags: ['Guided', 'Bulk', 'CSV', 'Orders', 'Webhooks'] },
+      { id: 'batching', name: 'Batching', component: BatchingWalkthrough, guide: true, desc: 'Animated walkthrough of bulk order intake: staff drop a CSV into a folder and a scheduled job creates one order per row. Ends with the setup guides and the runnable kit to hand to a customer.', tags: ['Guided', 'Bulk', 'CSV', 'Orders', 'Webhooks'] },
       { id: 'renewals-refresh', name: 'Renewals & Data Refresh', component: RenewalsRefreshDemo, desc: 'Recertify without asking for documents again. Refresh the payroll and bank connections applicants already made, see which refreshes finish on their own and which need the applicant, and contact only those applicants.', tags: ['Guided', 'Orders', 'Refresh', 'Webhooks'] },
     ],
   },
@@ -220,7 +224,12 @@ export function App() {
     }
   }
 
-  if (forceConfigure || !session.authenticated) return <ConfigureScreen onSubmit={session.submit} ssoError={ssoError} />;
+  // Sign-in: the Public Sector look for #public-sector links, the original screen
+  // for everything else.
+  if (forceConfigure || !session.authenticated) {
+    const SignIn = route.industry === 'public-sector' ? PublicSectorSignIn : ConfigureScreen;
+    return <SignIn onSubmit={session.submit} ssoError={ssoError} />;
+  }
 
   // Routing logic: progressively resolve industry, then demo, then screen.
   // At each level, fall back to the parent view if no match is found.
@@ -229,10 +238,16 @@ export function App() {
   const industry = INDUSTRIES.find(i => i.id === route.industry);
   if (!industry) return <Home />;
 
-  if (!route.demo) return <IndustryPage key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
+  // Public Sector has its own Demos + Guides page; every other industry keeps IndustryPage.
+  // #public-sector/demos and /guides scroll to that section of the page.
+  const Landing = industry.id === 'public-sector' ? PublicSectorHub : IndustryPage;
+  if (!route.demo) return <Landing key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
+  if (route.demo === 'demos' || route.demo === 'guides') {
+    return <Landing key={`industry/${route.industry}/${route.demo}/${restartNonce}`} industry={industry} section={route.demo} />;
+  }
 
   const demoConfig = industry.demos.find(d => d.id === route.demo);
-  if (!demoConfig) return <IndustryPage key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
+  if (!demoConfig) return <Landing key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
 
   // Render the matched demo component with screen and param props.
   const Component = demoConfig.component;

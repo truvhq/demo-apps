@@ -222,7 +222,7 @@ export function CustomerPortalDemo({ screen, param }) {
       {/* Application form + Bridge widget live inside the preview iframe (user view).
           A single iframe element persists across the form → bridge hash navigation. */}
       {showDeviceFrame && (
-        <DeviceFrame url="benefits.example.gov">
+        <DeviceFrame url="benefits.example.gov" variant="phone">
           <iframe
             ref={iframeRef}
             src="/preview.html?theme=checkr"
