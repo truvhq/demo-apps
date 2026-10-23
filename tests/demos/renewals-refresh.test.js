@@ -6,14 +6,14 @@ import { CASELOAD, extraApplicant, STEPS, WALKTHROUGH_STAGES, OUTCOME_DISPLAY } 
 // ---------------------------------------------------------------------------
 // RenewalsRefresh.jsx behavioral contracts
 //
-// Recertification demo. A refresh either completes silently or fails and needs
-// the applicant to clear a challenge. The failure path emits NO further
-// order-status-updated, so the order sits at `sent` and order-refresh-failed is
-// the only signal. classifyRefreshOutcome is what turns those three sources
-// (webhook, refresh task, order state) into one verdict.
+// Recertification demo. A refresh either finishes on its own or fails and needs
+// the applicant to answer a challenge. A failed connection never gets a completed
+// order-status-updated, so it stays at `sent` and order-refresh-failed is the only
+// signal for it. classifyRefreshOutcome combines three sources (webhook, refresh
+// task, order state) into one result.
 //
-// The fixtures below are the real payload shapes captured in sandbox on
-// 2026-08-19/20, not invented ones.
+// The fixtures below are real payloads captured in sandbox on 2026-08-19/20, not
+// made-up ones.
 // ---------------------------------------------------------------------------
 
 // Captured verbatim from the sandbox run (income refresh, mfa_captcha credential).
@@ -30,7 +30,7 @@ const REFRESH_FAILED_INCOME = {
   }),
 };
 
-// Same shape on the bank path, which is the reason the demo covers both products.
+// Same payload on the bank path, which is why the demo covers both products.
 const REFRESH_FAILED_ASSETS = {
   event_type: 'order-refresh-failed',
   status: 'mfa_error',
@@ -43,7 +43,7 @@ const REFRESH_FAILED_ASSETS = {
 };
 
 describe('classifyRefreshOutcome', () => {
-  it('reads order-refresh-failed as re-auth required, carrying reason and product', () => {
+  it('treats order-refresh-failed as needing the applicant, with the reason and product', () => {
     const out = classifyRefreshOutcome({
       truvOrderId: 'b1b4777851ba4d159a7272c6cdeb6ab2',
       orderData: { employers: [{ status: 'sent' }] },
@@ -55,7 +55,7 @@ describe('classifyRefreshOutcome', () => {
     expect(out.source).toBe('order-refresh-failed');
   });
 
-  it('resolves the assets path identically, with product: assets', () => {
+  it('handles the assets path the same way, with product: assets', () => {
     const out = classifyRefreshOutcome({
       truvOrderId: '425606afae424cb7be0808c711a2adbb',
       orderData: { financial_accounts: [{ status: 'sent' }] },
@@ -75,7 +75,7 @@ describe('classifyRefreshOutcome', () => {
     expect(out.state).toBe('refreshing');
   });
 
-  it('treats a completed suborder as a silent success', () => {
+  it('treats a completed suborder as refreshed on its own', () => {
     const out = classifyRefreshOutcome({
       truvOrderId: 'x',
       orderData: { employers: [{ status: 'completed' }] },
@@ -85,12 +85,11 @@ describe('classifyRefreshOutcome', () => {
     expect(out.source).toBe('order');
   });
 
-  // REGRESSION GUARD. The first version of this fallback filtered on `is_refresh`,
-  // which exists on the internal Task model but is NOT in the public
-  // GET /v1/tasks/ response — it comes back absent. That made the whole
-  // no-webhook path dead on localhost, and an earlier version of this test missed
-  // it because the fixture was hand-written with `is_refresh: true` instead of the
-  // real payload. This fixture is the real one, captured 2026-08-20.
+  // Regression test. The first version of this fallback filtered on `is_refresh`.
+  // That field exists on the internal Task model but is missing from the public
+  // GET /v1/tasks/ response, so the no-webhook path never worked on localhost. An
+  // earlier version of this test missed it because its fixture was written by hand
+  // with `is_refresh: true`. This fixture is the real response, captured 2026-08-20.
   it('falls back to the refresh task status when no webhook arrived (localhost, no tunnel)', () => {
     const out = classifyRefreshOutcome({
       truvOrderId: '87a3403cd2c14ae1970df51673dd86c6',
@@ -113,13 +112,13 @@ describe('classifyRefreshOutcome', () => {
       truvOrderId: 'refresh-order',
       orderData: { employers: [{ status: 'sent' }] },
       webhooks: [],
-      // A failure on the ORIGINAL order must not be reported as this refresh's outcome.
+      // A failure on the original order must not be reported as this refresh's result.
       tasks: [{ id: 't1', status: 'login_error', order_id: 'original-order' }],
     });
     expect(out.state).toBe('refreshing');
   });
 
-  it('still honors is_refresh if a future API version starts exposing it', () => {
+  it('still uses is_refresh if the API starts returning it', () => {
     const out = classifyRefreshOutcome({
       truvOrderId: 'x',
       orderData: { employers: [{ status: 'sent' }] },
@@ -159,7 +158,7 @@ describe('classifyRefreshOutcome', () => {
     }
   });
 
-  it('routes every credential-class status to re-auth', () => {
+  it('treats every status in REAUTH_STATUSES as needing the applicant', () => {
     for (const status of REAUTH_STATUSES) {
       const out = classifyRefreshOutcome({
         truvOrderId: 'x',
@@ -180,7 +179,7 @@ describe('classifyRefreshOutcome', () => {
     expect(tasksForOrder(tasks, 'mine').map(t => t.id)).toEqual(['b', 'c']);
   });
 
-  it('reports refreshed once a failed refresh order completes after the applicant re-authenticates', () => {
+  it('reports refreshed once a failed refresh order completes after the applicant answers the challenge', () => {
     const failedThenCompleted = {
       truvOrderId: 'refresh-order',
       orderData: { employers: [{ id: 'e1', status: 'completed' }] },
@@ -190,7 +189,7 @@ describe('classifyRefreshOutcome', () => {
     expect(classifyRefreshOutcome(failedThenCompleted).state).toBe('refreshed');
   });
 
-  it('does not let completion hide a provider-class failure such as no_data', () => {
+  it('does not let a completed order hide a provider failure such as no_data', () => {
     const out = classifyRefreshOutcome({
       truvOrderId: 'refresh-order',
       orderData: { employers: [{ id: 'e1', status: 'completed' }] },
@@ -200,7 +199,7 @@ describe('classifyRefreshOutcome', () => {
     expect(out.reason).toBe('no_data');
   });
 
-  it('still reports re-auth while another connection on the order has not completed', () => {
+  it('still says the applicant is needed while another connection on the order has not completed', () => {
     const out = classifyRefreshOutcome({
       truvOrderId: 'refresh-order',
       orderData: { employers: [{ id: 'e1', status: 'completed' }, { id: 'e2', status: 'sent' }] },
@@ -209,7 +208,7 @@ describe('classifyRefreshOutcome', () => {
     expect(out.state).toBe('reauth_required');
   });
 
-  it('fails closed on an unknown or missing webhook status instead of prompting the applicant', () => {
+  it('treats an unknown or missing webhook status as not fixable by the applicant, so nobody is prompted', () => {
     for (const status of ['something_new', null, undefined]) {
       const out = classifyRefreshOutcome({
         truvOrderId: 'refresh-order',
@@ -239,7 +238,7 @@ describe('classifyRefreshOutcome', () => {
 describe('classifyRefreshOutcomePerSuborder', () => {
   const failure = (employer_id, status) => ({ event_type: 'order-refresh-failed', payload: { order_id: 'r', employer_id, status } });
 
-  it('gives each connection its own verdict on a mixed order', () => {
+  it('gives each connection its own result on a mixed order', () => {
     const rows = classifyRefreshOutcomePerSuborder({
       truvOrderId: 'r',
       orderData: { employers: [
@@ -252,7 +251,7 @@ describe('classifyRefreshOutcomePerSuborder', () => {
     expect(rows.map(r => r.state)).toEqual(['refreshed', 'reauth_required', 'failed_other']);
   });
 
-  it('clears a stale credential failure once that connection completes', () => {
+  it('ignores an old login failure once that connection completes', () => {
     const rows = classifyRefreshOutcomePerSuborder({
       truvOrderId: 'r',
       orderData: { employers: [{ id: 'b', status: 'completed', company_name: 'Kroger' }] },
@@ -261,7 +260,28 @@ describe('classifyRefreshOutcomePerSuborder', () => {
     expect(rows[0].state).toBe('refreshed');
   });
 
-  it('fails closed on an unknown failure status', () => {
+  describe('when one connection has more than one task on the refresh order', () => {
+    const run = (tasks) => classifyRefreshOutcomePerSuborder({
+      truvOrderId: 'r',
+      orderData: { employers: [{ id: 'b', status: 'sent', link_id: 'L1', company_name: 'Kroger' }] },
+      tasks,
+    })[0];
+    const failed = { order_id: 'r', link_id: 'L1', status: 'mfa_error', created_at: '2026-09-17T11:25:12Z' };
+    const done = { order_id: 'r', link_id: 'L1', status: 'done', created_at: '2026-09-17T11:31:40Z' };
+
+    it('uses the newest task, so a later success beats the earlier failure whatever the list order', () => {
+      expect(run([failed, done]).state).toBe('refreshed');
+      expect(run([done, failed]).state).toBe('refreshed');
+    });
+
+    it('uses the newest task, so a later failure beats the earlier success', () => {
+      const laterFailure = { ...failed, created_at: '2026-09-17T11:40:00Z' };
+      expect(run([done, laterFailure]).state).toBe('reauth_required');
+      expect(run([laterFailure, done]).state).toBe('reauth_required');
+    });
+  });
+
+  it('treats an unknown failure status as not fixable by the applicant', () => {
     const rows = classifyRefreshOutcomePerSuborder({
       truvOrderId: 'r',
       orderData: { employers: [{ id: 'b', status: 'sent' }] },
@@ -280,7 +300,7 @@ describe('RenewalsRefresh scaffolding', () => {
     }
   });
 
-  it('walkthrough stages are well formed and end on the launch stage', () => {
+  it('walkthrough stages have the required fields and a built-in kind', () => {
     expect(WALKTHROUGH_STAGES.length).toBeGreaterThanOrEqual(5);
     for (const s of WALKTHROUGH_STAGES) {
       expect(s.n).toBeTruthy();
@@ -302,10 +322,10 @@ describe('RenewalsRefresh scaffolding', () => {
     expect(outcomes.has('reauth')).toBe(true);
   });
 
-  it('always shows four default applicants, one per order shape', () => {
+  it('always shows four default applicants, each a different kind of order', () => {
     expect(CASELOAD.map(c => c.scenario)).toEqual(['Payroll only', 'Assets only', 'Payroll and assets', 'Two employers']);
-    const shapes = CASELOAD.map(c => JSON.stringify(c.products) + c.employers.length);
-    expect(new Set(shapes).size).toBe(4);
+    const kinds = CASELOAD.map(c => JSON.stringify(c.products) + c.employers.length);
+    expect(new Set(kinds).size).toBe(4);
   });
 
   it('the two-employer case deeplinks Home Depot and Walmart on one income order', () => {
@@ -385,10 +405,10 @@ describe('RenewalsRefresh keeps progress across a remount', () => {
   });
 });
 
-describe('outcomeFromConnections (one verdict for a case with several connections)', () => {
+describe('outcomeFromConnections (one result for a case with several connections)', () => {
   const row = (state, extra = {}) => ({ state, reason: null, product: null, source: 'task', errorMessage: null, ...extra });
 
-  it('says nothing is known until every connection has an answer', () => {
+  it('stays refreshing until every connection has an answer', () => {
     expect(outcomeFromConnections([]).state).toBe('refreshing');
     expect(outcomeFromConnections([row('reauth_required'), row('refreshing')]).state).toBe('refreshing');
   });

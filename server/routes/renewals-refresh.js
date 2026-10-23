@@ -9,30 +9,23 @@
  *   3. Read the refresh's report        GET  /api/renewals/report/:refreshOrderId/:type
  *   4. (diagnostic) list user tasks     GET  /api/renewals/tasks/:userId
  *
- * THE POINT OF THIS DEMO: reading a refresh result is harder than making the call.
- *
  * Measured against sandbox on 2026-09-17 with a webhook tunnel (REFRESH-FINDINGS.md),
  * on an order with three connected employers where one refreshed and two failed:
  *
- *   `order-status-updated` is emitted PER SUBORDER and carries an `employer_id`.
- *   Three `sent` events arrived, then a `completed` for the single employer that
- *   succeeded -- while the other two had already failed.
+ *   `order-status-updated` is sent per suborder and carries an `employer_id`.
+ *   Three `sent` events arrived, then a `completed` for the one employer that
+ *   succeeded, after the other two had already failed.
  *
- * So a client subscribed solely to `order-status-updated` does NOT see silence. It
- * sees `completed` and may conclude the refresh worked, having just accepted two
- * stale employers as verified income. That is worse than silence and it is the real
- * failure mode. `order-refresh-failed` is the trigger; the per-connection reason
- * lives only on the task.
+ * So a client that only subscribes to `order-status-updated` does not see silence. It
+ * sees `completed` and may conclude the refresh worked, and accept two stale employers
+ * as verified income. `order-refresh-failed` is the event to act on, and the reason for
+ * each connection is only on the task.
  *
- * (An earlier version of this file claimed no further `order-status-updated` is ever
- * emitted and that the order "sits at sent". The order-level `completed_at` does stay
- * null, but the per-suborder events keep coming.)
- *
- * Verified in sandbox 2026-08-19/20 (Claude TAM account):
- *   goodlogin/goodpassword  -> silent success in ~13-15s
+ * Tested in the sandbox on 2026-08-19/20:
+ *   goodlogin/goodpassword  -> succeeds on its own in ~13-15s
  *   goodlogin/mfa_captcha   -> order-refresh-failed (mfa_error) in 0.2-5.5s
- *   goodlogin/mfa on a bank -> same shape, product: assets
- * A failed refresh order IS recoverable through its own bridge_token: Bridge skips
+ *   goodlogin/mfa on a bank -> same result, product: assets
+ * A failed refresh order can be recovered with its own bridge_token: Bridge skips
  * username/password (the connection is already authorized) and resumes at the MFA
  * challenge, after which the refresh order itself completes.
  */
@@ -52,29 +45,28 @@ import { Router } from 'express';
 // Demo identifier persisted on every order this demo creates
 const RENEWALS_DEMO_ID = 'public-sector-renewals-refresh';
 
-// Task statuses that mean "the applicant has to clear something" — an authenticated
-// session went stale or the provider now wants MFA. These are the ones that
-// should route to a re-authorization prompt.
+// Task statuses where the applicant has to sign in or answer MFA again: the saved
+// session went stale or the provider now wants an MFA code. Only these should
+// prompt the applicant.
 export const REAUTH_STATUSES = [
   'login_error',
   'mfa_error',
   'session_expired',
 ];
 
-// Also failures, and also not the applicant's to fix by signing in again: the
-// account is blocked at the provider and they have to resolve it there. Prompting
-// for re-authentication here cannot succeed, so these are deliberately NOT in
-// REAUTH_STATUSES even though they are credential-adjacent.
+// Also failures, but signing in again will not fix them: the account is blocked at
+// the provider and the applicant has to sort it out there. They stay out of
+// REAUTH_STATUSES because a sign-in prompt cannot succeed.
 export const PROVIDER_BLOCKED_STATUSES = [
   'account_locked',
   'unable_to_reset',
 ];
 
-// Task statuses that also fail the refresh but are NOT the applicant's problem.
-// Prompting someone to re-authenticate because the provider is down (or because
-// the provider returned no records) is a bad experience, so they get their own
-// bucket. `order-refresh-failed` fires for these too, which is why branching on
-// `status` rather than on the event type is the correct client implementation.
+// Task statuses that also fail the refresh but are not the applicant's fault.
+// Asking someone to sign in again because the provider is down, or returned no
+// records, would only confuse them, so these are kept separate.
+// `order-refresh-failed` fires for these too, so branch on `status`, not on the
+// event type.
 export const NON_REAUTH_FAILURE_STATUSES = [
   'unavailable',
   'config_error',
@@ -87,8 +79,8 @@ export const NON_REAUTH_FAILURE_STATUSES = [
 // Utility: safely parse JSON strings from the DB without throwing
 function safeParse(str) { try { return JSON.parse(typeof str === 'string' ? str : '{}'); } catch { return {}; } }
 
-// Reads a suborder status out of an order response regardless of product. Payroll
-// products land in `employers[]`, bank products in `financial_accounts[]`.
+// Collects each suborder's status from an order response, for any product. Payroll
+// connections are in `employers[]`, bank connections in `financial_accounts[]`.
 function suborderStatuses(orderData) {
   const groups = [orderData?.employers, orderData?.financial_accounts, orderData?.insurance ? [orderData.insurance] : null];
   const out = [];
@@ -100,14 +92,13 @@ function suborderStatuses(orderData) {
 }
 
 /**
- * Selects the tasks belonging to one refresh order.
+ * Picks out the tasks that belong to one refresh order.
  *
- * Matches on `order_id`, which the public tasks payload carries. Deliberately
- * does NOT rely on `is_refresh`: that field exists on the internal Task model but
- * is absent from the `GET /v1/tasks/` response (verified live 2026-08-20), so an
- * `is_refresh` filter matches nothing and silently disables every caller. It is
- * still accepted when present and the task has no order_id, in case a later API
- * version exposes it. A task that names a different order is never matched.
+ * Matches on `order_id`, which the tasks response includes. It does not rely on
+ * `is_refresh`: that field is missing from the `GET /v1/tasks/` response (checked
+ * live 2026-08-20), so filtering on it matches nothing. `is_refresh` is still used
+ * when a task has no `order_id`, in case a later API version adds it. A task that
+ * names a different order never matches.
  */
 export function tasksForOrder(tasks, truvOrderId) {
   return (tasks || []).filter(t => (
@@ -116,36 +107,46 @@ export function tasksForOrder(tasks, truvOrderId) {
 }
 
 /**
- * Resolves what actually happened to a refresh, from state rather than from
- * observed transitions.
+ * The most recent task in a list, by `created_at`. One connection can have two tasks on
+ * the same refresh order: one that failed, then one that finished after the applicant
+ * cleared the challenge. The list order is not guaranteed, so pick by time.
+ */
+function newestTask(tasks) {
+  return tasks.reduce((best, t) => (
+    !best || (Date.parse(t?.created_at) || 0) > (Date.parse(best?.created_at) || 0) ? t : best
+  ), null);
+}
+
+/**
+ * Works out what happened to a refresh from its current state, not by watching it
+ * change.
  *
- * This is deliberately state-based, not event-based. Measured timings make the
- * naive "watch it transition" approach unreliable. Two captured runs agree on the
- * shape and differ on magnitude: 2026-08-19/20 saw failures at 0.2-5.5s and success
- * at ~13-15s; 2026-09-17 saw failures at 3-5s and success at ~20s. Either way the
- * failures land first, frequently before the UI that wants to show them has even
- * mounted, so anything reacting only to a live transition misses them.
+ * Timing is why. Two captured runs followed the same pattern with different
+ * numbers: 2026-08-19/20 saw failures at 0.2-5.5s and success at ~13-15s;
+ * 2026-09-17 saw failures at 3-5s and success at ~20s. Failures come back first,
+ * often before the screen that shows them has loaded, so code that only reacts to a
+ * live change misses them.
  *
- * Dual-path detection, in priority order:
- *   1. `order-refresh-failed` webhook for this order  (fast, exact, hosted only)
+ * Checks, in order:
+ *   1. `order-refresh-failed` webhook for this order  (fast and exact, hosted only)
  *   2. the refresh task's own status                  (works with no webhook
  *                                                      tunnel, i.e. localhost)
- *   3. the order's suborder status                    (completed = silent success)
+ *   3. the order's suborder status                    (completed = succeeded on its own)
  *
- * Path 2 is why local development works at all: Truv cannot POST a webhook to
- * localhost, so a webhook-only implementation shows nothing during `npm run dev`.
+ * Check 2 is what makes local development work: Truv cannot send a webhook to
+ * localhost, so a webhook-only version shows nothing during `npm run dev`.
  *
- * Exported pure so the test suite exercises the real logic.
+ * Exported so the tests run the real logic.
  *
  * @returns {{state: string, reason: string|null, product: string|null, source: string}}
  *   state: 'refreshing' | 'refreshed' | 'reauth_required' | 'failed_other'
  */
 export function classifyRefreshOutcome({ truvOrderId, orderData = null, webhooks = [], tasks = [] } = {}) {
-  // Every suborder completed means the refresh worked, including after the
-  // applicant cleared a challenge on a failed refresh order. A stale credential
-  // failure from before that must not outrank it, or the row flips back to
-  // "re-authorization required" on the next poll. Provider-class failures
-  // (no_data and the like) are not overridden: completion does not clear them.
+  // If every suborder completed, the refresh worked. That includes the case where the
+  // applicant just answered a challenge on a failed refresh order: an older
+  // credential failure must not win, or the row flips back to "needs the applicant"
+  // on the next poll. Provider failures like no_data are not overridden, since
+  // completing does not clear them.
   const priorStatuses = suborderStatuses(orderData);
   const allDone = priorStatuses.length > 0 && priorStatuses.every(s => s === 'completed');
 
@@ -155,7 +156,8 @@ export function classifyRefreshOutcome({ truvOrderId, orderData = null, webhooks
     const payload = typeof wh.payload === 'string' ? safeParse(wh.payload) : (wh.payload || {});
     if (truvOrderId && payload.order_id && payload.order_id !== truvOrderId) continue;
     const status = payload.status || wh.status || null;
-    // Fails closed: only a known credential status prompts the applicant.
+    // Only a known credential status prompts the applicant. Anything else counts as a
+    // failure the applicant cannot fix.
     const state = REAUTH_STATUSES.includes(status) ? 'reauth_required' : 'failed_other';
     if (state === 'reauth_required' && allDone) continue;
     return {
@@ -168,12 +170,10 @@ export function classifyRefreshOutcome({ truvOrderId, orderData = null, webhooks
 
   // 2. No webhook (or no tunnel): read the refresh task's own status.
   //
-  // Match tasks to this refresh by `order_id`, which the tasks payload carries.
-  // Do NOT filter on `is_refresh`: that field exists on the internal Task model
-  // but the public `GET /v1/tasks/` response does not expose it (verified live
-  // 2026-08-20 — it comes back absent, so an `is_refresh` filter silently matches
-  // nothing and this whole fallback dies). `order_id` is exact, and scopes us to
-  // the refresh order rather than the original, so recency guessing is unnecessary.
+  // Match tasks by `order_id`. Do not filter on `is_refresh`: the public
+  // `GET /v1/tasks/` response leaves it out (checked live 2026-08-20), so that filter
+  // matches nothing and this fallback never fires. `order_id` points at the refresh
+  // order, not the original, so there is no need to guess by recency.
   const refreshTasks = tasksForOrder(tasks, truvOrderId);
   for (const t of refreshTasks) {
     if (REAUTH_STATUSES.includes(t.status) && !allDone) {
@@ -184,9 +184,9 @@ export function classifyRefreshOutcome({ truvOrderId, orderData = null, webhooks
     }
   }
 
-  // 2b. Some suborders surface the same thing as `last_task_status`. Cheap to
-  // check, already in the order response, and covers a task list we could not
-  // match. Absent (null) on many responses, so it cannot be the primary path.
+  // 2b. Some suborders carry the same status in `last_task_status`. It is already in
+  // the order response and helps when no task matches, but it is null on many
+  // responses, so it cannot be the main check.
   for (const group of [orderData?.employers, orderData?.financial_accounts]) {
     if (!Array.isArray(group)) continue;
     for (const s of group) {
@@ -197,10 +197,9 @@ export function classifyRefreshOutcome({ truvOrderId, orderData = null, webhooks
     }
   }
 
-  // 3. Success is the order reaching a completed suborder with no applicant action.
-  // EVERY suborder must be completed. Accepting a single `completed` here is the
-  // false positive the whole demo is about: on a multi-connection order it reports
-  // success while other connections are dead. (Removed 2026-09-17.)
+  // 3. Success means every suborder is completed. Accepting a single `completed`
+  // gives a false positive on a multi-connection order, where other connections have
+  // failed. (The single-completed check was removed 2026-09-17.)
   if (allDone) {
     return { state: 'refreshed', reason: null, product: null, source: 'order' };
   }
@@ -210,11 +209,11 @@ export function classifyRefreshOutcome({ truvOrderId, orderData = null, webhooks
 }
 
 /**
- * Flattens an order's connections into one list regardless of product.
+ * Puts an order's connections in one list, for any product.
  *
- * Payroll connections live in `employers[]`, bank ones in `financial_accounts[]`.
- * Callers that care about per-connection state need them side by side, because a
- * mixed income+assets order can have one of each fail for different reasons.
+ * Payroll connections are in `employers[]` and bank connections in
+ * `financial_accounts[]`. A mixed income and assets order can fail on each for
+ * different reasons, so callers need them side by side.
  */
 export function suborders(orderData) {
   const out = [];
@@ -228,9 +227,8 @@ export function suborders(orderData) {
         suborder_number: s.suborder_number || null,
         company_name: s.company_name || s.provider?.name || null,
         link_id: s.link_id || null,
-        // Bridge Update Mode needs this specific connection's access_token, which is
-        // why per-suborder resolution matters: one order can need a different remedy
-        // per row.
+        // Bridge Update Mode needs this connection's access_token. Each connection on
+        // an order can need a different fix.
         access_token: s.access_token || null,
         product_type: s.product_type || null,
         status: s.status || null,
@@ -242,19 +240,17 @@ export function suborders(orderData) {
 }
 
 /**
- * Resolves what happened to EACH connection on a refresh order.
+ * Works out what happened to each connection on a refresh order.
  *
- * `classifyRefreshOutcome` answers "did this refresh work?" for the order as a
- * whole. That is the wrong grain for the common real case: an order with three
- * employers where one refreshes silently, one needs an MFA re-auth, and one belongs
- * to a job the person no longer has. Each row needs its own verdict because each
- * row needs a different remedy.
+ * `classifyRefreshOutcome` answers "did this refresh work?" for the whole order.
+ * That is too coarse for a typical case: three employers, where one refreshes on
+ * its own, one needs the applicant for MFA, and one is a job the person no longer
+ * has. Each connection needs its own result because each needs a different fix.
  *
- * Same dual-path detection as the order-level function, applied per row:
- *   1. `order-refresh-failed` matched on BOTH order_id and employer_id. The event
- *      carries employer_id, which is what makes per-row attribution possible. Note
- *      it ships link_id: null, so you cannot join it to a link — match on the
- *      suborder id.
+ * Same checks as the order-level function, run per connection:
+ *   1. `order-refresh-failed`, matched on both order_id and employer_id. The
+ *      event's `employer_id` is what ties it to one connection. Its `link_id` is
+ *      null, so match on the suborder id.
  *   2. a refresh task for this order, matched to the row by link_id when both sides
  *      have one.
  *   3. the row's own `last_task_status`, then its `status`.
@@ -266,19 +262,17 @@ export function suborders(orderData) {
 export function classifyRefreshOutcomePerSuborder({ truvOrderId, orderData = null, originalOrderData = null, webhooks = [], tasks = [] } = {}) {
   const rows = suborders(orderData);
 
-  // A FAILED suborder on a refresh order carries link_id: null and
-  // access_token: null (verified 2026-09-17). So the refresh order alone cannot be
-  // joined to a task, which is exactly the rows we most need to resolve. The
-  // original order still holds the stable link_id per employer, so recover it by
-  // company name and use that as the join key. Without this the no-webhook path
-  // resolves the successful rows and hangs the failed ones forever.
+  // A failed suborder on a refresh order has link_id: null and access_token: null
+  // (checked 2026-09-17), so it cannot be matched to a task, and those are the rows
+  // we most need to resolve. The original order still has each employer's link_id,
+  // so look it up by company name and match on that. Without this, the no-webhook
+  // path resolves the successful rows and never resolves the failed ones.
   const linkByCompany = new Map();
   for (const o of suborders(originalOrderData)) {
     if (o.company_name && o.link_id) linkByCompany.set(o.company_name, o.link_id);
   }
 
-  // Index the refresh-failure events by employer_id once, rather than rescanning
-  // the webhook list for every row.
+  // Index the failure events by employer_id so each row does not rescan the list.
   const failureByEmployer = new Map();
   for (const wh of webhooks) {
     if (wh?.event_type !== 'order-refresh-failed') continue;
@@ -292,9 +286,9 @@ export function classifyRefreshOutcomePerSuborder({ truvOrderId, orderData = nul
   const refreshTasks = tasksForOrder(tasks, truvOrderId);
 
   return rows.map(row => {
-    // Fails CLOSED: only a known credential status routes to re-authentication.
-    // The previous form treated anything unrecognised -- including null -- as
-    // "prompt the applicant", which is the worst default in a benefits context.
+    // Only a known credential status prompts the applicant. An earlier version
+    // treated any unrecognized status, including null, as "prompt the applicant",
+    // which is the wrong default for a benefits case.
     const stateFor = (status) => (REAUTH_STATUSES.includes(status) ? 'reauth_required' : 'failed_other');
 
     // 1. The dedicated failure event for this specific connection.
@@ -305,11 +299,11 @@ export function classifyRefreshOutcomePerSuborder({ truvOrderId, orderData = nul
       return { ...row, state: stateFor(wh.status), reason: wh.status, product: wh.product, source: 'order-refresh-failed', errorMessage: null };
     }
 
-    // 2. A refresh task we can attribute to this row, joined on link_id — the only
-    //    identifier stable across a refresh. `employer_id` is regenerated on the
-    //    refresh order, so it cannot reach back to the case file.
+    // 2. A refresh task for this row, matched on link_id. That is the only id that
+    //    stays the same across a refresh. `employer_id` is new on every refresh order,
+    //    so it cannot be matched back to the case file.
     const linkId = row.link_id || linkByCompany.get(row.company_name) || null;
-    const task = linkId ? refreshTasks.find(t => t?.link_id === linkId) : null;
+    const task = linkId ? newestTask(refreshTasks.filter(t => t?.link_id === linkId)) : null;
     if (task) {
       if ((REAUTH_STATUSES.includes(task.status) || NON_REAUTH_FAILURE_STATUSES.includes(task.status)) && !staleReauth(task.status)) {
         return { ...row, link_id: linkId, state: stateFor(task.status), reason: task.status, product: task.product_type || row.product_type, source: 'task', errorMessage: task.error_message || null };
@@ -337,12 +331,12 @@ export function classifyRefreshOutcomePerSuborder({ truvOrderId, orderData = nul
 }
 
 /**
- * Rolls per-connection verdicts up to the order.
+ * Combines per-connection results into one result for the order.
  *
- * The order does not complete while any one connection is unresolved -- its
- * `completed_at` stays null. But per-suborder `order-status-updated` events keep
- * arriving for the connections that DID work, so "watch for silence" is the wrong
- * detector. `resolvedBy` names the signal that actually carries the failure.
+ * The order does not complete while any connection is unresolved, so its
+ * `completed_at` stays null. But `order-status-updated` events keep arriving for
+ * the connections that worked, so waiting for silence will not detect a failure.
+ * `resolvedBy` names the event that does.
  */
 export function rollupRefreshOutcome(rows = []) {
   const counts = { refreshed: 0, reauth_required: 0, failed_other: 0, refreshing: 0 };
@@ -352,13 +346,11 @@ export function rollupRefreshOutcome(rows = []) {
   return {
     counts,
     total,
-    // Every connection came back clean: the order completes on its own.
+    // Every connection refreshed: the order completes on its own.
     complete: total > 0 && counts.refreshed === total,
-    // Something failed, so the order will stay at `sent` indefinitely.
-    // Some connection failed and nothing is still running. The order will not
-    // complete, though per-suborder events keep arriving for the ones that worked.
+    // At least one connection failed and none are still running. The order will not
+    // complete, though events keep arriving for the connections that worked.
     blocked: blocked > 0 && counts.refreshing === 0,
-    stuckAtSent: blocked > 0 && counts.refreshing === 0, // deprecated alias
     // Still in flight.
     pending: counts.refreshing > 0,
     resolvedBy: blocked > 0 ? 'order-refresh-failed' : (total > 0 && counts.refreshed === total ? 'order-status-updated' : null),
@@ -366,14 +358,14 @@ export function rollupRefreshOutcome(rows = []) {
 }
 
 /**
- * Collapses per-connection verdicts into the one verdict a case-level screen needs.
+ * Reduces per-connection results to the one result a case-level screen needs.
  *
- * Nothing is reported until EVERY connection has an answer, so a screen never shows
- * "needs the applicant" while another connection is still running. Then the worst
- * result wins: a connection the applicant can fix outranks one they cannot, and any
- * failure outranks success. Use `classifyRefreshOutcome` instead when an order has a
- * single connection; this exists because that function returns the first failure it
- * sees, which is too coarse once an order carries several.
+ * Nothing is reported until every connection has an answer, so the screen never
+ * says "needs the applicant" while another connection is still running. After that
+ * the worst result wins: a failure the applicant can fix ranks above one they
+ * cannot, and any failure ranks above success. For an order with one connection,
+ * `classifyRefreshOutcome` is enough. This function exists because that one returns
+ * the first failure it finds, which is too coarse for several connections.
  *
  * @returns {{state: string, reason: string|null, product: string|null, source: string, errorMessage: string|null}}
  */
@@ -389,18 +381,16 @@ export function outcomeFromConnections(rows = []) {
 }
 
 /**
- * Derives an order's status from its connections.
+ * Works out an order's status from its connections.
  *
- * The Order object has **no top-level `status` field** — verified against a live
- * sandbox order on 2026-09-16, whose keys are id / products / employers /
- * financial_accounts / *_report_id / initial_order / refresh_order / is_expired and
- * so on, with no `status` among them. Status lives on each suborder, and the
- * order's state is the aggregate.
+ * The Order object has no top-level `status` field. Checked against a live sandbox
+ * order on 2026-09-16: its keys are id / products / employers / financial_accounts /
+ * *_report_id / initial_order / refresh_order / is_expired and so on, with no
+ * `status`. Status is on each suborder, so the order's status is built from those.
  *
- * This is why a partially failed refresh never reports completion at the order
- * level: there is no order-level field to flip, so `completed_at` stays null.
- * It does NOT mean the events stop -- `order-status-updated` is per suborder and
- * keeps arriving for the connections that worked.
+ * So a partly failed refresh never shows as complete at the order level, and
+ * `completed_at` stays null. The events do not stop: `order-status-updated` is sent
+ * per suborder and keeps arriving for the connections that worked.
  */
 export function deriveOrderStatus(orderData) {
   const rows = suborders(orderData);
@@ -410,12 +400,11 @@ export function deriveOrderStatus(orderData) {
   const statuses = rows.map(r => r.status).filter(Boolean);
   if (!statuses.length) return null;
   if (statuses.every(st => st === 'completed')) return 'completed';
-  // Anything unfinished keeps the order open. This is the state the TDHS orders
-  // were stuck in.
+  // Any unfinished suborder keeps the order unfinished. TDHS orders were stuck in
+  // this state.
   return statuses.find(st => st !== 'completed') || 'sent';
 }
 
-// Factory function: receives shared dependencies and returns a configured router
 // Which field on a refresh order names its report, and how to read that report by id.
 const REFRESH_REPORT_KINDS = {
   income: {
@@ -430,16 +419,15 @@ const REFRESH_REPORT_KINDS = {
   },
 };
 
+// Factory: receives shared dependencies and returns a configured router
 export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelaysMs = [0, 2000, 4000] }) {
   const router = Router();
 
   // POST /api/renewals/refresh/:orderId
-  // Creates a data-refresh order against an order this demo already completed.
-  // Truv returns a NEW order; we persist it so the outcome endpoint can resolve it
-  // and so the panel's per-user polling is authorized for this session.
-  // Shared by the single-order route and the batch runner below, so both persist
-  // the new order identically and map the cap the same way. Returns a plain result
-  // rather than touching `res`, which is what lets the batch path collect many.
+  // Creates a refresh order against an order this demo already completed. Truv
+  // returns a new order; we save it so the outcome endpoint can look it up and the
+  // panel can poll that user for this session. Returns a result object rather than
+  // writing to `res`.
   async function runRefresh(truvClient, sessionId, originalOrderId, body = {}) {
     const original = db.getOrder(originalOrderId);
     if (!original || !original.truv_order_id) return { statusCode: 404, payload: { error: 'Original order not found' } };
@@ -447,9 +435,9 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
     const products = body.products || (original.product_type === 'assets' ? ['assets'] : ['income']);
     const refreshOrderId = db.generateId();
 
-    // Optional scope. Omitting both refreshes every connection on the order; passing
-    // a subset is how you skip an employer the applicant has told you they no longer
-    // work for, without deleting the historical verification.
+    // Optional scope. Leave both out to refresh every connection on the order. Pass a
+    // subset to skip an employer the applicant no longer works for, without deleting
+    // the earlier verification.
     const { employers, financial_accounts, request_extended_history } = body;
 
     const result = await truvClient.createRefreshOrder(original.truv_order_id, {
@@ -461,13 +449,14 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
       requestBody: result.requestBody, responseBody: truvData, statusCode: result.statusCode, durationMs: result.durationMs,
     });
 
-    // The refresh limit is counted per connection (access_token): 1 initial request plus 3 refreshes per 24h. Surface it as its own signal so the UI
-    // can say what happened instead of showing a generic failure.
+    // The limit is counted per connection (access_token): 1 initial request plus 3
+    // refreshes per 24h. Return it as its own error so the UI can say what happened.
     if (result.statusCode === 429) {
-      // Truv's body names when the order can be refreshed again:
+      // Truv's response says when the order can be refreshed again:
       // "Order refresh limit exceeded Expected available in 86315 seconds."
       const waitSeconds = Number((JSON.stringify(truvData || {}).match(/available in (\d+) seconds/i) || [])[1]) || null;
-      const wait = waitSeconds ? ` It can be refreshed again in about ${Math.max(1, Math.round(waitSeconds / 3600))} hour${Math.round(waitSeconds / 3600) === 1 ? '' : 's'}.` : '';
+      const hours = Math.max(1, Math.round((waitSeconds || 0) / 3600));
+      const wait = waitSeconds ? ` It can be refreshed again in about ${hours} hour${hours === 1 ? '' : 's'}.` : '';
       return { statusCode: 429, payload: {
         error: 'refresh_cap_reached',
         message: `Truv limits each connection to 3 refreshes per 24 hours, and a connection on this order has reached that limit.${wait}`,
@@ -484,11 +473,11 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
         details: truvData,
       } };
     }
-    // Truv rejects a refresh when the order has no connected employer yet. That
-    // happens for a few seconds after Bridge finishes — the order reads as
-    // completed before its connections are refresh-eligible — and the raw message
-    // ("Can not find any employers connected to refresh the data") reads like a
-    // broken integration rather than "wait a moment".
+    // Truv rejects a refresh when the order has no connected employer yet. This
+    // happens for a few seconds after Bridge finishes: the order shows completed
+    // before its connections can be refreshed. The raw message ("Can not find any
+    // employers connected to refresh the data") looks like a broken integration, so
+    // return a clearer one.
     const invalid = truvData?.error?.extra?.['invalid-params'] || [];
     if (result.statusCode === 400 && invalid.some(p => /employers|financial_accounts/.test(p?.field || '') && /connected/i.test(p?.message || ''))) {
       return { statusCode: 409, payload: {
@@ -518,8 +507,8 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
       original_order_id: original.id,
       original_truv_order_id: original.truv_order_id,
       user_id: userId,
-      // A failed refresh is recoverable through these: Bridge resumes at the MFA
-      // challenge rather than asking for credentials again.
+      // Use these to recover a failed refresh: Bridge resumes at the MFA challenge
+      // instead of asking for credentials again.
       bridge_token: truvData.bridge_token,
       share_url: truvData.share_url,
       products,
@@ -555,8 +544,8 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
       // Locally stored webhook events for this user (empty without a tunnel).
       const webhooks = userId ? db.getWebhookEventsByUserId(userId) : [];
 
-      // Task fallback. Only fetched when the webhook path has not already produced
-      // a verdict, so the happy path stays at one upstream call.
+      // Task fallback. Only fetched when the webhook has not already given an answer,
+      // so the normal case makes one Truv call.
       let tasks = [];
       const fromWebhook = classifyRefreshOutcome({ truvOrderId: refreshOrder.truv_order_id, orderData: orderResult.data, webhooks });
       let outcome = fromWebhook;
@@ -570,8 +559,8 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
         }
       }
 
-      // More than one connection on this refresh: resolve each on its own and roll up.
-      // Single-connection refreshes keep the order-level answer above.
+      // More than one connection on this refresh: resolve each on its own, then
+      // combine. A single-connection refresh keeps the order-level answer above.
       let connections = null;
       if (suborders(orderResult.data).length > 1 && userId) {
         if (!tasks.length) {
@@ -599,8 +588,8 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
         outcome,
         connections: connections && connections.map(({ id, kind, company_name, product_type, state, reason, errorMessage }) => ({ id, kind, company_name, product_type, state, reason, errorMessage })),
         suborder_statuses: suborderStatuses(orderResult.data),
-        // Present on the refresh order itself; used to re-engage only the applicants
-        // whose refresh actually failed.
+        // On the refresh order itself. Used to contact only the applicants whose
+        // refresh failed.
         share_url: safeParse(refreshOrder.raw_response)?.share_url || refreshOrder.share_url || null,
         bridge_token: safeParse(refreshOrder.raw_response)?.bridge_token || refreshOrder.bridge_token || null,
         voie_report_id: orderResult.data?.voie_report_id || null,
@@ -611,8 +600,8 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
   });
 
   // GET /api/renewals/report/:refreshOrderId/:type   (type: income | assets)
-  // Reads the report a completed refresh already produced. No report is created:
-  // the refresh order carries its own report id (`voie_report_id` for income,
+  // Reads the report a completed refresh already has. Nothing is created: the
+  // refresh order has its own report id (`voie_report_id` for income,
   // `voa_report_id` for assets), so it is GET order, then GET report by that id.
   router.get('/api/renewals/report/:refreshOrderId/:type', async (req, res) => {
     try {
@@ -625,7 +614,7 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
       if (!refreshOrder || !refreshOrder.truv_order_id) return res.status(404).json({ error: 'Refresh order not found' });
       const userId = refreshOrder.user_id;
 
-      // The id can trail order completion by a moment, so ask again a few times.
+      // The report id can show up a moment after the order completes, so retry a few times.
       let reportId = null;
       let orderStatus = 200;
       for (let i = 0; i < reportDelaysMs.length && !reportId; i++) {
@@ -651,10 +640,10 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
   });
 
   // GET /api/renewals/tasks/:userId
-  // Diagnostic. The task carries the provider's literal error_message, which is
-  // what tells you whether to re-prompt the applicant or just retry later.
-  // (`is_refresh` exists on the internal model but is absent from this response --
-  // see tasksForOrder above. Match on order_id.)
+  // For debugging. The task has the provider's exact error_message, which tells you
+  // whether to ask the applicant to sign in again or just retry later.
+  // (`is_refresh` is not in this response, see tasksForOrder above. Match on
+  // order_id.)
   router.get('/api/renewals/tasks/:userId', async (req, res) => {
     try {
       const truvClient = req.truv || truv;
@@ -668,12 +657,11 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
   });
 
   // GET /api/renewals/triage/:refreshOrderId
-  // Per-connection outcomes for one refresh, plus the order-level roll-up.
+  // Result for each connection on one refresh, plus the order-level summary.
   //
-  // This is the endpoint the triage board runs on. The order-level
-  // /api/renewals/outcome/:id above answers "did the refresh work?"; a three-employer
-  // order needs "what happened to each of them?", because each row gets a different
-  // remedy and two of the remedies are mutually exclusive.
+  // The order-level /api/renewals/outcome/:id above answers "did the refresh work?".
+  // An order with three employers needs "what happened to each one?", because each
+  // needs a different fix.
   router.get('/api/renewals/triage/:refreshOrderId', async (req, res) => {
     try {
       const truvClient = req.truv || truv;
@@ -689,9 +677,9 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
 
       const webhooks = userId ? db.getWebhookEventsByUserId(userId) : [];
 
-      // Always fetch tasks here, unlike the order-level endpoint. A partial failure
-      // produces a mix of resolved and unresolved rows, so there is no "already have
-      // a verdict" short-circuit that would be safe to take.
+      // Always fetch tasks here, unlike the order-level endpoint. With a partial
+      // failure some connections are resolved and some are not, so there is no safe
+      // shortcut.
       let tasks = [];
       if (userId) {
         const tasksResult = await truvClient.getUserTasks(userId);
@@ -703,9 +691,8 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
       }
 
       // The refresh order's failed suborders have no link_id, so fetch the order it
-      // came from -- `initial_order` points at it -- and recover the stable link per
-      // employer from there. This is what lets a failed row resolve from task state
-      // with no webhook delivery at all.
+      // came from (`initial_order`) and get each employer's link_id there. This lets a
+      // failed connection resolve from its task with no webhook at all.
       let originalOrderData = null;
       const initialId = orderResult.data?.initial_order;
       if (initialId) {
@@ -730,16 +717,16 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
   });
 
   // POST /api/renewals/reauth/:refreshOrderId/:suborderId
-  // Mints a Bridge Update Mode token for ONE connection that failed a refresh.
+  // Creates a Bridge Update Mode token for one connection that failed a refresh.
   //
-  // The token has to come from the ORIGINAL order. A failed suborder on the refresh
-  // order carries access_token: null (verified 2026-09-17), so reading it there
-  // fails for exactly the rows that need re-authenticating. We resolve the employer
-  // by name on the order the refresh came from and use its access token.
+  // The access token comes from the original order. A failed suborder on the refresh
+  // order has access_token: null (checked 2026-09-17), so it is missing for exactly
+  // the connections that need it. We find the employer by name on the original order
+  // and use its access token.
   //
-  // Worth saying: for most cases you do not need this at all. The refresh order's
-  // own share_url / bridge_token covers every failed connection in one applicant
-  // action. This endpoint is for driving one specific connection inline.
+  // You usually do not need this. The refresh order's own share_url / bridge_token
+  // covers every failed connection in one step for the applicant. This endpoint is
+  // for opening one specific connection directly.
   router.post('/api/renewals/reauth/:refreshOrderId/:suborderId', async (req, res) => {
     try {
       const truvClient = req.truv || truv;
@@ -754,8 +741,8 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
       const row = suborders(orderResult.data).find(r => r.id === req.params.suborderId);
       if (!row) return res.status(404).json({ error: 'Connection not found on this order' });
 
-      // Prefer the refresh order's own token when it has one (the succeeded rows),
-      // otherwise fall back to the original order's suborder for the same employer.
+      // Use the refresh order's own token when it has one (connections that
+      // succeeded), otherwise the original order's token for the same employer.
       let accessToken = row.access_token;
       let tokenFrom = 'refresh order';
       if (!accessToken && orderResult.data?.initial_order) {
@@ -788,10 +775,10 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
   });
 
   // GET /api/renewals/refresh-task/:taskId
-  // Reads a refresh task by id. The only place a `session_expired` refresh task is
-  // visible — it does not appear in GET /v1/tasks/?user_id=. Applies to the
-  // token-refresh path, which hands back a task_id; the order-refresh path does not,
-  // so there `order-refresh-failed` remains the signal.
+  // Reads a refresh task by id. This is the only place a `session_expired` refresh
+  // task shows up; it is not in GET /v1/tasks/?user_id=. It only helps on the
+  // token-refresh path, which returns a task_id. The order-refresh path does not, so
+  // there `order-refresh-failed` is the signal.
   router.get('/api/renewals/refresh-task/:taskId', async (req, res) => {
     try {
       const truvClient = req.truv || truv;

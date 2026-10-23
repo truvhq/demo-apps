@@ -137,7 +137,7 @@ describe('GET /api/renewals/outcome/:refreshOrderId with more than one connectio
     expect(json.connections.map(c => c.state)).toEqual(['refreshing', 'reauth_required']);
   });
 
-  it('rolls up to reauth_required once everything has an answer, naming each connection', async () => {
+  it('rolls up to reauth_required once every connection has an answer, and names each one', async () => {
     const ctx = await startOutcome({
       refreshOrder: { initial_order: 'orig', employers: [{ id: 'e1', company_name: 'Home Depot', status: 'completed', link_id: 'L1' }, { id: 'e2', company_name: 'Walmart', status: 'sent' }] },
       originalOrder: original,
@@ -201,6 +201,12 @@ describe('POST /api/renewals/refresh/:orderId error mapping', () => {
     expect(json.message).toMatch(/connection/);
     expect(json.message).toMatch(/about 24 hours/);
     expect(json.retry_after).toBe(86306);
+  });
+
+  it('says "1 hour", not "1 hours", when the wait is under 30 minutes', async () => {
+    const ctx = await start({ statusCode: 429, data: { code: 'throttled', message: 'Order refresh limit exceeded Expected available in 900 seconds.' } });
+    const { json } = await post(ctx);
+    expect(json.message).toMatch(/about 1 hour\./);
   });
 
   it('still returns a cap message when Truv gives no wait time', async () => {
