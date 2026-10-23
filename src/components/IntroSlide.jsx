@@ -17,7 +17,26 @@ import { MermaidDiagram } from './MermaidDiagram.jsx';
 //   diagram  : Mermaid definition string for the right-side diagram
 //   children : optional content (cards, inputs) between subtitle and actions
 //   actions  : bottom action buttons
-export function IntroSlide({ label, title, subtitle, diagram, children, actions }) {
+//   theme    : 'checkr' for the Public Sector pages (single column, no diagram)
+export function IntroSlide({ label, title, subtitle, diagram, children, actions, theme }) {
+  // Public Sector (Checkr) look: one column, no architecture diagram.
+  if (theme === 'checkr') {
+    return (
+      <div class="flex flex-col flex-1 min-h-0 overflow-y-auto bg-white">
+        <div class="min-h-full flex items-center justify-center">
+          <div class="px-6 py-10 lg:px-12 lg:py-16 w-full max-w-[640px]">
+            <div class="animate-slideUp">
+              <div class="text-[13px] font-bold uppercase tracking-[0.1em] text-primary mb-5">{label}</div>
+              <h2 class="text-[28px] sm:text-[40px] font-extrabold tracking-[-0.035em] leading-[1.05] text-[#000000] mb-5">{title}</h2>
+              <p class="text-[16px] text-[#808080] leading-[1.7] mb-10">{subtitle}</p>
+            </div>
+            {children && <div class="animate-slideUp delay-1 mb-10">{children}</div>}
+            {actions && <div class="animate-slideUp delay-2">{actions}</div>}
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div class="flex flex-col lg:flex-row flex-1 min-h-0 overflow-y-auto lg:overflow-visible">
       {/* Left panel: text content and actions */}
