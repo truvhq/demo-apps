@@ -24,7 +24,14 @@ export const PLACEHOLDER_CHANNELS = [
     desc: 'Send the applicant a verification link by email or text, or print it as a QR code.' },
 ];
 
+// Coverage tools live under Guides: they help size a rollout across every
+// industry rather than demo an applicant flow. These two are live; the rest are
+// placeholders.
 export const PLACEHOLDER_GUIDES = [
+  { id: 'payroll-coverage', name: 'Payroll Coverage', icon: 'barChart', href: '#coverage-analysis/payroll-coverage',
+    desc: 'Upload a CSV of up to 10,000 employers and see which ones Truv supports for income, employment, deposit-switch, or paycheck-linked-loans.' },
+  { id: 'bank-coverage', name: 'Financial Accounts Coverage', icon: 'search', href: '#coverage-analysis/bank-coverage',
+    desc: 'Upload a CSV of up to 10,000 financial accounts and see which ones Truv can connect to for transactions or assets data.' },
   { id: 'best-practices', name: 'Best practices', icon: 'shieldCheck',
     desc: 'How teams set up verification for the best applicant experience and fewest manual reviews.' },
   { id: 'faq', name: 'FAQ', icon: 'search',
@@ -55,6 +62,19 @@ function DemoTile({ item, index }) {
 
 function GuideTile({ guide, index }) {
   const Icon = Icons[guide.icon];
+  if (guide.href) {
+    return (
+      <a class="psh-tile" href={guide.href} style={{ '--i': index }}>
+        <div class="psh-tile-top">
+          <span class="psh-ic" aria-hidden="true">{Icon && <Icon size={20} />}</span>
+          <span class="psh-mode">Coverage tool</span>
+        </div>
+        <h3 class="psh-tile-name">{guide.name}</h3>
+        <p class="psh-tile-desc">{guide.desc}</p>
+        <span class="psh-open">Open tool <span class="arr" aria-hidden="true">→</span></span>
+      </a>
+    );
+  }
   return (
     <div class="psh-tile is-soon" style={{ '--i': index }} aria-disabled="true">
       <div class="psh-tile-top">

@@ -88,6 +88,8 @@ export const INDUSTRIES = [
   {
     id: 'coverage-analysis',
     name: 'Coverage Analysis',
+    // Reached from the Guides section, not listed as an industry or demo.
+    tool: true,
     desc: 'Bulk-check Truv coverage for thousands of employers or financial institutions in one upload. Rate-limited and retried so you can run an entire book of business in minutes.',
     demos: [
       { id: 'payroll-coverage', name: 'Payroll Coverage', component: PayrollCoverageDemo, desc: 'Upload a CSV of up to 10,000 employers and see which ones Truv supports for income, employment, deposit-switch, or paycheck-linked-loans.', tags: ['Bulk', 'companies', 'CSV', 'Rate-limited'] },
