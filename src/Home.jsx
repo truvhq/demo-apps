@@ -15,7 +15,7 @@ export function Home() {
   const industries = INDUSTRIES.filter(i => i.demos.length > 0 && !i.tool);
   // Every demo, labelled with its industry. Keys include the industry because
   // demo ids repeat across industries (e.g. "documents").
-  const items = industries.flatMap(ind => ind.demos.map(d => ({
+  const items = industries.flatMap(ind => ind.demos.filter(d => !d.guide).map(d => ({
     key: `${ind.id}/${d.id}`, demo: d, industryId: ind.id, industryName: ind.name, label: ind.name,
   })));
 
@@ -24,9 +24,8 @@ export function Home() {
       <OverrideKeyDialog open={overrideOpen} onClose={() => setOverrideOpen(false)} onSubmit={override} />
       <DemoHub
         trail={[]}
-        eyebrow="Demo apps"
-        title="See Truv verification in action"
-        lead="Verify income, employment and assets across public sector, consumer credit, retail banking and mortgage. Check how many of your employers and banks Truv covers under Guides."
+        title="Truv demo apps"
+        lead="Run a demo end to end on your own Truv account, or open a guide to set up bulk orders or check employer and bank coverage."
         items={items}
         filters={industries.map(i => ({ id: i.id, name: i.name }))}
         // Public Sector is the primary audience, so it is the default view.

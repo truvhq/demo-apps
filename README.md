@@ -217,13 +217,15 @@ server/
 
 src/
   App.jsx                Router and industry/demo registry (INDUSTRIES).
-  Home.jsx               Home page with industry cards
-  IndustryPage.jsx       Demos for one industry
+  Home.jsx               Home page: demo cards (filter by industry) and guide cards
+  IndustryPage.jsx       Icons for each demo
+  industry/              DemoHub (the shared Demos + Guides card page), plus one wrapper per industry page.
+                         Guides are listed in DemoHub.jsx; a demo flagged `guide: true` in App.jsx is a guide, not a demo card.
   demos/                 One file per demo. scaffolding/ holds each demo's copy and config.
     SmartRouting.jsx       Best starting point for Consumer Credit (Bridge flow)
     POSApplication.jsx     Best starting point for Mortgage (Orders flow)
     RenewalsRefresh.jsx    Public Sector: renewals and data refresh (live flow)
-    Batching.jsx           Guided walkthrough of bulk order intake
+    Batching.jsx           Guide: walkthrough of bulk order intake (no API keys needed)
     BankIncome.jsx, PayrollIncome.jsx, DirectDepositSwitch.jsx, PaycheckLinkedLoans.jsx,
     IncomePLLChained.jsx   Consumer Credit and Retail Banking demos
     POSTasks.jsx, LOS.jsx, DocumentProcessing.jsx   Mortgage demos

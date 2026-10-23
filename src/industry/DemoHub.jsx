@@ -11,26 +11,16 @@ import { Icons } from '../components/Icons.jsx';
 import { DEMO_ICONS } from '../IndustryPage.jsx';
 import './ps-hub.css';
 
-// Guides are placeholders until the content is written. They stay visible but
-// not clickable, so nobody lands on an empty page.
-// Channels: the other ways agencies use Truv besides an embedded demo flow.
-// Placeholders until each has content - visible, not clickable.
-export const PLACEHOLDER_CHANNELS = [
-  { id: 'dashboard', name: 'Truv Dashboard', icon: 'building',
-    desc: 'Staff create and track verification orders in the Truv Dashboard - no integration needed.' },
-  { id: 'existing-system', name: 'Your existing system', icon: 'repeat',
-    desc: 'Verification inside the eligibility or case system an agency or its system integrator already runs.' },
-  { id: 'order-link', name: 'Shared order link', icon: 'link2',
-    desc: 'Send the applicant a verification link by email or text, or print it as a QR code.' },
-];
-
-// Coverage tools live under Guides: they help size a rollout across every
-// industry rather than demo an applicant flow. These two are live; the rest are
-// placeholders.
-export const PLACEHOLDER_GUIDES = [
-  { id: 'payroll-coverage', name: 'Payroll Coverage', icon: 'barChart', href: '#coverage-analysis/payroll-coverage',
+// Guides: step-by-step walkthroughs and tools that are not an applicant flow.
+// Ones with an href are live; the rest are placeholders until the content is
+// written, so they stay visible but not clickable and nobody lands on an empty page.
+// `only` limits a guide to those industry pages (it always shows on the home page).
+export const GUIDES = [
+  { id: 'batching', name: 'Batching', icon: 'layers', href: '#public-sector/batching', mode: 'Walkthrough', only: ['public-sector'],
+    desc: 'Bulk order intake: staff drop a CSV into a folder and a scheduled job creates one order per row. Includes the setup guides and a runnable kit.' },
+  { id: 'payroll-coverage', name: 'Payroll Coverage', icon: 'barChart', href: '#coverage-analysis/payroll-coverage', mode: 'Coverage tool',
     desc: 'Upload a CSV of up to 10,000 employers and see which ones Truv supports for income, employment, deposit-switch, or paycheck-linked-loans.' },
-  { id: 'bank-coverage', name: 'Financial Accounts Coverage', icon: 'search', href: '#coverage-analysis/bank-coverage',
+  { id: 'bank-coverage', name: 'Financial Accounts Coverage', icon: 'search', href: '#coverage-analysis/bank-coverage', mode: 'Coverage tool',
     desc: 'Upload a CSV of up to 10,000 financial accounts and see which ones Truv can connect to for transactions or assets data.' },
   { id: 'best-practices', name: 'Best practices', icon: 'shieldCheck',
     desc: 'How teams set up verification for the best applicant experience and fewest manual reviews.' },
@@ -55,7 +45,6 @@ function DemoTile({ item, index }) {
       <div class="psh-tags">
         {(demo.tags || []).map(t => <span class="psh-tag" key={t}>{t}</span>)}
       </div>
-      <span class="psh-open">Open demo <span class="arr" aria-hidden="true">→</span></span>
     </a>
   );
 }
@@ -67,11 +56,10 @@ function GuideTile({ guide, index }) {
       <a class="psh-tile" href={guide.href} style={{ '--i': index }}>
         <div class="psh-tile-top">
           <span class="psh-ic" aria-hidden="true">{Icon && <Icon size={20} />}</span>
-          <span class="psh-mode">Coverage tool</span>
+          <span class="psh-mode">{guide.mode}</span>
         </div>
         <h3 class="psh-tile-name">{guide.name}</h3>
         <p class="psh-tile-desc">{guide.desc}</p>
-        <span class="psh-open">Open tool <span class="arr" aria-hidden="true">→</span></span>
       </a>
     );
   }
@@ -91,11 +79,12 @@ function GuideTile({ guide, index }) {
  * items   : [{ key, demo, industryId, industryName, label }]
  * filters : optional [{ id, name }] - shows industry chips above the demos
  * section : 'demos' | 'guides' - scroll to that section on mount
+ * industryId: the industry page this is on; omit on the home page (shows every guide)
  * heroExtra: optional node under the lead (e.g. the Update API keys button)
  */
-export function DemoHub({ trail, back, eyebrow, title, lead, items, guides = PLACEHOLDER_GUIDES,
-                          channels = PLACEHOLDER_CHANNELS, filters, defaultFilter = 'all',
-                          section, heroExtra }) {
+export function DemoHub({ trail, back, eyebrow, title, lead, items, filters, defaultFilter = 'all',
+                          section, industryId, heroExtra }) {
+  const guides = GUIDES.filter(g => !g.only || !industryId || g.only.includes(industryId));
   // The filter lives in the URL (#filter=<industry-id>) so a filtered view can
   // be linked and shared. Unknown ids fall back to All.
   const validIds = new Set((filters || []).map(f => f.id));
@@ -164,16 +153,6 @@ export function DemoHub({ trail, back, eyebrow, title, lead, items, guides = PLA
           )}
           <div class="psh-grid" key={filter}>
             {shown.map((it, i) => <DemoTile key={it.key} item={it} index={i} />)}
-          </div>
-        </section>
-
-        <section class="psh-section-block" id="psh-channels" aria-labelledby="psh-channels-h">
-          <div class="psh-section-head">
-            <h2 class="psh-section-title" id="psh-channels-h">Channels</h2>
-            <span class="psh-count">{channels.length}</span>
-          </div>
-          <div class="psh-grid">
-            {channels.map((g, i) => <GuideTile key={g.id} guide={g} index={i} />)}
           </div>
         </section>
 

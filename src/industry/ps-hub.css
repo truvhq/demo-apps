@@ -52,13 +52,9 @@
   border:1px solid var(--ck-lighter-gray); border-radius:999px; padding:4px 10px; white-space:nowrap; }
 .psh-tile-name { font-size:18px; font-weight:500; letter-spacing:-.01em; margin:0 0 8px; }
 .psh-tile-desc { font-size:14px; line-height:1.55; color:var(--ck-dark-gray); margin:0 0 16px; }
-.psh-tags { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:18px; }
+.psh-tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:auto; }
 .psh-tag { font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:10.5px; color:var(--ck-dark-gray);
   background:var(--ck-lightest-gray); border-radius:4px; padding:3px 8px; }
-.psh-open { margin-top:auto; font-size:13.5px; font-weight:500; color:var(--ck-black); display:inline-flex; gap:6px; }
-.psh-open .arr { transition:transform .4s var(--ck-ease); }
-.psh-tile:hover .psh-open { text-decoration:underline 2px; text-underline-offset:6px; }
-.psh-tile:hover .psh-open .arr { transform:translateX(4px); }
 
 @keyframes psh-in { from { opacity:0; transform:translateX(12px); } to { opacity:1; transform:none; } }
 

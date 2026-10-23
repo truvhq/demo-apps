@@ -6,7 +6,7 @@
 import { DemoHub } from './DemoHub.jsx';
 
 export function IndustryHub({ industry, section }) {
-  const items = industry.demos.map(d => ({
+  const items = industry.demos.filter(d => !d.guide).map(d => ({
     key: d.id, demo: d, industryId: industry.id, industryName: industry.name,
   }));
   return (
@@ -17,6 +17,7 @@ export function IndustryHub({ industry, section }) {
       title={industry.name}
       lead={industry.desc}
       items={items}
+      industryId={industry.id}
       section={section}
     />
   );

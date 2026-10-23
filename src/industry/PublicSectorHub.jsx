@@ -10,14 +10,14 @@ import { DemoHub } from './DemoHub.jsx';
 const USE_CASE = {
   'customer-portal': 'Applicant self-service',
   'verifier-portal': 'Caseworker request',
-  'batching': 'Caseworker request · bulk',
+  'renewals-refresh': 'Renewals and recertification',
   'documents': 'Documents already collected',
 };
 const ORDER = Object.keys(USE_CASE);
 
 export function PublicSectorHub({ industry, section }) {
   const rank = id => (ORDER.indexOf(id) < 0 ? 99 : ORDER.indexOf(id));
-  const items = [...industry.demos].sort((a, b) => rank(a.id) - rank(b.id)).map(d => ({
+  const items = industry.demos.filter(d => !d.guide).sort((a, b) => rank(a.id) - rank(b.id)).map(d => ({
     key: d.id, demo: d, industryId: industry.id, industryName: industry.name, label: USE_CASE[d.id],
   }));
   return (
@@ -28,6 +28,7 @@ export function PublicSectorHub({ industry, section }) {
       title="Verify income and employment for benefits"
       lead={industry.desc}
       items={items}
+      industryId={industry.id}
       section={section}
     />
   );
