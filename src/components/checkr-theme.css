@@ -1,0 +1,92 @@
+/*
+ * Checkr theme for demo screens - opt-in, scoped under .ck-theme.
+ * Re-points the shared Tailwind theme variables (styles.css @theme) to the
+ * Checkr values already used by the Batching walkthrough and the hub pages,
+ * which were measured from checkr.com: black #1b1c1f, greys #474c52 / #7a828c /
+ * #d8dee5 / #f0f2f5, aqua #23deff as the hover accent, 6px corners, 0.4s
+ * colour transitions. Demos opt in through <Layout theme="checkr">; the preview
+ * iframe opts in with ?theme=checkr. Nothing outside .ck-theme changes.
+ */
+.ck-theme {
+  --color-primary: #1b1c1f;
+  --color-primary-light: #f0f2f5;
+  --color-primary-hover: #23deff;
+  --color-primary-active: #23deff;
+  --color-text: #1b1c1f;
+  --color-text-secondary: #474c52;
+  --color-text-tertiary: #7a828c;
+  --color-muted: #474c52;
+  --color-border: #d8dee5;
+  --color-border-light: #d8dee5;
+  --color-surface-secondary: #f0f2f5;
+  --color-success: #197d58;
+  --color-gray-400: #7a828c; --color-gray-500: #474c52; --color-gray-600: #474c52;
+  --color-gray-700: #474c52; --color-gray-800: #1b1c1f; --color-gray-900: #1b1c1f;
+  --color-blue-500: #1b1c1f; --color-blue-800: #1b1c1f;
+  --color-green-500: #197d58; --color-green-600: #197d58; --color-green-700: #197d58; --color-green-800: #197d58;
+  font-family: 'National 2', 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Primary buttons: black, then aqua with black text on hover (checkr.com). */
+.ck-theme .bg-primary { transition: background-color .4s, color .4s, border-color .4s; }
+.ck-theme .bg-primary:hover,
+.ck-theme .hover\:bg-primary-hover:hover { color: #1b1c1f; }
+.ck-theme .text-primary { color: #1b1c1f; }
+.ck-theme a.text-primary:hover, .ck-theme button.text-primary:hover {
+  text-decoration: underline 2px; text-underline-offset: 6px;
+}
+
+/* Hard-coded neutrals in shared components, mapped to the Checkr greys. */
+.ck-theme .text-\[\#000000\], .ck-theme .hover\:text-\[\#000000\]:hover { color: #1b1c1f; }
+.ck-theme .text-\[\#808080\] { color: #474c52; }
+.ck-theme .border-\[\#d2d2d7\], .ck-theme .border-\[\#e8e8ed\], .ck-theme .border-\[\#e5e7eb\] { border-color: #d8dee5; }
+.ck-theme .hover\:border-\[\#c0c0c5\]:hover { border-color: #474c52; }
+.ck-theme .bg-\[\#f5f5f7\], .ck-theme .bg-\[\#fafafa\], .ck-theme .bg-\[\#f9fafb\] { background-color: #f0f2f5; }
+.ck-theme .hover\:bg-\[\#f5f5f7\]:hover { background-color: #f0f2f5; }
+.ck-theme .bg-\[\#e8e8ed\] { background-color: #f0f2f5; }
+.ck-theme .text-\[\#1C8F60\] { color: #197d58; }
+
+/* Shape: checkr.com uses 6px on controls, 8px on cards. */
+.ck-theme button.rounded-lg, .ck-theme a.rounded-lg, .ck-theme input.rounded-lg, .ck-theme select.rounded-lg { border-radius: 6px; }
+.ck-theme .rounded-xl, .ck-theme .rounded-2xl { border-radius: 8px; }
+.ck-theme .rounded-full.bg-primary { border-radius: 6px; }
+
+.ck-theme :focus-visible { outline: 2px solid #23deff; outline-offset: 2px; }
+
+/* Checkr Brand Guidelines 1.0 type rules. */
+.ck-theme h1, .ck-theme h2 { font-family:'National 2 Narrow','Helvetica Neue',Arial,sans-serif; font-weight:500; line-height:1; letter-spacing:-.01em; }
+.ck-theme h3, .ck-theme h4 { line-height:1.2; }
+
+/* Status colours, Checkr palette. Meaning is carried by the coloured text
+   (Dark Green / Dark Yellow / Dark Red) on Gray 1, so accents stay sparing. */
+.ck-theme {
+  --color-success-bg: #f0f2f5;
+  --color-warning: #9eab00;
+  --color-warning-bg: #f0f2f5;
+  --color-error: #cc2421;
+  --color-error-bg: #ffffff;
+}
+.ck-theme .bg-green-50, .ck-theme .bg-amber-50, .ck-theme .bg-\[\#f5f8ff\] { background-color: #f0f2f5; }
+.ck-theme .text-\[\#C18D10\] { color: #9eab00; }
+.ck-theme .border-\[\#f5f5f7\] { border-color: #f0f2f5; }
+.ck-theme .hover\:text-\[\#ff3b30\]:hover { color: #cc2421; }
+.ck-theme .hover\:border-\[\#808080\]:hover { border-color: #474c52; }
+
+/* Sign-in screen: Checkr surfaces are flat - no colour blooms or animated
+   gradient ring (Brand Guidelines 1.0: no visual effects, cool grays only). */
+.ck-signin .config-bloom-a, .ck-signin .config-bloom-b { display: none; }
+.ck-signin .gradient-ring::before { display: none; }
+.ck-signin .gradient-ring { border-color: #d8dee5; border-radius: 8px; }
+
+/* Sign-in proof panel (Off Black ground, white text, aqua accent). */
+.ck-signin .ck-proof-title { font-family:'National 2 Narrow','Helvetica Neue',Arial,sans-serif; font-weight:500; line-height:1; letter-spacing:-.01em; color:#fff; }
+.ck-placeholder { position:relative; }
+.ck-ph-tag { position:absolute; top:-9px; left:16px; background:#1b1c1f; color:#7a828c; font-size:10px;
+  font-weight:700; letter-spacing:.12em; text-transform:uppercase; padding:0 6px; }
+.ck-ph-inline { color:#474c52; letter-spacing:.1em; }
+
+/* Proof panel text appears as the dot-field sweep finishes turning white. */
+.ck-signin .ck-proof-title { color:#1b1c1f; }
+.ck-signin .ck-proof-content { opacity:0; animation: ck-proof-in .6s cubic-bezier(.39,.575,.565,1) 1.9s forwards; }
+@keyframes ck-proof-in { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce) { .ck-signin .ck-proof-content { opacity:1; animation:none; } }

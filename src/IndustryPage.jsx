@@ -1,7 +1,7 @@
 import { Icons } from './components/Icons.jsx';
 import { Header } from './components/Header.jsx';
 
-const DEMO_ICONS = {
+export const DEMO_ICONS = {
   'pos-application': Icons.fileText,
   'pos-tasks': Icons.clipboard,
   'los': Icons.shieldCheck,

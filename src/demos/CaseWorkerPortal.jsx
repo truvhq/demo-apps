@@ -101,7 +101,7 @@ export function CaseWorkerPortalDemo({ screen, param }) {
 
   // --- Render: state-driven screen routing ---
   return (
-    <Layout badge="Public Sector · Case Worker Portal" steps={STEPS} panel={panel} hidePanel={showIntro || showAddForm}>
+    <Layout badge="Public Sector · Case Worker Portal" steps={STEPS} panel={panel} hidePanel={showIntro || showAddForm} theme="checkr">
 
       {/* Intro slide: architecture diagram and feature overview */}
       {showIntro && (

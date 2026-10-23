@@ -4,11 +4,10 @@
  *
  * Renders a 50/50 split layout used by all demo intro screens. The left half
  * shows a label, headline, subtitle, optional children (cards/inputs), and action
- * buttons. The right half displays a Mermaid architecture diagram.
+ * buttons. Single column (the diagram panel was removed in the Checkr revamp).
  */
 
 // Imports
-import { MermaidDiagram } from './MermaidDiagram.jsx';
 
 // Props:
 //   label    : uppercase category text above the headline
@@ -17,34 +16,20 @@ import { MermaidDiagram } from './MermaidDiagram.jsx';
 //   diagram  : Mermaid definition string for the right-side diagram
 //   children : optional content (cards, inputs) between subtitle and actions
 //   actions  : bottom action buttons
-export function IntroSlide({ label, title, subtitle, diagram, children, actions }) {
+export function IntroSlide({ label, title, subtitle, children, actions }) {
+  // Single column. The architecture diagram that used to fill the right half
+  // was removed in the Checkr revamp; `diagram` props passed by demos are ignored.
   return (
-    <div class="flex flex-col lg:flex-row flex-1 min-h-0 overflow-y-auto lg:overflow-visible">
-      {/* Left panel: text content and actions */}
-      <div class="w-full lg:w-1/2 lg:overflow-y-auto bg-white">
-        <div class="min-h-full flex items-center justify-center">
-          <div class="px-6 py-8 lg:px-12 lg:py-14 w-full max-w-[640px]">
-            {/* Header block: label, title, subtitle */}
-            <div class="animate-slideUp">
-              <div class="text-[13px] font-bold uppercase tracking-[0.1em] text-primary mb-5">{label}</div>
-              <h2 class="text-[28px] sm:text-[40px] font-extrabold tracking-[-0.035em] leading-[1.05] text-[#000000] mb-5">{title}</h2>
-              <p class="text-[16px] text-[#808080] leading-[1.7] mb-10">{subtitle}</p>
-            </div>
-            {/* Optional children slot (selection cards, form inputs, etc.) */}
-            {children && <div class="animate-slideUp delay-1 mb-10">{children}</div>}
-            {/* Action buttons */}
-            {actions && <div class="animate-slideUp delay-2">{actions}</div>}
+    <div class="flex flex-col flex-1 min-h-0 overflow-y-auto bg-white">
+      <div class="min-h-full flex items-center justify-center">
+        <div class="px-6 py-10 lg:px-12 lg:py-16 w-full max-w-[640px]">
+          <div class="animate-slideUp">
+            <div class="text-[13px] font-bold uppercase tracking-[0.1em] text-primary mb-5">{label}</div>
+            <h2 class="text-[28px] sm:text-[40px] font-extrabold tracking-[-0.035em] leading-[1.05] text-[#000000] mb-5">{title}</h2>
+            <p class="text-[16px] text-[#808080] leading-[1.7] mb-10">{subtitle}</p>
           </div>
-        </div>
-      </div>
-      {/* Right panel: architecture diagram (stacks below the copy on small screens) */}
-      <div class="w-full lg:w-1/2 bg-[#f7f8fc] border-t lg:border-t-0 lg:border-l border-[#ebebf0] lg:overflow-y-auto">
-        <div class="min-h-full flex items-center justify-center">
-          {diagram && (
-            <div class="w-full px-6 py-8 lg:px-10 lg:py-14 animate-slideUp delay-2">
-              <MermaidDiagram definition={diagram} />
-            </div>
-          )}
+          {children && <div class="animate-slideUp delay-1 mb-10">{children}</div>}
+          {actions && <div class="animate-slideUp delay-2">{actions}</div>}
         </div>
       </div>
     </div>

@@ -6,23 +6,18 @@
  * is intentionally NOT here — it lives only on the Home page (see Home.jsx).
  */
 import { DASHBOARD_KEYS_URL } from '../config.js';
+import { Icons } from './Icons.jsx';
 
 const GITHUB_URL = 'https://github.com/truvhq/demo-apps/';
 
 // Shared button styling for the borderless (secondary) actions.
-const OUTLINE_BTN = 'text-[13px] font-medium text-[#000000] rounded-lg px-3 py-1.5 hover:bg-[#f5f5f7] active:bg-[#e8e8ed] transition-colors inline-flex items-center gap-1.5';
+const OUTLINE_BTN = 'text-[13px] font-medium text-[#474c52] rounded-[6px] px-3 py-1.5 hover:text-[#1b1c1f] hover:bg-[#f0f2f5] transition-colors duration-[400ms] inline-flex items-center gap-1.5';
 
 // External-link arrow appended to outbound links. Hidden on narrow screens to
 // save space; the caller passes the breakpoint that matches its own text label
 // so the arrow never shows next to a bare icon.
 function ExternalArrow({ class: cls = 'hidden sm:inline' }) {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class={cls}>
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-      <polyline points="15 3 21 3 21 9" />
-      <line x1="10" y1="14" x2="21" y2="3" />
-    </svg>
-  );
+  return <Icons.arrowSquareOut size={12} className={cls} />;
 }
 
 // GitHub mark, shared by the header link and the panel tab-row link.
@@ -84,7 +79,7 @@ export function HeaderActions({ githubInPanel = false }) {
         href="https://truv.com/contact-sales"
         target="_blank"
         rel="noreferrer"
-        class="ml-2 text-[13px] font-medium text-white bg-primary rounded-lg px-3 py-1.5 hover:bg-primary-hover active:bg-primary-active transition-colors whitespace-nowrap"
+        class="ml-2 text-[13px] font-medium text-white bg-[#1b1c1f] rounded-[6px] px-4 py-2 hover:bg-[#23deff] hover:text-[#1b1c1f] transition-colors duration-[400ms] whitespace-nowrap"
       >
         Contact sales
       </a>

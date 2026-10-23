@@ -1,0 +1,131 @@
+/*
+ * Public Sector hub - SELF-CONTAINED, scoped under .psh.
+ * Same Checkr-styled values as the Batching walkthrough (batching.css), which
+ * were measured from checkr.com: black #1b1c1f, greys #474c52 / #7a828c /
+ * #d8dee5 / #f0f2f5, white surfaces, aqua #23deff only as a hover/focus accent,
+ * checkr.com's ease-out curve and its 0.4s colour transitions.
+ */
+.psh {
+  --ck-black:#1b1c1f; --ck-dark-gray:#474c52; --ck-gray:#7a828c;
+  --ck-lighter-gray:#d8dee5; --ck-lightest-gray:#f0f2f5; --ck-paper:#f0f2f5;
+  --ck-aqua:#23deff; --ck-ease:cubic-bezier(.39,.575,.565,1);
+  --sans:'National 2','Helvetica Neue',Arial,sans-serif; --headline:'National 2 Narrow','Helvetica Neue',Arial,sans-serif;
+  min-height:100vh; background:#fff; color:var(--ck-black); font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;
+}
+.psh * { box-sizing:border-box; }
+.psh-wrap { max-width:1120px; margin:0 auto; padding:0 32px; }
+
+/* hero */
+.psh-hero { background:var(--ck-paper); border-bottom:1px solid var(--ck-lighter-gray); padding:44px 0 48px; }
+.psh-back { display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:500;
+  color:var(--ck-dark-gray); text-decoration:none; margin-bottom:28px; transition:color .4s var(--ck-ease); }
+.psh-back:hover { color:var(--ck-black); text-decoration:underline 2px; text-underline-offset:6px; }
+.psh-eyebrow { font-size:10.5px; font-weight:700; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--ck-dark-gray); margin-bottom:14px; }
+.psh-title { font-size:44px; font-weight:500; line-height:1.08; letter-spacing:-.02em; margin:0 0 16px;
+  max-width:24ch; text-wrap:balance; animation:psh-in .4s var(--ck-ease) both; }
+.psh-lead { font-size:16.5px; line-height:1.6; color:var(--ck-dark-gray); margin:0; max-width:60ch;
+  animation:psh-in .4s var(--ck-ease) .06s both; }
+
+/* use-case rows */
+.psh-groups { padding-top:8px; padding-bottom:72px; }
+.psh-group { display:grid; grid-template-columns:minmax(220px,1fr) 2.4fr; gap:40px;
+  padding:40px 0; border-bottom:1px solid var(--ck-lighter-gray); }
+.psh-group:last-child { border-bottom:0; }
+.psh-group-label { font-size:20px; font-weight:500; letter-spacing:-.01em; line-height:1.25; margin:0 0 10px; }
+.psh-group-desc { font-size:14px; line-height:1.55; color:var(--ck-dark-gray); margin:0; max-width:34ch; }
+
+/* tiles */
+.psh-tiles { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; align-content:start; }
+.psh-tile { position:relative; display:flex; flex-direction:column; min-height:240px; padding:22px 22px 20px;
+  background:#fff; border:1px solid var(--ck-lighter-gray); border-radius:8px; text-decoration:none; color:inherit;
+  transition:border-color .4s var(--ck-ease), box-shadow .4s var(--ck-ease);
+  opacity:0; animation:psh-in .4s var(--ck-ease) forwards; animation-delay:calc(var(--i) * 60ms + 100ms); }
+.psh-tile:hover { border-color:var(--ck-dark-gray); box-shadow:0 12px 28px -22px rgba(27,28,31,.45); }
+.psh-tile:focus-visible { outline:2px solid var(--ck-aqua); outline-offset:2px; }
+.psh-tile-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
+.psh-ic { width:40px; height:40px; border-radius:6px; background:var(--ck-lightest-gray); color:var(--ck-black);
+  display:flex; align-items:center; justify-content:center; flex:none; transition:background .4s var(--ck-ease); }
+.psh-tile:hover .psh-ic { background:var(--ck-aqua); }
+.psh-mode { font-size:10.5px; font-weight:600; letter-spacing:.02em; color:var(--ck-dark-gray);
+  border:1px solid var(--ck-lighter-gray); border-radius:999px; padding:4px 10px; white-space:nowrap; }
+.psh-tile-name { font-size:18px; font-weight:500; letter-spacing:-.01em; margin:0 0 8px; }
+.psh-tile-desc { font-size:14px; line-height:1.55; color:var(--ck-dark-gray); margin:0 0 16px; }
+.psh-tags { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:18px; }
+.psh-tag { font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:10.5px; color:var(--ck-dark-gray);
+  background:var(--ck-lightest-gray); border-radius:4px; padding:3px 8px; }
+.psh-open { margin-top:auto; font-size:13.5px; font-weight:500; color:var(--ck-black); display:inline-flex; gap:6px; }
+.psh-open .arr { transition:transform .4s var(--ck-ease); }
+.psh-tile:hover .psh-open { text-decoration:underline 2px; text-underline-offset:6px; }
+.psh-tile:hover .psh-open .arr { transform:translateX(4px); }
+
+@keyframes psh-in { from { opacity:0; transform:translateX(12px); } to { opacity:1; transform:none; } }
+
+/* tablet: group label above its tiles */
+@media (max-width: 900px) {
+  .psh-wrap { padding:0 20px; }
+  .psh-title { font-size:34px; }
+  .psh-group { grid-template-columns:1fr; gap:18px; padding:32px 0; }
+  .psh-group-desc { max-width:none; }
+}
+/* phone: one tile per row */
+@media (max-width: 600px) {
+  .psh-hero { padding:28px 0 32px; }
+  .psh-title { font-size:28px; }
+  .psh-tiles { grid-template-columns:1fr; }
+  .psh-tile { min-height:0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .psh-tile, .psh-title, .psh-lead { animation:none; opacity:1; }
+}
+
+/* landing: two large section tiles */
+.psh-landing { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; padding-top:40px; padding-bottom:72px; }
+.psh-section { min-height:300px; padding:30px 30px 26px; }
+.psh-ic.big { width:52px; height:52px; border-radius:8px; }
+.psh-section-name { font-size:28px; font-weight:500; letter-spacing:-.02em; margin:0 0 10px; }
+.psh-section .psh-tile-desc { font-size:15px; max-width:44ch; }
+
+/* placeholder tiles: visible, not clickable */
+.psh-tile.is-soon { cursor:default; background:#fff; border-style:dashed; }
+.psh-tile.is-soon:hover { border-color:var(--ck-lighter-gray); box-shadow:none; }
+.psh-tile.is-soon:hover .psh-ic { background:var(--ck-lightest-gray); }
+.psh-tile.is-soon .psh-tile-name { color:var(--ck-dark-gray); }
+
+@media (max-width: 900px) { .psh-landing { grid-template-columns:1fr; } .psh-section { min-height:0; } }
+
+/* flat layout: Demos and Guides sections on one page */
+.psh-sections { padding-top:40px; padding-bottom:80px; }
+.psh-section-block { scroll-margin-top:72px; }
+.psh-section-block + .psh-section-block { margin-top:56px; padding-top:40px; border-top:1px solid var(--ck-lighter-gray); }
+.psh-section-head { display:flex; align-items:baseline; gap:12px; margin-bottom:20px; }
+.psh-section-title { font-size:28px; font-weight:500; letter-spacing:-.02em; margin:0; }
+.psh-count { font-size:12px; font-weight:600; color:var(--ck-dark-gray); border:1px solid var(--ck-lighter-gray);
+  border-radius:999px; padding:2px 9px; }
+.psh-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+.psh-usecase { font-size:10.5px; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--ck-gray); margin:-4px 0 8px; }
+@media (max-width: 1100px) { .psh-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width: 600px) { .psh-grid { grid-template-columns:1fr; } }
+
+/* industry filter chips (home) */
+.psh-filters { display:flex; flex-wrap:wrap; gap:8px; margin:-4px 0 20px; }
+.psh-chip { font-family:var(--sans); font-size:13px; font-weight:500; color:var(--ck-dark-gray); background:#fff;
+  border:1px solid var(--ck-lighter-gray); border-radius:999px; padding:6px 14px; cursor:pointer;
+  transition:background .4s var(--ck-ease), border-color .4s var(--ck-ease), color .4s var(--ck-ease); }
+.psh-chip:hover { border-color:var(--ck-aqua); background:var(--ck-aqua); color:var(--ck-black); }
+.psh-chip.on { background:var(--ck-black); border-color:var(--ck-black); color:#fff; }
+.psh-chip:focus-visible { outline:2px solid var(--ck-aqua); outline-offset:2px; }
+
+/* outline button (hero) - checkr.com secondary style */
+.psh-btn-outline { margin-top:22px; font-family:var(--sans); font-size:13px; font-weight:500; color:var(--ck-dark-gray);
+  background:transparent; border:1px solid var(--ck-dark-gray); border-radius:6px; padding:9px 16px; cursor:pointer;
+  transition:background .4s var(--ck-ease), border-color .4s var(--ck-ease), color .4s var(--ck-ease); }
+.psh-btn-outline:hover { background:var(--ck-aqua); border-color:var(--ck-aqua); color:var(--ck-black); }
+
+/* Checkr Brand Guidelines 1.0: headlines National 2 Narrow Medium, 100% line
+   height, -1% letter spacing; subheads 120%; body 130%. */
+.psh-title, .psh-section-title, .psh-section-name { font-family:var(--headline); font-weight:500; line-height:1; letter-spacing:-.01em; }
+.psh-tile-name, .psh-group-label { line-height:1.2; letter-spacing:0; }
+.psh-lead, .psh-tile-desc { line-height:1.3; }

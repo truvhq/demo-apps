@@ -21,6 +21,7 @@
  * panel entirely regardless of user preference.
  */
 
+import './checkr-theme.css';
 import { useState, useEffect } from 'preact/hooks';
 import { Panel } from './Panel.jsx';
 import { Header } from './Header.jsx';
@@ -36,7 +37,7 @@ import { usePanelVisibility } from '../hooks/usePanelVisibility.js';
 //   children    : main content area
 // The breadcrumb (industry > demo) is derived from the current route, so demos
 // no longer pass a badge — any `badge` prop still passed by callers is ignored.
-export function Layout({ steps, panel, hidePanel, children }) {
+export function Layout({ steps, panel, hidePanel, theme = 'checkr', children }) {
   const [activeTab, setActiveTab] = useState('guide');
   const hasDeviceFrame = useHasDeviceFrame();
   const [panelVisible, setPanelVisible] = usePanelVisibility();
@@ -65,7 +66,7 @@ export function Layout({ steps, panel, hidePanel, children }) {
   const showPanel = !hidePanel && panelVisible;
 
   return (
-    <div class="h-screen flex flex-col">
+    <div class={`h-screen flex flex-col${theme === 'checkr' ? ' ck-theme' : ''}`}>
       {/* Shared top bar. The panel's tab nav lives inside the Panel itself, so
           the header is always full width and behaves the same on every page.
           Right-edge slot: device toggle + Dev-panel button (demo shell only). */}

@@ -218,14 +218,14 @@ export function CustomerPortalDemo({ screen, param }) {
 
   // --- Render: screen routing ---
   return (
-    <Layout badge="Public Sector · Customer Portal" steps={STEPS} panel={panel} hidePanel={isIntro}>
+    <Layout badge="Public Sector · Customer Portal" steps={STEPS} panel={panel} hidePanel={isIntro} theme="checkr">
       {/* Application form + Bridge widget live inside the preview iframe (user view).
           A single iframe element persists across the form → bridge hash navigation. */}
       {showDeviceFrame && (
         <DeviceFrame url="benefits.example.gov">
           <iframe
             ref={iframeRef}
-            src="/preview.html"
+            src="/preview.html?theme=checkr"
             title="Demo preview"
             class="w-full h-full block border-0 bg-white"
           />
