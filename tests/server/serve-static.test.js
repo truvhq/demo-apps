@@ -74,6 +74,16 @@ describe('the guides\' files, behind the real session middleware', () => {
     }
   });
 
+  it('serves part of a file when asked, so a six-second clip does not pull the whole video', async () => {
+    const id = store.create({ clientId: 'cid', secret: 'sec' });
+    const res = await fetch(`${base}/guides/embedded-orders/nine-rules.mp4`, {
+      headers: { Cookie: `${SESSION_COOKIE_NAME}=${signSessionId(id, secret)}`, Range: 'bytes=0-1' },
+    });
+    expect(res.status).toBe(206);
+    expect(res.headers.get('content-range')).toBe('bytes 0-1/5');
+    expect(await res.text()).toBe('by');
+  });
+
   it('refuses a visitor with no cookie, on every gated folder', async () => {
     for (const f of files) {
       const res = await get(f);

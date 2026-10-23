@@ -3,13 +3,14 @@
  *
  * The video shows each of the guide's nine rules wrong, then right, about six
  * seconds apiece. Start times were measured by watching the "Rule N of 9" label
- * change, so a chip can seek straight to a rule. The transcript is everything the
- * video says on screen, so the video's content is also available as text.
+ * change, so a chip can seek straight to a rule. The transcript writes out the
+ * titles, captions and labels the video prints, so the video's message is also
+ * available as text.
  */
 
 export const VIDEO_SRC = '/guides/embedded-orders/nine-rules.mp4';
 export const POSTER_SRC = '/guides/embedded-orders/nine-rules-poster.jpg';
-export const VIDEO_DURATION = 62.04;
+export const VIDEO_DURATION = 62.08;
 
 const INTRO_END = 3.5;
 const RULE_LENGTH = 6;
@@ -35,7 +36,7 @@ export const RULES = [
     dontNote: 'Equal weight = equally good choices',
     doText: 'One embed. A text link and a send-link button sit beneath.' },
   { n: 5, title: 'Hide manual entry once connected',
-    dont: '"Enter manually instead" stays on screen after a connection.',
+    dont: '\u201CEnter manually instead\u201D stays on screen after a connection.',
     dontNote: 'Still offered',
     doText: 'It goes the moment a connection is made.' },
   { n: 6, title: 'Use the SDK, not an iframe',
@@ -86,8 +87,8 @@ export function chapterAt(t) {
   return CHAPTERS[0];
 }
 
-// 63.5 -> "1:03"
+// 63.5 -> "1:03". Rounds down so a label never reads later than the real start.
 export function fmt(t) {
-  const s = Math.max(0, Math.round(t));
+  const s = Math.max(0, Math.floor(t));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }

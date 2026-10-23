@@ -9,8 +9,10 @@
  *      be read by the hash router as a different page.
  *   2. Screenshot paths point at /guides/embedded-orders/img/.
  *   3. Outside links open in a new tab.
- *   4. Three wording fixes (TEXT_FIXES): the word "shape" is not used for
- *      technical things here.
+ *   4. Five wording fixes (TEXT_FIXES). Three drop the word "shape", which is not
+ *      used for technical things here. Two correct screenshot captions that name
+ *      real state sites ("Texas Benefits", "MI Bridges") under images that show
+ *      the invented "Acme State Benefits" application.
  *   5. An empty slot for the video after the rules intro, and two links under
  *      the title.
  */
@@ -24,6 +26,8 @@ export const TEXT_FIXES = [
   [/gives you\s+three shapes\./, 'gives you three setups.'],
   [/<th>Shape<\/th>/, '<th>Setup</th>'],
   [/Three shapes recur in the diagrams below\./, 'Three kinds of element recur in the diagrams below.'],
+  [/Texas Benefits, step 11 of 17\./, 'Acme State Benefits, step 6 of 11.'],
+  [/MI Bridges\. The embed is the step/, 'Acme State Benefits. The embed is the step'],
 ];
 
 // Section ids the page nav links to, with the labels the guide's own nav used.
@@ -51,7 +55,7 @@ export function prepareGuide(raw = SOURCE) {
   html = html.replace(
     /(<div class="mast">[\s\S]*?<\/h1>)/,
     `$1\n<p class="eog-mast-links"><a href="${GUIDE_HASH}/watch">Watch the nine rules in about a minute</a>`
-      + `<a href="${GUIDE_HASH}/qa">Jump to the pre-launch checklist</a></p>`,
+      + `<a href="${GUIDE_HASH}/qa">Jump to the pre-launch QA list</a></p>`,
   );
 
   html = html.replace(

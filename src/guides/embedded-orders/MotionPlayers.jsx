@@ -3,7 +3,7 @@
  *
  *   RulesReel - one player at the top of "The rules" with a chip per chapter and
  *               the video's on-screen text written out underneath.
- *   RuleClip  - a "See it in motion" toggle on each rule card that plays just that
+ *   RuleClip  - a "Watch rule N" toggle on each rule card that plays just that
  *               rule's six seconds, right where the rule is explained.
  *
  * Both play the same file. Nothing loads until the reader asks for it, only one
@@ -25,6 +25,15 @@ function CloseIcon() {
   return <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" /></svg>;
 }
 
+// Shown when the video file cannot be loaded.
+function VideoError() {
+  return (
+    <p class="eog-video-error" role="alert">
+      The video did not load. <a href={VIDEO_SRC}>Open the video file</a>, or read the same rules in the text below.
+    </p>
+  );
+}
+
 // Seek a video that may not have loaded yet, then play it.
 function seekAndPlay(v, t) {
   const go = () => { v.currentTime = t; claim(v); v.play().catch(() => {}); };
@@ -35,6 +44,7 @@ function seekAndPlay(v, t) {
 export function RulesReel() {
   const ref = useRef(null);
   const [active, setActive] = useState(CHAPTERS[0].id);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const v = ref.current;
@@ -53,7 +63,7 @@ export function RulesReel() {
   return (
     <figure class="eog-reel" id="watch">
       <div class="eog-reel-head">
-        <span class="eog-kicker">In motion · about a minute</span>
+        <span class="eog-kicker">Video · about a minute</span>
         <h3>The nine rules, each shown wrong, then right</h3>
       </div>
       <video
@@ -63,11 +73,13 @@ export function RulesReel() {
         playsInline
         preload="none"
         poster={POSTER_SRC}
+        onError={() => setFailed(true)}
         aria-label="The nine rules for embedding a Truv order, each shown wrong, then right. The text of every scene is written out below the video."
       >
-        <source src={VIDEO_SRC} type="video/mp4" />
+        <source src={VIDEO_SRC} type="video/mp4" onError={() => setFailed(true)} />
         Your browser cannot play this video. <a href={VIDEO_SRC}>Open the video file</a>.
       </video>
+      {failed && <VideoError />}
       <ol class="eog-chapters" aria-label="Jump to a rule in the video">
         {CHAPTERS.map(c => (
           <li key={c.id}>
@@ -110,30 +122,38 @@ export function RulesReel() {
 export function RuleClip({ n }) {
   const chapter = chapterForRule(n);
   const [open, setOpen] = useState(false);
+  const [failed, setFailed] = useState(false);
   const ref = useRef(null);
   const loop = useRef(!prefersLessMotion());
 
   useEffect(() => {
     const v = ref.current;
     if (!open || !v || !chapter) return undefined;
-    const onMeta = () => { v.currentTime = chapter.start; };
-    const onTime = () => {
-      if (v.currentTime >= chapter.end - 0.05) {
+    // Chrome stops at the end of a #t=start,end fragment and will not resume, and the
+    // timeupdate event is too coarse to catch the end exactly, so the clip starts at
+    // its beginning and this loop watches every frame for its end.
+    let frame = 0;
+    const watch = () => {
+      if (v.currentTime >= chapter.end - 0.03) {
         v.currentTime = chapter.start;
-        if (!loop.current) v.pause();
+        if (loop.current) v.play().catch(() => {}); else v.pause();
       }
+      if (!v.paused) frame = requestAnimationFrame(watch);
     };
-    const onPlay = () => claim(v);
+    const onPlay = () => { claim(v); cancelAnimationFrame(frame); frame = requestAnimationFrame(watch); };
+    const onPause = () => cancelAnimationFrame(frame);
+    const onMeta = () => { v.currentTime = chapter.start; };
     v.addEventListener('loadedmetadata', onMeta);
-    v.addEventListener('timeupdate', onTime);
     v.addEventListener('play', onPlay);
+    v.addEventListener('pause', onPause);
     if (v.readyState >= 1) onMeta();
     if (!prefersLessMotion()) { claim(v); v.play().catch(() => {}); }
     return () => {
+      cancelAnimationFrame(frame);
       v.pause();
       v.removeEventListener('loadedmetadata', onMeta);
-      v.removeEventListener('timeupdate', onTime);
       v.removeEventListener('play', onPlay);
+      v.removeEventListener('pause', onPause);
       if (playing === v) playing = null;
     };
   }, [open, chapter]);
@@ -146,11 +166,11 @@ export function RuleClip({ n }) {
         type="button"
         class="eog-clip-btn"
         aria-expanded={open}
-        aria-controls={bodyId}
-        onClick={() => setOpen(o => !o)}
+        aria-controls={open ? bodyId : undefined}
+        onClick={() => { setFailed(false); setOpen(o => !o); }}
       >
         {open ? <CloseIcon /> : <PlayIcon />}
-        <span>{open ? 'Hide the motion' : `See rule ${n} in motion`}</span>
+        <span>{open ? 'Hide the video' : `Watch rule ${n}`}</span>
         {!open && <span class="eog-clip-time">{Math.round(chapter.end - chapter.start)} sec</span>}
       </button>
       {open && (
@@ -162,9 +182,11 @@ export function RuleClip({ n }) {
             controls
             playsInline
             preload="metadata"
-            src={`${VIDEO_SRC}#t=${chapter.start},${chapter.end}`}
+            src={`${VIDEO_SRC}#t=${chapter.start}`}
+            onError={() => setFailed(true)}
             aria-label={`Rule ${n}, ${chapter.label}, shown wrong and then right. The same content is written out in the rule below.`}
           />
+          {failed && <VideoError />}
         </div>
       )}
     </div>

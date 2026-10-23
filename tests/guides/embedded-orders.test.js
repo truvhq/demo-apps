@@ -25,8 +25,10 @@ describe('the guide text', () => {
     ['gives you three shapes.', 'gives you three setups.'],
     ['Shape You pass The applicant can', 'Setup You pass The applicant can'],
     ['Three shapes recur in the diagrams below.', 'Three kinds of element recur in the diagrams below.'],
+    ['Texas Benefits, step 11 of 17.', 'Acme State Benefits, step 6 of 11.'],
+    ['MI Bridges. The embed is the step', 'Acme State Benefits. The embed is the step'],
   ];
-  const MAST_LINKS = ' Watch the nine rules in about a minute Jump to the pre-launch checklist';
+  const MAST_LINKS = ' Watch the nine rules in about a minute Jump to the pre-launch QA list';
 
   it('is the source text plus only the listed changes', () => {
     const heading = 'Embedding Truv Orders in benefits applications';
@@ -43,6 +45,23 @@ describe('the guide text', () => {
 
   it('never uses the word "shape" for technical things', () => {
     expect(html).not.toMatch(/\bshapes?\b/i);
+  });
+
+  it('captions the screenshots with the invented app they show, not real state sites', () => {
+    const captions = [...html.matchAll(/<p class="sub">([\s\S]*?)<\/p>/g)].map(m => m[1]);
+    expect(captions.length).toBeGreaterThanOrEqual(5);
+    for (const c of captions) expect(c).not.toMatch(/Texas Benefits|MI Bridges/);
+  });
+
+  it('keeps every table, row, cell, list item and link the published guide has', () => {
+    const count = re => (html.match(re) || []).length;
+    expect(count(/<table\b/g)).toBe(12);
+    expect(count(/<tr\b/g)).toBe(77);
+    expect(count(/<t[dh]\b/g)).toBe(228);
+    expect(count(/<li\b/g)).toBe(47);
+    expect(count(/<a\b/g)).toBe(37 + 2); // the guide's links, plus two under the title
+    expect(count(/class="callout/g)).toBe(14);
+    expect(count(/class="callout warn/g)).toBe(3);
   });
 
   it('keeps every section, rule, figure, screenshot and code block', () => {
@@ -121,8 +140,8 @@ describe('the video', () => {
 
   it('formats times as m:ss', () => {
     expect(fmt(0)).toBe('0:00');
-    expect(fmt(9.5)).toBe('0:10');
-    expect(fmt(62.04)).toBe('1:02');
+    expect(fmt(9.5)).toBe('0:09');
+    expect(fmt(62.08)).toBe('1:02');
   });
 });
 

@@ -7,7 +7,7 @@
  * where you are, deep links to every section and rule, and the extras in
  * enhance.jsx (video, copy buttons, an interactive QA list). It makes no API calls.
  */
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Header } from '../components/Header.jsx';
 import '../industry/ps-hub.css';
 import '../guides/embedded-orders/embedded-orders.css';
@@ -32,6 +32,9 @@ function alignTo(id) {
   if (!el) return () => {};
   const drift = () => el.getBoundingClientRect().top - TARGET_TOP;
   window.scrollBy({ top: drift(), behavior: 'auto' });
+  // Move keyboard focus with the page, so the next Tab starts inside the section.
+  el.tabIndex = -1;
+  el.focus({ preventScroll: true });
   let tries = 0;
   let timer = 0;
   const stop = () => {
@@ -55,10 +58,17 @@ export function EmbeddedOrdersGuide({ screen }) {
   const navRef = useRef(null);
   const barRef = useRef(null);
   const [active, setActive] = useState('');
+  const [message, setMessage] = useState('');
 
   useEffect(() => { document.title = 'Embedded Orders Field Guide | Truv Demo Apps'; }, []);
 
-  useEffect(() => enhanceGuide(rootRef.current), []);
+  // Says something to screen-reader users (the page has no other way to confirm a copy).
+  const announce = useCallback(text => {
+    setMessage('');
+    setTimeout(() => setMessage(text), 30);
+  }, []);
+
+  useEffect(() => enhanceGuide(rootRef.current, announce), [announce]);
 
   // Which section is on screen, and how far down the page the reader is.
   useEffect(() => {
@@ -105,6 +115,13 @@ export function EmbeddedOrdersGuide({ screen }) {
   // Clicking the link for the section you are already on does not change the hash,
   // so it would do nothing. Scroll to it anyway.
   const onClick = e => {
+    // The skip link is a plain #guide link, which the router would read as another page.
+    if (e.target.closest?.('a.eog-skip')) {
+      e.preventDefault();
+      cancelAlign.current();
+      cancelAlign.current = alignTo('guide');
+      return;
+    }
     const link = e.target.closest?.(`a[href^="${GUIDE_HASH}/"]`);
     if (link && link.getAttribute('href') === window.location.hash) {
       e.preventDefault();
@@ -115,6 +132,7 @@ export function EmbeddedOrdersGuide({ screen }) {
 
   return (
     <div class="psh eog-page" onClick={onClick}>
+      <a class="eog-skip" href="#guide">Skip to the guide</a>
       <Header trail={TRAIL} sticky theme="checkr" />
       <div class="eog-nav">
         <nav ref={navRef} aria-label="Guide sections">
@@ -125,7 +143,8 @@ export function EmbeddedOrdersGuide({ screen }) {
         <button type="button" class="eog-print" onClick={() => window.print()}>Print or save as PDF</button>
         <div class="eog-progress" aria-hidden="true"><span ref={barRef} /></div>
       </div>
-      <main class="eog" ref={rootRef} dangerouslySetInnerHTML={{ __html: html }} />
+      <main id="guide" tabIndex={-1} class="eog" ref={rootRef} dangerouslySetInnerHTML={{ __html: html }} />
+      <div class="eog-sr" role="status" aria-live="polite">{message}</div>
     </div>
   );
 }

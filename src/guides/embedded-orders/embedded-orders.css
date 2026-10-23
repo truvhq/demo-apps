@@ -24,9 +24,9 @@
   --accent-ui: #1b1c1f;
   --accent-ui-soft: #f0f2f5;
   --aqua: #23deff;
-  --do: #197d58;
+  --do: #177651;
   --do-soft: #e4f4ed;
-  --do-solid: #197d58;
+  --do-solid: #177651;
   --do-on-solid: #ffffff;
   --dont: #b23439;
   --dont-soft: #fbeaeb;
@@ -289,7 +289,7 @@
    scrolls at a size where the labels still resolve, and the caption
    stays pinned to the left while it does. The inline width stamps that
    hold figures to scale on desktop are released here. */
-@media (max-width: 899px) {
+@media (max-width: 1099px) {
 .eog figure {
     overflow-x: auto; overscroll-behavior-x: contain;
     /* Edge shadows that show only while there is more to scroll to: the two
@@ -401,11 +401,13 @@
   position: sticky; top: 56px; z-index: 9;
   display: flex; align-items: stretch; gap: 8px;
   height: 48px; background: #fff; border-bottom: 1px solid #d8dee5;
-  padding: 0 clamp(8px, 3vw, 40px);
+  padding: 0 clamp(8px, 2vw, 24px) 0 11px;
 }
 .eog-nav nav {
   display: flex; align-items: stretch; flex: 1; min-width: 0;
   overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth;
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
 .eog-nav nav::-webkit-scrollbar { display: none; }
 .eog-nav nav a {
@@ -416,7 +418,7 @@
 }
 .eog-nav nav a:hover { color: #1b1c1f; border-bottom-color: #23deff; }
 .eog-nav nav a[aria-current] { color: #1b1c1f; border-bottom-color: #1b1c1f; }
-.eog-nav nav a:focus-visible, .eog-print:focus-visible { outline: 2px solid #23deff; outline-offset: -2px; }
+.eog-nav nav a:focus-visible, .eog-print:focus-visible { outline: 2px solid #1b1c1f; outline-offset: -3px; }
 .eog-print {
   align-self: center; flex: none; font: inherit; font-size: 13px; font-weight: 500;
   color: #1b1c1f; background: transparent; border: 1px solid #474c52; border-radius: 6px;
@@ -428,10 +430,7 @@
 .eog-progress span { display: block; height: 100%; background: #23deff; transform: scaleX(0); transform-origin: 0 50%; }
 @media (max-width: 760px) {
   .eog-print { display: none; }
-  .eog-nav nav {
-    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-  }
+  .eog-nav { padding-left: 0; }
 }
 
 /* ─── video ─────────────────────────────────────────────── */
@@ -446,6 +445,7 @@
 }
 .eog .eog-video {
   display: block; width: 100%; max-width: 960px; aspect-ratio: 16 / 9; height: auto;
+  max-height: max(240px, calc(100vh - 260px));
   background: #000; border: 1px solid var(--rule); border-radius: 6px;
 }
 .eog ol.eog-chapters {
@@ -500,6 +500,7 @@
   background: var(--surface); border: 1px solid var(--rule); border-radius: 6px;
 }
 .eog .eog-qa-count { font-weight: 600; }
+.eog .eog-qa-saved { font-size: 13px; color: var(--ink-3); }
 .eog .eog-qa-bar[data-done="true"] { background: var(--do-soft); border-color: var(--do); }
 .eog .eog-qa-reset {
   margin-left: auto; min-height: 32px; padding: 4px 8px; font: inherit; font-size: 13px;
@@ -512,6 +513,38 @@
 .eog .eog-check input { flex: none; width: 17px; height: 17px; margin: 3px 0 0; accent-color: var(--ink); cursor: pointer; }
 .eog .eog-check input:checked + span { color: var(--ink-3); }
 
+/* ─── screenshots at full size ──────────────────────────── */
+.eog .eog-zoom { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.eog .eog-zoom:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.eog .eog-lightbox {
+  width: min(96vw, 1400px); max-height: 94vh; padding: 0; border: 0; border-radius: 6px;
+  background: #fff; overflow: auto; overscroll-behavior: contain;
+}
+.eog .eog-lightbox::backdrop { background: rgba(27, 28, 31, 0.78); }
+.eog .eog-lightbox img { display: block; width: max(100%, 900px); height: auto; }
+.eog .eog-lightbox-close {
+  position: sticky; top: 10px; float: right; margin: 10px 10px 0 0; z-index: 1; min-height: 40px; padding: 6px 16px;
+  font: inherit; font-size: 14px; font-weight: 500; color: #fff; background: #1b1c1f;
+  border: 0; border-radius: 6px; cursor: pointer;
+}
+.eog .eog-lightbox-close:hover { background: #23deff; color: #1b1c1f; }
+
+.eog .eog-video-error { margin: 12px 0 0; padding: 10px 14px; font-size: 14px; background: var(--dont-soft); border-left: 3px solid var(--dont); border-radius: 0 4px 4px 0; }
+
+/* ─── page-level helpers ────────────────────────────────── */
+.eog-skip {
+  position: absolute; left: 8px; top: -60px; z-index: 50; padding: 10px 16px;
+  font-size: 14px; font-weight: 500; color: #fff; background: #1b1c1f; border-radius: 6px; text-decoration: none;
+}
+.eog-skip:focus { top: 8px; outline: 2px solid #23deff; outline-offset: 2px; }
+.eog-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.eog [tabindex="-1"]:focus { outline: none; }
+@media (prefers-reduced-motion: reduce) {
+  .eog-page, .eog-page *, .eog-page *::before, .eog-page *::after {
+    animation: none !important; transition: none !important; scroll-behavior: auto !important;
+  }
+}
+
 /* ─── print: just the guide ─────────────────────────────── */
 @media print {
   .eog-page > header, .eog-nav { display: none !important; }
@@ -520,4 +553,10 @@
   .eog .eog-codewrap { max-width: none; }
   .eog .eog-codewrap pre { padding-right: 11pt; }
   .eog .eog-check input { appearance: auto; }
+  /* The narrow-screen rule matches the printable width and would clip the diagrams. */
+  .eog figure { overflow: visible; background: none; }
+  .eog figure svg { min-width: 0; width: 100% !important; }
+  .eog .verdicts, .eog .rule-card h3, .eog .rule-tag, .eog .rule-gain { break-inside: avoid; break-after: avoid; }
+  .eog .eog-zoom { cursor: auto; }
+  .eog .eog-lightbox, .eog-skip, .eog-sr { display: none !important; }
 }
