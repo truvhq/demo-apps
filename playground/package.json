@@ -1,0 +1,9 @@
+{
+  "name": "truv-mortgage-demo",
+  "private": true,
+  "workspaces": [
+    "libs/design-system",
+    "pos/frontend",
+    "los/frontend"
+  ]
+}

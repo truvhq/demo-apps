@@ -5,7 +5,7 @@
  * Rendered in every header (Home, IndustryPage, demo Layout). "Update API keys"
  * is intentionally NOT here — it lives only on the Home page (see Home.jsx).
  */
-import { DASHBOARD_KEYS_URL } from '../config.js';
+import { DASHBOARD_KEYS_URL, PLAYGROUND_CONFIGURE_URLS } from '../config.js';
 
 const GITHUB_URL = 'https://github.com/truvhq/demo-apps/';
 
@@ -54,6 +54,27 @@ export function GitHubPanelLink() {
   );
 }
 
+// Dev Playground button: deep-links into the Mortgage Dev Playground
+// (playground/pos, playground/los — a local Django+React POS/LOS pair with
+// real Truv integration). `target` picks which side's /configure-truv it
+// opens: 'pos' for POS-side demos, 'los' for LOS-side demos; on the Mortgage
+// industry page itself (no specific demo selected yet) it defaults to 'pos'.
+// Styled like GitHub/Dashboard (borderless, not the blue Contact sales CTA).
+// Navigates in the same tab (not target="_blank" like the other header
+// actions) — the playground carries its own "Back to Demo Apps" link, so a
+// second tab would just be one more thing to manage. Passes the current hash
+// route as ?from= so that link returns to this exact page.
+function DevPlaygroundButton({ target }) {
+  const from = typeof window !== 'undefined' ? window.location.hash.slice(1) : '';
+  const href = `${PLAYGROUND_CONFIGURE_URLS[target]}${from ? `?from=${encodeURIComponent(from)}` : ''}`;
+  return (
+    <a href={href} class={OUTLINE_BTN}>
+      Dev Playground
+      <ExternalArrow />
+    </a>
+  );
+}
+
 // GitHub placement, so the link is reachable at every width and never
 // duplicated:
 //   - >= lg          : always in the header (icon + label + arrow).
@@ -65,7 +86,10 @@ export function GitHubPanelLink() {
 // open/closed state — so the link never jumps between header and panel as the
 // panel is toggled. Defaults to false, so pages without a Dev button — Home,
 // IndustryPage, demo intro screens — always keep the header link.
-export function HeaderActions({ githubInPanel = false }) {
+//
+// `devPlaygroundTarget` ('pos' | 'los', mortgage only — see IndustryPage.jsx
+// and the four mortgage demos' Layout usage) renders the Dev Playground button.
+export function HeaderActions({ githubInPanel = false, devPlaygroundTarget }) {
   const githubClass = OUTLINE_BTN.replace('inline-flex', githubInPanel ? 'hidden lg:inline-flex' : 'inline-flex');
   return (
     <div class="flex items-center gap-1 sm:gap-2">
@@ -80,6 +104,7 @@ export function HeaderActions({ githubInPanel = false }) {
         Dashboard
         <ExternalArrow />
       </a>
+      {devPlaygroundTarget && <DevPlaygroundButton target={devPlaygroundTarget} />}
       <a
         href="https://truv.com/contact-sales"
         target="_blank"

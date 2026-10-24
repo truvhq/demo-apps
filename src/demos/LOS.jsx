@@ -101,7 +101,7 @@ export function LOSDemo({ screen, param }) {
 
   // --- Render: state-driven screen routing ---
   return (
-    <Layout badge="LOS" steps={STEPS} panel={panel} hidePanel={showIntro || showAddForm}>
+    <Layout badge="LOS" devPlayground="los" steps={STEPS} panel={panel} hidePanel={showIntro || showAddForm}>
 
       {/* Intro slide: architecture diagram and feature overview */}
       {showIntro && (

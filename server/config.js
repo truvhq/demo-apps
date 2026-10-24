@@ -64,6 +64,14 @@ export const config = {
     backendUrl: env.DASHBOARD_BACKEND_URL || 'https://dashboard-backend-prod.truv.com',
   },
 
+  // Mortgage Dev Playground (playground/pos, playground/los) origins — a local
+  // dev tool the "Dev Playground" panel button deep-links into, landing on
+  // /configure-truv. Both default to the ports scripts/dev.sh runs them on.
+  playground: {
+    posUrl: (env.PLAYGROUND_POS_URL || 'http://localhost:5183').replace(/\/$/, ''),
+    losUrl: (env.PLAYGROUND_LOS_URL || 'http://localhost:5184').replace(/\/$/, ''),
+  },
+
   // "Sign in with Truv" via Auth0. Enabled only when domain + client id exist;
   // otherwise the SSO route returns 503 and the UI shows the paste flow.
   sso: {

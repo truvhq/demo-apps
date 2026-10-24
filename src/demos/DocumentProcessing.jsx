@@ -169,7 +169,7 @@ export function DocumentProcessingDemo() {
 
   // --- Render: state-driven screen routing ---
   return (
-    <Layout badge="Document Processing" steps={STEPS} panel={panel} hidePanel={isIntro}>
+    <Layout badge="Document Processing" devPlayground="los" steps={STEPS} panel={panel} hidePanel={isIntro}>
       {/* Intro slide: feature overview and architecture diagram */}
       {screen === 'intro' && (
         <IntroSlide

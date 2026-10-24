@@ -1,0 +1,71 @@
+/* Truv design tokens — source: Truv Figma (Brand / Design system UI Kit / Myicons).
+   Do not hand-edit values here; if the brand kit changes, re-sync from the source. */
+:root {
+  /* Color palette */
+  --truv-accent: #2C64E3;
+  --truv-accent-hover: #1F469F;
+  --truv-accent-disabled: #C5D9F7;
+  --truv-text-accent: #285ACC;
+  --truv-primary-black: #191C1F;
+  --truv-white: #FFFFFF;
+  --truv-pure-black: #000000;
+  --truv-grey-20: #F5F5F5;
+  --truv-grey-30: #E0E0E0;
+  --truv-grey-50: #999999;
+  --truv-grey-60: #808080;
+  --truv-green: #1F9F6B;
+  --truv-green-disabled: #BCE2D3;
+  --truv-orange: #E3AC2B;
+  --truv-orange-bright: #F9EED5;
+  --truv-red: #EE3C12;
+  --truv-red-disabled: #F8B1A0;
+  --truv-text-red: #D63610;
+  --truv-red-bright: #FDEBE7;
+
+  /* Typography */
+  --truv-font-display: "SF Pro Display", "SF Pro Text", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --truv-font-text: "SF Pro Text", "SF Pro Display", -apple-system, "Helvetica Neue", Arial, sans-serif;
+
+  --truv-h2-size: 22px;
+  --truv-h2-line: 28px;
+  --truv-h2-weight: 700;
+  --truv-h2-tracking: 0.35px;
+
+  --truv-button-size: 16px;
+  --truv-button-line: 24px;
+  --truv-button-weight: 500;
+  --truv-button-tracking: -0.32px;
+
+  --truv-label-size: 14px;
+  --truv-label-line: 18px;
+  --truv-label-weight: 500;
+  --truv-label-tracking: -0.15px;
+
+  --truv-body-size: 14px;
+  --truv-body-line: 18px;
+  --truv-body-weight: 400;
+  --truv-body-tracking: -0.15px;
+
+  /* Spacing & radius */
+  --truv-radius-button: 100px;
+  --truv-radius-chip: 7px;
+  --truv-radius-input: 8px;
+  --truv-radius-card: 20px;
+
+  --truv-button-height: 48px;
+  --truv-button-padding-x: 24px;
+  --truv-button-padding-y: 12px;
+
+  --truv-chip-padding-x: 8px;
+  --truv-chip-padding-y: 2px;
+
+  --truv-input-padding-x: 16px;
+  --truv-input-padding-y: 10px;
+  --truv-input-label-gap: 4px;
+
+  --truv-card-padding: 24px;
+  --truv-card-gap: 24px;
+
+  --truv-switch-width: 40px;
+  --truv-switch-height: 24px;
+}

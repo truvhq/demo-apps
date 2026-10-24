@@ -206,7 +206,7 @@ export function POSApplicationDemo({ screen, param }) {
 
   // --- Render: screen routing ---
   return (
-    <Layout badge="POS Application" steps={STEPS} panel={panel} hidePanel={isIntro}>
+    <Layout badge="POS Application" devPlayground="pos" steps={STEPS} panel={panel} hidePanel={isIntro}>
       {/* Application form + Bridge widget live inside the preview iframe (user view).
           A single iframe element persists across the form → bridge hash navigation. */}
       {showDeviceFrame && (

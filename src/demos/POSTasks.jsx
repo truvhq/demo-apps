@@ -251,7 +251,7 @@ export function POSTasksDemo({ screen, param }) {
 
   // --- Render: screen routing ---
   return (
-    <Layout badge="POS Tasks" steps={STEPS} panel={panel} hidePanel={isIntro}>
+    <Layout badge="POS Tasks" devPlayground="pos" steps={STEPS} panel={panel} hidePanel={isIntro}>
       {/* Task list + Bridge widget live inside the preview iframe (user view).
           A single iframe element persists across the task list → bridge hash
           navigation; it remounts between tasks (waiting/results unmount it) and

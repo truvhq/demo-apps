@@ -81,15 +81,16 @@ export function Breadcrumb({ trail = [] }) {
 // responsive collapse depends only on viewport width, never on which screen
 // is showing.
 // Props:
-//   trail        : breadcrumb segments [{ label, href }] (last = current page)
-//   badge        : small label pill shown after the breadcrumb (root pages only)
-//   sticky       : whether the header sticks to the top on scroll
-//   githubInPanel: true when the shell has a Dev button that hosts the GitHub
-//                  link in the panel below lg (demo Layout) — the header then
-//                  hides its own GitHub link below lg to avoid duplication
-//   children     : optional right-edge slot (demo Layout puts the device toggle
-//                  and the Dev-panel button here)
-export function Header({ trail, badge, sticky, githubInPanel, children }) {
+//   trail               : breadcrumb segments [{ label, href }] (last = current page)
+//   badge               : small label pill shown after the breadcrumb (root pages only)
+//   sticky              : whether the header sticks to the top on scroll
+//   githubInPanel       : true when the shell has a Dev button that hosts the GitHub
+//                         link in the panel below lg (demo Layout) — the header then
+//                         hides its own GitHub link below lg to avoid duplication
+//   devPlaygroundTarget : 'pos' | 'los' — renders the Dev Playground header button
+//   children            : optional right-edge slot (demo Layout puts the device
+//                         toggle and the Dev-panel button here)
+export function Header({ trail, badge, sticky, githubInPanel, devPlaygroundTarget, children }) {
   return (
     <header class={`flex items-center h-12 bg-white/80 backdrop-blur-xl border-b border-border/40 ${sticky ? 'sticky top-0 z-10' : ''}`}>
       {/* overflow-hidden: when the bar runs out of width the breadcrumb clips
@@ -100,7 +101,7 @@ export function Header({ trail, badge, sticky, githubInPanel, children }) {
         {badge && <div class="hidden sm:block text-[11px] font-medium text-muted bg-surface-secondary px-2 py-0.5 rounded-md truncate">{badge}</div>}
       </div>
       <div class="shrink-0 pr-3 sm:pr-5">
-        <HeaderActions githubInPanel={githubInPanel} />
+        <HeaderActions githubInPanel={githubInPanel} devPlaygroundTarget={devPlaygroundTarget} />
       </div>
       {children}
     </header>
