@@ -9,7 +9,7 @@ Two processes: an Express backend on **port 3000** and a Vite frontend on
 **port 5173**. The frontend proxies `/api` → `http://localhost:3000` (see
 `vite.config.js`), so both must run. Open **http://localhost:5173**.
 
-Prereqs: `node_modules` present (`npm install` if not), Node 20.19+, and your
+Prereqs: `node_modules` present (`npm install` if not), Node 22.23.4+, and your
 Truv sandbox `API_CLIENT_ID` / `API_SECRET` in `.env`.
 
 ## Launch

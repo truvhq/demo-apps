@@ -1,4 +1,4 @@
-FROM node:20-slim AS build
+FROM node:22.23.4-slim AS build
 
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -6,7 +6,7 @@ RUN npm ci
 COPY . .
 RUN npx vite build
 
-FROM node:20-slim AS deps
+FROM node:22.23.4-slim AS deps
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends python3 make g++ && \
@@ -16,7 +16,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-FROM node:20-slim AS truv-demo-app
+FROM node:22.23.4-slim AS truv-demo-app
 
 WORKDIR /app
 COPY package.json ./
