@@ -27,6 +27,23 @@ describe('the guide text', () => {
     ['Three shapes recur in the diagrams below.', 'Three kinds of element recur in the diagrams below.'],
     ['Texas Benefits, step 11 of 17.', 'Acme State Benefits, step 6 of 11.'],
     ['MI Bridges. The embed is the step', 'Acme State Benefits. The embed is the step'],
+
+    // Rule 8: onSuccess arrives after COMPLETED (Rule 5 and the Rule 8 text already say so), and
+    // COMPLETED marks the step verified without holding back an applicant who took an escape.
+    ['Do Gate on the one event that means the order reached its final state. EMPLOYER_ SELECTED LOGIN_ COMPLETE SUCCESS WRONG GATE onSuccess() an account connected; others may be pending Self-certification where enabled, the applicant reviews records here CORRECT GATE COMPLETED · order final state reached (success or skipped) onClose()',
+      'Do Treat the step as verified on the one event that means the order reached its final state. EMPLOYER_ SELECTED LOGIN_ COMPLETE SUCCESS (bridge) Self-certification where enabled, the applicant reviews records here CORRECT GATE COMPLETED · order final state reached (success or skipped) WRONG GATE onSuccess() arrives after COMPLETED; not a per-connection event onClose()'],
+    ["Gate on the right-hand marker. Where self-certification is enabled the applicant's review sits between the two, so acting on the left marker can move them on before they have finished. onEvent: function (type, payload, source) { if (type === 'COMPLETED' && source === 'order') { enableContinue(); // the only correct gate } }",
+      "Gate on the COMPLETED marker. Where self-certification is enabled the applicant's review sits between the connection's SUCCESS and COMPLETED, so acting on SUCCESS can move them on before they have finished. onSuccess arrives after COMPLETED. onEvent: function (type, payload, source) { if (type === 'COMPLETED' && source === 'order') { markVerified(); // the only gate for a verified step } } This is the gate for a verified step, not for leaving it. An applicant who took an escape from Rule 4 is deferred, not blocked: they can move on, labelled \"Continue without verifying here\". Do not hold them on this event."],
+    ["source === 'order') enableContinue(); }", "source === 'order') markVerified(); }"],
+    ['Continue becomes active only on COMPLETED / source: "order"',
+      'Continue is disabled until the step is verified ( COMPLETED / source: "order" ) or the applicant takes an escape, and its label says which: "Continue" when verified, "Continue without verifying here" when deferred'],
+
+    // skip_behavior is an object keyed by product (OpenAPI); allow_additional_connections was missing.
+    ['creating an order: Value Behavior',
+      'creating an order, and it is an object keyed by product - for example { "income": "any" } - so each value below applies to one product: Value Behavior'],
+    ['orders.skip_behavior Template any for most programs One honest attempt before the manual fallback Self-certification',
+      'orders.skip_behavior Template { "income": "any" } for most programs One honest attempt before the manual fallback allow_additional_connections Template ["income"] for the semi-open choice Lets the applicant add a second employer to the same order; overrides the account default Self-certification'],
+    ['Four constraints worth knowing', 'Five constraints worth knowing'],
   ];
   const MAST_LINKS = ' Watch the nine rules in about a minute Jump to the pre-launch QA list';
 
@@ -47,6 +64,24 @@ describe('the guide text', () => {
     expect(html).not.toMatch(/\bshapes?\b/i);
   });
 
+  it('draws onSuccess after COMPLETED in the Rule 8 figure', () => {
+    const rule8 = html.slice(html.indexOf('id="rule-8"'), html.indexOf('id="rule-9"'));
+    const x = label => Number(rule8.match(new RegExp(`<text x="(\\d+)"[^>]*>${label}`))[1]);
+    expect(x('onSuccess\\(\\)')).toBeGreaterThan(x('COMPLETED · order'));
+    expect(x('COMPLETED · order')).toBeGreaterThan(x('Self-certification'));
+  });
+
+  it('gives the step three states everywhere, never "Continue only on COMPLETED"', () => {
+    expect(html).not.toMatch(/Continue becomes active only/);
+    expect(html).not.toMatch(/enableContinue/);
+    expect(html).toMatch(/Continue without verifying here/);
+  });
+
+  it('shows skip_behavior as an object keyed by product, and lists allow_additional_connections', () => {
+    expect(html).toMatch(/object keyed by product/);
+    expect(html).toMatch(/<td><code>allow_additional_connections<\/code><\/td><td>Template<\/td>/);
+  });
+
   it('captions the screenshots with the invented app they show, not real state sites', () => {
     const captions = [...html.matchAll(/<p class="sub">([\s\S]*?)<\/p>/g)].map(m => m[1]);
     expect(captions.length).toBeGreaterThanOrEqual(5);
@@ -56,8 +91,8 @@ describe('the guide text', () => {
   it('keeps every table, row, cell, list item and link the published guide has', () => {
     const count = re => (html.match(re) || []).length;
     expect(count(/<table\b/g)).toBe(12);
-    expect(count(/<tr\b/g)).toBe(77);
-    expect(count(/<t[dh]\b/g)).toBe(228);
+    expect(count(/<tr\b/g)).toBe(78); // the guide's 77, plus the allow_additional_connections row
+    expect(count(/<t[dh]\b/g)).toBe(232);
     expect(count(/<li\b/g)).toBe(47);
     expect(count(/<a\b/g)).toBe(37 + 2); // the guide's links, plus two under the title
     expect(count(/class="callout/g)).toBe(14);
