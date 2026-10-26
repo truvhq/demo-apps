@@ -183,7 +183,7 @@ export const WALKTHROUGH_STAGES = [
         tone: 'warn',
         tag: 'Applicant needed',
         title: 'Waits for the applicant',
-        body: 'The connection needs a security challenge (MFA) answered. You get an order-refresh-failed webhook, and the failed refresh comes with a link that asks only for that challenge.',
+        body: 'The connection needs an MFA challenge answered. You get a failure webhook and a link that asks only for that.',
         code: 'order-refresh-failed: mfa_error',
       },
     ],
