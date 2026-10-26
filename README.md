@@ -109,7 +109,7 @@ Express backend (port 3000) and the Vite frontend (port 5173).
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) 20.19+
+- [Node.js](https://nodejs.org/) 22.23.4+
 - A [Truv sandbox account](https://dashboard.truv.com/app/development/keys) (free)
 
 ### 1. Clone and install
