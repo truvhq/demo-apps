@@ -1,9 +1,12 @@
 /**
  * FILE SUMMARY: Turns the guide's source HTML into what the page renders.
  *
- * guide-source.html is the guide exactly as published (the body of the artifact).
- * To update the page, replace that file; everything below re-applies. This module
- * makes the only changes the page needs, and nothing else touches the text:
+ * guide-source.html is the guide as published (the body of the artifact), minus its
+ * table of live reference apps, which linked to demo clones of other states' benefits
+ * sites. That section is now "Documentation and test logins" and keeps the docs list
+ * and the sandbox logins. To update the page, replace that file; everything below
+ * re-applies. This module makes the only changes the page needs, and nothing else
+ * touches the text:
  *
  *   1. In-page links (#rules) point at the app route, because a bare #rules would
  *      be read by the hash router as a different page.
@@ -103,7 +106,7 @@ export const NAV = [
   ['layout', 'Layout'],
   ['config', 'Configuration'],
   ['qa', 'QA'],
-  ['demos', 'Reference apps'],
+  ['resources', 'Docs and test logins'],
   ['decisions', 'What to decide'],
 ];
 

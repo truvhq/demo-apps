@@ -77,6 +77,11 @@ describe('the guide text', () => {
     expect(html).toMatch(/Continue without verifying here/);
   });
 
+  it('does not link to demo clones of other states', () => {
+    expect(html).not.toMatch(/demo\.truv\.com/);
+    expect(SOURCE).not.toMatch(/demo\.truv\.com/);
+  });
+
   it('shows skip_behavior as an object keyed by product, and lists allow_additional_connections', () => {
     expect(html).toMatch(/object keyed by product/);
     expect(html).toMatch(/<td><code>allow_additional_connections<\/code><\/td><td>Template<\/td>/);
@@ -88,20 +93,20 @@ describe('the guide text', () => {
     for (const c of captions) expect(c).not.toMatch(/Texas Benefits|MI Bridges/);
   });
 
-  it('keeps every table, row, cell, list item and link the published guide has', () => {
+  it('keeps every table, row, cell, list item and link the published guide has, less the reference-apps table', () => {
     const count = re => (html.match(re) || []).length;
-    expect(count(/<table\b/g)).toBe(12);
-    expect(count(/<tr\b/g)).toBe(78); // the guide's 77, plus the allow_additional_connections row
-    expect(count(/<t[dh]\b/g)).toBe(232);
+    expect(count(/<table\b/g)).toBe(11); // 12 published, less the reference-apps table
+    expect(count(/<tr\b/g)).toBe(67); // 77 published, less 11 reference-app rows, plus the allow_additional_connections row
+    expect(count(/<t[dh]\b/g)).toBe(199); // 228, less 33 reference-app cells, plus 4
     expect(count(/<li\b/g)).toBe(47);
-    expect(count(/<a\b/g)).toBe(37 + 2); // the guide's links, plus two under the title
+    expect(count(/<a\b/g)).toBe(27 + 2); // 37 published, less 10 reference-app links, plus two under the title
     expect(count(/class="callout/g)).toBe(14);
     expect(count(/class="callout warn/g)).toBe(3);
   });
 
   it('keeps every section, rule, figure, screenshot and code block', () => {
     expect([...html.matchAll(/<section class="sec" id="([\w-]+)"/g)].map(m => m[1])).toEqual(
-      ['start', 'flows', 'journey', 'deeplink', 'returning', 'rules', 'layout', 'config', 'qa', 'demos', 'decisions']);
+      ['start', 'flows', 'journey', 'deeplink', 'returning', 'rules', 'layout', 'config', 'qa', 'resources', 'decisions']);
     expect([...html.matchAll(/<article class="rule-card" id="(rule-\d)"/g)].length).toBe(9);
     expect((html.match(/<svg\b/g) || []).length).toBe(9);
     expect((html.match(/<img\b/g) || []).length).toBe(9);
@@ -126,7 +131,7 @@ describe('links and files', () => {
 
   it('opens outside links in a new tab without leaking the opener', () => {
     const links = [...html.matchAll(/<a [^>]*href="https?:\/\/[^"]*"[^>]*>/g)].map(m => m[0]);
-    expect(links.length).toBe(19);
+    expect(links.length).toBe(9);
     for (const l of links) expect(l).toMatch(/target="_blank" rel="noopener noreferrer"/);
   });
 
