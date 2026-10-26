@@ -632,7 +632,7 @@ export function RenewalsRefreshDemo() {
   }
 
   return (
-    <Layout badge="Public Sector · Renewals & Data Refresh" steps={STEPS} panel={panel}>
+    <Layout badge="Public Sector · Renewals & Data Refresh" steps={STEPS} panel={panel} theme="checkr">
 
       {/* Bridge lives in the device frame whenever an applicant is acting. */}
       {active && (
@@ -643,10 +643,10 @@ export function RenewalsRefreshDemo() {
         </div>
       )}
       {active && (
-        <DeviceFrame url="benefits.example.gov">
+        <DeviceFrame url="benefits.example.gov" variant="phone">
           <iframe
             ref={iframeRef}
-            src="/preview.html"
+            src="/preview.html?theme=checkr"
             title="Demo preview"
             class="w-full h-full border-0"
             data-session={sessionId}

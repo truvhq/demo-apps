@@ -1,0 +1,1709 @@
+  <div class="mast">
+    <p class="eyebrow">Truv · Public Sector Implementation</p>
+    <h1>Embedding Truv Orders in benefits applications</h1>
+  </div>
+
+  <!-- ══════════════ ORIENTATION ══════════════ -->
+  <section class="sec" id="start">
+    <div class="band">
+      <figure>
+        <svg viewBox="0 0 880 352" role="img" style="width:96.7%" aria-label="Two ways an applicant reaches Truv. The smaller strip shows a hosted order, where the agency sends a link and the applicant opens the Truv order page in its own tab away from the application. The larger panel below shows an embedded order, where the order page renders inside the agency's own income step and the applicant never leaves.">
+          <defs><marker id="ar-or" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker></defs>
+          <g>
+            <text x="0" y="12" class="m" font-size="9.5" font-weight="600" letter-spacing="1.3" fill="currentColor">HOSTED · A LINK YOU SEND</text>
+            <g opacity="0.72">
+              <rect x="0" y="22" width="118" height="40" rx="4" fill="var(--surface)" stroke="currentColor" stroke-width="1"/>
+              <text x="59" y="40" text-anchor="middle" font-size="9.5" font-weight="600" fill="currentColor">Your application</text>
+              <text x="59" y="53" text-anchor="middle" font-size="8" fill="currentColor" opacity="0.7">order created</text>
+              <line x1="122" y1="42" x2="146" y2="42" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar-or)"/>
+              <rect x="150" y="22" width="104" height="40" rx="4" fill="var(--surface-2)" stroke="currentColor" stroke-width="1"/>
+              <text x="202" y="40" text-anchor="middle" font-size="9.5" font-weight="600" fill="currentColor">Email or SMS</text>
+              <text x="202" y="53" text-anchor="middle" font-size="8" fill="currentColor" opacity="0.7">yours, or Truv's</text>
+              <line x1="258" y1="42" x2="282" y2="42" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar-or)"/>
+              <rect x="286" y="22" width="190" height="40" rx="4" fill="var(--do-soft)" stroke="var(--do)" stroke-width="1.6"/>
+            <path d="M 286 37 L 286 26 Q 286 22 290 22 L 472 22 Q 476 22 476 26 L 476 37 Z" fill="var(--do-solid)"/>
+<text x="294" y="32.5" class="m" font-size="7.5" font-weight="600" letter-spacing="0.9" fill="var(--do-on-solid)">TRUV ORDER PAGE</text>
+              <text x="492" y="39" font-size="9.5" fill="currentColor">Opened later, in its own tab.</text>
+              <text x="492" y="52" font-size="9.5" fill="currentColor">The applicant leaves, and has to come back.</text>
+            </g>
+
+            <line x1="0" y1="86" x2="880" y2="86" stroke="currentColor" stroke-width="0.7" opacity="0.22"/>
+
+            <text x="0" y="116" class="m" font-size="12" font-weight="600" letter-spacing="1.3" fill="var(--do)">EMBEDDED · INSIDE YOUR APPLICATION</text>
+            <text x="0" y="134" font-size="11.5" font-weight="700" fill="var(--do)">What this guide is about.</text>
+
+            <rect x="0" y="146" width="620" height="196" rx="5" fill="var(--surface)" stroke="var(--do)" stroke-width="2.2"/>
+            <rect x="0" y="146" width="620" height="24" rx="5" fill="var(--surface-2)"/>
+            <text x="14" y="162" font-size="10.5" fill="currentColor">Your application · Income step</text>
+            <g fill="currentColor" opacity="0.4">
+              <circle cx="20" cy="194" r="4"/><circle cx="20" cy="214" r="4"/>
+            </g>
+            <circle cx="20" cy="234" r="5.5" fill="var(--do)"/>
+            <g fill="currentColor" opacity="0.4">
+              <circle cx="20" cy="254" r="4"/><circle cx="20" cy="274" r="4"/>
+            </g>
+            <rect x="44" y="180" width="330" height="150" rx="4" fill="var(--do-soft)" stroke="var(--do)" stroke-width="1.6"/>
+            <path d="M 44 195 L 44 184 Q 44 180 48 180 L 370 180 Q 374 180 374 184 L 374 195 Z" fill="var(--do-solid)"/>
+<text x="52" y="190.5" class="m" font-size="7.5" font-weight="600" letter-spacing="0.9" fill="var(--do-on-solid)">TRUV ORDER PAGE</text>
+            <text x="54" y="209" font-size="11.5" font-weight="700" fill="var(--do)">Verify your income</text>
+            <rect x="54" y="219" width="310" height="30" rx="3.5" fill="var(--ground)" stroke="var(--do)" stroke-width="1" />
+<text x="64" y="232" font-size="9.5" font-weight="600" fill="currentColor">Earned and unearned income</text>
+<text x="64" y="243" font-size="8" fill="currentColor" opacity="0.72">Connect your employer or payroll provider</text>
+            <rect x="54" y="256" width="310" height="30" rx="3.5" fill="var(--ground)" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+<text x="64" y="274.5" font-size="9.5" font-weight="600" fill="currentColor">Self-employed income</text>
+            <rect x="54" y="293" width="47.199999999999996" height="22" rx="11.0" fill="var(--do-solid)"/>
+<text x="77.6" y="307.5" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--do-on-solid)">Connect</text>
+            <text x="398" y="200" font-size="11.5" font-weight="700" fill="var(--do)">The applicant never leaves.</text>
+            <text x="398" y="218" font-size="10.5" fill="currentColor">No link to open, nothing to come back to.</text>
+            <text x="398" y="236" font-size="10.5" fill="currentColor">Your chrome stays; the order page</text>
+            <text x="398" y="250" font-size="10.5" fill="currentColor">owns the step's content.</text>
+
+            <text x="648" y="200" font-size="10.5" fill="currentColor" opacity="0.8">Same verification.</text>
+            <text x="648" y="215" font-size="10.5" fill="currentColor" opacity="0.8">Same data back.</text>
+            <text x="648" y="230" font-size="10.5" fill="currentColor" opacity="0.8">Fewer places to</text>
+            <text x="648" y="245" font-size="10.5" fill="currentColor" opacity="0.8">lose the applicant.</text>
+          </g>
+        </svg>
+        <figcaption>Both deliver the same verification and return the same data. They differ in
+          where the applicant meets it, and in how many chances there are to lose them.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ══════════════ 1. TWO FLOWS ══════════════ -->
+  <section class="sec" id="flows">
+    <div class="sec-head">
+      <h2>Capturing income, or verifying a declared figure</h2>
+      <p class="sub">Two different integrations, not two settings of one. They sit at
+        different points in the eligibility workflow and ask different things of the applicant.
+        Decide which you are building before you design the screen.</p>
+    </div>
+
+    <div class="band">
+      <figure>
+        <svg viewBox="0 0 760 232" role="img" style="width:83.52%" aria-label="Flow A moves the applicant from the income step directly into a Truv order that populates the form with verified income. Flow B starts with a declared figure that must then be reconciled against Truv's retrieved figure.">
+          <defs>
+            <marker id="ar-f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+            <marker id="ar-fd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--do)"/>
+            </marker>
+          </defs>
+
+          <!-- FLOW A -->
+          <text x="0" y="14" class="m" font-size="11" font-weight="600" letter-spacing="1.4" fill="var(--do)">FLOW A - CAPTURE AND VERIFY</text>
+          <text x="0" y="30" font-size="11.5" fill="currentColor">Recommended. The applicant never types a figure.</text>
+
+          <rect x="0" y="44" width="150" height="48" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+          <text x="75" y="64" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Income step</text>
+          <text x="75" y="79" text-anchor="middle" font-size="10.5" fill="currentColor">in your application</text>
+
+          <line x1="152" y1="68" x2="196" y2="68" stroke="var(--do)" stroke-width="1.6" marker-end="url(#ar-fd)"/>
+
+          <rect x="200" y="44" width="150" height="48" rx="4" fill="var(--do-soft)" stroke="var(--do)" stroke-width="1.6"/>
+          <text x="275" y="64" text-anchor="middle" font-size="12" font-weight="700" fill="var(--do)">Truv order</text>
+          <text x="275" y="79" text-anchor="middle" font-size="10.5" fill="var(--do)">applicant connects</text>
+
+          <line x1="352" y1="68" x2="396" y2="68" stroke="var(--do)" stroke-width="1.6" marker-end="url(#ar-fd)"/>
+          <text x="374" y="59" text-anchor="middle" class="m" font-size="9.5" fill="var(--do)">verified</text>
+
+          <rect x="400" y="44" width="160" height="48" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+          <text x="480" y="64" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Verified income</text>
+          <text x="480" y="79" text-anchor="middle" font-size="10.5" fill="currentColor">returned on the order</text>
+
+          <text x="578" y="62" font-size="11.5" font-weight="700" fill="var(--do)">No reconciliation.</text>
+          <text x="578" y="78" font-size="11" fill="currentColor">Attestation and verification</text>
+          <text x="578" y="91" font-size="11" fill="currentColor">are the same event.</text>
+
+          <line x1="0" y1="118" x2="760" y2="118" stroke="currentColor" stroke-width="0.7" opacity="0.28"/>
+
+          <!-- FLOW B -->
+          <text x="0" y="146" class="m" font-size="11" font-weight="600" letter-spacing="1.4" fill="currentColor">FLOW B - VERIFY ATTESTED INCOME</text>
+          <text x="0" y="162" font-size="11.5" fill="currentColor">The applicant states a figure. Truv produces the evidence.</text>
+
+          <rect x="0" y="176" width="150" height="48" rx="4" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+          <text x="75" y="196" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Declared income</text>
+          <text x="75" y="211" text-anchor="middle" font-size="10.5" fill="currentColor">your form, or on file</text>
+
+          <line x1="152" y1="200" x2="196" y2="200" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar-f)"/>
+
+          <rect x="200" y="176" width="150" height="48" rx="4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+          <text x="275" y="196" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">Truv order</text>
+          <text x="275" y="211" text-anchor="middle" font-size="10.5" fill="currentColor">retrieved figure</text>
+
+          <line x1="352" y1="200" x2="396" y2="200" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar-f)"/>
+          <text x="374" y="191" text-anchor="middle" class="m" font-size="9.5" fill="currentColor">compare</text>
+
+          <rect x="400" y="176" width="160" height="48" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3"/>
+          <text x="480" y="196" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Reasonable-</text>
+          <text x="480" y="211" text-anchor="middle" font-size="10.5" fill="currentColor">compatibility check</text>
+
+          <text x="578" y="194" font-size="11.5" font-weight="700" fill="currentColor">An extra step the</text>
+          <text x="578" y="209" font-size="11.5" font-weight="700" fill="currentColor">applicant and the worker</text>
+          <text x="578" y="222" font-size="11.5" font-weight="700" fill="currentColor">both have to carry.</text>
+        </svg>
+        <figcaption>The difference is the last box. Flow A has no declared figure to reconcile
+          because the applicant never produced one. Flow B always carries a comparison, which is
+          the reasonable-compatibility check the agency's verification plan defines.</figcaption>
+      </figure>
+
+      <div class="flows">
+        <div class="flow primary">
+          <span class="tag">Flow A · Recommended</span>
+          <h3>Capture and verify</h3>
+          <p class="one-liner">Truv collects the income. The applicant never types a figure.</p>
+          <p>The applicant reaches the income step and connects their employer or their bank.
+            The verified income, employer, pay rate, pay frequency and pay statements come back
+            on the order. What you do with them is yours to decide: populate your own form, or
+            leave the review to Truv and read the result.</p>
+          <p>There is nothing for the applicant to remember, no paystub to find, and no
+            arithmetic. For the income Truv retrieves there is also no attested number to
+            reconcile, because the attestation and the verification are the same event.</p>
+          <p><b>Choose it when</b> you are building or substantially revising an application
+            flow and you control the income step.</p>
+          <p><b>It does not remove the other paths.</b> "No reconciliation" holds only for the
+            income Truv actually retrieves. An applicant whose income Truv cannot reach still
+            needs the document-upload route or manual entry, so build both.</p>
+          <p>Where self-certification is on, what the applicant confirms is a declared figure,
+            not a computed countable-income one. Deriving countable monthly income stays with
+            the agency, under its own rules.</p>
+        </div>
+        <div class="flow">
+          <span class="tag">Flow B</span>
+          <h3>Verify attested income</h3>
+          <p class="one-liner">The applicant states their income. Truv produces the evidence.</p>
+          <p>The applicant declares income in your existing form - or already did, on a
+            renewal - and Truv runs against the same person to retrieve what the payroll
+            provider or bank reports. Your eligibility rules compare the two.</p>
+          <p><b>Choose it when</b> you cannot change the order of your existing application,
+            when you are verifying at renewal against income already on file, or when your
+            eligibility engine is built around comparing a declared figure to a data-source
+            figure.</p>
+          <p>That comparison is your reasonable-compatibility check. What counts as compatible,
+            and whether Truv is named as a data source, is set in the agency's verification plan
+            - the agency's policy and legal teams own that, not Truv.</p>
+        </div>
+      </div>
+
+      <div class="col">
+
+        <h3>Letting Truv collect the attestation</h3>
+        <p>Self-certification is a setting on a customization template. Pass that
+          <code>template_id</code> when you create the order and a review step appears inside
+          the embedded flow: the applicant sees each record Truv retrieved and either confirms
+          it as representative or flags a discrepancy with a reason. Create the order against a
+          template without it and no review step appears.</p>
+        <p>That gives you one record that is both verified and attested, which is usually what
+          the eligibility file needs, and it surfaces a disagreement while the applicant is
+          looking at the data rather than later, in a request for information.</p>
+
+        <h4>Reading the result</h4>
+        <p>Add the <code>certification</code> query parameter to the order read. It takes two
+          values:</p>
+        <div class="tbl-scroll">
+          <table>
+            <thead><tr><th>Request</th><th>What comes back</th></tr></thead>
+            <tbody>
+              <tr><td><code>?certification=certified</code></td><td>Only the records safe to rely on. Disputed ones are dropped, along with any employer or account left empty as a result.</td></tr>
+              <tr><td><code>?certification=all</code></td><td>Every record, including the disputed ones and the reason the applicant gave.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <pre>curl --request GET \
+     --url 'https://prod.truv.com/v1/orders/{order_id}/?certification=certified' \
+     --header 'X-Access-Client-Id: YOUR_TRUV_CLIENT_ID' \
+     --header 'X-Access-Secret: YOUR_TRUV_ACCESS_SECRET' \
+     --header 'Accept: application/json'</pre>
+        <p>In the response, each certified record carries a <code>certification</code> object
+          alongside the verified data. That object holds the applicant's
+          <code>decision</code> - <code>representative</code>,
+          <code>not_representative</code>, <code>pending</code> or
+          <code>not_applicable</code> - a <code>rejection_reason</code> where they disputed it,
+          and <code>certified_data</code>, which is the snapshot of what they confirmed.</p>
+
+        <h4>If it is on, do not build your own review screen</h4>
+        <p>This is the decision the setting really makes. With self-certification on, the
+          applicant has already reviewed and confirmed every record inside Truv, so a review
+          screen of your own asks them to confirm the same thing twice. Read the certified
+          records and move them on.</p>
+        <p>If you would rather own that experience, leave self-certification off and work from
+          the verified fields yourself. Either is fine. Running both is what to avoid.</p>
+
+        <h3>Choosing between them</h3>
+        <div class="tbl-scroll" style="max-width:none">
+          <table>
+            <thead><tr><th></th><th>Flow A - Capture and verify</th><th>Flow B - Verify attested</th></tr></thead>
+            <tbody>
+              <tr><td>Applicant types an income figure</td><td>No</td><td>Yes, or already did</td></tr>
+              <tr><td>What your form holds</td><td>Verified data</td><td>A declared figure and a data-source figure</td></tr>
+              <tr><td>Reconciliation step</td><td>None</td><td>Your RC comparison</td></tr>
+              <tr><td>Applicant effort</td><td>One connection</td><td>A form, then a connection</td></tr>
+              <tr><td>Best placement</td><td>At the income step, before any income form</td><td>After the declaration, or at renewal</td></tr>
+              <tr><td>Renewal story</td><td>Connection is refreshable with no applicant involvement</td><td>Same, once a connection exists</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><b>You can run both.</b> The usual split is Flow A for new applications and Flow B
+          at renewal, where a figure is already on file. What you should not do is run Flow A
+          and then still make the applicant type the same income into a form. See Rule 9.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ 2. JOURNEY ══════════════ -->
+  <section class="sec" id="journey">
+    <div class="sec-head">
+      <h2>Where Truv goes in the journey</h2>
+      <p class="sub">At the point where your application asks about income or resources. Not
+        before it, not on a separate page about verification, and not after the applicant has
+        already typed a number.</p>
+    </div>
+
+    <div class="band">
+      <figure>
+        <svg viewBox="0 0 760 178" role="img" style="width:83.52%" aria-label="An application timeline from Start through Household, Income, Expenses, Resources and Submit. Truv renders at the Income step on arrival, and hands back to Expenses, the next real section.">
+          <defs>
+            <marker id="ar-j" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <line x1="18" y1="58" x2="724" y2="58" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+
+          <!-- steps -->
+          <g font-size="11.5" text-anchor="middle" fill="currentColor">
+            <circle cx="30" cy="58" r="8" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="30" y="84" font-weight="500">Start</text>
+
+            <circle cx="160" cy="58" r="8" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="160" y="84" font-weight="500">Household</text>
+
+            <circle cx="290" cy="58" r="8" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="290" y="84" font-weight="500">Details</text>
+
+            <circle cx="420" cy="58" r="12" fill="var(--do-soft)" stroke="var(--do)" stroke-width="2.4"/>
+            <circle cx="420" cy="58" r="4" fill="var(--do)"/>
+            <text x="420" y="88" font-weight="700" font-size="13" fill="var(--do)">Income</text>
+
+            <circle cx="550" cy="58" r="8" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="550" y="84" font-weight="500">Expenses</text>
+
+            <circle cx="660" cy="58" r="8" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="660" y="84" font-weight="500">Resources</text>
+
+            <circle cx="724" cy="58" r="8" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="724" y="84" font-weight="500">Submit</text>
+          </g>
+
+          <!-- truv annotation -->
+          <rect x="336" y="10" width="168" height="30" rx="4" fill="var(--do-solid)"/>
+          <text x="420" y="29" text-anchor="middle" font-size="12" font-weight="700" fill="var(--do-on-solid)">Truv renders here</text>
+          <line x1="420" y1="40" x2="420" y2="44" stroke="var(--do)" stroke-width="2"/>
+
+          <!-- handback -->
+          <path d="M 432 112 L 544 112" stroke="var(--do)" stroke-width="1.6" fill="none" marker-end="url(#ar-j)"/>
+          <text x="488" y="106" text-anchor="middle" class="m" font-size="9.5" fill="var(--do)">COMPLETED</text>
+          <text x="488" y="128" text-anchor="middle" font-size="11" fill="currentColor">hand back to the next</text>
+          <text x="488" y="141" text-anchor="middle" font-size="11" fill="currentColor">real section</text>
+
+          <!-- order creation annotation -->
+          <path d="M 160 102 L 160 132 L 420 132 L 420 102" stroke="currentColor" stroke-width="1.2" fill="none" stroke-dasharray="4 3"/>
+          <text x="290" y="152" text-anchor="middle" font-size="11" fill="currentColor">one order per adult, created when that person is named</text>
+        </svg>
+        <figcaption>Create one order per applicant, at the point the household member is
+          selected, rather than one on page load for the household as a whole.</figcaption>
+      </figure>
+
+      <div class="col">
+        <h3>Three placement decisions</h3>
+        <p><b>Place it at the step, not in front of the step.</b> The order landing page is
+          already a decision screen with its own heading, its own explanation, and its own call
+          to action. When the applicant clicks Income, that landing page should be what they
+          see. Anything between the step and the landing page is a screen the applicant has to
+          get through to reach a screen.</p>
+        <p><b>Create the order at the moment you know who it is for.</b> Income belongs to a
+          person, so the order does too. Pair order creation with your household-member
+          selection, whatever form that takes in your flow, rather than creating one for the
+          household and sorting out who it covers later.</p>
+        <p><b>Hand back to a screen they recognize.</b> When the order completes, land the
+          applicant on the next section of your application with the income step ticked. Skip
+          the confirmation page of your own - see Rule 9.</p>
+
+        <h3>The identity model</h3>
+        <p>Get these two the wrong way round and a household arrives as one person.</p>
+        <div class="tbl-scroll">
+          <table>
+            <thead><tr><th>Field</th><th>Maps an order to</th><th>Value</th></tr></thead>
+            <tbody>
+              <tr><td><code>external_user_id</code></td><td><b>an individual</b></td><td>Your id for that person, and the same value again on their next order</td></tr>
+              <tr><td><code>order_number</code></td><td><b>a household</b></td><td>Whatever identifier groups that household in your system, repeated on each member's order</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>One order per adult, a unique <code>external_user_id</code> for each, and the same
+          <code>order_number</code> across the household. <code>order_number</code> does not
+          have to be a case number - it is whatever value groups those people together on your
+          side, and it is what lets you pull the household's orders back as a set.</p>
+        <div class="callout">
+          <span class="label">Current behavior</span>
+          <p>Orders sharing an <code>external_user_id</code> resolve to one Truv user. On that
+            profile the first name written is kept, and a later order's <code>first_name</code>,
+            <code>last_name</code>, <code>email</code> and <code>phone</code> do not replace it.
+            A later <code>ssn</code> does. Share the value across a household and the profile
+            ends up holding one member's name next to another member's SSN.</p>
+          <p><b>The easier mistake is omitting it.</b> With no
+            <code>external_user_id</code>, the API falls back to <code>order_number</code> for
+            backwards compatibility. Since <code>order_number</code> is the same for everyone in
+            the household, leaving <code>external_user_id</code> unset puts them all on one Truv
+            user - without anyone having reused an identifier.</p>
+        </div>
+        <p>Reusing <code>external_user_id</code> for the same person is the point, not a side
+          effect. On their next order the landing page already shows the employer they connected
+          last time, which is what makes a renewal short.</p>
+        <p>It also matters when someone picks up another job. A new order against the same
+          <code>external_user_id</code> sits with the connections that person already has, so
+          they are adding an employer to a record rather than starting again as a stranger.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ 3. DEEPLINKING ══════════════ -->
+  <section class="sec" id="deeplink">
+    <div class="sec-head">
+      <h2>Pass the employer you already know</h2>
+      <p class="sub">What you pass at order creation decides how much searching the applicant
+        has to do. Passing an employer removes two screens from their path, and if you already
+        hold the name there is no case where you are better off withholding it.</p>
+    </div>
+
+    <div class="band">
+      <figure>
+        <svg viewBox="0 0 880 262" role="img" style="width:96.7%" aria-label="Without a deeplink the applicant moves from the order page through an employer search screen and a provider selection screen before reaching the sign-in. With the employer passed at order creation, both of those screens are skipped and the applicant goes from the order page straight to the sign-in.">
+          <defs><marker id="ar-dl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker><marker id="ar-dld" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--do)"/></marker></defs>
+          <g>
+            <text x="0" y="13" class="m" font-size="10.5" font-weight="600" letter-spacing="1.3" fill="currentColor">WITHOUT A DEEPLINK</text>
+            <rect x="0" y="24" width="170" height="78" rx="4" fill="var(--do-soft)" stroke="var(--do)" stroke-width="1.6"/>
+            <path d="M 0 39 L 0 28 Q 0 24 4 24 L 166 24 Q 170 24 170 28 L 170 39 Z" fill="var(--do-solid)"/>
+<text x="8" y="34.5" class="m" font-size="7.5" font-weight="600" letter-spacing="0.9" fill="var(--do-on-solid)">TRUV ORDER PAGE</text>
+            <text x="10" y="53" font-size="11.5" font-weight="700" fill="var(--do)">Verify your income</text>
+            <rect x="10" y="63" width="150" height="22" rx="3.5" fill="var(--ground)" stroke="var(--do)" stroke-width="1" />
+<text x="20" y="77.5" font-size="9.5" font-weight="600" fill="currentColor">Earned and unearned income</text>
+            <line x1="174" y1="63" x2="202" y2="63" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar-dl)"/>
+            <rect x="206" y="32" width="140" height="62" rx="4" fill="var(--surface)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="276.0" y="61.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="currentColor">Search employer</text>
+            <text x="276.0" y="75.0" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.72">the applicant types it</text>
+            <line x1="350" y1="63" x2="378" y2="63" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar-dl)"/>
+            <rect x="382" y="32" width="140" height="62" rx="4" fill="var(--surface)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="452.0" y="61.0" text-anchor="middle" font-size="10.5" font-weight="600" fill="currentColor">Pick provider</text>
+            <text x="452.0" y="75.0" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.72">ADP? Workday? …</text>
+            <line x1="526" y1="63" x2="554" y2="63" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar-dl)"/>
+            <rect x="558" y="32" width="166" height="62" rx="4" fill="var(--ground)" stroke="currentColor" stroke-width="1.2"/>
+            <rect x="558" y="32" width="166" height="15" rx="4" fill="var(--surface-2)"/>
+            <text x="641.0" y="42.5" text-anchor="middle" font-size="8" font-weight="700" fill="currentColor">Sign in · Home Depot</text>
+            <rect x="568" y="56" width="146" height="11" rx="2.5" fill="var(--surface-2)"/>
+            <rect x="568" y="72" width="146" height="11" rx="2.5" fill="var(--surface-2)"/>
+            <text x="740" y="60" font-size="11.5" font-weight="700" fill="currentColor">Two screens before</text>
+            <text x="740" y="75" font-size="11.5" font-weight="700" fill="currentColor">any credentials.</text>
+
+            <line x1="0" y1="130" x2="880" y2="130" stroke="currentColor" stroke-width="0.7" opacity="0.26"/>
+
+            <text x="0" y="158" class="m" font-size="10.5" font-weight="600" letter-spacing="1.3" fill="var(--do)">WITH THE EMPLOYER PASSED AT ORDER CREATION</text>
+            <rect x="0" y="170" width="170" height="78" rx="4" fill="var(--do-soft)" stroke="var(--do)" stroke-width="1.6"/>
+            <path d="M 0 185 L 0 174 Q 0 170 4 170 L 166 170 Q 170 170 170 174 L 170 185 Z" fill="var(--do-solid)"/>
+<text x="8" y="180.5" class="m" font-size="7.5" font-weight="600" letter-spacing="0.9" fill="var(--do-on-solid)">TRUV ORDER PAGE</text>
+            <text x="10" y="199" font-size="11.5" font-weight="700" fill="var(--do)">Verify your income</text>
+            <rect x="10" y="209" width="150" height="22" rx="3.5" fill="var(--ground)" stroke="var(--do)" stroke-width="1" />
+<text x="20" y="223.5" font-size="9.5" font-weight="600" fill="currentColor">Home Depot</text>
+            <line x1="174" y1="209" x2="252" y2="209" stroke="var(--do)" stroke-width="1.6"/>
+            <line x1="478" y1="209" x2="554" y2="209" stroke="var(--do)" stroke-width="1.6" marker-end="url(#ar-dld)"/>
+            <rect x="206" y="178" width="316" height="62" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.45"/>
+            <text x="364" y="203" text-anchor="middle" class="m" font-size="9.5" fill="var(--do)">both screens skipped</text>
+            <text x="364" y="221" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.7">the order page lists the employer already</text>
+            <rect x="558" y="178" width="166" height="62" rx="4" fill="var(--ground)" stroke="var(--do)" stroke-width="1.8"/>
+            <rect x="558" y="178" width="166" height="15" rx="4" fill="var(--do-solid)"/>
+            <text x="641.0" y="188.5" text-anchor="middle" font-size="8" font-weight="700" fill="var(--do-on-solid)">Sign in · Home Depot</text>
+            <rect x="568" y="202" width="146" height="11" rx="2.5" fill="var(--surface-2)"/>
+            <rect x="568" y="218" width="146" height="11" rx="2.5" fill="var(--surface-2)"/>
+            <text x="740" y="206" font-size="11.5" font-weight="700" fill="var(--do)">Straight to the</text>
+            <text x="740" y="221" font-size="11.5" font-weight="700" fill="var(--do)">provider sign-in.</text>
+          </g>
+        </svg>
+        <figcaption>Each screen removed is a screen the applicant cannot abandon on. With the
+          employer on the order, the first thing they are asked for is their payroll
+          credentials.</figcaption>
+      </figure>
+
+      <div class="col">
+        <h3>What passing an employer does to the order</h3>
+        <p>Whether you pass employers, and whether the applicant may add their own, gives you
+          three shapes. Both behaviors are configured with us, so tell us which one you want
+          rather than sending it on a request.</p>
+        <div class="tbl-scroll">
+          <table>
+            <thead><tr><th>Shape</th><th>You pass</th><th>The applicant can</th></tr></thead>
+            <tbody>
+              <tr><td><b>Open</b></td><td>no employers</td><td>search for and connect whoever they work for</td></tr>
+              <tr><td><b>Semi-open</b></td><td>the employers you know</td><td>connect those, and add others they also work for</td></tr>
+              <tr><td><b>Closed</b></td><td>the employers you know</td><td>connect only those</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Semi-open is the usual choice for a benefits application: you save the applicant the
+          search for the job you already know about, without assuming it is their only one. The
+          template field behind it is <code>allow_additional_connections</code>, and how hard
+          the manual route is to reach is the setting in <a href="#rule-4">Rule 4</a>.</p>
+
+        <h3>If you hold the employer but do not ask for it</h3>
+        <p>Send what you have as a string in <code>company_name</code>. Truv matches it to an
+          employer and its payroll provider. This is the common case: the employer is on the
+          case file or came from a previous verification, and nobody is typing anything.</p>
+        <pre>curl --request POST \
+     --url https://prod.truv.com/v1/orders/ \
+     --header 'X-Access-Client-Id: YOUR_TRUV_CLIENT_ID' \
+     --header 'X-Access-Secret: YOUR_TRUV_ACCESS_SECRET' \
+     --header 'Content-Type: application/json' \
+     --data '{
+  "products": ["income"],
+  "first_name": "Jordan",
+  "last_name": "Reyes",
+  "external_user_id": "household-member-4812",
+  "employers": [
+    { "company_name": "Home Depot" }
+  ]
+}'</pre>
+        <p>The order page then lists that employer, and the connect button takes the applicant
+          straight to the provider's sign-in. No search screen, no provider picker.</p>
+
+        <div class="callout">
+          <span class="label">A name we do not recognize is still worth sending</span>
+          <p>If the name does not match anything on file, the order is still created and the
+            name still travels with it. The applicant picks their payroll provider themselves
+            and carries on, which is where they would have started anyway.</p>
+          <p>Those names also feed back to us. An employer we keep seeing gets added once we
+            can confirm it is real, and mapped to a payroll provider once we can confirm which
+            one. So sending <code>mom-and-pop-shop.co</code> costs the applicant nothing today
+            and makes the next applicant's path shorter.</p>
+        </div>
+
+        <h3>If your form already asks for the employer</h3>
+        <p>Then do not just forward what they typed. Wire the field to Truv's company search as
+          they type and let them pick from the results.</p>
+        <pre>curl --request GET \
+     --url 'https://prod.truv.com/v1/company-mappings-search/?query=Home%20Dep&amp;product_type=income' \
+     --header 'X-Access-Client-Id: YOUR_TRUV_CLIENT_ID' \
+     --header 'X-Access-Secret: YOUR_TRUV_ACCESS_SECRET' \
+     --header 'Accept: application/json'</pre>
+        <pre>[
+  {
+    "company_mapping_id": "b79c217de05e43938b66a09d87ff6ac0",
+    "name": "Home Depot",
+    "domain": "homedepot.com",
+    "logo_url": "https://<truv-cdn-host>/company_mapping_logo/450545e3….svg",
+    "success_rate": "high",
+    "confidence_level": "0.9"
+  }
+]</pre>
+        <p>Render the results as a picklist under the input. <code>logo_url</code> gives each
+          row a recognizable mark, which is the difference between typing an employer's full
+          legal name and typing three letters and clicking the logo. The search matches on
+          names, domains and synonyms, and it absorbs a single slip - <code>Home Dpeot</code> and
+          <code>Walmrat</code> both resolve. It is not a spellchecker: two transposed letters in
+          one query can return nothing, so keep the input editable and do not gate submission on
+          a match.</p>
+        <p>Watch for rows that look identical. A query can return two results with the same
+          <code>name</code> and different <code>company_mapping_id</code> values, so show
+          <code>domain</code> alongside the name or the applicant is choosing between two
+          identical-looking rows.</p>
+        <p>When they pick one, keep its <code>company_mapping_id</code> on your record and pass
+          that on every order you create for them afterwards. An id is an exact match where a
+          name is a best-effort one, which is the whole reason to collect it.</p>
+        <p>Each result also carries a <code>success_rate</code> of <code>low</code>,
+          <code>high</code> or <code>unsupported</code>. Use it to order your suggestions, or
+          to set expectations before an applicant picks an employer we cannot reach.</p>
+        <p>None of this is required. Plenty of integrations send <code>company_name</code> and
+          never touch the search endpoint.</p>
+
+        <div class="callout">
+          <span class="label">Worth knowing</span>
+          <p>An order takes <b>up to five</b> employers.</p>
+          <p><code>company_mapping_id</code> is not echoed back on the order read. Once a
+            connection exists you can recover it: take <code>employers[].link_id</code> off the
+            order, then read <code>GET /v1/links/{link_id}/</code>, where
+            <code>company_mapping</code> carries the employer Truv resolved to. That is also the
+            stable employer identifier to key your own records on.</p>
+        </div>
+
+        <h3>This matters more in Flow B than in Flow A</h3>
+        <p>In <a href="#flows">Flow B</a> the applicant has already declared their employer, or
+          it is on file from a previous renewal, so the name is sitting there waiting to be
+          passed. Deeplinking is close to free and should be the default.</p>
+        <p>In Flow A you are usually capturing employment for the first time and have nothing to
+          deeplink with. The exception is a returning applicant: reuse their
+          <code>external_user_id</code> and the order page shows the employer they connected
+          last time without your passing anything at all.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ 4. RETURNING APPLICANTS ══════════════ -->
+  <section class="sec" id="returning">
+    <div class="sec-head">
+      <h2>Reinitializing an order, or creating a new one</h2>
+      <p class="sub">Applicants leave and come back. What your income step does on their
+        second visit decides whether they resume or start over.</p>
+    </div>
+
+    <div class="band">
+      <div class="col">
+        <h3>Read the order back instead of recreating it</h3>
+        <p><code>bridge_token</code> is returned <b>twice</b>: once on
+          <code>POST /v1/orders/</code> when you create the order, and again on
+          <code>GET /v1/orders/{order_id}/</code> every time you read it. It is the same token
+          both times. When the applicant returns, read the order and mount Bridge on the token
+          that response gives you.</p>
+      </div>
+
+      <figure>
+        <svg viewBox="0 0 760 300" role="img" style="width:83.52%" aria-label="An applicant returning to the income step triggers a read of the order, which returns the same bridge_token. If is_expired is false and completed_at and canceled_at are both null, reinitialize on that token and the applicant resumes. If any one of those is not true, create a new order passing the same external_user_id.">
+          <defs>
+            <marker id="ar-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+            <marker id="ar-rd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--do)"/>
+            </marker>
+            <marker id="ar-ra" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"/>
+            </marker>
+          </defs>
+          <g>
+            <!-- top row -->
+            <rect x="0" y="26" width="168" height="48" rx="4" fill="var(--surface)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="84" y="46" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Applicant returns</text>
+            <text x="84" y="61" text-anchor="middle" font-size="10.5" fill="currentColor">to the income step</text>
+
+            <line x1="172" y1="50" x2="204" y2="50" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar-r)"/>
+
+            <rect x="208" y="26" width="212" height="48" rx="4" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
+            <text x="314" y="46" text-anchor="middle" class="m" font-size="11" font-weight="600" fill="var(--accent)">GET /v1/orders/{id}/</text>
+            <text x="314" y="61" text-anchor="middle" font-size="10.5" fill="var(--accent)">returns bridge_token again</text>
+
+            <line x1="424" y1="50" x2="456" y2="50" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar-r)"/>
+
+            <rect x="460" y="18" width="300" height="106" rx="4" fill="var(--surface)" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4"/>
+            <text x="474" y="38" font-size="11.5" font-weight="700" fill="currentColor">Check three fields on the order</text>
+            <g class="m" font-size="10.5" fill="currentColor">
+              <text x="474" y="60">is_expired   === false</text>
+              <text x="474" y="79">completed_at === null</text>
+              <text x="474" y="98">canceled_at  === null</text>
+            </g>
+            <text x="474" y="116" font-size="9.5" font-style="italic" fill="var(--ink-3)">status is not one of them</text>
+
+            <!-- branch arrows -->
+            <path d="M 540 128 L 540 146 L 186 146 L 186 170" stroke="var(--do)" stroke-width="1.6" fill="none" marker-end="url(#ar-rd)"/>
+            <path d="M 690 128 L 690 146 L 574 146 L 574 170" stroke="var(--accent)" stroke-width="1.6" fill="none" marker-end="url(#ar-ra)"/>
+
+            <!-- outcome: reinitialize -->
+            <rect x="0" y="176" width="372" height="112" rx="4" fill="var(--do-soft)" stroke="var(--do)" stroke-width="1.8"/>
+            <text x="16" y="198" class="m" font-size="10" font-weight="600" fill="var(--do)">ALL THREE TRUE</text>
+            <text x="16" y="220" font-size="15" font-weight="700" fill="var(--do)">Reinitialize the same order</text>
+            <text x="16" y="240" font-size="11.5" fill="var(--do)">Mount Bridge on the token you just read.</text>
+            <text x="16" y="256" font-size="11.5" fill="var(--do)">A connection they already made is listed;</text>
+            <text x="16" y="272" font-size="11.5" fill="var(--do)">if they never started, they get screen one.</text>
+
+            <!-- outcome: new order -->
+            <rect x="388" y="176" width="372" height="112" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.8"/>
+            <text x="404" y="198" class="m" font-size="10" font-weight="600" fill="var(--accent)">ANY ONE FALSE</text>
+            <text x="404" y="220" font-size="15" font-weight="700" fill="var(--accent)">Create a new order</text>
+            <text x="404" y="240" font-size="11.5" fill="currentColor">Pass the same <tspan class="m" font-size="10.5">external_user_id</tspan>.</text>
+            <text x="404" y="256" font-size="11.5" fill="currentColor">Same Truv user, so the new landing page</text>
+            <text x="404" y="272" font-size="11.5" fill="currentColor">already lists their earlier connections.</text>
+          </g>
+        </svg>
+        <figcaption>The token is not single-use and you do not need to store it; it comes back
+          on every read. What decides the branch is whether the order is still open.</figcaption>
+      </figure>
+
+      <div class="col">
+      <div class="callout warn">
+        <span class="label">Take the token from the top level</span>
+        <p>An order read carries more than one <code>bridge_token</code>: one at the top level,
+          and another inside each entry of <code>employers[]</code> and
+          <code>financial_accounts[]</code>. You want the top-level one. Mounting a suborder's
+          token renders <b>Unexpected Error</b> in the container, with no exception, no console
+          warning and a normal <code>LOAD</code> event, so it reads as a bad token or a broken
+          integration. The suborder tokens are easy to reach for, because Rule 8 has you walking
+          those same entries to read each one's <code>status</code>.</p>
+      </div>
+      </div>
+
+      <div class="col">
+        <h4>On your server</h4>
+        <p>Read the order the member already has. If it is still open, hand its
+          <code>bridge_token</code> back to the browser and they pick up where they stopped. If
+          it is not, create a new order and hand back that token instead. The browser gets a
+          token either way and does not need to know which happened.</p>
+        <pre>curl --request GET \
+     --url https://prod.truv.com/v1/orders/{order_id}/ \
+     --header 'X-Access-Client-Id: YOUR_TRUV_CLIENT_ID' \
+     --header 'X-Access-Secret: YOUR_TRUV_ACCESS_SECRET' \
+     --header 'Accept: application/json'</pre>
+        <p>An order is still open when it has not expired, been completed or been canceled.
+          Reuse it. If any of the three are true, create a new one on the same
+          <code>external_user_id</code> and store the new <code>id</code> against your member
+          record.</p>
+<pre>const open = order.is_expired === false
+          &amp;&amp; order.completed_at === null
+          &amp;&amp; order.canceled_at  === null;</pre>
+        <pre>curl --request POST \
+     --url https://prod.truv.com/v1/orders/ \
+     --header 'X-Access-Client-Id: YOUR_TRUV_CLIENT_ID' \
+     --header 'X-Access-Secret: YOUR_TRUV_ACCESS_SECRET' \
+     --header 'Content-Type: application/json' \
+     --data '{
+  "products": ["income"],
+  "first_name": "Jordan",
+  "last_name": "Reyes",
+  "external_user_id": "household-member-4812",
+  "order_number": "HH-7675719",
+  "notification_settings": { "suppress_user_notifications": true }
+}'</pre>
+
+        <h4>In the browser - mount whatever token came back</h4>
+        <pre>const { bridge_token } = await fetch(`/income-step/${memberId}`).then(r => r.json());
+
+const bridge = TruvBridge.init({
+  isOrder: true,
+  bridgeToken: bridge_token,
+  position: { type: 'inline', container: host }
+});
+bridge.open();</pre>
+        <p>The client code is the same either way. Resuming and starting over differ only in
+          which token your server returns.</p>
+
+        <div class="callout warn">
+          <span class="label">The order has no status field</span>
+          <p><code>GET /v1/orders/{order_id}/</code> does not return a top-level
+            <code>status</code>, and neither does the order list. So this guard is always true
+            and will remount an order the applicant already finished:</p>
+<pre><span class="c">// order.status is undefined, so this never stops anything</span>
+if (order.status !== 'completed') reinitialize();</pre>
+          <p>Gate on <code>completed_at</code> instead. <code>status</code> does exist on each
+            suborder, under <code>employers[]</code> and <code>financial_accounts[]</code>
+            alongside <code>last_task_status</code> - read those to see how an individual
+            connection went, not to decide whether the order is finished.</p>
+        </div>
+
+        <h3>When a member has more than one order</h3>
+        <p>Each expiry leaves another order behind, all attached to the same Truv user. Truv
+          will not pick one for you: reinitialize <b>the most recent order that is still
+          open</b> and treat the rest as history.</p>
+        <p>That means you have to track which order belongs to which member.
+          <code>external_user_id</code> is not returned on the order read or the order list -
+          those carry <code>user_id</code> - and you cannot look an order up by it. Store the
+          <code>order_id</code> and <code>user_id</code> against your household-member record
+          when you create the order, and update it whenever you replace one.</p>
+
+        <h3>They may come back on a different device</h3>
+        <p>The order lives on your case, not on the browser that started it. A member who began
+          on a library desktop and returns on a phone reaches the same order through the same
+          server lookup, with the connection they already made still listed. Nothing needs to
+          survive in local storage or a cookie for that to work.</p>
+        <p>It is also why the send-link button in <a href="#rule-4">Rule 4</a> is worth
+          building. A link that reopens <i>this</i> order on the applicant's phone answers "not
+          on this device" better than a manual-entry form, and the path above is what greets
+          them when they use it.</p>
+
+        <h3>The landing page already promises this</h3>
+        <p>Truv's order page tells the applicant they can return before the link expires, and
+          that once they finish and share they cannot. Reinitializing an open order is what they
+          were told would happen. Remounting a completed one contradicts it.</p>
+
+        <h3>Read the link lifetime, do not assume it</h3>
+        <p><code>expired_at</code> is set when the order is created, from the link-expiration
+          setting on your account or template. It is configurable, so do not hard-code a window
+          in your own logic - read the field.</p>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ 4. RULES ══════════════ -->
+  <section class="sec" id="rules">
+    <div class="sec-head">
+      <h2>The rules</h2>
+      <p class="sub">Nine rules, each with the reason behind it, so you can weigh them against
+        your own constraints.</p>
+    </div>
+
+    <div class="band">
+      <figure class="key">
+        <svg viewBox="0 0 880 126" role="img" style="width:96.7%" aria-label="A key to the diagrams. A panel with a filled header strip reading TRUV ORDER PAGE is the embedded Truv order page, a surface inside your own screen. A pill is one of your own buttons. A dashed panel is the order page somewhere the applicant cannot reach it.">
+          <g>
+            <rect x="0" y="8" width="250" height="100" rx="4" fill="var(--do-soft)" stroke="var(--do)" stroke-width="1.6"/>
+            <path d="M 0 23 L 0 12 Q 0 8 4 8 L 246 8 Q 250 8 250 12 L 250 23 Z" fill="var(--do-solid)"/>
+<text x="8" y="18.5" class="m" font-size="7.5" font-weight="600" letter-spacing="0.9" fill="var(--do-on-solid)">TRUV ORDER PAGE</text>
+            <text x="10" y="37" font-size="11.5" font-weight="700" fill="var(--do)">Verify your income</text>
+            <rect x="10" y="47" width="230" height="22" rx="3.5" fill="var(--ground)" stroke="var(--do)" stroke-width="1" />
+<text x="20" y="61.5" font-size="9.5" font-weight="600" fill="currentColor">Earned and unearned income</text>
+            <rect x="10" y="76" width="47.199999999999996" height="22" rx="11.0" fill="var(--do-solid)"/>
+<text x="33.599999999999994" y="90.5" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--do-on-solid)">Connect</text>
+            <text x="0" y="124" font-size="10.5" font-weight="600" fill="var(--do)">The embedded Truv order page</text>
+
+            <rect x="300" y="8" width="250" height="100" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.5"/>
+            <path d="M 300 23 L 300 12 Q 300 8 304 8 L 546 8 Q 550 8 550 12 L 550 23 Z" fill="none"/>
+<text x="308" y="18.5" class="m" font-size="7.5" font-weight="600" letter-spacing="0.9" fill="currentColor">TRUV ORDER PAGE</text>
+            <path d="M 300 23 L 550 23" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3" opacity="0.5"/>
+            <text x="425" y="68" text-anchor="middle" class="m" font-size="9" fill="currentColor" opacity="0.75">not reachable here</text>
+            <text x="300" y="124" font-size="10.5" font-weight="600" fill="currentColor">Somewhere the applicant cannot reach it</text>
+
+            <rect x="600" y="45" width="120" height="26" rx="13" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.3"/>
+            <text x="660" y="62" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor">Your button</text>
+            <text x="600" y="124" font-size="10.5" font-weight="600" fill="currentColor">A control in your own application</text>
+          </g>
+        </svg>
+        <figcaption>Three shapes recur in the diagrams below. The panel with the header strip is
+          always the embedded Truv order page, which is a surface inside your own screen, not a
+          control that opens one.</figcaption>
+      </figure>
+    </div>
+
+    <!-- RULE 1 -->
+    <div class="col">
+        <div class="callout">
+          <span class="label">About the screenshots</span>
+          <p>The rules below are illustrated with one invented application, Acme State Benefits,
+            so that each pair differs only in the thing the rule is about. Everything outside the
+            order page is the agency&#8217;s own screen; everything inside it is configured on the
+            customization template.</p>
+        </div>
+      </div>
+
+      <article class="rule-card" id="rule-1">
+      <span class="rule-tag">Rule 1</span>
+      <h3>Render Truv on page load. Never behind a button.</h3>
+      <span class="rule-gain">30-35% more completed verifications</span>
+      <div class="rule-body">
+        <div class="verdicts">
+          <div class="verdict"><span class="vchip no">Don't</span>
+            <p>Put a heading, a paragraph, and a <i>Verify my income</i> button on the income
+              step and open Truv on the click.</p></div>
+          <div class="verdict"><span class="vchip yes">Do</span>
+            <p>Mount the order landing page as the step's content, on arrival.</p></div>
+        </div>
+      </div>
+
+      <figure class="shotfig">
+        <div class="shots pair">
+          <div class="shot no">
+            <span class="cap">Don't - Truv behind a click</span>
+            <img src="img/acme-r1.png" alt="An agency heading, two paragraphs and a Verify my income button. The order page is behind the click, so nothing is verified until the applicant takes an action they were given no reason to take." loading="lazy">
+            <p class="sub">An agency heading, two paragraphs and a Verify my income button. The order page is behind the click, so nothing is verified until the applicant takes an action they were given no reason to take.</p>
+          </div>
+          <div class="shot yes">
+            <span class="cap">Do - The step is the landing page</span>
+            <img src="img/acme-do.png" alt="The same step, with the order page as its content. The application keeps its own chrome - the step rail, the step name, the application number - and nothing sits between the step and the landing page." loading="lazy">
+            <p class="sub">Texas Benefits, step 11 of 17. The order page is the content of the step. The application keeps its own chrome - the step list, the step name - and nothing sits between the two.</p>
+          </div>
+        </div>
+        <figcaption>The embed owns the step&#8217;s content area. Your application keeps the chrome, because that is orientation, not explanation.</figcaption>
+      </figure>
+
+      <div class="rule-body">
+        <p class="why"><b>Why.</b> Every click before the verification is a place to stop.
+          Worse, the landing page is itself a consent-and-connect screen, so a button in front
+          of it asks the applicant to say yes twice to the same thing.</p>
+      </div>
+    </article>
+
+    <!-- RULE 2 -->
+    <article class="rule-card" id="rule-2">
+      <span class="rule-tag">Rule 2</span>
+      <h3>Put your explainer inside the template, not above the embed.</h3>
+      <div class="rule-body">
+        <div class="verdicts">
+          <div class="verdict"><span class="vchip no">Don't</span>
+            <p>Stack an agency heading, two reassurance paragraphs, and a
+              <i>what you'll need</i> list above the embed. The landing page says all of it
+              again, immediately below.</p></div>
+          <div class="verdict"><span class="vchip yes">Do</span>
+            <p>Let the landing page carry the message, and configure that message on your
+              customization template.</p></div>
+        </div>
+      </div>
+
+      <figure class="shotfig">
+        <div class="shots pair">
+          <div class="shot no">
+            <span class="cap">Don't - Say it twice, push Truv down</span>
+            <img src="img/acme-r2.png" alt="The agency explains it first: a heading, two reassurance paragraphs, a what-you-will-need list and a safety question. The order page then says all of it again, below the fold." loading="lazy">
+            <p class="sub">The agency explains it first: a heading, two reassurance paragraphs, a what-you-will-need list and a safety question. The order page then says all of it again, below the fold.</p>
+          </div>
+          <div class="shot yes">
+            <span class="cap">Do - The template carries the copy</span>
+            <img src="img/acme-do.png" alt="The same message, rendered once, inside the frame. Heading, explanation, product choice and consent all come from the customization template, so there is nothing left to say above it." loading="lazy">
+            <p class="sub">The same message, rendered once, inside the frame. Heading, explanation, product choice and consent all come from the customization template.</p>
+          </div>
+        </div>
+        <figcaption>Everything you would have written above the embed has a field on the customization template, where it renders once instead of twice.</figcaption>
+      </figure>
+
+      <div class="rule-body">
+        <div class="tbl-scroll">
+          <table>
+            <thead><tr><th>What you want to say</th><th>Where it belongs</th></tr></thead>
+            <tbody>
+              <tr><td>The step's heading</td><td><code>orders.landing.header</code></td></tr>
+              <tr><td>Why you are asking, what happens next</td><td><code>orders.landing.body</code></td></tr>
+              <tr><td>The connect button's label</td><td><code>orders.landing.buttons.connect</code></td></tr>
+              <tr><td>The finish button's label</td><td><code>buttons.review_accounts</code> / <code>submit_accounts</code></td></tr>
+              <tr><td>Common questions</td><td>The landing FAQ - or <code>orders.landing.hide_faq</code> to drop it</td></tr>
+              <tr><td>The search screen heading</td><td><code>bridge.product_settings[].texts.search_header</code>, per product<br><span class="note">The older <code>bridge.texts</code> object is marked deprecated in the API spec - use <code>product_settings</code>.</span></td></tr>
+              <tr><td>Which employers appear before anyone types</td><td>A custom popular-companies list, uploaded as a CSV of company name and domain, up to 15 rows</td></tr>
+              <tr><td>What they see on success</td><td>The success screen title and body</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Your own application chrome is the exception. The progress rail, the step name and
+          the case number orient the applicant and should stay.</p>
+
+        <h4>The same template carries the branding</h4>
+        <p>Under <code>branding</code> you set <code>logo</code>, <code>company_name</code>,
+          <code>accent_color</code> and <code>background_color</code>, so the embedded page can
+          carry the agency's mark and color rather than Truv's. There is also
+          <code>hide_confetti</code>, which is worth knowing about for a benefits context, and
+          <code>custom_end_user_agreement</code> if your own agreement has to appear.</p>
+        <p>What you are configuring is copy, labels, logo and color. The layout of the order
+          page itself is Truv's, which is the trade for not having to build or maintain it. Treat
+          the template as the surface you control and your own page as the frame around it.</p>
+
+        <h4>Language is set per order, not per template</h4>
+        <p>Pass <code>locale</code> when you create the order and the order renders in that
+          language. It is a fixed list of 22 values, so if you
+          have language-access obligations, check the list against the languages you publish in
+          before you scope the work. Where a language is not on it, the applicant's route is
+          your manual path, which is a reason to get <a href="#rule-4">Rule 4</a> right rather
+          than a blocker.</p>
+      </div>
+    </article>
+
+    <!-- RULE 3 -->
+    <article class="rule-card" id="rule-3">
+      <span class="rule-tag">Rule 3</span>
+      <h3>No Yes/No gate in front of the embed.</h3>
+      <span class="rule-gain">One screen removed</span>
+      <div class="rule-body">
+        <div class="verdicts">
+          <div class="verdict"><span class="vchip no">Don't</span>
+            <p>Ask <i>Does anyone in your household have income?</i> on one screen, describe
+              verification on a second, and mount Truv on a third.</p></div>
+          <div class="verdict"><span class="vchip yes">Do</span>
+            <p>Make the income step the landing page. Keep declaration questions only where
+              their answers drive downstream eligibility logic - then have <b>Continue</b> mount
+              Bridge directly.</p></div>
+        </div>
+      </div>
+
+      <figure class="shotfig">
+        <div class="shots pair">
+          <div class="shot no">
+            <span class="cap">Don't - A gate in front of the embed</span>
+            <img src="img/acme-r3.png" alt="A Yes/No question, then a page about verification, then the order page. Two decisions and three loads before anything is verified." loading="lazy">
+            <p class="sub">A Yes/No question, then a page about verification, then the order page. Two decisions and three loads before anything is verified.</p>
+          </div>
+          <div class="shot yes">
+            <span class="cap">Do - The step is the embed</span>
+            <img src="img/acme-do.png" alt="The applicant arrives on the income step and the order page is already there. Where the agency genuinely needs the question for eligibility logic, it can stay - but Continue mounts the order page rather than landing on a screen about verification." loading="lazy">
+            <p class="sub">The declaration the agency actually needs is the connection itself. The applicant arrives and the order page is already there.</p>
+          </div>
+        </div>
+        <figcaption>Where you do need the question for eligibility logic, keep it - but let Continue mount the order page directly rather than landing on a screen about verification.</figcaption>
+      </figure>
+    </article>
+
+    <!-- RULE 4 -->
+    <article class="rule-card" id="rule-4">
+      <span class="rule-tag">Rule 4</span>
+      <h3>Manual entry is a link below the embed, paired with "send me the link".</h3>
+      <div class="rule-body">
+        <p class="lede">The rule with the most at stake, and the one most often got wrong.</p>
+        <div class="verdicts">
+          <div class="verdict"><span class="vchip no">Don't</span>
+            <p>Put two equal-weight buttons above the embed - <i>Verify automatically</i> and
+              <i>Enter manually</i>. Equal weight presents them as equally good choices, which they are not.</p></div>
+          <div class="verdict"><span class="vchip yes">Do</span>
+            <p>Put one row directly beneath the embed: manual entry as a text link, and a
+              secondary button that sends the same order to the applicant's email or phone.</p></div>
+        </div>
+      </div>
+
+      <figure class="shotfig">
+        <div class="shots pair">
+          <div class="shot no">
+            <span class="cap">Don't - Two equal choices, above the embed</span>
+            <img src="img/acme-r4.png" alt="Same size, same weight, same prominence. The order page is reached only if the applicant picks the left card, and manual entry is offered before they have seen what they are declining." loading="lazy">
+            <p class="sub">Same size, same weight, same prominence. The order page is reached only if the applicant picks the left card, and manual entry is offered before they have seen what they are declining.</p>
+          </div>
+          <div class="shot yes">
+            <span class="cap">Do - One text link beneath</span>
+            <img src="img/acme-do4.png" alt="The embed is the step. The manual route is a text link below it, one visual step down, next to a send-the-link button, reached after the applicant has seen the thing it is an alternative to." loading="lazy">
+            <p class="sub">MI Bridges. The embed is the step; the manual route is a text link below it, one visual step down, reached after the applicant has seen the thing it is an alternative to.</p>
+          </div>
+        </div>
+        <figcaption>An escape has to exist and has to be reachable. What changes is whether it competes with the embed or sits beneath it.</figcaption>
+      </figure>
+
+      <div class="rule-body">
+        <p class="why"><b>Always allow manual entry.</b> Some applicants have no connectable
+          income source, some decline to connect one, and your own verification policy will
+          require a self-attested route regardless. It has to exist and it has to work.</p>
+        <p>The two routes are not equally good, though. The applicant ends up hunting for
+          paystubs, and the agency ends up with a record it cannot refresh. So place them one
+          visual step apart: the embed owns the step, the manual route is a link below it.</p>
+
+        <h4>Why the send-link button matters</h4>
+        <p>"Not now" often means "not on this device." The applicant is on a phone at a
+          library branch, or needs a payroll login they do not have to hand. That is a deferral,
+          not a refusal, and the manual link is the wrong answer to it. Carrying the same order
+          to a better moment keeps the verification route open; a manual form closes it.</p>
+        <p>Create the order with <code>email</code> and <code>phone</code> and notifications
+          suppressed while the applicant is in your app, then un-suppress when they ask:</p>
+        <pre>curl --request PATCH \
+     --url https://prod.truv.com/v1/orders/{order_id}/ \
+     --header 'X-Access-Client-Id: YOUR_TRUV_CLIENT_ID' \
+     --header 'X-Access-Secret: YOUR_TRUV_ACCESS_SECRET' \
+     --header 'Content-Type: application/json' \
+     --data '{ "notification_settings": { "suppress_user_notifications": false } }'</pre>
+        <p>Truv then sends the email and SMS and handles the reminder sequence. The call
+          returns <code>204</code> with an empty body, so if you want to send the link yourself
+          instead, read <code>share_url</code> from the order rather than from this response.</p>
+        <div class="callout">
+          <span class="label">An escape has to leave a way forward</span>
+          <p>Both escapes mean "not here, not now", so taking one has to let the applicant move
+            through the application. Otherwise the step has no exit: they asked for the link,
+            they cannot verify on this device, and nothing lets them past.</p>
+          <p>Keep the embed mounted when they ask for the link. Some of them change their mind
+            and finish inline anyway, and if they do, <code>COMPLETED</code> still arrives and
+            the step can go from deferred to verified. Removing the embed forecloses that.</p>
+          <p>So the step has three states rather than two:</p>
+          <div class="tbl-scroll">
+            <table>
+              <thead><tr><th>State</th><th>Reached by</th><th>What the applicant can do</th></tr></thead>
+              <tbody>
+                <tr><td><b>Blocked</b></td><td>Nothing attempted yet</td><td>Verify, or take an escape</td></tr>
+                <tr><td><b>Deferred</b></td><td>They asked for the link, or chose manual entry</td><td>Move on, with the step marked unverified</td></tr>
+                <tr><td><b>Verified</b></td><td><code>COMPLETED</code>, with usable data on the order</td><td>Move on, with the step marked done</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Label the forward action for the state it is in. "Continue" on a verified step and
+            "Continue without verifying here" on a deferred one tell the applicant something
+            true, and they tell your caseworker something true as well.</p>
+        </div>
+
+        <div class="callout">
+          <span class="label">Only works while the order is open</span>
+          <p>On a finished order the same call is refused with <code>400</code> and
+            <i>"Can't edit the order. Check employers statuses."</i> So wire the button to the
+            order's state, not just to the step: once <code>completed_at</code> is set there is
+            nothing to send them back to.</p>
+        </div>
+
+        <h4>How hard the manual route is to reach is a setting, not layout</h4>
+        <p>Layout decides what the applicant notices. <code>orders.skip_behavior</code> on the
+          customization template decides whether they can take the manual route immediately or
+          have to attempt a connection first. It is a template setting, not a parameter you send
+          when creating an order:</p>
+        <div class="tbl-scroll">
+          <table>
+            <thead><tr><th>Value</th><th>Behavior</th></tr></thead>
+            <tbody>
+              <tr><td><code>disabled</code></td><td>The product is required. No skip.</td></tr>
+              <tr><td><code>any</code></td><td>Skip allowed after the applicant tries at least one provider.</td></tr>
+              <tr><td><code>all</code></td><td>Skip allowed only after the applicant tries every provider on the order.</td></tr>
+              <tr><td><code>expire</code></td><td>Like <code>any</code>, plus the order auto-completes after <code>auto_complete_after_hours</code> (default 24).</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><code>any</code> is the usual public-sector setting: it asks for one honest attempt
+          before the applicant falls back, and it keeps the manual route genuinely available.</p>
+      </div>
+    </article>
+
+    <!-- RULE 5 -->
+    <article class="rule-card" id="rule-5">
+      <span class="rule-tag">Rule 5</span>
+      <h3>Hide the manual link once a connection succeeds.</h3>
+      <div class="rule-body">
+        <div class="verdicts">
+          <div class="verdict"><span class="vchip no">Don't</span>
+            <p>Leave <i>Enter manually instead</i> on screen after the applicant has
+              connected.</p></div>
+          <div class="verdict"><span class="vchip yes">Do</span>
+            <p>Remove it the moment a connection is made, along with any manual form you had
+              collapsed behind it.</p></div>
+        </div>
+        <p class="why"><b>Why.</b> After a successful connection there is nothing left to enter
+          manually, and leaving it on screen offers a route to replace verified data with a
+          remembered figure. Restore it if the connection fails or the applicant resets the
+          step.</p>
+        <div class="callout">
+          <span class="label">Which event tells you a connection succeeded</span>
+          <p><code>onEvent('SUCCESS', payload, 'bridge')</code>. It arrives from the connection
+            widget as soon as the provider returns data, while the applicant is still inside the
+            flow - which is the moment you want.</p>
+          <p>Do not use <code>onSuccess</code> for this. On an embedded order it fires at the
+            end, after <code>COMPLETED</code>, so a manual link hidden on
+            <code>onSuccess</code> stays visible for the whole session.</p>
+<pre>onEvent: function (type, payload, source) {
+  if (type === 'SUCCESS' &amp;&amp; source === 'bridge') hideManualEntry();
+  if (type === 'COMPLETED' &amp;&amp; source === 'order') enableContinue();
+}</pre>
+        </div>
+      </div>
+    </article>
+
+    <!-- RULE 6 -->
+    <article class="rule-card" id="rule-6">
+      <span class="rule-tag">Rule 6</span>
+      <h3>Mount inline through the SDK on <span class="mono">bridge_token</span>. Never iframe <span class="mono">share_url</span>.</h3>
+      <div class="rule-body">
+        <div class="verdicts">
+          <div class="verdict"><span class="vchip no">Don't</span>
+            <p>Hand-roll <code>&lt;iframe src="{share_url}"&gt;</code>.</p></div>
+          <div class="verdict"><span class="vchip yes">Do</span>
+            <p>Load <code>cdn.truv.com/bridge.js</code> and mount into your own container.</p></div>
+        </div>
+      </div>
+
+      <figure>
+        <svg viewBox="0 0 760 208" role="img" style="width:83.52%" aria-label="Top path: a hand-rolled iframe pointing at share_url, which is the hosted page meant for top-level use, ending in an Unable to proceed error. Bottom path: the Bridge SDK loaded from the CDN mounting the order page into your own container, which works.">
+          <defs>
+            <marker id="ar-m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+            <marker id="ar-mx" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--dont)"/>
+            </marker>
+            <marker id="ar-mo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--do)"/>
+            </marker>
+          </defs>
+          <g>
+            <text x="0" y="13" class="m" font-size="10.5" font-weight="600" letter-spacing="1.3" fill="var(--dont)">DON'T</text>
+
+            <rect x="0" y="24" width="140" height="46" rx="4" fill="var(--surface)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="70" y="43" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">Your page</text>
+            <text x="70" y="58" text-anchor="middle" class="m" font-size="9" fill="currentColor">&lt;iframe src=…&gt;</text>
+
+            <line x1="144" y1="47" x2="200" y2="47" stroke="var(--dont)" stroke-width="1.5" marker-end="url(#ar-mx)"/>
+            <text x="172" y="39" text-anchor="middle" class="m" font-size="9" fill="var(--dont)">share_url</text>
+
+            <rect x="204" y="24" width="168" height="46" rx="4" fill="var(--surface)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="288" y="43" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">Hosted landing page</text>
+            <text x="288" y="58" text-anchor="middle" font-size="9" fill="currentColor">built for top-level use</text>
+
+            <line x1="376" y1="47" x2="432" y2="47" stroke="var(--dont)" stroke-width="1.5" marker-end="url(#ar-mx)"/>
+
+            <rect x="436" y="24" width="176" height="46" rx="4" fill="var(--dont-soft)" stroke="var(--dont)" stroke-width="1.8"/>
+            <text x="524" y="50" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--dont)">"Unable to proceed."</text>
+
+            <text x="628" y="43" font-size="11" font-weight="700" fill="var(--dont)">The hosted page is</text>
+            <text x="628" y="57" font-size="11" font-weight="700" fill="var(--dont)">not built to be framed.</text>
+
+            <line x1="0" y1="100" x2="760" y2="100" stroke="currentColor" stroke-width="0.7" opacity="0.28"/>
+
+            <text x="0" y="128" class="m" font-size="10.5" font-weight="600" letter-spacing="1.3" fill="var(--do)">DO</text>
+
+            <rect x="0" y="140" width="140" height="46" rx="4" fill="var(--surface)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="70" y="159" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">Your page</text>
+            <text x="70" y="174" text-anchor="middle" class="m" font-size="9" fill="currentColor">#income-verify</text>
+
+            <line x1="144" y1="163" x2="200" y2="163" stroke="var(--do)" stroke-width="1.6" marker-end="url(#ar-mo)"/>
+            <text x="172" y="155" text-anchor="middle" class="m" font-size="9" fill="var(--do)">init()</text>
+
+            <rect x="204" y="140" width="168" height="46" rx="4" fill="var(--do-soft)" stroke="var(--do)" stroke-width="1.6"/>
+            <text x="288" y="159" text-anchor="middle" font-size="11" font-weight="700" fill="var(--do)">Bridge SDK</text>
+            <text x="288" y="174" text-anchor="middle" class="m" font-size="9" fill="var(--do)">cdn.truv.com/bridge.js</text>
+
+            <line x1="376" y1="163" x2="432" y2="163" stroke="var(--do)" stroke-width="1.6" marker-end="url(#ar-mo)"/>
+            <text x="431" y="155" text-anchor="end" class="m" font-size="8" fill="var(--do)">bridge_token</text>
+
+            <rect x="436" y="140" width="176" height="46" rx="4" fill="var(--do-soft)" stroke="var(--do)" stroke-width="1.8"/>
+            <text x="524" y="159" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--do)">Order page, inline</text>
+            <text x="524" y="174" text-anchor="middle" font-size="9" fill="var(--do)">in your own container</text>
+
+            <text x="628" y="159" font-size="11" font-weight="700" fill="var(--do)">The supported</text>
+            <text x="628" y="173" font-size="11" font-weight="700" fill="var(--do)">embed.</text>
+          </g>
+        </svg>
+        <figcaption><code>share_url</code> is the hosted landing page, meant to be opened at top
+          level - in a browser tab, from an email or SMS. Framed inside another origin it renders
+          "Unable to proceed." If you are debugging a blank or dead embed, check this first.</figcaption>
+      </figure>
+
+      <div class="rule-body">
+        <pre>var bridge = TruvBridge.init({
+  isOrder: true,                       <span class="c">// required for orders</span>
+  bridgeToken: order.bridge_token,
+  position: {
+    type: 'inline',
+    container: document.querySelector('#income-verify')
+  }
+});
+
+bridge.open();                         <span class="c">// init() alone renders nothing</span></pre>
+        <p><code>isOrder: true</code> is required for Embedded Orders. Initializing without it
+          causes unexpected behavior.</p>
+        <div class="callout">
+          <span class="label">Two calls, not one</span>
+          <p><code>init()</code> constructs the instance. <b><code>open()</code> renders
+            it.</b> Call <code>init()</code> alone and you get no frame, no events and no
+            error: the container stays empty, which looks like a bad token or a CSP problem.</p>
+        </div>
+        <h4>Content Security Policy</h4>
+        <p>Missing CSP entries are the other leading cause of a blank frame.</p>
+        <pre>Content-Security-Policy: frame-src my.truv.com; script-src cdn.truv.com;</pre>
+        <p>Those two cover Bridge itself. If you also render employer logos - the
+          <code>logo_url</code> on a company search result, or the <code>company_logo</code>
+          that comes back on the order - those load from a separate Truv CDN host, and a
+          restrictive <code>img-src</code> will block them while Bridge keeps working. Allow the
+          host in the value you are actually served rather than hard-coding one, and ask us to
+          confirm it before you pin it in policy.</p>
+      </div>
+    </article>
+
+    <!-- RULE 7 -->
+    <article class="rule-card" id="rule-7">
+      <span class="rule-tag">Rule 7</span>
+      <h3>Order page inline, connection widget as a modal.</h3>
+      <div class="rule-body">
+        <p class="lede">This is the pairing to run inside an application flow. It is two
+          separate settings, at two different layers.</p>
+        <div class="tbl-scroll">
+          <table>
+            <thead><tr><th>Layer</th><th>Setting</th><th>Value</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>The <b>order page</b> - heading, product choice, Connect / Upload</td>
+                <td><code>position</code> in <code>TruvBridge.init</code></td>
+                <td><code>{ type: 'inline', container }</code></td>
+              </tr>
+              <tr>
+                <td>The <b>connection widget</b> the applicant reaches from it</td>
+                <td>Account setting: <i>Suborder launch</i></td>
+                <td><b>As a modal</b></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>So: the order page lives in your page, and the sign-in step opens as a dialog on top
+          of it. The applicant never leaves your application, and credential entry gets the full
+          viewport it needs.</p>
+      </div>
+
+      <figure>
+        <svg viewBox="0 0 880 250" role="img" style="width:96.7%" aria-label="Three display modes compared. Full dialog mode overlays the order page on the whole page. Inline order page with the connection widget as a modal is recommended, and gives the sign-in its own parent-level frame. Inline order page with the connection widget nested inside it is deprecated.">
+          <g>
+            <text x="0" y="13" class="m" font-size="10.5" font-weight="600" letter-spacing="1.3" fill="currentColor">FALLBACK · FULL DIALOG</text>
+            <rect x="0" y="24" width="268" height="172" rx="4" fill="var(--surface)" stroke="currentColor" stroke-width="1.2"/>
+            <rect x="0" y="24" width="268" height="16" rx="4" fill="var(--surface-2)"/>
+            <rect x="0" y="40" width="268" height="156" fill="currentColor" opacity="0.14"/>
+            <rect x="38" y="60" width="192" height="112" rx="4" fill="var(--do-soft)" stroke="var(--do)" stroke-width="1.6"/>
+            <path d="M 38 75 L 38 64 Q 38 60 42 60 L 226 60 Q 230 60 230 64 L 230 75 Z" fill="var(--do-solid)"/>
+<text x="46" y="70.5" class="m" font-size="7.5" font-weight="600" letter-spacing="0.9" fill="var(--do-on-solid)">TRUV ORDER PAGE</text>
+            <text x="48" y="89" font-size="11.5" font-weight="700" fill="var(--do)">Verify your income</text>
+            <rect x="48" y="99" width="172" height="22" rx="3.5" fill="var(--ground)" stroke="var(--do)" stroke-width="1" />
+<text x="58" y="113.5" font-size="9.5" font-weight="600" fill="currentColor">Earned and unearned income</text>
+            <rect x="48" y="128" width="47.199999999999996" height="22" rx="11.0" fill="var(--do-solid)"/>
+<text x="71.6" y="142.5" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--do-on-solid)">Connect</text>
+            <text x="0" y="216" font-size="10.5" fill="currentColor">Omit <tspan class="m" font-size="9.5">position</tspan>. Page scroll locks.</text>
+            <text x="0" y="232" font-size="10.5" fill="currentColor">Right for a caseworker tool.</text>
+
+            <text x="306" y="13" class="m" font-size="10.5" font-weight="600" letter-spacing="1.3" fill="var(--do)">RECOMMENDED · INLINE + MODAL</text>
+            <rect x="306" y="24" width="268" height="172" rx="4" fill="var(--surface)" stroke="var(--do)" stroke-width="1.8"/>
+            <rect x="306" y="24" width="268" height="16" rx="4" fill="var(--surface-2)"/>
+            <text x="316" y="36" font-size="8.5" fill="currentColor">Step 4 of 8</text>
+            <rect x="320" y="50" width="240" height="136" rx="4" fill="var(--do-soft)" stroke="var(--do)" stroke-width="1.6"/>
+            <path d="M 320 65 L 320 54 Q 320 50 324 50 L 556 50 Q 560 50 560 54 L 560 65 Z" fill="var(--do-solid)"/>
+<text x="328" y="60.5" class="m" font-size="7.5" font-weight="600" letter-spacing="0.9" fill="var(--do-on-solid)">TRUV ORDER PAGE</text>
+            <text x="330" y="79" font-size="11.5" font-weight="700" fill="var(--do)">Verify your income</text>
+            <rect x="368" y="88" width="176" height="82" rx="4" fill="var(--ground)" stroke="var(--do)" stroke-width="2"/>
+            <rect x="368" y="88" width="176" height="16" rx="4" fill="var(--do-solid)"/>
+            <text x="456" y="100" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--do-on-solid)">Sign in to ADP</text>
+            <rect x="380" y="114" width="152" height="13" rx="2.5" fill="var(--surface-2)"/>
+            <rect x="380" y="132" width="152" height="13" rx="2.5" fill="var(--surface-2)"/>
+            <rect x="380" y="151" width="56" height="14" rx="7" fill="var(--do-solid)"/>
+            <text x="306" y="216" font-size="10.5" font-weight="600" fill="var(--do)">Second, parent-level frame.</text>
+            <text x="306" y="232" font-size="10.5" fill="currentColor">Order page stays mounted beneath.</text>
+
+            <text x="612" y="13" class="m" font-size="10.5" font-weight="600" letter-spacing="1.3" fill="var(--dont)">DEPRECATED · INLINE + NESTED</text>
+            <rect x="612" y="24" width="268" height="172" rx="4" fill="var(--surface)" stroke="var(--dont)" stroke-width="1.8"/>
+            <rect x="612" y="24" width="268" height="16" rx="4" fill="var(--surface-2)"/>
+            <text x="622" y="36" font-size="8.5" fill="currentColor">Step 4 of 8</text>
+            <rect x="626" y="50" width="240" height="136" rx="4" fill="var(--dont-soft)" stroke="var(--dont)" stroke-width="1.6"/>
+            <path d="M 626 65 L 626 54 Q 626 50 630 50 L 862 50 Q 866 50 866 54 L 866 65 Z" fill="var(--dont)"/>
+            <text x="634" y="60.5" class="m" font-size="7.5" font-weight="600" letter-spacing="0.9" fill="var(--ground)">TRUV ORDER PAGE</text>
+            <rect x="640" y="78" width="212" height="96" rx="3" fill="var(--ground)" stroke="var(--dont)" stroke-width="1.4" stroke-dasharray="4 3"/>
+            <g stroke="var(--dont)" stroke-width="2.2" stroke-linecap="round" opacity="0.6">
+              <line x1="646" y1="84" x2="846" y2="168"/><line x1="846" y1="84" x2="646" y2="168"/>
+            </g>
+            <rect x="656" y="112" width="180" height="30" rx="3" fill="var(--ground)"/>
+            <text x="746" y="124" text-anchor="middle" font-size="9" font-weight="600" fill="var(--dont)">sign-in nested inside</text>
+            <text x="746" y="136" text-anchor="middle" font-size="9" font-weight="600" fill="var(--dont)">the same frame</text>
+            <text x="612" y="216" font-size="10.5" font-weight="600" fill="var(--dont)">One frame only. Deprecated Jun 18, 2026.</text>
+            <text x="612" y="232" font-size="10.5" fill="currentColor">Stalls after a good connection.</text>
+          </g>
+        </svg>
+        <figcaption>The recommended pairing gives the sign-in its own parent-level frame; the
+          deprecated one does not. That difference is also how you tell them apart.</figcaption>
+      </figure>
+
+      <figure class="shotfig">
+        <div class="shots">
+          <div class="shot yes">
+            <span class="cap">Do - inline order page, modal connection widget</span>
+            <img src="img/acme-modal.png" alt="The Truv connection widget open as a modal over the income step, with the order page still mounted and dimmed beneath it." loading="lazy">
+            <p class="sub">The widget is a second frame at parent level, centred over the page; the order page and the application&#8217;s own chrome stay mounted beneath it. Closing the widget returns the applicant to the order page rather than to nothing.</p>
+          </div>
+        </div>
+      </figure>
+
+      <div class="rule-body">
+        <h4>The deprecated third state is the one that breaks</h4>
+        <p><i>Suborder launch = Inside the inline frame</i> renders the sign-in within the
+          order frame. It is deprecated as of June 18, 2026. On an account still set that way, a
+          successful payroll connection closes the nested widget and the order page underneath
+          cannot recover. That is the other source of <b>"Unable to proceed."</b></p>
+        <p>To tell which mode an account is on, open the sign-in and count the frames:</p>
+        <pre>document.querySelectorAll('iframe').length
+<span class="c">// 2 → modern behavior. The suborder has its own parent-level frame.</span>
+<span class="c">// 1 → legacy nested mode. Ask Truv to switch the account.</span></pre>
+        <p>This is an account-level setting. Your <code>TruvBridge.init</code> call does not
+          change.</p>
+        <h4>Full dialog mode is the fallback, not the target</h4>
+        <p>Omit <code>position</code> entirely and Bridge opens as a centered overlay over your
+          page. It works, it needs almost no layout work, and it is the right choice for a
+          caseworker tool or a step you genuinely cannot restructure. Inside an applicant-facing
+          wizard it costs you the continuity that makes the income step feel like part of the
+          application.</p>
+      </div>
+    </article>
+
+    <!-- RULE 8 -->
+    <article class="rule-card" id="rule-8">
+      <span class="rule-tag">Rule 8</span>
+      <h3>Advance on <span class="mono">COMPLETED</span> with <span class="mono">source: "order"</span>.</h3>
+      <div class="rule-body">
+        <div class="verdicts">
+          <div class="verdict"><span class="vchip no">Don't</span>
+            <p>Advance, or start polling, on <code>onSuccess</code> or <code>onClose</code>.</p></div>
+          <div class="verdict"><span class="vchip yes">Do</span>
+            <p>Gate on the one event that means the order reached its final state.</p></div>
+        </div>
+      </div>
+
+      <figure>
+        <svg viewBox="0 0 880 196" role="img" style="width:96.7%" aria-label="A timeline of Bridge order events. Employer selected, login complete and success come first. onSuccess is marked the wrong gate because other connections may still be outstanding. Self-certification follows where enabled. COMPLETED with source order is the correct gate, and fires on the final state whether that was success or skipped.">
+          <defs>
+            <marker id="ar-e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+          <g>
+            <line x1="16" y1="86" x2="864" y2="86" stroke="currentColor" stroke-width="1.2" opacity="0.4" marker-end="url(#ar-e)"/>
+
+            <!-- plain milestones -->
+            <g class="m" font-size="9" fill="currentColor" text-anchor="middle">
+              <circle cx="44" cy="86" r="4.5" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+              <text x="44" y="108">EMPLOYER_</text><text x="44" y="119">SELECTED</text>
+
+              <circle cx="150" cy="86" r="4.5" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+              <text x="150" y="108">LOGIN_</text><text x="150" y="119">COMPLETE</text>
+
+              <circle cx="250" cy="86" r="4.5" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+              <text x="250" y="108">SUCCESS</text>
+            </g>
+
+            <!-- wrong gate -->
+            <text x="352" y="48" text-anchor="middle" font-size="10" font-weight="700" fill="var(--dont)">WRONG GATE</text>
+            <text x="352" y="64" text-anchor="middle" class="m" font-size="9.5" font-weight="600" fill="var(--dont)">onSuccess()</text>
+            <circle cx="352" cy="86" r="6" fill="var(--dont-soft)" stroke="var(--dont)" stroke-width="2"/>
+            <g stroke="var(--dont)" stroke-width="2" stroke-linecap="round">
+              <line x1="344" y1="78" x2="360" y2="94"/><line x1="360" y1="78" x2="344" y2="94"/>
+            </g>
+            <text x="352" y="110" text-anchor="middle" font-size="9.5" fill="var(--dont)">an account connected;</text>
+            <text x="352" y="122" text-anchor="middle" font-size="9.5" fill="var(--dont)">others may be pending</text>
+
+            <!-- self-certification -->
+            <rect x="452" y="72" width="164" height="28" rx="4" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="534" y="90" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor">Self-certification</text>
+            <text x="534" y="116" text-anchor="middle" font-size="9.5" fill="currentColor">where enabled, the applicant</text>
+            <text x="534" y="128" text-anchor="middle" font-size="9.5" fill="currentColor">reviews records here</text>
+
+            <!-- correct gate -->
+            <text x="752" y="48" text-anchor="middle" font-size="10" font-weight="700" fill="var(--do)">CORRECT GATE</text>
+            <text x="752" y="64" text-anchor="middle" class="m" font-size="9.5" font-weight="600" fill="var(--do)">COMPLETED · order</text>
+            <circle cx="752" cy="86" r="8" fill="var(--do-solid)" stroke="var(--do-solid)" stroke-width="2"/>
+            <circle cx="752" cy="86" r="3" fill="var(--do-on-solid)"/>
+            <text x="752" y="110" text-anchor="middle" font-size="9.5" fill="var(--do)">final state reached</text>
+            <text x="752" y="122" text-anchor="middle" font-size="9.5" fill="var(--do)">(success or skipped)</text>
+
+            <!-- onClose note, on its own baseline -->
+            <line x1="16" y1="150" x2="864" y2="150" stroke="currentColor" stroke-width="0.7" opacity="0.25"/>
+            <text x="16" y="170" class="m" font-size="9" font-weight="600" fill="var(--dont)">onClose()</text>
+            <text x="82" y="170" font-size="9.5" fill="currentColor">is the order-page close. A CLOSE from the connection widget arrives as source "bridge" - the order page is still live.</text>
+            <text x="16" y="186" font-size="9.5" fill="currentColor">Treat a close as abandonment only when source is "order".</text>
+          </g>
+        </svg>
+        <figcaption>Gate on the right-hand marker. Where self-certification is enabled the
+          applicant's review sits between the two, so acting on the left marker can move them on
+          before they have finished.</figcaption>
+      </figure>
+
+      <div class="rule-body">
+        <pre>onEvent: function (type, payload, source) {
+  if (type === 'COMPLETED' &amp;&amp; source === 'order') {
+    enableContinue();          <span class="c">// the only correct gate</span>
+  }
+}</pre>
+        <p><b>Why not <code>onSuccess</code>.</b> On an embedded order it is not the earlier
+          signal it looks like. The documentation describes it as the applicant having connected
+          their accounts and finished on the order page, and in practice it arrives
+          <i>after</i> <code>COMPLETED</code>, not before a connection. So it is no use as a
+          gate and no use as a "they have connected something" trigger either - for that, see
+          <a href="#rule-5">Rule 5</a>.</p>
+        <div class="callout warn">
+          <span class="label">Serve your test page over http, not from a file</span>
+          <p>Open the page straight off disk on a <code>file://</code> URL and the embed looks
+            fine - the frame renders, the applicant can connect, the data lands on the order -
+            but <code>SUCCESS</code> and <code>COMPLETED</code> never arrive, and the widget's
+            own Done button stops responding. A <code>file://</code> page has no real origin for
+            Bridge to post back to, and only the early <code>LOAD</code> events survive it.
+            Anything served from <code>localhost</code> over http behaves normally. Worth knowing
+            before you spend an afternoon on an event handler that was never the problem.</p>
+        </div>
+
+        <p><b>Why not <code>onClose</code>.</b> A close is not necessarily the end of the order.
+          <code>onClose()</code> corresponds to the order-page close, and
+          <code>onEvent('CLOSE', undefined, 'order')</code> fires at the same time. A close
+          originating in the connection widget arrives separately, as
+          <code>onEvent('CLOSE', payload, 'bridge')</code>. So do not treat any CLOSE as
+          abandonment unless <code>source</code> is <code>"order"</code>: the connection widget
+          can close while the order page underneath stays live and usable.</p>
+        <div class="callout">
+          <span class="label">It gates verification, not progress</span>
+          <p>This is the gate for treating the step as <i>verified</i>. It is not the gate for
+            letting the applicant move through the application at all - an applicant who took
+            one of <a href="#rule-4">Rule 4</a>'s escapes will never reach
+            <code>COMPLETED</code> here, and still has to be able to carry on.</p>
+        </div>
+
+        <div class="callout">
+          <span class="label">COMPLETED is not the same as verified</span>
+          <p><code>COMPLETED</code> fires on the order's final state, and that state can be
+            <i>success or skipped</i>. Reaching it means the applicant is finished with the
+            order, not that usable data came back.</p>
+          <p>So use it to move the applicant forward, then read the order back on your server and
+            branch on each suborder's own <code>status</code> and <code>last_task_status</code>
+            (<code>employers[]</code> and <code>financial_accounts[]</code> each carry both). The
+            event tells you the applicant is done; the order tells you what you hold.</p>
+        </div>
+        <div class="callout">
+          <span class="label">expired_at is a deadline, not a flag</span>
+          <p><code>expired_at</code> is set <b>when the order is created</b>. It is the expiry
+            deadline, not a flag saying the order has expired. The state fields are
+            <code>completed_at</code>, <code>canceled_at</code> and <code>is_expired</code>.</p>
+        </div>
+      </div>
+    </article>
+
+    <!-- RULE 9 -->
+    <article class="rule-card" id="rule-9">
+      <span class="rule-tag">Rule 9</span>
+      <h3>Ask for income once.</h3>
+      <div class="rule-body">
+        <div class="verdicts">
+          <div class="verdict"><span class="vchip no">Don't</span>
+            <p>Run Truv and then present the same income in a form the applicant has to fill in
+              or confirm field by field.</p></div>
+          <div class="verdict"><span class="vchip yes">Do</span>
+            <p>Show the verified result as a read-only row with an edit affordance, and let them
+              move on.</p></div>
+        </div>
+        <p>If self-certification is on, the applicant has already reviewed every record and
+          confirmed it. A summary screen after that asks them to confirm the same thing twice.</p>
+        <p>The same applies to document upload. <b>Document upload is part of the order landing
+          page</b> - the <i>Upload documents</i> button beside <i>Connect</i>, with accepted
+          types and labels set per document type on your template. Build a second upload widget
+          elsewhere in your application and you have two paths to the same outcome, one of which
+          produces structured data and one of which does not.</p>
+      </div>
+    </article>
+  </section>
+
+  <!-- ══════════════ 5. LAYOUT ══════════════ -->
+  <section class="sec" id="layout">
+    <div class="sec-head">
+      <h2>Layout and mounting</h2>
+      <p class="sub">Four constraints worth knowing before you hit them.</p>
+    </div>
+    <div class="band">
+      <div class="col">
+      <h3>Set width on the container, never height</h3>
+      <p>New accounts default to automatic frame sizing: the frame grows to fit its content and
+        the page keeps a single scrollbar. Setting a height clips or stretches it. Minimum
+        supported width is 320px - give it more wherever you can.</p>
+      <ul>
+        <li>Don't nest the container in a clipped or scroll-trapping parent.</li>
+        <li>If your account is on the legacy <b>fixed height</b> sizing, you must set an explicit
+          height - ideally viewport-relative - and keep the container out of a scrollable parent.
+          Let CSS own that height rather than setting pixel heights from JavaScript on Bridge
+          events.</li>
+      </ul>
+
+      <h3>Have the token before the step renders</h3>
+      <p>Creating the order is a server call, so there is a gap between the applicant arriving
+        at the step and the order page being mountable. Fetch the token as part of loading the
+        step rather than after it paints, and show your own loading state in the container until
+        Bridge is mounted. Otherwise the applicant sees an empty panel where the content should
+        be, which reads as a broken page.</p>
+      <p>If the call fails, say so in your own words and offer the step again. The applicant
+        cannot act on a Truv error they never see.</p>
+
+      <h3>Mount after the step has finished laying out</h3>
+      <p>Mounting while a wizard step is still animating open can leave the order page rendering
+        a narrow, mobile-width column inside a full-width container. If you see that, delay the
+        mount until the step has laid out and the container has its final width.</p>
+
+      <h3>Keep the container stable while Bridge is open</h3>
+      <p>Do not unmount or reparent it. On single-page-app navigation, close Bridge before
+        removing the container. Only one Bridge instance can be open at a time.</p>
+
+      <h3>Match the template to the order's products</h3>
+      <p>Truv validates the pairing and rejects a mismatch with <code>400</code>:</p>
+      <pre>{
+  "error": {
+    "code": "incorrect_parameters",
+    "message": "Incorrect request parameters",
+    "extra": {
+      "invalid-params": [
+        { "field": "template_id",
+          "message": "Wrong template &lt;id&gt; for order products" }
+      ]
+    }
+  }
+}</pre>
+      <p>A template bound to <code>["income","assets"]</code> cannot be used with an income-only
+        order, and vice versa. If you need both an income-only and an income-plus-assets flow,
+        you need two templates.</p>
+      <p>Related: <code>products: ["income"]</code> already includes employment data. Do not pass
+        <code>["income","employment"]</code>.</p>
+    </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ 6. CONFIG ══════════════ -->
+  <section class="sec" id="config">
+    <div class="sec-head">
+      <h2>Configuration checklist</h2>
+      <p class="sub">These settings decide whether a technically correct integration actually
+        works. Some are template-level and yours to change; some are account-level and need Truv
+        to flip them. Walk this list before your first end-to-end test, not after.</p>
+    </div>
+    <div class="band">
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>Setting</th><th>Level</th><th>Should be</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td>Suborder launch</td><td>Account</td><td><b>As a modal</b></td><td>The nested mode is deprecated as of June 18, 2026</td></tr>
+            <tr><td>Frame sizing</td><td>Account</td><td><b>Automatic height</b></td><td>Least layout work; no double scroll</td></tr>
+            <tr><td><code>orders.auto_open</code></td><td>Template</td><td><code>disabled</code></td><td>Otherwise the applicant never sees your landing page</td></tr>
+            <tr><td>Template products</td><td>Template</td><td>Match the order exactly</td><td>A mismatch is a 400</td></tr>
+            <tr><td><code>orders.landing.header</code> / <code>.body</code></td><td>Template</td><td>Your copy</td><td>Replaces everything you'd have put above the embed</td></tr>
+            <tr><td><code>orders.landing.buttons.*</code></td><td>Template</td><td>Short labels</td><td>They render on one line and truncate</td></tr>
+            <tr><td><code>orders.skip_behavior</code></td><td>Template</td><td><code>any</code> for most programs</td><td>One honest attempt before the manual fallback</td></tr>
+            <tr><td>Self-certification</td><td>Template</td><td>On, if you want attestation</td><td>Turns Flow A into a verified-and-attested record</td></tr>
+            <tr><td>Document upload types</td><td>Template</td><td>Only what you accept</td><td>Paystubs, W-2, 1099, 1040 - each with min/max and a label</td></tr>
+            <tr><td><code>notification_settings</code></td><td>Order or template</td><td>Suppressed in-session</td><td>Un-suppress on exit, or for the send-link button</td></tr>
+            <tr><td>Popular companies list</td><td>Template</td><td>Your region's top employers, up to 15</td><td>Shown before the applicant types anything</td></tr>
+            <tr><td>Link expiration</td><td>Account or template</td><td>Long enough to cover a return visit</td><td>Sets <code>expired_at</code>; once past it you must create a new order</td></tr>
+            <tr><td>CSP <code>frame-src</code> / <code>script-src</code></td><td>Your app</td><td><code>my.truv.com</code> / <code>cdn.truv.com</code></td><td>Leading cause of a blank frame</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col">
+        <p>A template only works in the tenant it belongs to. If you run separate test and
+          production tenants - most state programs do - the client id, secret, and template id
+          have to move together.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ 7. QA ══════════════ -->
+  <section class="sec" id="qa">
+    <div class="sec-head">
+      <h2>Pre-launch QA</h2>
+      <p class="sub">Walk this on a real device, in a real browser, on the deployed environment.
+        Several of these fail only when hosted.</p>
+    </div>
+    <div class="band">
+      <div class="checks">
+        <div class="checkgroup">
+          <h3>Layout and mounting</h3>
+          <ul>
+            <li>Income step renders the landing page on arrival, with no click in between</li>
+            <li>Nothing above the embed except your own application chrome</li>
+            <li>Frame reaches full width at 1440px and does not render a mobile column</li>
+            <li>Single page scrollbar - no scroll trapped inside the frame</li>
+            <li>Usable at 375px wide, and on a short viewport</li>
+            <li>Self-certification screen scrolls far enough to reach its submit button</li>
+          </ul>
+        </div>
+        <div class="checkgroup">
+          <h3>Flow</h3>
+          <ul>
+            <li>Sign-in opens as a modal over the order page, not inside it - frame count is 2</li>
+            <li>Manual link sits below the embed, with the send-link button beside it</li>
+            <li>Manual link disappears once a connection succeeds</li>
+            <li>Dismissing the connection modal does not show an abandonment state</li>
+            <li>Continue becomes active only on <code>COMPLETED</code> / <code>source: "order"</code></li>
+            <li>If the template has self-certification on, the review step appears in the flow and submitting there ends the Truv leg</li>
+            <li>Completion lands on the next real section, with the income step ticked</li>
+            <li>Returning to the income step shows a confirmation, not a second embed</li>
+            <li>Leave mid-connection, reload the step: the order reinitializes on the same <code>bridge_token</code> and the earlier connection is still listed</li>
+            <li>A completed order does <b>not</b> reinitialize - the step shows the verified result</li>
+            <li>An expired order produces a <b>new</b> order on the same <code>external_user_id</code>, and its landing page lists the earlier connections</li>
+            <li><code>bridge.open()</code> is called - <code>init()</code> on its own renders nothing and throws no error</li>
+          </ul>
+        </div>
+        <div class="checkgroup">
+          <h3>Data and identity</h3>
+          <ul>
+            <li>One order per adult - unique <code>external_user_id</code>, shared <code>order_number</code></li>
+            <li>A household of three produces three distinct Truv users</li>
+            <li><code>task-status-updated</code> webhooks received, and the <code>X-WEBHOOK-SIGN</code> header verified against the <b>raw</b> request body rather than re-serialized JSON</li>
+            <li>Order read-back shows the products you requested</li>
+            <li><code>certification=certified</code> returns what your eligibility file expects</li>
+            <li>Where you hold an employer name, it is on the order: the order page lists that employer and Connect goes straight to the provider sign-in, with no search screen</li>
+            <li>An employer name Truv cannot match still creates the order, and the applicant lands on the employer search screen</li>
+          </ul>
+        </div>
+        <div class="checkgroup">
+          <h3>Failure paths</h3>
+          <ul>
+            <li>Wrong credentials, then recovery</li>
+            <li>An unsupported employer, then the manual fallback</li>
+            <li>Applicant closes the browser mid-flow, returns via the emailed link, finishes</li>
+            <li>An expired link renders your expired-screen copy</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ 8. DEMOS ══════════════ -->
+  <section class="sec" id="resources">
+    <div class="sec-head">
+      <h2>Documentation and test logins</h2>
+      <p class="sub">The documentation behind this guide, and the sandbox logins to test with.</p>
+    </div>
+    <div class="band">
+      <div class="col">
+        <h3>Documentation</h3>
+        <ul class="doclist">
+          <li><a href="https://docs.truv.com/developers/integration/embedded-orders/overview">Embedded Orders overview</a></li>
+          <li><a href="https://docs.truv.com/developers/integration/embedded-orders/display-modes">Display Modes</a></li>
+          <li><a href="https://docs.truv.com/developers/integration/embedded-orders/self-certification">Self-Certification</a></li>
+          <li><a href="https://docs.truv.com/developers/integration/embedded-orders/follow-up">Follow-up (email and SMS)</a></li>
+          <li><a href="https://docs.truv.com/developers/integration/embedded-orders/deeplinking">Deeplinking</a></li>
+          <li><a href="https://docs.truv.com/developers/integration/embedded-orders/data-refresh">Data Refresh</a></li>
+          <li><a href="https://docs.truv.com/developers/customization">UX Customization</a></li>
+          <li><a href="https://docs.truv.com/developers/sdks/bridge-events">Bridge Events</a></li>
+        </ul>
+
+        <h3>Sandbox credentials</h3>
+        <div class="tbl-scroll">
+          <table>
+            <thead><tr><th>Username</th><th>Password</th><th>Scenario</th></tr></thead>
+            <tbody>
+              <tr><td><code>goodlogin</code></td><td><code>goodpassword</code></td><td>Full-time current employment</td></tr>
+              <tr><td><code>hourly.part-time</code></td><td><code>goodpassword</code></td><td>Hourly part-time</td></tr>
+              <tr><td><code>multiple.employments</code></td><td><code>goodpassword</code></td><td>Multiple employers</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Full set at <a href="https://docs.truv.com/developers/testing/test-credentials">docs.truv.com/developers/testing/test-credentials</a>.
+          Test deeplinks in the Dashboard Emulator before deploying.</p>
+      </div>
+    </div>
+  </section>
+
+
+
+  <!-- ══════════════ 10. WAY FORWARD ══════════════ -->
+  <section class="sec" id="decisions">
+    <div class="sec-head">
+      <h2>What to decide, and in what order</h2>
+      <p class="sub">Everything above is either a decision somebody owns or a setting somebody
+        changes. This is that list, so a review of this guide ends with assignments rather than
+        questions.</p>
+    </div>
+
+    <div class="band">
+      <div class="col">
+        <h3>Decisions</h3>
+        <p>None of these need Truv to build anything. They need an owner and an answer.</p>
+      </div>
+
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>Decision</th><th>Sits with</th><th>Where it is covered</th></tr></thead>
+          <tbody>
+            <tr><td>Are we capturing income at the income step, or verifying a figure already declared?</td><td>Program and policy</td><td><a href="#flows">Capture or verify</a></td></tr>
+            <tr><td>Do applicants attest inside Truv, or only in our own form?</td><td>Program and policy</td><td><a href="#flows">Self-certification</a></td></tr>
+            <tr><td>Which step does the order page render on, and what does the applicant see next?</td><td>Program with UX</td><td><a href="#journey">Placement</a>, and <a href="#rule-9">Rule 9</a></td></tr>
+            <tr><td>Do we hold an employer name before the order exists, and which route resolves it?</td><td>Integration with UX</td><td><a href="#deeplink">Deeplinking</a></td></tr>
+            <tr><td>Which languages do we need, and what happens outside the supported list?</td><td>Program and policy</td><td><a href="#rule-2">Rule 2</a></td></tr>
+            <tr><td>What does the manual route look like, and how hard is it to reach?</td><td>UX with policy</td><td><a href="#rule-4">Rule 4</a> and <code>orders.skip_behavior</code></td></tr>
+            <tr><td>Who sends reminders when somebody leaves, us or Truv?</td><td>Program with integration</td><td><a href="#rule-4">Rule 4</a></td></tr>
+            <tr><td>What copy, labels, logo and color go on the order page?</td><td>UX with program</td><td><a href="#rule-2">Rule 2</a></td></tr>
+            <tr><td>What do we do with a completed order that returned no usable data?</td><td>Integration with policy</td><td><a href="#rule-8">Rule 8</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="col">
+        <h3>Build order</h3>
+        <p>Each step is testable before the next one matters, which keeps the integration
+          reviewable as it goes.</p>
+        <ol>
+          <li><b>Settings first.</b> Confirm the account-level pairing and the template values in
+            the <a href="#config">configuration checklist</a>. Several cannot be worked around
+            in code, so finding them
+            after the build is the expensive order.</li>
+          <li><b>Create and read an order server-side.</b> One order per adult, your own id in
+            <code>external_user_id</code>, your case number in <code>order_number</code>. Prove
+            you can read it back and see the suborders.</li>
+          <li><b>Mount it on one step.</b> SDK, inline, on arrival. At this point the applicant
+            can complete a verification end to end.</li>
+          <li><b>Gate the step.</b> Advance only on <code>COMPLETED</code> with
+            <code>source: "order"</code>, then read the order and branch on each suborder.</li>
+          <li><b>Build the two escapes.</b> The manual link and the send-link button, below the
+            embed.</li>
+          <li><b>Handle the return visit.</b> Reinitialize an open order, create a new one
+            otherwise.</li>
+          <li><b>Deeplink.</b> Pass the employer wherever you already hold one.</li>
+          <li><b>Walk the <a href="#qa">pre-launch checks</a></b> on the deployed environment, on a real device.</li>
+        </ol>
+
+        <h3>What needs Truv</h3>
+        <p>Suborder launch and frame sizing are account-level: we set them, you cannot. Ask for
+          suborder launch as a modal and automatic frame sizing before you start building,
+          because the first one in particular will look like a bug in your own code. For
+          anything else, send an order id with the question - it gets answered faster than a
+          description does.</p>
+      </div>
+    </div>
+  </section>

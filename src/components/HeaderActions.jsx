@@ -6,16 +6,20 @@
  * is intentionally NOT here — it lives only on the Home page (see Home.jsx).
  */
 import { DASHBOARD_KEYS_URL } from '../config.js';
+import { PhosphorIcons } from './PhosphorIcons.jsx';
 
 const GITHUB_URL = 'https://github.com/truvhq/demo-apps/';
 
 // Shared button styling for the borderless (secondary) actions.
 const OUTLINE_BTN = 'text-[13px] font-medium text-[#000000] rounded-lg px-3 py-1.5 hover:bg-[#f5f5f7] active:bg-[#e8e8ed] transition-colors inline-flex items-center gap-1.5';
+// Same buttons in the Public Sector (Checkr) look.
+const OUTLINE_BTN_CHECKR = 'text-[13px] font-medium text-[#474c52] rounded-[6px] px-3 py-1.5 hover:text-[#1b1c1f] hover:bg-[#f0f2f5] transition-colors duration-[400ms] inline-flex items-center gap-1.5';
 
 // External-link arrow appended to outbound links. Hidden on narrow screens to
 // save space; the caller passes the breakpoint that matches its own text label
 // so the arrow never shows next to a bare icon.
-function ExternalArrow({ class: cls = 'hidden sm:inline' }) {
+function ExternalArrow({ class: cls = 'hidden sm:inline', theme }) {
+  if (theme === 'checkr') return <PhosphorIcons.arrowSquareOut size={12} className={cls} />;
   return (
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class={cls}>
       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
@@ -65,8 +69,10 @@ export function GitHubPanelLink() {
 // open/closed state — so the link never jumps between header and panel as the
 // panel is toggled. Defaults to false, so pages without a Dev button — Home,
 // IndustryPage, demo intro screens — always keep the header link.
-export function HeaderActions({ githubInPanel = false }) {
-  const githubClass = OUTLINE_BTN.replace('inline-flex', githubInPanel ? 'hidden lg:inline-flex' : 'inline-flex');
+export function HeaderActions({ githubInPanel = false, theme }) {
+  const checkr = theme === 'checkr';
+  const btn = checkr ? OUTLINE_BTN_CHECKR : OUTLINE_BTN;
+  const githubClass = btn.replace('inline-flex', githubInPanel ? 'hidden lg:inline-flex' : 'inline-flex');
   return (
     <div class="flex items-center gap-1 sm:gap-2">
       {/* Label and arrow appear from lg up; below lg the header link (when
@@ -74,17 +80,19 @@ export function HeaderActions({ githubInPanel = false }) {
       <a href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label="GitHub" class={githubClass}>
         <GitHubIcon />
         <span class="hidden lg:inline">GitHub</span>
-        <ExternalArrow class="hidden lg:inline" />
+        <ExternalArrow class="hidden lg:inline" theme={theme} />
       </a>
-      <a href={DASHBOARD_KEYS_URL} target="_blank" rel="noreferrer" class={OUTLINE_BTN}>
+      <a href={DASHBOARD_KEYS_URL} target="_blank" rel="noreferrer" class={btn}>
         Dashboard
-        <ExternalArrow />
+        <ExternalArrow theme={theme} />
       </a>
       <a
         href="https://truv.com/contact-sales"
         target="_blank"
         rel="noreferrer"
-        class="ml-2 text-[13px] font-medium text-white bg-primary rounded-lg px-3 py-1.5 hover:bg-primary-hover active:bg-primary-active transition-colors whitespace-nowrap"
+        class={checkr
+          ? 'ml-2 text-[13px] font-medium text-white bg-[#1b1c1f] rounded-[6px] px-4 py-2 hover:bg-[#23deff] hover:text-[#1b1c1f] transition-colors duration-[400ms] whitespace-nowrap'
+          : 'ml-2 text-[13px] font-medium text-white bg-primary rounded-lg px-3 py-1.5 hover:bg-primary-hover active:bg-primary-active transition-colors whitespace-nowrap'}
       >
         Contact sales
       </a>
