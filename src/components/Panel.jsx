@@ -13,6 +13,7 @@
 import { useState } from 'preact/hooks';
 import { GitHubPanelLink } from './HeaderActions.jsx';
 import { DASHBOARD_WEBHOOKS_URL } from '../config.js';
+import { foldRepeats, statusOf } from '../utils/panelLogs.js';
 
 // TabButton: individual tab selector pill for the Panel's tab-nav row.
 function TabButton({ active, label, count, onClick }) {
@@ -111,28 +112,8 @@ function LogEntry({ method, endpoint, status, requestBody, responseBody, applica
 }
 
 // ApiTab: lists all logged Truv API calls from usePanel() polling.
-// Each call is rendered as an expandable LogEntry. With `fold`, a GET that returns exactly what
-// the same GET returned last time is counted on that row instead of added again, so a demo that
-// polls for a result shows each change once, not every check.
-// The database column is status_code; older callers pass status.
-const statusOf = (log) => log.status ?? log.status_code;
-
-function foldRepeats(logs) {
-  const rows = [];
-  const lastByKey = new Map();
-  for (const log of logs) {
-    const key = `${log.method}|${log.endpoint || log.url}|${log.applicant || ''}`;
-    const prev = lastByKey.get(key);
-    const same = prev && (log.method || 'GET').toUpperCase() === 'GET'
-      && statusOf(prev) === statusOf(log) && prev.response_body === log.response_body;
-    if (same) { prev.repeat += 1; continue; }
-    const row = { ...log, repeat: 1 };
-    rows.push(row);
-    lastByKey.set(key, row);
-  }
-  return rows;
-}
-
+// Each call is rendered as an expandable LogEntry. With `fold`, a run of unchanged GET polls is
+// shown once with a count (see foldRepeats).
 function ApiTab({ logs, fold = false }) {
   if (!logs.length) return <div class="flex items-center justify-center h-32 text-gray-400 text-sm">No API calls yet.</div>;
   const rows = fold ? foldRepeats(logs) : logs;
@@ -245,7 +226,7 @@ function tryFormat(s) {
 // panel is done with the header's Dev toggle — the row has no close button.
 export function Panel({ steps, panel, activeTab, tabs, onTabChange }) {
   // Destructure polled data from usePanel() with safe defaults
-  const { currentStep = 0, apiLogs = [], bridgeEvents = [], webhooks = [], tunnelUrl = null, foldRepeats: fold = false } = panel || {};
+  const { currentStep = 0, apiLogs = [], bridgeEvents = [], webhooks = [], tunnelUrl = null, foldPolls = false } = panel || {};
 
   const asideClass = 'absolute inset-0 z-30 lg:static lg:z-auto lg:w-1/3 lg:min-w-0 lg:border-l lg:border-border bg-white flex flex-col overflow-hidden';
 
@@ -263,7 +244,7 @@ export function Panel({ steps, panel, activeTab, tabs, onTabChange }) {
       )}
       <div class="flex-1 overflow-y-auto px-5 py-4">
         {activeTab === 'guide' && <GuideTab steps={steps || []} currentStep={currentStep} />}
-        {activeTab === 'api' && <ApiTab logs={apiLogs} fold={fold} />}
+        {activeTab === 'api' && <ApiTab logs={apiLogs} fold={foldPolls} />}
         {activeTab === 'bridge' && <BridgeTab events={bridgeEvents} />}
         {activeTab === 'webhooks' && <WebhooksTab webhooks={webhooks} tunnelUrl={tunnelUrl} />}
       </div>

@@ -613,27 +613,61 @@ export function RenewalsRefreshDemo() {
 
     // Bridge's dialog is modal, so everything on the page behind it is inert, and the SDK has no
     // option to dismiss it from the host. Whether the dialog shows its own close control depends
-    // on the account's settings. Put one inside the dialog so a presenter is never stuck, and
-    // take over the native Escape so it ends this effect instead of leaving the SDK open.
+    // on the account's settings. Put one inside the dialog so a presenter is never stuck.
+    // Escape is handled too, but only reaches the page while focus is on the page (this button,
+    // or after a click on the dimmed backdrop). While focus is inside Bridge's frame the page
+    // never sees the key.
     const dialog = document.querySelector('dialog.truv-dialog-root-element');
     const leave = () => { addBridgeEvent('Closed from the demo', null); setActive(null); };
     const onCancel = (e) => { e.preventDefault(); leave(); };
     let back = null;
+    let stopWatching = () => {};
     if (dialog) {
       back = document.createElement('button');
       back.type = 'button';
       back.textContent = '\u2190 Back without finishing';
       back.setAttribute('data-bridge-back', '');
-      // Above the card on a desktop. On a phone the card fills the screen, so keep the button small.
-      const phone = window.matchMedia('(max-width: 600px)').matches;
-      back.style.cssText = `position:fixed;top:${phone ? 6 : 16}px;left:50%;transform:translateX(-50%);z-index:2;`
-        + `padding:${phone ? '3px 10px' : '6px 14px'};border:0;border-radius:999px;background:#fff;color:#1b1c1f;`
-        + `font-family:inherit;font-weight:500;font-size:${phone ? 12 : 13}px;line-height:1.2;white-space:nowrap;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.25)`;
+      back.style.cssText = 'position:fixed;z-index:2;border:0;border-radius:999px;background:#fff;color:#1b1c1f;'
+        + 'font-family:inherit;font-weight:500;line-height:1.2;white-space:nowrap;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.25)';
       back.addEventListener('click', leave);
       dialog.appendChild(back);
       dialog.addEventListener('cancel', onCancel);
+
+      // Keep the button out of Bridge's way. Put it in the free space above the card if there
+      // is room, else beside it, and only when the card fills the screen (a phone) squeeze a
+      // small one onto the top edge.
+      const place = () => {
+        const frame = dialog.querySelector('iframe');
+        if (!frame) return;
+        const card = frame.getBoundingClientRect();
+        const look = (compact) => {
+          back.style.padding = compact ? '3px 10px' : '6px 14px';
+          back.style.fontSize = compact ? '12px' : '13px';
+          return back.getBoundingClientRect();
+        };
+        const gap = 12;
+        let { width, height } = look(false);
+        if (card.top >= height + 2 * gap) {
+          back.style.top = `${(card.top - height) / 2}px`;
+          back.style.left = `${card.left + (card.width - width) / 2}px`;
+        } else if (card.left >= width + 2 * gap) {
+          back.style.top = `${gap}px`;
+          back.style.left = `${gap}px`;
+        } else {
+          ({ width } = look(true));
+          back.style.top = '6px';
+          back.style.left = `${card.left + (card.width - width) / 2}px`;
+        }
+      };
+      place();
+      const frame = dialog.querySelector('iframe');
+      const watcher = frame && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(place) : null;
+      watcher?.observe(frame);
+      window.addEventListener('resize', place);
+      stopWatching = () => { watcher?.disconnect(); window.removeEventListener('resize', place); };
     }
     return () => {
+      stopWatching();
       dialog?.removeEventListener('cancel', onCancel);
       back?.remove();
       try { bridge.close(); } catch { /* already closed */ }
@@ -673,7 +707,7 @@ export function RenewalsRefreshDemo() {
   }
 
   return (
-    <Layout badge="Public Sector · Renewals & Data Refresh" steps={STEPS} panel={{ ...panel, foldRepeats: true }} theme="checkr">
+    <Layout badge="Public Sector · Renewals & Data Refresh" steps={STEPS} panel={{ ...panel, foldPolls: true }} theme="checkr">
 
       <div class="max-w-4xl w-full min-w-0 mx-auto px-4 py-6 sm:px-8 sm:py-10">
 

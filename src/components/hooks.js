@@ -21,6 +21,8 @@
 // Preact hooks imports
 import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 
+import { mergeByUser } from '../utils/panelLogs.js';
+
 // API base URL: same origin as the frontend, proxied to Express on port 3000
 const API_BASE = window.location.origin;
 export { API_BASE };
@@ -77,25 +79,8 @@ export function usePanel() {
           setWebhooks(perUser[0].whs);
           return;
         }
-        const tag = (rows, uid) => rows.map(r => (labelsRef.current[uid] ? { ...r, applicant: labelsRef.current[uid] } : r));
-        // Entries get increasing ids as they are written, so sorting by id is sorting by time.
-        // Session-scoped calls (company search) come back once per user: keep one copy.
-        const merge = (key) => {
-          const seen = new Set();
-          const out = [];
-          for (const { uid, [key]: rows } of perUser) {
-            for (const row of tag(rows, uid)) {
-              if (row.id != null) {
-                if (seen.has(row.id)) continue;
-                seen.add(row.id);
-              }
-              out.push(row);
-            }
-          }
-          return out.sort((x, y) => (x.id ?? 0) - (y.id ?? 0));
-        };
-        setApiLogs(merge('logs'));
-        setWebhooks(merge('whs'));
+        setApiLogs(mergeByUser(perUser, 'logs', labelsRef.current));
+        setWebhooks(mergeByUser(perUser, 'whs', labelsRef.current));
       } catch {}
     };
     pollRef.current = poll;
