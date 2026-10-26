@@ -301,7 +301,8 @@ describe('RenewalsRefresh scaffolding', () => {
   });
 
   it('walkthrough stages have the required fields and a built-in kind', () => {
-    expect(WALKTHROUGH_STAGES.length).toBeGreaterThanOrEqual(5);
+    // Two slides: what it is, and how it works. The detail belongs in a guide, not before the demo.
+    expect(WALKTHROUGH_STAGES.length).toBe(2);
     for (const s of WALKTHROUGH_STAGES) {
       expect(s.n).toBeTruthy();
       expect(s.name).toBeTruthy();

@@ -4,7 +4,7 @@
  *
  * DATA FLOW:
  *   1. POST /api/orders                          : one order per applicant (intake)
- *   2. Bridge in the preview iframe              : applicant connects payroll or bank
+ *   2. Bridge, as a dialog over this page        : applicant connects payroll or bank
  *   3. POST /api/renewals/refresh/:orderId       : recertification, server-side
  *   4. GET  /api/renewals/outcome/:refreshOrderId: get each refresh's result
  *   5. Bridge again, only for the failures       : applicant clears MFA, order completes
@@ -43,8 +43,6 @@ import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 
 // --- Imports: shared layout, components, hooks, and API base URL ---
 import { Layout, usePanel, API_BASE, Walkthrough } from '../components/index.js';
-import { DeviceFrame } from '../components/DeviceFrame.jsx';
-import { usePreviewIframe } from '../hooks/usePreviewIframe.js';
 
 // --- Imports: report display components ---
 import { VoieReport } from '../components/reports/VoieReport.jsx';
@@ -302,14 +300,14 @@ export function RenewalsRefreshDemo() {
   const [reports, setReports] = useState({}); // caseId -> { income?, assets? }
   const [reportUi, setReportUi] = useState({}); // caseId -> { open, loading, error }
 
-  const iframeRef = useRef(null);
   const completedRef = useRef(false);
+  const launcherRef = useRef(null); // the button that opened Bridge, so focus can return to it
   const revealQueueRef = useRef([]);
   const pollCountRef = useRef({});
   const runRef = useRef(0); // bumped on Start Over so a pending retry cannot touch the fresh state
 
   // Panel hook: sidebar (Guide / API / Bridge / Webhooks) + per-user polling.
-  const { panel, sessionId, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset: resetPanel } = usePanel();
+  const { panel, setCurrentStep, startPolling, pollNow, addBridgeEvent, reset: resetPanel } = usePanel();
 
   const visibleCases = cases;
   // Connected means the applicant finished Bridge, not merely that an order exists.
@@ -350,10 +348,20 @@ export function RenewalsRefreshDemo() {
     document.title = 'Renewals & Data Refresh | Truv Demo Apps';
   }, []);
 
-  // When the view swaps (screen change, Bridge closing), put keyboard focus on the new heading.
+  // When the screen changes, put keyboard focus on the new heading.
   useEffect(() => {
-    if (!active && screen !== 'walkthrough') document.querySelector('[data-screen-heading]')?.focus({ preventScroll: true });
-  }, [screen, active]);
+    if (screen !== 'walkthrough') document.querySelector('[data-screen-heading]')?.focus({ preventScroll: true });
+  }, [screen]);
+
+  // When the Bridge dialog closes, put focus back on the button that opened it. If that button
+  // is gone (a connected applicant's row no longer has one), use the screen heading.
+  useEffect(() => {
+    if (active) return;
+    const el = launcherRef.current;
+    launcherRef.current = null;
+    if (!el) return;
+    (el.isConnected ? el : document.querySelector('[data-screen-heading]'))?.focus({ preventScroll: true });
+  }, [active]);
 
   // Keep the sidebar step indicator in step with the screen.
   useEffect(() => {
@@ -361,15 +369,18 @@ export function RenewalsRefreshDemo() {
     setCurrentStep(stepMap[screen] ?? 0);
   }, [screen, reengage, setCurrentStep]);
 
-  // Point the panel's webhook feed at the most useful user for each screen. The panel
-  // follows one Truv user at a time and this demo creates one per applicant, so on the
-  // watch screen we follow the first applicant whose refresh failed. That is where
-  // `order-refresh-failed` shows up.
+  // The panel follows Truv users, and this demo creates one user per applicant. Follow all of
+  // them, so every order and refresh the presenter starts shows up in the API and Webhooks tabs,
+  // each tagged with the applicant it belongs to.
+  const watchedKey = cases.filter(c => c.order?.user_id).map(c => c.order.user_id).join(',');
   useEffect(() => {
-    if (screen !== 'watch' && screen !== 'reauth') return;
-    const focus = needsReauth[0] || refreshed[0];
-    if (focus?.order?.user_id) startPolling(focus.order.user_id);
-  }, [screen, needsReauth.length, refreshed.length, startPolling]);
+    if (!watchedKey) return;
+    const watched = cases.filter(c => c.order?.user_id);
+    startPolling(
+      watched.map(c => c.order.user_id),
+      { labels: Object.fromEntries(watched.map(c => [c.order.user_id, `${c.firstName} ${c.lastName}`])) },
+    );
+  }, [watchedKey, startPolling]);
 
   // Update one case by id.
   const patchCase = useCallback((id, patch) => {
@@ -393,10 +404,10 @@ export function RenewalsRefreshDemo() {
 
   // --- Step 1: intake. Create the applicant's original order, then open Bridge. ---
   async function connectCase(c) {
+    launcherRef.current = document.activeElement;
     // An order exists but Bridge was not finished: reopen it rather than create another.
     if (c.order?.bridge_token && !c.connectedAt) {
       completedRef.current = false;
-      if (c.order.user_id) startPolling(c.order.user_id);
       setActive({ id: c.id, mode: 'connect', bridgeToken: c.order.bridge_token });
       return;
     }
@@ -419,7 +430,6 @@ export function RenewalsRefreshDemo() {
       const data = await resp.json();
       if (!resp.ok) { setError(data.error || 'Could not create the order'); setBusy(null); return; }
       patchCase(c.id, { order: data });
-      if (data.user_id) startPolling(data.user_id);
       completedRef.current = false;
       setActive({ id: c.id, mode: 'connect', bridgeToken: data.bridge_token });
     } catch (e) {
@@ -531,9 +541,9 @@ export function RenewalsRefreshDemo() {
   // authorized) and goes straight to the challenge that stopped the refresh. ---
   function reauthCase(c) {
     if (!c.refresh?.bridge_token) return;
+    launcherRef.current = document.activeElement;
     patchCase(c.id, { failedReason: c.outcome?.reason || null });
     completedRef.current = false;
-    if (c.order?.user_id) startPolling(c.order.user_id);
     setActive({ id: c.id, mode: 'reauth', bridgeToken: c.refresh.bridge_token });
   }
 
@@ -559,45 +569,110 @@ export function RenewalsRefreshDemo() {
       console.error(e);
       fail('Could not load the report. Try again.');
     }
-    pollOnceAndStop();
+    pollNow();
   }
 
-  // Preview-iframe channel. Bridge runs inside /preview.html, never the host page.
-  const sendPreview = usePreviewIframe(iframeRef, {
-    'bridge:onLoad': () => addBridgeEvent('onLoad()', null),
-    'bridge:onEvent': (type, payload, source) => {
-      addBridgeEvent(`onEvent("${type}", ${payload ? 'payload' : 'undefined'}, "${source}")`, payload ? [{ label: 'payload', value: payload }] : null);
-      // Order-level COMPLETED is the only safe advance signal: a per-link SUCCESS
-      // fires once per product and would advance a multi-product order early.
-      if (type === 'COMPLETED' && source === 'order') {
-        completedRef.current = true;
-        const finishedId = active?.id;
-        const mode = active?.mode;
-        setActive(null);
-        if (!finishedId) return;
-        if (mode === 'connect') {
-          patchCase(finishedId, { connectedAt: Date.now() });
-        } else {
-          // Once the applicant clears the challenge the refresh order completes. Clear the
-          // stored result so polling reads it again and the row changes to "Refreshed"
-          // the same way an automatic refresh does.
-          patchCase(finishedId, { outcome: { state: 'refreshing' }, revealed: false, reauthDone: true });
-        }
-      }
-    },
-    'bridge:onSuccess': () => addBridgeEvent('onSuccess()', null),
-    'bridge:onClose': () => {
-      addBridgeEvent('onClose()', null);
-      if (!completedRef.current) setActive(null);
-    },
-  });
-
-  // Send the current state to the iframe.
+  // Bridge opens as a dialog over this page, so the applicant list stays where it is behind
+  // the dialog and nothing navigates. Closing the dialog, or finishing, ends the effect.
   useEffect(() => {
-    if (!active) return;
-    if (active.bridgeToken) sendPreview('bridge', { bridgeToken: active.bridgeToken, isOrder: true, inline: true });
-    else sendPreview('loading', { label: 'Preparing verification…' });
-  }, [active, sendPreview]);
+    if (!active?.bridgeToken) return undefined;
+    if (!window.TruvBridge) {
+      setError('The connection window could not load. Check your network and try again.');
+      setActive(null);
+      return undefined;
+    }
+    const { id, mode } = active;
+    const bridge = window.TruvBridge.init({
+      bridgeToken: active.bridgeToken,
+      isOrder: true,
+      onLoad: () => addBridgeEvent('onLoad()', null),
+      onEvent: (type, payload, source) => {
+        addBridgeEvent(`onEvent("${type}", ${payload ? 'payload' : 'undefined'}, "${source}")`, payload ? [{ label: 'payload', value: payload }] : null);
+        // Order-level COMPLETED is the only safe advance signal: a per-link SUCCESS
+        // fires once per product and would advance a multi-product order early.
+        if (type === 'COMPLETED' && source === 'order') {
+          completedRef.current = true;
+          setActive(null);
+          if (mode === 'connect') {
+            patchCase(id, { connectedAt: Date.now() });
+          } else {
+            // Once the applicant clears the challenge the refresh order completes. Clear the
+            // stored result so polling reads it again and the row changes to "Refreshed"
+            // the same way an automatic refresh does.
+            patchCase(id, { outcome: { state: 'refreshing' }, revealed: false, reauthDone: true });
+          }
+        }
+      },
+      onSuccess: () => addBridgeEvent('onSuccess()', null),
+      onClose: () => {
+        addBridgeEvent('onClose()', null);
+        if (!completedRef.current) setActive(null);
+      },
+    });
+    bridge.open();
+
+    // Bridge's dialog is modal, so everything on the page behind it is inert, and the SDK has no
+    // option to dismiss it from the host. Whether the dialog shows its own close control depends
+    // on the account's settings. Put one inside the dialog so a presenter is never stuck.
+    // Escape is handled too, but only reaches the page while focus is on the page (this button,
+    // or after a click on the dimmed backdrop). While focus is inside Bridge's frame the page
+    // never sees the key.
+    const dialog = document.querySelector('dialog.truv-dialog-root-element');
+    const leave = () => { addBridgeEvent('Closed from the demo', null); setActive(null); };
+    const onCancel = (e) => { e.preventDefault(); leave(); };
+    let back = null;
+    let stopWatching = () => {};
+    if (dialog) {
+      back = document.createElement('button');
+      back.type = 'button';
+      back.textContent = '\u2190 Back without finishing';
+      back.setAttribute('data-bridge-back', '');
+      back.style.cssText = 'position:fixed;z-index:2;border:0;border-radius:999px;background:#fff;color:#1b1c1f;'
+        + 'font-family:inherit;font-weight:500;line-height:1.2;white-space:nowrap;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.25)';
+      back.addEventListener('click', leave);
+      dialog.appendChild(back);
+      dialog.addEventListener('cancel', onCancel);
+
+      // Keep the button out of Bridge's way. Put it in the free space above the card if there
+      // is room, else beside it, and only when the card fills the screen (a phone) squeeze a
+      // small one onto the top edge.
+      const place = () => {
+        const frame = dialog.querySelector('iframe');
+        if (!frame) return;
+        const card = frame.getBoundingClientRect();
+        const look = (compact) => {
+          back.style.padding = compact ? '3px 10px' : '6px 14px';
+          back.style.fontSize = compact ? '12px' : '13px';
+          return back.getBoundingClientRect();
+        };
+        const gap = 12;
+        let { width, height } = look(false);
+        if (card.top >= height + 2 * gap) {
+          back.style.top = `${(card.top - height) / 2}px`;
+          back.style.left = `${card.left + (card.width - width) / 2}px`;
+        } else if (card.left >= width + 2 * gap) {
+          back.style.top = `${gap}px`;
+          back.style.left = `${gap}px`;
+        } else {
+          ({ width } = look(true));
+          back.style.top = '6px';
+          back.style.left = `${card.left + (card.width - width) / 2}px`;
+        }
+      };
+      place();
+      const frame = dialog.querySelector('iframe');
+      const watcher = frame && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(place) : null;
+      watcher?.observe(frame);
+      window.addEventListener('resize', place);
+      stopWatching = () => { watcher?.disconnect(); window.removeEventListener('resize', place); };
+    }
+    return () => {
+      stopWatching();
+      dialog?.removeEventListener('cancel', onCancel);
+      back?.remove();
+      try { bridge.close(); } catch { /* already closed */ }
+    };
+  }, [active, addBridgeEvent, patchCase]);
 
   function resetDemo() {
     resetPanel();
@@ -632,418 +707,395 @@ export function RenewalsRefreshDemo() {
   }
 
   return (
-    <Layout badge="Public Sector · Renewals & Data Refresh" steps={STEPS} panel={panel} theme="checkr">
+    <Layout badge="Public Sector · Renewals & Data Refresh" steps={STEPS} panel={{ ...panel, foldPolls: true }} theme="checkr">
 
-      {/* Bridge lives in the device frame whenever an applicant is acting. */}
-      {active && (
-        <div class="px-4 pt-3 sm:px-8">
-          <button class="text-[13px] ck-link" onClick={() => setActive(null)}>
-            &larr; Back without finishing
-          </button>
-        </div>
-      )}
-      {active && (
-        <DeviceFrame url="benefits.example.gov" variant="phone">
-          <iframe
-            ref={iframeRef}
-            src="/preview.html?theme=checkr"
-            title="Demo preview"
-            class="w-full h-full border-0"
-            data-session={sessionId}
-          />
-        </DeviceFrame>
-      )}
+      <div class="max-w-4xl w-full min-w-0 mx-auto px-4 py-6 sm:px-8 sm:py-10">
 
-      {!active && (
-        <div class="max-w-4xl w-full min-w-0 mx-auto px-4 py-6 sm:px-8 sm:py-10">
+        {remounted && screen !== 'walkthrough' && (
+          <div role="status" class="mb-4 text-[12px] text-[#474c52]">
+            The demo reloaded itself (usually a code update while the page was open) and picked up where you left off.
+          </div>
+        )}
 
-          {remounted && screen !== 'walkthrough' && (
-            <div role="status" class="mb-4 text-[12px] text-[#474c52]">
-              The demo reloaded itself (usually a code update while the page was open) and picked up where you left off.
+        {error && (
+          <div role="alert" class="mb-5 border border-red-200 bg-red-50 rounded-xl p-4 text-[13px] text-[#7f1d1d]">{error}</div>
+        )}
+
+        {/* ---------------- Setup: connect the applicants ---------------- */}
+        {screen === 'setup' && (
+          <>
+            <Stepper current={0} />
+            <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#1b1c1f] mb-2 outline-none">Connect the applicants</h2>
+            <p class="text-[15px] text-[#474c52] leading-[1.5] mb-4">
+              Each applicant connects an employer, a bank, or both, like they would at intake. The test login on
+              each row decides what happens at renewal: some refresh on their own, some need the applicant, and
+              some need them for only one of their connections.
+            </p>
+            <ol class="mb-5 text-[13px] text-[#2e3035] leading-[1.6] list-decimal pl-5 space-y-0.5">
+              <li>Click <strong>Connect</strong> on a row and use that row's test login.</li>
+              <li>Sign in. If you change the password, press <strong>Enter</strong> to sign in.</li>
+              <li>When it says done, click <strong>Submit connected accounts</strong>. With two connections the buttons are <strong>Review connected accounts</strong>, then <strong>Verify and submit</strong>.</li>
+            </ol>
+
+            <p class="text-[12px] text-[#474c52] mb-2 md:hidden">Scroll the table sideways to reach the action buttons.</p>
+
+            <div class="border border-[#d8dee5] rounded-xl overflow-hidden overflow-x-auto bg-white mb-5">
+              <table class="w-full min-w-[720px] text-[13px]">
+                <thead>
+                  <tr class="border-b border-[#d8dee5] bg-[#f0f2f5] text-[#474c52] text-[13px] font-medium uppercase tracking-wide">
+                    <th scope="col" class="text-left px-4 py-3">Applicant</th>
+                    <th scope="col" class="text-left px-4 py-3">Connect to</th>
+                    <th scope="col" class="text-left px-4 py-3">Test login (sandbox)</th>
+                    <th scope="col" class="text-right px-4 py-3">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleCases.map(c => (
+                    <tr key={c.id} data-case={c.id} class="border-b border-[#f0f2f5] align-top">
+                      <td class="px-4 py-3">
+                        <div class="font-medium text-[#1b1c1f]">{c.firstName} {c.lastName}</div>
+                        <div class="text-[12px] text-[#474c52]">{c.scenario}</div>
+                      </td>
+                      <td class="px-4 py-3">
+                        {c.connections.map(x => (
+                          <div key={x.name} class="mb-2 last:mb-0">
+                            <div class="text-[#1b1c1f]">{x.name}</div>
+                            <div class="text-[12px] text-[#474c52]">{KIND_LABEL[x.kind]}</div>
+                          </div>
+                        ))}
+                      </td>
+                      <td class="px-4 py-3">
+                        {c.connections.map(x => (
+                          <div key={x.name} class="mb-3 last:mb-0">
+                            {c.connections.length > 1 && <div class="text-[12px] font-medium text-[#1b1c1f] mb-1">{x.name}</div>}
+                            <div class="flex flex-wrap gap-1.5 mb-1">
+                              <CredentialChip label="username" value={x.username} />
+                              <CredentialChip label="password" value={x.password} />
+                            </div>
+                            <div class="text-[12px] text-[#474c52] leading-[1.45] max-w-[300px]">{x.note}</div>
+                            {x.warn && <div class="text-[12px] text-[#8A6200] font-medium leading-[1.45] max-w-[300px] mt-1">{x.warn}</div>}
+                          </div>
+                        ))}
+                      </td>
+                      <td class="px-4 py-3 text-right">
+                        {c.connectedAt
+                          ? <StatusPill tone="good">connected</StatusPill>
+                          : (
+                            <button
+                              data-connect
+                              class="px-3 py-1.5 text-[13px] font-medium ck-btn primary disabled:opacity-40"
+                              disabled={busy === c.id}
+                              onClick={() => connectCase(c)}
+                            >
+                              {busy === c.id ? <span class="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (c.order ? 'Resume' : 'Connect')}
+                            </button>
+                          )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
 
-          {error && (
-            <div role="alert" class="mb-5 border border-red-200 bg-red-50 rounded-xl p-4 text-[13px] text-[#7f1d1d]">{error}</div>
-          )}
-
-          {/* ---------------- Setup: connect the applicants ---------------- */}
-          {screen === 'setup' && (
-            <>
-              <Stepper current={0} />
-              <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#1b1c1f] mb-2 outline-none">Connect the applicants</h2>
-              <p class="text-[15px] text-[#474c52] leading-[1.5] mb-4">
-                Each applicant connects an employer, a bank, or both, like they would at intake. The test login on
-                each row decides what happens at renewal: some refresh on their own, some need the applicant, and
-                some need them for only one of their connections.
-              </p>
-              <ol class="mb-5 text-[13px] text-[#2e3035] leading-[1.6] list-decimal pl-5 space-y-0.5">
-                <li>Click <strong>Connect</strong> on a row and use that row's test login.</li>
-                <li>Sign in. If you change the password, press <strong>Enter</strong> to sign in.</li>
-                <li>When it says done, click <strong>Submit connected accounts</strong>. With two connections the buttons are <strong>Review connected accounts</strong>, then <strong>Verify and submit</strong>.</li>
-              </ol>
-
-              <p class="text-[12px] text-[#474c52] mb-2 md:hidden">Scroll the table sideways to reach the action buttons.</p>
-
-              <div class="border border-[#d8dee5] rounded-xl overflow-hidden overflow-x-auto bg-white mb-5">
-                <table class="w-full min-w-[720px] text-[13px]">
-                  <thead>
-                    <tr class="border-b border-[#d8dee5] bg-[#f0f2f5] text-[#474c52] text-[13px] font-medium uppercase tracking-wide">
-                      <th scope="col" class="text-left px-4 py-3">Applicant</th>
-                      <th scope="col" class="text-left px-4 py-3">Connect to</th>
-                      <th scope="col" class="text-left px-4 py-3">Test login (sandbox)</th>
-                      <th scope="col" class="text-right px-4 py-3">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleCases.map(c => (
-                      <tr key={c.id} data-case={c.id} class="border-b border-[#f0f2f5] align-top">
-                        <td class="px-4 py-3">
-                          <div class="font-medium text-[#1b1c1f]">{c.firstName} {c.lastName}</div>
-                          <div class="text-[12px] text-[#474c52]">{c.scenario}</div>
-                        </td>
-                        <td class="px-4 py-3">
-                          {c.connections.map(x => (
-                            <div key={x.name} class="mb-2 last:mb-0">
-                              <div class="text-[#1b1c1f]">{x.name}</div>
-                              <div class="text-[12px] text-[#474c52]">{KIND_LABEL[x.kind]}</div>
-                            </div>
-                          ))}
-                        </td>
-                        <td class="px-4 py-3">
-                          {c.connections.map(x => (
-                            <div key={x.name} class="mb-3 last:mb-0">
-                              {c.connections.length > 1 && <div class="text-[12px] font-medium text-[#1b1c1f] mb-1">{x.name}</div>}
-                              <div class="flex flex-wrap gap-1.5 mb-1">
-                                <CredentialChip label="username" value={x.username} />
-                                <CredentialChip label="password" value={x.password} />
-                              </div>
-                              <div class="text-[12px] text-[#474c52] leading-[1.45] max-w-[300px]">{x.note}</div>
-                              {x.warn && <div class="text-[12px] text-[#8A6200] font-medium leading-[1.45] max-w-[300px] mt-1">{x.warn}</div>}
-                            </div>
-                          ))}
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                          {c.connectedAt
-                            ? <StatusPill tone="good">connected</StatusPill>
-                            : (
-                              <button
-                                data-connect
-                                class="px-3 py-1.5 text-[13px] font-medium ck-btn primary disabled:opacity-40"
-                                disabled={busy === c.id}
-                                onClick={() => connectCase(c)}
-                              >
-                                {busy === c.id ? <span class="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (c.order ? 'Resume' : 'Connect')}
-                              </button>
-                            )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div class="flex flex-wrap items-center gap-3">
-                <button class="px-4 py-2 text-[13px] font-medium ck-btn ghost" onClick={addApplicant}>
-                  Add more Applicants
-                </button>
-                <span class="sr-only" role="status" aria-live="polite">{addedNote}</span>
-                <button
-                  class="px-5 py-2.5 text-sm font-semibold ck-btn primary disabled:opacity-40"
-                  disabled={connected.length === 0}
-                  onClick={() => setScreen('renewals')}
-                >
-                  {connected.length === 0 ? 'Connect at least one applicant' : `Continue with ${connected.length} connected`}
-                </button>
-                {connected.length === 0 && (
-                  <span class="text-[13px] text-[#474c52]">Click Connect on a row to start.</span>
-                )}
-              </div>
-              <p class="text-[12px] text-[#474c52] mt-4">On a projector or small laptop screen, choose Desktop at the top right so every button in the connection window fits.</p>
-            </>
-          )}
-
-          {/* ---------------- Renewals desk ---------------- */}
-          {screen === 'renewals' && (
-            <>
-              <Stepper current={1} />
-              <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#1b1c1f] mb-2 outline-none">Recertification is due</h2>
-              <p class="text-[15px] text-[#474c52] leading-[1.5] mb-5">
-                No one has contacted these applicants. Refresh the connections they already made
-                and see which ones update without any action from them.
-              </p>
-
-              <p class="text-[12px] text-[#474c52] mb-2 md:hidden">Scroll the table sideways to reach the action buttons.</p>
-
-              <div class="border border-[#d8dee5] rounded-xl overflow-hidden overflow-x-auto bg-white mb-5">
-                <table class="w-full min-w-[680px] text-[13px]">
-                  <thead>
-                    <tr class="border-b border-[#d8dee5] bg-[#f0f2f5] text-[#474c52] text-[13px] font-medium uppercase tracking-wide">
-                      <th scope="col" class="text-left px-4 py-3">Applicant</th>
-                      <th scope="col" class="text-left px-4 py-3">Connection</th>
-                      <th scope="col" class="text-left px-4 py-3">Connected at intake</th>
-                      <th scope="col" class="text-right px-4 py-3">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {connected.map(c => (
-                      <tr key={c.id} class="border-b border-[#f0f2f5]">
-                        <td class="px-4 py-3">
-                          <div class="font-medium text-[#1b1c1f]">{c.firstName} {c.lastName}</div>
-                          <div class="text-[12px] text-[#474c52]">{c.scenario}</div>
-                        </td>
-                        <td class="px-4 py-3 text-[#1b1c1f]">
-                          {c.connections.map(x => <div key={x.name}>{x.name === 'Any employer and any bank' ? 'What they connected' : x.name}</div>)}
-                        </td>
-                        <td class="px-4 py-3"><StatusPill tone="neutral">{new Date(c.connectedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</StatusPill></td>
-                        <td class="px-4 py-3 text-right">
-                          {c.refresh
-                            ? <StatusPill tone="pending">refresh requested</StatusPill>
-                            : c.waiting
-                            ? <StatusPill tone="pending">waiting for the connection to be ready</StatusPill>
-                            : (
-                              <button
-                                class="px-3 py-1.5 text-[13px] font-medium ck-btn ghost disabled:opacity-40"
-                                disabled={busy === c.id}
-                                onClick={() => refreshCase(c)}
-                              >
-                                Refresh
-                              </button>
-                            )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div class="border border-[#d8dee5] rounded-xl p-4 mb-5 bg-[#f0f2f5]">
-                <div class="text-[13px] font-semibold text-[#474c52] uppercase tracking-wide mb-2">What your system sends</div>
-                <pre class="text-[12px] font-mono text-[#1b1c1f] whitespace-pre-wrap m-0">{[...new Set(connected.map(c => JSON.stringify(c.products)))]
-  .map(ps => {
-    const list = JSON.parse(ps);
-    const what = list.length > 1 ? 'payroll and bank connections' : list[0] === 'assets' ? 'bank connections' : 'payroll connections';
-    return `POST /v1/orders/{order_id}/\n{ "products": ${ps.replace(/","/g, '", "')} }   // ${what}`;
-  })
-  .join('\n\n') || 'POST /v1/orders/{order_id}/\n{ "products": ["income"] }'}</pre>
-                <p class="text-[12px] text-[#474c52] mt-2 mb-0">
-                  Sent from your server with no applicant contact. Truv returns a new order and refreshes using the
-                  session the applicant already set up. Each connection can be refreshed 3 times per 24 hours.
-                </p>
-              </div>
-
+            <div class="flex flex-wrap items-center gap-3">
+              <button class="px-4 py-2 text-[13px] font-medium ck-btn ghost" onClick={addApplicant}>
+                Add more Applicants
+              </button>
+              <span class="sr-only" role="status" aria-live="polite">{addedNote}</span>
               <button
                 class="px-5 py-2.5 text-sm font-semibold ck-btn primary disabled:opacity-40"
-                disabled={connected.length === 0 || busy !== null}
-                onClick={refreshAll}
+                disabled={connected.length === 0}
+                onClick={() => setScreen('renewals')}
               >
-                {refreshed.length ? 'Watch the outcomes' : `Refresh all ${connected.length}`}
+                {connected.length === 0 ? 'Connect at least one applicant' : `Continue with ${connected.length} connected`}
               </button>
-            </>
-          )}
-
-          {/* ---------------- Outcomes: watch, then send applicants back on the same screen ---------------- */}
-          {screen === 'watch' && (
-            <>
-              <Stepper current={2} />
-              <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#1b1c1f] mb-2 outline-none">Refresh outcomes</h2>
-              <p class="text-[15px] text-[#474c52] leading-[1.5] mb-5">
-                {!allResolved
-                  ? 'Truv is refreshing each connection. In the sandbox this takes a few seconds to about half a minute.'
-                  : (reengage
-                    ? `${needsReauth.length} of ${refreshed.length} ${needsReauth.length === 1 ? 'needs' : 'need'} the applicant. The rest are done and nobody else is contacted.`
-                    : refreshed.some(c => c.reauthDone)
-                      ? 'Every refresh finished. Applicants who needed to act did, and nobody else was contacted.'
-                      : 'Every refresh finished and nobody needed to act.')}
-              </p>
-
-              <div class="space-y-3 mb-6" aria-live="polite">
-                {refreshed.map(c => {
-                  const shown = c.revealed ? (c.outcome?.state || 'refreshing') : 'refreshing';
-                  const display = OUTCOME_DISPLAY[shown] || OUTCOME_DISPLAY.refreshing;
-                  const resolved = shown !== 'refreshing';
-                  const reason = c.outcome?.reason;
-                  const conns = c.refreshDetail?.connections || null;
-                  const needing = conns ? conns.filter(x => x.state === 'reauth_required').length : 0;
-                  const plain = shown === 'refreshed'
-                    ? (c.reauthDone
-                      ? 'Fresh data returned after the applicant answered the challenge.'
-                      : conns ? 'Fresh data returned for every connection. The applicant did nothing.' : 'Fresh data returned. The applicant did nothing.')
-                    : shown === 'reauth_required'
-                      ? (conns && conns.length > 1
-                        ? `${needing} of ${conns.length} connections need the applicant to answer a security challenge. The rest refreshed.`
-                        : 'Needs the applicant to answer a security challenge.')
-                      : display.detail;
-                  return (
-                    <div key={c.id} class="border border-[#d8dee5] rounded-xl p-4 bg-white">
-                      <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0 flex-1">
-                          <div class="flex items-baseline gap-x-2 gap-y-0.5 flex-wrap">
-                            <span class="font-medium text-[#1b1c1f] text-[15px]">{c.firstName} {c.lastName}</span>
-                            <span class="text-[12px] text-[#474c52]">{c.scenario} · {productsLabel(c)}</span>
-                          </div>
-                          <div class="text-[14px] text-[#2e3035] mt-1.5">{plain}</div>
-                          {resolved && c.refreshDetail?.connections?.length > 1 && !c.reauthDone && (
-                            <ul class="mt-2 mb-0 p-0 list-none space-y-1">
-                              {c.refreshDetail.connections.map((x, i) => {
-                                const d = OUTCOME_DISPLAY[x.state] || OUTCOME_DISPLAY.refreshing;
-                                return (
-                                  <li key={x.id || i} class="flex items-center gap-2 text-[13px] text-[#2e3035]">
-                                    <StatusPill tone={d.tone}>{d.label}</StatusPill>
-                                    <span>{x.company_name || (x.kind === 'financial_account' ? 'Bank account' : 'Employer')}</span>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          )}
-                          {c.slow && !resolved && (
-                            <div class="text-[12px] text-[#8A6200] mt-1">This is taking longer than usual. Still checking.</div>
-                          )}
-                        </div>
-                        <div class="flex items-center gap-2 shrink-0">
-                          {!resolved && <span class="inline-block w-3.5 h-3.5 border-2 border-[#d8dee5] border-t-[#666670] rounded-full animate-spin" />}
-                          <StatusPill tone={display.tone}>{display.label}</StatusPill>
-                        </div>
-                      </div>
-
-                      {resolved && (reason || c.outcome?.errorMessage || c.outcome?.source) && (
-                        <details class="mt-2">
-                          <summary class="cursor-pointer text-[12px] text-[#474c52]">Details</summary>
-                          <div class="mt-1.5 text-[12px] text-[#474c52] leading-[1.6]">
-                            {reason && <div>Reason: <code class="font-mono text-[12px] bg-[#f0f2f5] px-1 py-0.5 rounded border border-[#d8dee5]">{reason}</code>{REASON_COPY[reason] ? `. ${REASON_COPY[reason]}` : ''}</div>}
-                            {c.outcome?.errorMessage && <div class="italic">Provider said: “{c.outcome.errorMessage}”</div>}
-                            <div>How we found out: {detectedBy(c)}</div>
-                          </div>
-                        </details>
-                      )}
-
-                      {/* The applicant's next step appears once the row has resolved that way. */}
-                      {c.revealed && c.outcome?.state === 'reauth_required' && (
-                        <div class="mt-3 pt-3 border-t border-[#f0f2f5]">
-                          <div class="text-[13px] font-medium text-[#1b1c1f]">Next step: the applicant answers the challenge</div>
-                          <div class="mt-2 flex flex-wrap items-center gap-2">
-                            <button
-                              class="px-3 py-1.5 text-[13px] font-medium ck-btn primary"
-                              onClick={() => reauthCase(c)}
-                            >
-                              Act as the applicant
-                            </button>
-                            {c.refresh?.share_url && <CopyLinkButton url={c.refresh.share_url} />}
-                          </div>
-                          <p class="text-[12px] text-[#474c52] mt-2 mb-0">
-                            In production you send them this link by text or email. Acting as the applicant opens the same screen here, and it asks only for the challenge.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {connected.some(c => !c.refresh) && (
-                <div class="mb-6 border border-[#8A6200]/30 bg-amber-50/60 rounded-xl p-4 text-[13px] text-[#1b1c1f]">
-                  {connected.filter(c => !c.refresh).map(c => c.firstName).join(', ')} {connected.filter(c => !c.refresh).length === 1 ? 'was' : 'were'} not refreshed.{' '}
-                  <button class="ck-link" onClick={() => setScreen('renewals')}>Back to the renewals list</button>
-                </div>
+              {connected.length === 0 && (
+                <span class="text-[13px] text-[#474c52]">Click Connect on a row to start.</span>
               )}
+            </div>
+          </>
+        )}
 
-              {(() => {
-                const unexpected = refreshed.filter(c => c.expect === 'reauth' && c.outcome?.state === 'refreshed' && !c.reauthDone);
-                if (!allResolved || needsReauth.length > 0 || !unexpected.length) return null;
+        {/* ---------------- Renewals desk ---------------- */}
+        {screen === 'renewals' && (
+          <>
+            <Stepper current={1} />
+            <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#1b1c1f] mb-2 outline-none">Recertification is due</h2>
+            <p class="text-[15px] text-[#474c52] leading-[1.5] mb-5">
+              No one has contacted these applicants. Refresh the connections they already made
+              and see which ones update without any action from them.
+            </p>
+
+            <p class="text-[12px] text-[#474c52] mb-2 md:hidden">Scroll the table sideways to reach the action buttons.</p>
+
+            <div class="border border-[#d8dee5] rounded-xl overflow-hidden overflow-x-auto bg-white mb-5">
+              <table class="w-full min-w-[680px] text-[13px]">
+                <thead>
+                  <tr class="border-b border-[#d8dee5] bg-[#f0f2f5] text-[#474c52] text-[13px] font-medium uppercase tracking-wide">
+                    <th scope="col" class="text-left px-4 py-3">Applicant</th>
+                    <th scope="col" class="text-left px-4 py-3">Connection</th>
+                    <th scope="col" class="text-left px-4 py-3">Connected at intake</th>
+                    <th scope="col" class="text-right px-4 py-3">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {connected.map(c => (
+                    <tr key={c.id} class="border-b border-[#f0f2f5]">
+                      <td class="px-4 py-3">
+                        <div class="font-medium text-[#1b1c1f]">{c.firstName} {c.lastName}</div>
+                        <div class="text-[12px] text-[#474c52]">{c.scenario}</div>
+                      </td>
+                      <td class="px-4 py-3 text-[#1b1c1f]">
+                        {c.connections.map(x => <div key={x.name}>{x.name === 'Any employer and any bank' ? 'What they connected' : x.name}</div>)}
+                      </td>
+                      <td class="px-4 py-3"><StatusPill tone="neutral">{new Date(c.connectedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</StatusPill></td>
+                      <td class="px-4 py-3 text-right">
+                        {c.refresh
+                          ? <StatusPill tone="pending">refresh requested</StatusPill>
+                          : c.waiting
+                          ? <StatusPill tone="pending">waiting for the connection to be ready</StatusPill>
+                          : (
+                            <button
+                              class="px-3 py-1.5 text-[13px] font-medium ck-btn ghost disabled:opacity-40"
+                              disabled={busy === c.id}
+                              onClick={() => refreshCase(c)}
+                            >
+                              Refresh
+                            </button>
+                          )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div class="border border-[#d8dee5] rounded-xl p-4 mb-5 bg-[#f0f2f5]">
+              <div class="text-[13px] font-semibold text-[#474c52] uppercase tracking-wide mb-2">What your system sends</div>
+              <pre class="text-[12px] font-mono text-[#1b1c1f] whitespace-pre-wrap m-0">{[...new Set(connected.map(c => JSON.stringify(c.products)))]
+.map(ps => {
+  const list = JSON.parse(ps);
+  const what = list.length > 1 ? 'payroll and bank connections' : list[0] === 'assets' ? 'bank connections' : 'payroll connections';
+  return `POST /v1/orders/{order_id}/\n{ "products": ${ps.replace(/","/g, '", "')} }   // ${what}`;
+})
+.join('\n\n') || 'POST /v1/orders/{order_id}/\n{ "products": ["income"] }'}</pre>
+              <p class="text-[12px] text-[#474c52] mt-2 mb-0">
+                Sent from your server with no applicant contact. Truv returns a new order and refreshes using the
+                session the applicant already set up. Each connection can be refreshed 3 times per 24 hours.
+              </p>
+            </div>
+
+            <button
+              class="px-5 py-2.5 text-sm font-semibold ck-btn primary disabled:opacity-40"
+              disabled={connected.length === 0 || busy !== null}
+              onClick={refreshAll}
+            >
+              {refreshed.length ? 'Watch the outcomes' : `Refresh all ${connected.length}`}
+            </button>
+          </>
+        )}
+
+        {/* ---------------- Outcomes: watch, then send applicants back on the same screen ---------------- */}
+        {screen === 'watch' && (
+          <>
+            <Stepper current={2} />
+            <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#1b1c1f] mb-2 outline-none">Refresh outcomes</h2>
+            <p class="text-[15px] text-[#474c52] leading-[1.5] mb-5">
+              {!allResolved
+                ? 'Truv is refreshing each connection. In the sandbox this takes a few seconds to about half a minute.'
+                : (reengage
+                  ? `${needsReauth.length} of ${refreshed.length} ${needsReauth.length === 1 ? 'needs' : 'need'} the applicant. The rest are done and nobody else is contacted.`
+                  : refreshed.some(c => c.reauthDone)
+                    ? 'Every refresh finished. Applicants who needed to act did, and nobody else was contacted.'
+                    : 'Every refresh finished and nobody needed to act.')}
+            </p>
+
+            <div class="space-y-3 mb-6" aria-live="polite">
+              {refreshed.map(c => {
+                const shown = c.revealed ? (c.outcome?.state || 'refreshing') : 'refreshing';
+                const display = OUTCOME_DISPLAY[shown] || OUTCOME_DISPLAY.refreshing;
+                const resolved = shown !== 'refreshing';
+                const reason = c.outcome?.reason;
+                const conns = c.refreshDetail?.connections || null;
+                const needing = conns ? conns.filter(x => x.state === 'reauth_required').length : 0;
+                const plain = shown === 'refreshed'
+                  ? (c.reauthDone
+                    ? 'Fresh data returned after the applicant answered the challenge.'
+                    : conns ? 'Fresh data returned for every connection. The applicant did nothing.' : 'Fresh data returned. The applicant did nothing.')
+                  : shown === 'reauth_required'
+                    ? (conns && conns.length > 1
+                      ? `${needing} of ${conns.length} connections need the applicant to answer a security challenge. The rest refreshed.`
+                      : 'Needs the applicant to answer a security challenge.')
+                    : display.detail;
                 return (
-                  <div class="mb-6 border border-[#8A6200]/30 bg-amber-50/60 rounded-xl p-4 text-[13px] text-[#1b1c1f]">
-                    {unexpected.map(c => c.firstName).join(' and ')} refreshed without needing the applicant. If you expected a
-                    failure, they probably kept the pre-filled password (<code class="font-mono text-[12px]">goodpassword</code>),
-                    which connects a healthy account. Click Start Over and connect again, this time replacing the password with
-                    the test login shown on the setup screen.
+                  <div key={c.id} class="border border-[#d8dee5] rounded-xl p-4 bg-white">
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0 flex-1">
+                        <div class="flex items-baseline gap-x-2 gap-y-0.5 flex-wrap">
+                          <span class="font-medium text-[#1b1c1f] text-[15px]">{c.firstName} {c.lastName}</span>
+                          <span class="text-[12px] text-[#474c52]">{c.scenario} · {productsLabel(c)}</span>
+                        </div>
+                        <div class="text-[14px] text-[#2e3035] mt-1.5">{plain}</div>
+                        {resolved && c.refreshDetail?.connections?.length > 1 && !c.reauthDone && (
+                          <ul class="mt-2 mb-0 p-0 list-none space-y-1">
+                            {c.refreshDetail.connections.map((x, i) => {
+                              const d = OUTCOME_DISPLAY[x.state] || OUTCOME_DISPLAY.refreshing;
+                              return (
+                                <li key={x.id || i} class="flex items-center gap-2 text-[13px] text-[#2e3035]">
+                                  <StatusPill tone={d.tone}>{d.label}</StatusPill>
+                                  <span>{x.company_name || (x.kind === 'financial_account' ? 'Bank account' : 'Employer')}</span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                        {c.slow && !resolved && (
+                          <div class="text-[12px] text-[#8A6200] mt-1">This is taking longer than usual. Still checking.</div>
+                        )}
+                      </div>
+                      <div class="flex items-center gap-2 shrink-0">
+                        {!resolved && <span class="inline-block w-3.5 h-3.5 border-2 border-[#d8dee5] border-t-[#666670] rounded-full animate-spin" />}
+                        <StatusPill tone={display.tone}>{display.label}</StatusPill>
+                      </div>
+                    </div>
+
+                    {resolved && (reason || c.outcome?.errorMessage || c.outcome?.source) && (
+                      <details class="mt-2">
+                        <summary class="cursor-pointer text-[12px] text-[#474c52]">Details</summary>
+                        <div class="mt-1.5 text-[12px] text-[#474c52] leading-[1.6]">
+                          {reason && <div>Reason: <code class="font-mono text-[12px] bg-[#f0f2f5] px-1 py-0.5 rounded border border-[#d8dee5]">{reason}</code>{REASON_COPY[reason] ? `. ${REASON_COPY[reason]}` : ''}</div>}
+                          {c.outcome?.errorMessage && <div class="italic">Provider said: “{c.outcome.errorMessage}”</div>}
+                          <div>How we found out: {detectedBy(c)}</div>
+                        </div>
+                      </details>
+                    )}
+
+                    {/* The applicant's next step appears once the row has resolved that way. */}
+                    {c.revealed && c.outcome?.state === 'reauth_required' && (
+                      <div class="mt-3 pt-3 border-t border-[#f0f2f5]">
+                        <div class="text-[13px] font-medium text-[#1b1c1f]">Next step: the applicant answers the challenge</div>
+                        <div class="mt-2 flex flex-wrap items-center gap-2">
+                          <button
+                            class="px-3 py-1.5 text-[13px] font-medium ck-btn primary"
+                            onClick={() => reauthCase(c)}
+                          >
+                            Act as the applicant
+                          </button>
+                          {c.refresh?.share_url && <CopyLinkButton url={c.refresh.share_url} />}
+                        </div>
+                        <p class="text-[12px] text-[#474c52] mt-2 mb-0">
+                          In production you send them this link by text or email. Acting as the applicant opens the same screen here, and it asks only for the challenge.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 );
-              })()}
-
-              {allResolved ? (
-                <div class="flex flex-wrap items-center gap-3 mb-6">
-                  <button
-                    class={reengage
-                      ? 'px-5 py-2.5 text-sm font-semibold ck-btn ghost'
-                      : 'px-5 py-2.5 text-sm font-semibold ck-btn primary'}
-                    onClick={() => setScreen('results')}
-                  >
-                    {reengage ? 'Skip ahead to results' : 'See the refreshed data'}
-                  </button>
-                  {reengage && <span class="text-[13px] text-[#474c52]">Or finish the step above first.</span>}
-                </div>
-              ) : (
-                <p class="text-[13px] text-[#474c52] mb-6">Checking each connection. This page updates on its own.</p>
-              )}
-
-            </>
-          )}
-
-          {/* ---------------- Results ---------------- */}
-          {screen === 'results' && (
-            <>
-              <Stepper current={3} />
-              <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#1b1c1f] mb-2 outline-none">Refresh results</h2>
-              <p class="text-[15px] text-[#474c52] leading-[1.5] mb-2">
-                {(() => {
-                  const alone = refreshed.filter(c => c.outcome?.state === 'refreshed' && !c.reauthDone).length;
-                  const after = refreshed.filter(c => c.outcome?.state === 'refreshed' && c.reauthDone).length;
-                  const not = refreshed.length - alone - after;
-                  return `${alone + after} of ${refreshed.length} refreshed: ${alone} on their own, ${after} after the applicant cleared a challenge${not ? `, ${not} not refreshed` : ''}.`;
-                })()}
-              </p>
-              <p class="text-[13px] text-[#474c52] leading-[1.5] mb-5">
-                Each completed refresh gets its own order and report, and the original order keeps its report.
-                This is test data, so it says nothing about how often refreshes succeed in production.
-              </p>
-
-              <div class="space-y-3 mb-6">
-                {refreshed.map(c => {
-                  const display = OUTCOME_DISPLAY[c.outcome?.state] || OUTCOME_DISPLAY.refreshing;
-                  const ui = reportUi[c.id] || {};
-                  return (
-                    <div key={c.id} class="border border-[#d8dee5] rounded-xl bg-white">
-                      <div class="p-4 flex items-start justify-between gap-3">
-                        <div class="min-w-0 flex-1">
-                          <div class="flex items-baseline gap-x-2 gap-y-0.5 flex-wrap">
-                            <span class="font-medium text-[#1b1c1f] text-[15px]">{c.firstName} {c.lastName}</span>
-                            <span class="text-[12px] text-[#474c52]">{c.scenario} · {productsLabel(c)}</span>
-                          </div>
-                          <div class="text-[13px] text-[#474c52] mt-1.5">How we found out: {detectedBy(c)}</div>
-                        </div>
-                        <div class="flex flex-col items-end gap-2 shrink-0">
-                          <StatusPill tone={display.tone}>{display.label}</StatusPill>
-                          {c.outcome?.state === 'refreshed' && (
-                            <button
-                              class="px-3 py-1.5 text-[13px] font-medium ck-btn ghost disabled:opacity-60 whitespace-nowrap"
-                              aria-expanded={!!ui.open}
-                              disabled={!!ui.loading}
-                              onClick={() => toggleReport(c)}
-                            >
-                              {ui.loading ? 'Loading…' : ui.open ? 'Hide report' : 'View report'}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      {ui.open && (
-                        <div class="px-4 py-4 border-t border-[#f0f2f5] bg-[#f8f8f8] rounded-b-xl">
-                          <ReportPanel c={c} ui={ui} data={reports[c.id]} />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-
-          {screen !== 'setup' && (
-            <div class="mt-6 pt-5 border-t border-[#d8dee5] flex gap-3">
-              <button class="px-5 py-2.5 text-sm font-semibold ck-btn ghost" onClick={resetDemo}>Start Over</button>
+              })}
             </div>
-          )}
-        </div>
-      )}
+
+            {connected.some(c => !c.refresh) && (
+              <div class="mb-6 border border-[#8A6200]/30 bg-amber-50/60 rounded-xl p-4 text-[13px] text-[#1b1c1f]">
+                {connected.filter(c => !c.refresh).map(c => c.firstName).join(', ')} {connected.filter(c => !c.refresh).length === 1 ? 'was' : 'were'} not refreshed.{' '}
+                <button class="ck-link" onClick={() => setScreen('renewals')}>Back to the renewals list</button>
+              </div>
+            )}
+
+            {(() => {
+              const unexpected = refreshed.filter(c => c.expect === 'reauth' && c.outcome?.state === 'refreshed' && !c.reauthDone);
+              if (!allResolved || needsReauth.length > 0 || !unexpected.length) return null;
+              return (
+                <div class="mb-6 border border-[#8A6200]/30 bg-amber-50/60 rounded-xl p-4 text-[13px] text-[#1b1c1f]">
+                  {unexpected.map(c => c.firstName).join(' and ')} refreshed without needing the applicant. If you expected a
+                  failure, they probably kept the pre-filled password (<code class="font-mono text-[12px]">goodpassword</code>),
+                  which connects a healthy account. Click Start Over and connect again, this time replacing the password with
+                  the test login shown on the setup screen.
+                </div>
+              );
+            })()}
+
+            {allResolved ? (
+              <div class="flex flex-wrap items-center gap-3 mb-6">
+                <button
+                  class={reengage
+                    ? 'px-5 py-2.5 text-sm font-semibold ck-btn ghost'
+                    : 'px-5 py-2.5 text-sm font-semibold ck-btn primary'}
+                  onClick={() => setScreen('results')}
+                >
+                  {reengage ? 'Skip ahead to results' : 'See the refreshed data'}
+                </button>
+                {reengage && <span class="text-[13px] text-[#474c52]">Or finish the step above first.</span>}
+              </div>
+            ) : (
+              <p class="text-[13px] text-[#474c52] mb-6">Checking each connection. This page updates on its own.</p>
+            )}
+
+          </>
+        )}
+
+        {/* ---------------- Results ---------------- */}
+        {screen === 'results' && (
+          <>
+            <Stepper current={3} />
+            <h2 data-screen-heading tabIndex={-1} class="text-[28px] font-semibold tracking-[-0.02em] text-[#1b1c1f] mb-2 outline-none">Refresh results</h2>
+            <p class="text-[15px] text-[#474c52] leading-[1.5] mb-2">
+              {(() => {
+                const alone = refreshed.filter(c => c.outcome?.state === 'refreshed' && !c.reauthDone).length;
+                const after = refreshed.filter(c => c.outcome?.state === 'refreshed' && c.reauthDone).length;
+                const not = refreshed.length - alone - after;
+                return `${alone + after} of ${refreshed.length} refreshed: ${alone} on their own, ${after} after the applicant cleared a challenge${not ? `, ${not} not refreshed` : ''}.`;
+              })()}
+            </p>
+            <p class="text-[13px] text-[#474c52] leading-[1.5] mb-5">
+              Each completed refresh gets its own order and report, and the original order keeps its report.
+              This is test data, so it says nothing about how often refreshes succeed in production.
+            </p>
+
+            <div class="space-y-3 mb-6">
+              {refreshed.map(c => {
+                const display = OUTCOME_DISPLAY[c.outcome?.state] || OUTCOME_DISPLAY.refreshing;
+                const ui = reportUi[c.id] || {};
+                return (
+                  <div key={c.id} class="border border-[#d8dee5] rounded-xl bg-white">
+                    <div class="p-4 flex items-start justify-between gap-3">
+                      <div class="min-w-0 flex-1">
+                        <div class="flex items-baseline gap-x-2 gap-y-0.5 flex-wrap">
+                          <span class="font-medium text-[#1b1c1f] text-[15px]">{c.firstName} {c.lastName}</span>
+                          <span class="text-[12px] text-[#474c52]">{c.scenario} · {productsLabel(c)}</span>
+                        </div>
+                        <div class="text-[13px] text-[#474c52] mt-1.5">How we found out: {detectedBy(c)}</div>
+                      </div>
+                      <div class="flex flex-col items-end gap-2 shrink-0">
+                        <StatusPill tone={display.tone}>{display.label}</StatusPill>
+                        {c.outcome?.state === 'refreshed' && (
+                          <button
+                            class="px-3 py-1.5 text-[13px] font-medium ck-btn ghost disabled:opacity-60 whitespace-nowrap"
+                            aria-expanded={!!ui.open}
+                            disabled={!!ui.loading}
+                            onClick={() => toggleReport(c)}
+                          >
+                            {ui.loading ? 'Loading…' : ui.open ? 'Hide report' : 'View report'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {ui.open && (
+                      <div class="px-4 py-4 border-t border-[#f0f2f5] bg-[#f8f8f8] rounded-b-xl">
+                        <ReportPanel c={c} ui={ui} data={reports[c.id]} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {screen !== 'setup' && (
+          <div class="mt-6 pt-5 border-t border-[#d8dee5] flex gap-3">
+            <button class="px-5 py-2.5 text-sm font-semibold ck-btn ghost" onClick={resetDemo}>Start Over</button>
+          </div>
+        )}
+      </div>
     </Layout>
   );
 }
