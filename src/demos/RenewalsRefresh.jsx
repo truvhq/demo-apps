@@ -307,7 +307,7 @@ export function RenewalsRefreshDemo() {
   const runRef = useRef(0); // bumped on Start Over so a pending retry cannot touch the fresh state
 
   // Panel hook: sidebar (Guide / API / Bridge / Webhooks) + per-user polling.
-  const { panel, setCurrentStep, startPolling, pollOnceAndStop, addBridgeEvent, reset: resetPanel } = usePanel();
+  const { panel, setCurrentStep, startPolling, pollNow, addBridgeEvent, reset: resetPanel } = usePanel();
 
   const visibleCases = cases;
   // Connected means the applicant finished Bridge, not merely that an order exists.
@@ -369,15 +369,18 @@ export function RenewalsRefreshDemo() {
     setCurrentStep(stepMap[screen] ?? 0);
   }, [screen, reengage, setCurrentStep]);
 
-  // Point the panel's webhook feed at the most useful user for each screen. The panel
-  // follows one Truv user at a time and this demo creates one per applicant, so on the
-  // watch screen we follow the first applicant whose refresh failed. That is where
-  // `order-refresh-failed` shows up.
+  // The panel follows Truv users, and this demo creates one user per applicant. Follow all of
+  // them, so every order and refresh the presenter starts shows up in the API and Webhooks tabs,
+  // each tagged with the applicant it belongs to.
+  const watchedKey = cases.filter(c => c.order?.user_id).map(c => c.order.user_id).join(',');
   useEffect(() => {
-    if (screen !== 'watch' && screen !== 'reauth') return;
-    const focus = needsReauth[0] || refreshed[0];
-    if (focus?.order?.user_id) startPolling(focus.order.user_id);
-  }, [screen, needsReauth.length, refreshed.length, startPolling]);
+    if (!watchedKey) return;
+    const watched = cases.filter(c => c.order?.user_id);
+    startPolling(
+      watched.map(c => c.order.user_id),
+      { labels: Object.fromEntries(watched.map(c => [c.order.user_id, `${c.firstName} ${c.lastName}`])) },
+    );
+  }, [watchedKey, startPolling]);
 
   // Update one case by id.
   const patchCase = useCallback((id, patch) => {
@@ -405,7 +408,6 @@ export function RenewalsRefreshDemo() {
     // An order exists but Bridge was not finished: reopen it rather than create another.
     if (c.order?.bridge_token && !c.connectedAt) {
       completedRef.current = false;
-      if (c.order.user_id) startPolling(c.order.user_id);
       setActive({ id: c.id, mode: 'connect', bridgeToken: c.order.bridge_token });
       return;
     }
@@ -428,7 +430,6 @@ export function RenewalsRefreshDemo() {
       const data = await resp.json();
       if (!resp.ok) { setError(data.error || 'Could not create the order'); setBusy(null); return; }
       patchCase(c.id, { order: data });
-      if (data.user_id) startPolling(data.user_id);
       completedRef.current = false;
       setActive({ id: c.id, mode: 'connect', bridgeToken: data.bridge_token });
     } catch (e) {
@@ -543,7 +544,6 @@ export function RenewalsRefreshDemo() {
     launcherRef.current = document.activeElement;
     patchCase(c.id, { failedReason: c.outcome?.reason || null });
     completedRef.current = false;
-    if (c.order?.user_id) startPolling(c.order.user_id);
     setActive({ id: c.id, mode: 'reauth', bridgeToken: c.refresh.bridge_token });
   }
 
@@ -569,7 +569,7 @@ export function RenewalsRefreshDemo() {
       console.error(e);
       fail('Could not load the report. Try again.');
     }
-    pollOnceAndStop();
+    pollNow();
   }
 
   // Bridge opens as a dialog over this page, so the applicant list stays where it is behind
@@ -673,7 +673,7 @@ export function RenewalsRefreshDemo() {
   }
 
   return (
-    <Layout badge="Public Sector · Renewals & Data Refresh" steps={STEPS} panel={panel} theme="checkr">
+    <Layout badge="Public Sector · Renewals & Data Refresh" steps={STEPS} panel={{ ...panel, foldRepeats: true }} theme="checkr">
 
       <div class="max-w-4xl w-full min-w-0 mx-auto px-4 py-6 sm:px-8 sm:py-10">
 

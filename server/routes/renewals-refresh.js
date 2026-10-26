@@ -423,6 +423,13 @@ const REFRESH_REPORT_KINDS = {
 export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelaysMs = [0, 2000, 4000] }) {
   const router = Router();
 
+  // Every Truv call this demo makes is recorded against the applicant's Truv user so the Dev
+  // panel can show it. Reads of an order go through here.
+  const logOrderRead = (userId, truvOrderId, result) => apiLogger.logApiCall({
+    userId, method: 'GET', endpoint: `/v1/orders/${truvOrderId}/`,
+    responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs,
+  });
+
   // POST /api/renewals/refresh/:orderId
   // Creates a refresh order against an order this demo already completed. Truv
   // returns a new order; we save it so the outcome endpoint can look it up and the
@@ -575,6 +582,7 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
         const initialId = orderResult.data?.initial_order;
         if (initialId) {
           const origResult = await truvClient.getOrder(initialId);
+          logOrderRead(userId, initialId, origResult);
           if (origResult.statusCode < 400) originalOrderData = origResult.data;
         }
         connections = classifyRefreshOutcomePerSuborder({ truvOrderId: refreshOrder.truv_order_id, orderData: orderResult.data, originalOrderData, webhooks, tasks });
@@ -697,6 +705,7 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
       const initialId = orderResult.data?.initial_order;
       if (initialId) {
         const origResult = await truvClient.getOrder(initialId);
+        logOrderRead(userId, initialId, origResult);
         if (origResult.statusCode < 400) originalOrderData = origResult.data;
       }
 
@@ -736,6 +745,7 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
       if (!refreshOrder || !refreshOrder.truv_order_id) return res.status(404).json({ error: 'Refresh order not found' });
 
       const orderResult = await truvClient.getOrder(refreshOrder.truv_order_id);
+      logOrderRead(orderResult.data?.user_id || refreshOrder.user_id, refreshOrder.truv_order_id, orderResult);
       if (orderResult.statusCode >= 400) return res.status(orderResult.statusCode).json({ error: 'Failed to fetch order', details: orderResult.data });
 
       const row = suborders(orderResult.data).find(r => r.id === req.params.suborderId);
@@ -747,6 +757,7 @@ export default function renewalsRefreshRoutes({ truv, db, apiLogger, reportDelay
       let tokenFrom = 'refresh order';
       if (!accessToken && orderResult.data?.initial_order) {
         const origResult = await truvClient.getOrder(orderResult.data.initial_order);
+        logOrderRead(orderResult.data?.user_id || refreshOrder.user_id, orderResult.data.initial_order, origResult);
         if (origResult.statusCode < 400) {
           const orig = suborders(origResult.data).find(o => o.company_name === row.company_name && o.access_token);
           if (orig) { accessToken = orig.access_token; tokenFrom = 'original order'; }

@@ -68,16 +68,25 @@ function GuideTab({ steps, currentStep }) {
 // LogEntry: expandable row showing a single proxied Truv API call.
 // Displays HTTP method badge, endpoint path, and status code.
 // Expands to show request and response JSON bodies.
-function LogEntry({ method, endpoint, status, requestBody, responseBody }) {
+function LogEntry({ method, endpoint, status, requestBody, responseBody, applicant, repeat }) {
   const [open, setOpen] = useState(false);
   const badgeClass = method === 'POST' ? 'bg-success-bg text-[#1C8F60]' : 'bg-primary-light text-primary';
 
   return (
     <div class="mb-2 border border-border-light rounded-lg overflow-hidden">
-      {/* Collapsed header: method badge, endpoint, status */}
+      {/* Collapsed header: method badge, endpoint (with whose call it was, when the demo follows
+          several people), status, and how many times an unchanged poll repeated */}
       <div class="flex items-center gap-2 px-3 py-2.5 cursor-pointer text-[13px] hover:bg-gray-50" onClick={() => setOpen(!open)}>
         <span class={`px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide ${badgeClass}`}>{method}</span>
-        <span class="font-medium text-gray-900 flex-1 font-mono">{endpoint}</span>
+        {applicant ? (
+          <span class="flex-1 min-w-0">
+            <span class="block font-medium text-gray-900 font-mono break-all">{endpoint}</span>
+            <span class="block text-[11px] text-gray-400 mt-0.5">{applicant}</span>
+          </span>
+        ) : (
+          <span class="font-medium text-gray-900 flex-1 font-mono">{endpoint}</span>
+        )}
+        {repeat > 1 && <span class="text-[11px] text-gray-400 whitespace-nowrap" title="Same request, same response, repeated">&times;{repeat}</span>}
         <span class="text-[13px] text-gray-400">{status}</span>
       </div>
       {/* Expanded detail: formatted request and response bodies */}
@@ -102,10 +111,32 @@ function LogEntry({ method, endpoint, status, requestBody, responseBody }) {
 }
 
 // ApiTab: lists all logged Truv API calls from usePanel() polling.
-// Each call is rendered as an expandable LogEntry.
-function ApiTab({ logs }) {
+// Each call is rendered as an expandable LogEntry. With `fold`, a GET that returns exactly what
+// the same GET returned last time is counted on that row instead of added again, so a demo that
+// polls for a result shows each change once, not every check.
+// The database column is status_code; older callers pass status.
+const statusOf = (log) => log.status ?? log.status_code;
+
+function foldRepeats(logs) {
+  const rows = [];
+  const lastByKey = new Map();
+  for (const log of logs) {
+    const key = `${log.method}|${log.endpoint || log.url}|${log.applicant || ''}`;
+    const prev = lastByKey.get(key);
+    const same = prev && (log.method || 'GET').toUpperCase() === 'GET'
+      && statusOf(prev) === statusOf(log) && prev.response_body === log.response_body;
+    if (same) { prev.repeat += 1; continue; }
+    const row = { ...log, repeat: 1 };
+    rows.push(row);
+    lastByKey.set(key, row);
+  }
+  return rows;
+}
+
+function ApiTab({ logs, fold = false }) {
   if (!logs.length) return <div class="flex items-center justify-center h-32 text-gray-400 text-sm">No API calls yet.</div>;
-  return <div>{logs.map((log, i) => <LogEntry key={i} method={(log.method || 'GET').toUpperCase()} endpoint={log.endpoint || log.url} status={log.status ? String(log.status) : ''} requestBody={log.request_body} responseBody={log.response_body} />)}</div>;
+  const rows = fold ? foldRepeats(logs) : logs;
+  return <div>{rows.map((log, i) => <LogEntry key={log.id ?? i} method={(log.method || 'GET').toUpperCase()} endpoint={log.endpoint || log.url} status={statusOf(log) ? String(statusOf(log)) : ''} requestBody={log.request_body} responseBody={log.response_body} applicant={log.applicant} repeat={log.repeat} />)}</div>;
 }
 
 // BridgeEvent: expandable row for a single TruvBridge SDK event.
@@ -157,7 +188,7 @@ function WebhookEntry({ wh }) {
     <div class="mb-2 border border-border-light rounded-lg overflow-hidden">
       {/* Webhook header: event type, status badge, timestamp */}
       <div class="flex items-center gap-2 px-3 py-2.5 text-[13px] cursor-pointer hover:bg-gray-50" onClick={() => setOpen(!open)}>
-        <span class="font-medium text-gray-900 flex-1">{wh.event_type || ''}</span>
+        <span class="font-medium text-gray-900 flex-1">{wh.event_type || ''}{wh.applicant && <span class="block text-[11px] font-normal text-gray-400 mt-0.5">{wh.applicant}</span>}</span>
         {wh.status && <span class={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${statusColor}`}>{wh.status}</span>}
         <span class="text-[13px] text-gray-400">{wh.created_at || wh.timestamp ? new Date(wh.created_at || wh.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}</span>
       </div>
@@ -214,7 +245,7 @@ function tryFormat(s) {
 // panel is done with the header's Dev toggle — the row has no close button.
 export function Panel({ steps, panel, activeTab, tabs, onTabChange }) {
   // Destructure polled data from usePanel() with safe defaults
-  const { currentStep = 0, apiLogs = [], bridgeEvents = [], webhooks = [], tunnelUrl = null } = panel || {};
+  const { currentStep = 0, apiLogs = [], bridgeEvents = [], webhooks = [], tunnelUrl = null, foldRepeats: fold = false } = panel || {};
 
   const asideClass = 'absolute inset-0 z-30 lg:static lg:z-auto lg:w-1/3 lg:min-w-0 lg:border-l lg:border-border bg-white flex flex-col overflow-hidden';
 
@@ -232,7 +263,7 @@ export function Panel({ steps, panel, activeTab, tabs, onTabChange }) {
       )}
       <div class="flex-1 overflow-y-auto px-5 py-4">
         {activeTab === 'guide' && <GuideTab steps={steps || []} currentStep={currentStep} />}
-        {activeTab === 'api' && <ApiTab logs={apiLogs} />}
+        {activeTab === 'api' && <ApiTab logs={apiLogs} fold={fold} />}
         {activeTab === 'bridge' && <BridgeTab events={bridgeEvents} />}
         {activeTab === 'webhooks' && <WebhooksTab webhooks={webhooks} tunnelUrl={tunnelUrl} />}
       </div>

@@ -9,6 +9,8 @@
  *
  * INTEGRATION PATTERN: Used by both Orders flow and Bridge flow demos.
  *   Polling starts when a demo calls startPolling(userId) after creating a user or order.
+ *   A demo that creates one Truv user per person (Renewals) passes every user id instead, with
+ *   a label for each, and the panel shows all of their calls and webhooks in one list.
  *   The returned panel object feeds the Panel sidebar (API Logs, Bridge Events, Webhooks tabs).
  *
  * The hook also generates a sessionId that groups pre-order API calls (like employer search)
@@ -32,7 +34,8 @@ export function usePanel() {
   const [currentStep, setCurrentStep] = useState(0);
 
   // Refs: track the active user, polling interval, and session scope
-  const userIdRef = useRef(null);
+  const userIdsRef = useRef([]);
+  const labelsRef = useRef({});
   const pollingRef = useRef(null);
   // Session ID ties pre-order API calls (company search) to this demo run
   const sessionIdRef = useRef(`s-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
@@ -45,25 +48,54 @@ export function usePanel() {
   // Ref to hold the current poll function so pollOnceAndStop can invoke it directly
   const pollRef = useRef(null);
 
-  // startPolling: begins a 3-second interval that fetches logs and webhooks for the given userId.
+  // startPolling: begins a 3-second interval that fetches logs and webhooks for the given user.
   // Called by demo components once a Truv user/order is created.
+  // Pass one user id, or an array of them with `labels` ({ userId: 'Ana Silva' }) to follow
+  // several people at once: their entries are merged in the order they happened and each is
+  // tagged with its label.
   // Data flow: GET /api/users/:userId/logs + GET /api/users/:userId/webhooks in parallel.
-  const startPolling = useCallback((userId) => {
-    userIdRef.current = userId;
+  const startPolling = useCallback((userId, { labels = {} } = {}) => {
+    userIdsRef.current = [].concat(userId).filter(Boolean);
+    labelsRef.current = labels;
     if (pollingRef.current) clearInterval(pollingRef.current);
 
     const poll = async () => {
-      const uid = userIdRef.current;
-      if (!uid) return;
+      const uids = userIdsRef.current;
+      if (!uids.length) return;
       try {
         const sid = sessionIdRef.current;
-        // Parallel fetch: API logs (filtered by session) and webhook events
-        const [logs, whs] = await Promise.all([
-          fetch(`${API_BASE}/api/users/${uid}/logs?session_id=${sid}`).then(r => r.json()),
-          fetch(`${API_BASE}/api/users/${uid}/webhooks`).then(r => r.json()),
-        ]);
-        setApiLogs(logs || []);
-        setWebhooks(whs || []);
+        const perUser = await Promise.all(uids.map(async (uid) => {
+          // Parallel fetch: API logs (filtered by session) and webhook events
+          const [logs, whs] = await Promise.all([
+            fetch(`${API_BASE}/api/users/${uid}/logs?session_id=${sid}`).then(r => r.json()),
+            fetch(`${API_BASE}/api/users/${uid}/webhooks`).then(r => r.json()),
+          ]);
+          return { uid, logs: Array.isArray(logs) ? logs : [], whs: Array.isArray(whs) ? whs : [] };
+        }));
+        if (uids.length === 1 && !Object.keys(labelsRef.current).length) {
+          setApiLogs(perUser[0].logs);
+          setWebhooks(perUser[0].whs);
+          return;
+        }
+        const tag = (rows, uid) => rows.map(r => (labelsRef.current[uid] ? { ...r, applicant: labelsRef.current[uid] } : r));
+        // Entries get increasing ids as they are written, so sorting by id is sorting by time.
+        // Session-scoped calls (company search) come back once per user: keep one copy.
+        const merge = (key) => {
+          const seen = new Set();
+          const out = [];
+          for (const { uid, [key]: rows } of perUser) {
+            for (const row of tag(rows, uid)) {
+              if (row.id != null) {
+                if (seen.has(row.id)) continue;
+                seen.add(row.id);
+              }
+              out.push(row);
+            }
+          }
+          return out.sort((x, y) => (x.id ?? 0) - (y.id ?? 0));
+        };
+        setApiLogs(merge('logs'));
+        setWebhooks(merge('whs'));
       } catch {}
     };
     pollRef.current = poll;
@@ -79,7 +111,7 @@ export function usePanel() {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
     }
-    userIdRef.current = null;
+    userIdsRef.current = [];
   }, []);
 
   // pollOnceAndStop: run one final poll to capture API log entries written after the last
@@ -90,9 +122,13 @@ export function usePanel() {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
     }
-    if (pollRef.current) pollRef.current().then(() => { userIdRef.current = null; }).catch(() => { userIdRef.current = null; });
-    else userIdRef.current = null;
+    if (pollRef.current) pollRef.current().then(() => { userIdsRef.current = []; }).catch(() => { userIdsRef.current = []; });
+    else userIdsRef.current = [];
   }, []);
+
+  // pollNow: fetch once right now and keep polling. For demos that follow several users, where
+  // stopping after one action would leave the others' calls out of the panel.
+  const pollNow = useCallback(() => pollRef.current?.(), []);
 
   // addBridgeEvent: push a TruvBridge SDK event (e.g., onLoad, onSuccess) into panel state
   const addBridgeEvent = useCallback((type, data) => {
@@ -121,6 +157,7 @@ export function usePanel() {
     startPolling,
     stopPolling,
     pollOnceAndStop,
+    pollNow,
     addBridgeEvent,
     reset,
   };
