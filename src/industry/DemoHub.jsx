@@ -1,5 +1,5 @@
 /**
- * FILE SUMMARY: Public Sector landing layout - a Demos section and a Guides section
+ * FILE SUMMARY: Public Sector landing layout - Demos, Guides and Tools sections
  * on one page, one card per item, no click-through levels.
  * Used only by the Public Sector page (PublicSectorHub.jsx). Styles: ps-hub.css,
  * scoped under `.psh`. Same design language as the Batching walkthrough.
@@ -16,49 +16,44 @@ const DEMO_ICONS = {
   'documents': Icons.upload,
 };
 
-// Guides: step-by-step walkthroughs.
+// Guides: how to build and roll these out.
 export const GUIDES = [
-  { id: 'embedded-orders', name: 'Embedded Orders Field Guide', icon: 'fileText', href: '#public-sector/embedded-orders', mode: 'Guide',
-    desc: 'For state agencies and the teams that build their applications. How to put the page where applicants connect their payroll or bank account inside the application itself: where it goes, nine rules with the reasons, the settings to check, and a pre-launch checklist.' },
-  { id: 'batching', name: 'Batching', icon: 'layers', href: '#public-sector/batching', mode: 'Walkthrough',
-    desc: 'Bulk order intake: staff drop a CSV into a folder and a scheduled job creates one order per row. Includes the setup guides and a runnable kit.' },
+  { id: 'embedded-orders', name: 'Embedded Orders Field Guide', icon: 'fileText', href: '#public-sector/embedded-orders',
+    desc: 'For teams building a benefits application: where the order page goes, nine rules, the settings to check, and a pre-launch checklist.' },
+  { id: 'batching', name: 'Batching', icon: 'layers', href: '#public-sector/batching',
+    desc: 'Create orders in bulk. Staff drop a CSV in a folder and a scheduled job makes one order per row. Includes a runnable kit.' },
 ];
 
 // Tools: things you run on your own data, not an applicant flow.
 export const TOOLS = [
-  { id: 'payroll-coverage', name: 'Payroll Coverage', icon: 'barChart', href: '#coverage-analysis/payroll-coverage', mode: 'Coverage tool',
-    desc: 'Upload a CSV of up to 10,000 employers and see which ones Truv supports for income, employment, deposit-switch, or paycheck-linked-loans.' },
-  { id: 'bank-coverage', name: 'Financial Accounts Coverage', icon: 'search', href: '#coverage-analysis/bank-coverage', mode: 'Coverage tool',
-    desc: 'Upload a CSV of up to 10,000 financial accounts and see which ones Truv can connect to for transactions or assets data.' },
+  { id: 'payroll-coverage', name: 'Payroll Coverage', icon: 'barChart', href: '#coverage-analysis/payroll-coverage',
+    desc: 'Upload up to 10,000 employers and see which ones Truv supports for income, employment, deposit switch, or paycheck‑linked loans.' },
+  { id: 'bank-coverage', name: 'Financial Accounts Coverage', icon: 'search', href: '#coverage-analysis/bank-coverage',
+    desc: 'Upload up to 10,000 financial institutions and see which ones Truv can connect to for transactions or assets data.' },
 ];
 
-function DemoTile({ item, index }) {
-  const { demo, industryId, label } = item;
-  const Icon = DEMO_ICONS[demo.id];
+function Tile({ href, name, desc, Icon, index }) {
   return (
-    <a class="psh-tile" href={`#${industryId}/${demo.id}`} style={{ '--i': index }}>
+    <a class="psh-tile" href={href} style={{ '--i': index }}>
       <div class="psh-tile-top">
         <span class="psh-ic" aria-hidden="true">{Icon && <Icon size={20} />}</span>
-        <span class="psh-mode">Live API demo</span>
+        <Icons.arrowRight class="psh-go" size={18} aria-hidden="true" />
       </div>
-      {label && <div class="psh-usecase">{label}</div>}
-      <h3 class="psh-tile-name">{demo.name}</h3>
-      <p class="psh-tile-desc">{demo.desc}</p>
+      <h3 class="psh-tile-name">{name}</h3>
+      <p class="psh-tile-desc">{desc}</p>
     </a>
   );
 }
 
-function LinkTile({ guide, index }) {
-  const Icon = Icons[guide.icon];
+function Section({ id, title, sub, children }) {
   return (
-    <a class="psh-tile" href={guide.href} style={{ '--i': index }}>
-      <div class="psh-tile-top">
-        <span class="psh-ic" aria-hidden="true">{Icon && <Icon size={20} />}</span>
-        <span class="psh-mode">{guide.mode}</span>
+    <section class="psh-section-block" id={`psh-${id}`} aria-labelledby={`psh-${id}-h`}>
+      <div class="psh-section-head">
+        <h2 class="psh-section-title" id={`psh-${id}-h`}>{title}</h2>
+        <p class="psh-section-sub">{sub}</p>
       </div>
-      <h3 class="psh-tile-name">{guide.name}</h3>
-      <p class="psh-tile-desc">{guide.desc}</p>
-    </a>
+      <div class="psh-grid">{children}</div>
+    </section>
   );
 }
 
@@ -66,7 +61,7 @@ function LinkTile({ guide, index }) {
  * items  : [{ key, demo, industryId, label }]
  * section: 'demos' | 'guides' | 'tools' - scroll to that section on mount
  */
-export function DemoHub({ trail, back, eyebrow, title, lead, items, section }) {
+export function DemoHub({ trail, back, title, lead, items, section }) {
   useEffect(() => {
     if (!section) return;
     // Wait for layout, then scroll the window (the sticky header covers 72px).
@@ -83,42 +78,24 @@ export function DemoHub({ trail, back, eyebrow, title, lead, items, section }) {
       <section class="psh-hero">
         <div class="psh-wrap">
           {back && <a href={back.href} class="psh-back"><Icons.arrowLeft size={14} /> {back.label}</a>}
-          {eyebrow && <div class="psh-eyebrow">{eyebrow}</div>}
           <h1 class="psh-title">{title}</h1>
           <p class="psh-lead">{lead}</p>
         </div>
       </section>
 
       <main class="psh-wrap psh-sections">
-        <section class="psh-section-block" id="psh-demos" aria-labelledby="psh-demos-h">
-          <div class="psh-section-head">
-            <h2 class="psh-section-title" id="psh-demos-h">Demos</h2>
-            <span class="psh-count">{items.length}</span>
-          </div>
-          <div class="psh-grid">
-            {items.map((it, i) => <DemoTile key={it.key} item={it} index={i} />)}
-          </div>
-        </section>
-
-        <section class="psh-section-block" id="psh-guides" aria-labelledby="psh-guides-h">
-          <div class="psh-section-head">
-            <h2 class="psh-section-title" id="psh-guides-h">Guides</h2>
-            <span class="psh-count">{GUIDES.length}</span>
-          </div>
-          <div class="psh-grid">
-            {GUIDES.map((g, i) => <LinkTile key={g.id} guide={g} index={i} />)}
-          </div>
-        </section>
-
-        <section class="psh-section-block" id="psh-tools" aria-labelledby="psh-tools-h">
-          <div class="psh-section-head">
-            <h2 class="psh-section-title" id="psh-tools-h">Tools</h2>
-            <span class="psh-count">{TOOLS.length}</span>
-          </div>
-          <div class="psh-grid">
-            {TOOLS.map((g, i) => <LinkTile key={g.id} guide={g} index={i} />)}
-          </div>
-        </section>
+        <Section id="demos" title="Demos" sub="Working flows, run against the live API.">
+          {items.map((it, i) => (
+            <Tile key={it.key} href={`#${it.industryId}/${it.demo.id}`} name={it.demo.name} desc={it.desc}
+              Icon={DEMO_ICONS[it.demo.id]} index={i} />
+          ))}
+        </Section>
+        <Section id="guides" title="Guides" sub="Step-by-step help for building and rolling out.">
+          {GUIDES.map((g, i) => <Tile key={g.id} href={g.href} name={g.name} desc={g.desc} Icon={Icons[g.icon]} index={i} />)}
+        </Section>
+        <Section id="tools" title="Tools" sub="Check coverage with your own data.">
+          {TOOLS.map((g, i) => <Tile key={g.id} href={g.href} name={g.name} desc={g.desc} Icon={Icons[g.icon]} index={i} />)}
+        </Section>
       </main>
     </div>
   );
