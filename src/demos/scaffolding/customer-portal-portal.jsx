@@ -47,7 +47,7 @@ export function routeFor({ job, account }) {
   if (!products.length) return { products, name: 'Nothing to verify' };
   return { products, name: products.length === 2 ? 'Income, employment and bank accounts' : job === 'yes' ? 'Income and employment' : 'Bank accounts' };
 }
-// Templates from the Georgia Gateway build (Igor's sandbox account). Inline gets its own
+// Templates from the Georgia Gateway build (the demo sandbox account). Inline gets its own
 // set, sized for an embedded panel. Other accounts don't own these IDs, so the server
 // retries without them and that account's default template applies (template_fallback).
 const TEMPLATES = {
