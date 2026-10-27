@@ -243,7 +243,7 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
   const deferred = !app.verified && (!!app.linkSent || !!app.manual?.amount);
   const done = [
     app.programs.length > 0,
-    !!(f.first_name.trim() && f.last_name.trim() && /\S+@\S+/.test(f.email)) && !!route,
+    !!(f.first_name.trim() && f.last_name.trim() && /\S+@\S+/.test(f.email)),
     app.verified || !!nothing || deferred,
     false,
   ];
@@ -251,27 +251,13 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
     for (let j = 0; j < i; j++) if (!done[j]) return `Finish "${STEP_TITLES[j]}" first`;
     return null;
   };
-  const why = ['Choose at least one program', 'Enter your name and email, and answer both questions', 'Finish verifying, or use one of the options below it', null];
+  const why = ['Choose at least one program', 'Enter first name, last name and a valid email', 'Answer both questions, then finish verifying or use an option below it', null];
 
-  // The income step is "here" on the slide layout when it is the current step, and on the
-  // hero page as soon as it unlocks (every step is on screen).
-  const [heroInView, setHeroInView] = useState(false);
-  const atIncome = !lockReason(2) && (app.layout === 'hero' ? heroInView : app.step === 2);
+  // The income step is "here" on the slide layout when it is the current step; on the hero
+  // page whenever it is unlocked (the questions live in it, so answering them is arriving).
+  const atIncome = !lockReason(2) && (app.layout === 'hero' || app.step === 2);
+  // Launch as soon as the answers settle the products: no button between them and Truv.
   const shouldMount = atIncome && route && !nothing && !app.verified;
-
-  // Hero page: the applicant "arrives" at the income step when its section scrolls into view.
-  useEffect(() => {
-    if (app.layout !== 'hero' || lockReason(2)) return;
-    const check = () => {
-      const el = sectionRefs.current[2];
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      if (r.top < win.innerHeight * 0.7 && r.bottom > 0) { setHeroInView(true); win.removeEventListener('scroll', check); }
-    };
-    check();
-    win.addEventListener('scroll', check, { passive: true });
-    return () => win.removeEventListener('scroll', check);
-  }, [app.layout, !!lockReason(2)]);
 
   // Close any open widget when the portal unmounts.
   useEffect(() => () => { try { bridgeRef.current?.close(); } catch {} }, []);
@@ -387,6 +373,23 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
     } catch (e) { setStepMsg(e.message); }
     setBusy(false);
   }
+  // An answer that changes the products replaces the order: cancel the old one
+  // (POST /v1/orders/{id}/cancel/) so orders don't stack, then the mount effect creates
+  // one for the new product set. An answer that keeps the products changes nothing.
+  async function answer(k, v) {
+    const next = { ...ans, [k]: v };
+    const before = route?.products.join(',') ?? null;
+    const after = routeFor(next)?.products.join(',') ?? null;
+    if (app.orderId && before !== after) {
+      const old = app.orderId;
+      closeBridge(); setConnected(false); setManualOpen(false); setStepMsg('');
+      patch({ answers: next, orderId: null, verified: false, linkSent: false, manual: null, dialogClosed: false });
+      fetch(`${API_BASE}/api/orders/${encodeURIComponent(old)}/cancel`, { method: 'POST' }).catch(() => {});
+      return;
+    }
+    patch({ answers: next });
+  }
+
   // Rule 9 edit affordance: a finished order is not reopened; start a new one for the same person.
   function editIncome() { closeBridge(); setConnected(false); patch({ verified: false, orderId: null, linkSent: false, manual: null, dialogClosed: false }); }
 
@@ -424,8 +427,8 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
   const question = (k, text) => (
     <fieldset class="cpp-q"><legend>{text}</legend>
       {['yes', 'no'].map(v => (
-        <label key={v} class="cpp-check"><input type="radio" name={`q-${k}`} checked={ans[k] === v} disabled={!!app.orderId}
-          onChange={() => patch({ answers: { ...ans, [k]: v } })} /><span>{v === 'yes' ? 'Yes' : 'No'}</span></label>
+        <label key={v} class="cpp-check"><input type="radio" name={`q-${k}`} checked={ans[k] === v} disabled={busy}
+          onChange={() => answer(k, v)} /><span>{v === 'yes' ? 'Yes' : 'No'}</span></label>
       ))}
     </fieldset>
   );
@@ -444,15 +447,17 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
         {field('email', 'Email *', 'email')}{field('phone', 'Phone', 'tel')}
         <p class="cpp-note">* Enter an email for demo purposes.</p>
       </div>
-      <div class="cpp-person cpp-declare">
-        {question('job', 'Do you have a job or earn income?')}
-        {ans.job != null && question('account', 'Do you have a checking or savings account?')}
-      </div>
       {app.orderId && <p class="cpp-muted">Locked: a verification order already uses these details.</p>}
     </div>,
     // Rule 1/2: the order page is the step's content; nothing of ours above it.
     <div class="cpp-income">
-      {nothing && <p class="cpp-muted">No job and no account: nothing needs verifying.</p>}
+      {/* Rule 3: these declarations decide the products, so they stay, and settling them
+          mounts the order page directly. */}
+      <div class="cpp-declare">
+        {question('job', 'Do you have a job or earn income?')}
+        {ans.job != null && question('account', 'Do you have a bank account?')}
+      </div>
+      {nothing && <p class="cpp-muted">No job and no bank account: nothing needs verifying.</p>}
       {app.verified && (
         // Rule 9: the verified result, read-only, with an edit affordance.
         <div class="cpp-result">

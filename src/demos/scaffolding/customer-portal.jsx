@@ -27,7 +27,7 @@ export const STEPS = [
   {
     title: 'Agency creates the order',
     guide: '<p>Two questions decide the products: a job adds <code>income</code>, a bank account adds <code>assets</code>. No to both creates no order.</p>'
-      + '<p>The server creates one order per applicant when they continue from About you, with notifications suppressed while they are in the portal:</p>'
+      + '<p>The server creates one order per applicant as soon as the two answers settle the products, with notifications suppressed while they are in the portal. Changing an answer later cancels that order (<code>POST /v1/orders/{id}/cancel/</code>) and creates one for the new products:</p>'
       + '<pre>POST /v1/orders/\n{\n  first_name, last_name,\n  email, phone,\n  products,\n  template_id,\n  external_user_id,\n  order_number,\n  notification_settings: {\n    suppress_user_notifications: true\n  }\n}</pre>'
       + '<p><code>template_id</code> depends on the products and on dialog vs inline. If the signed-in account does not own it, Truv returns 400 and the order is retried without it (account default template).</p>'
       + '<p>Only the <code>bridge_token</code> reaches the browser.</p>'

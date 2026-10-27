@@ -259,6 +259,12 @@ export class TruvClient {
     return this._request('PATCH', `orders/${truvOrderId}/`, { json: body });
   }
 
+  // POST /v1/orders/{id}/cancel/. Used when the applicant changes an answer and the
+  // order's products no longer match, so orders don't stack up.
+  async cancelOrder(truvOrderId) {
+    return this._request('POST', `orders/${truvOrderId}/cancel/`);
+  }
+
   async getOrder(truvOrderId) {
     return this._request('GET', `orders/${truvOrderId}/`);
   }
