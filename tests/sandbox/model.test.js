@@ -525,7 +525,7 @@ describe('comparing what was authored with what came back', () => {
   it('marks each line the same or different', () => {
     const run = { employments: [{ company: 'Acme', title: 'Engineer', payFrequency: 'BW', income: '124800.00', incomeUnit: 'YEARLY', statements: 2 }] };
     const rows = compareToScenario(scenario, run);
-    expect(rows.map(r => [r.label, r.same])).toEqual([['Employer', true], ['Job title', true], ['Pay frequency', true], ['Pay amount', true], ['Paystubs', true]]);
+    expect(rows.map(r => [r.label, r.same])).toEqual([['Employer', true], ['Job title', true], ['Still employed', true], ['Pay frequency', true], ['Pay amount', true], ['Paystubs', true]]);
     expect(rows.find(r => r.label === 'Pay frequency')).toMatchObject({ authored: 'Every two weeks', returned: 'Every two weeks' });
     const off = compareToScenario(scenario, { employments: [{ company: 'Other', title: 'Engineer', payFrequency: 'W', income: '1.00', incomeUnit: 'HOURLY', statements: 1 }] });
     expect(off.filter(r => !r.same).map(r => r.label)).toEqual(['Employer', 'Pay frequency', 'Pay amount', 'Paystubs']);
@@ -728,6 +728,7 @@ describe('standard MFA logins', () => {
 describe('words for statuses and errors', () => {
   it('turns task statuses into plain words', () => {
     expect(statusName('login_error')).toBe('Wrong password');
+    expect(statusName('done')).toBe('Success');
     expect(statusName('mfa')).toBe('Asks to verify');
     expect(statusName('some_new_status')).toBe('some new status');
     expect(statusName(null)).toBe('');

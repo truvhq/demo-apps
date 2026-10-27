@@ -153,7 +153,7 @@ export function Dialog({ open, onClose, title, children, wide, labelledBy = 'sbx
   );
 }
 
-export function ConfirmDialog({ open, title, children, confirmLabel = 'Confirm', danger, focusCancel, busy, onConfirm, onCancel }) {
+export function ConfirmDialog({ open, title, children, confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger, focusCancel, busy, onConfirm, onCancel }) {
   return (
     <Dialog
       open={open}
@@ -162,7 +162,7 @@ export function ConfirmDialog({ open, title, children, confirmLabel = 'Confirm',
       labelledBy="sbx-confirm-title"
       footer={(
         <>
-          <button type="button" class="sbx-btn ghost" onClick={onCancel} disabled={busy} data-autofocus={danger || focusCancel ? '' : undefined}>Cancel</button>
+          <button type="button" class="sbx-btn ghost" onClick={onCancel} disabled={busy} data-autofocus={danger || focusCancel ? '' : undefined}>{cancelLabel}</button>
           <button type="button" class={`sbx-btn ${danger ? 'danger' : 'primary'}`} onClick={onConfirm} disabled={busy} data-autofocus={danger || focusCancel ? undefined : ''}>{busy ? 'Working...' : confirmLabel}</button>
         </>
       )}

@@ -20,7 +20,7 @@ export const DATA_SOURCE_LABELS = {
 
 // What the task ends as. Plain words first, the API value second.
 export const STATUSES = [
-  { value: 'done', label: 'Works', hint: 'The task completes and returns the data below.' },
+  { value: 'done', label: 'Success', hint: 'The sign-in works and the data below comes back.' },
   { value: 'login_error', label: 'Wrong password', hint: 'The provider rejects the sign-in.' },
   { value: 'account_locked', label: 'Account locked', hint: 'The provider has locked the account.' },
   { value: 'mfa_error', label: 'Code rejected', hint: 'The verification code was wrong or expired.' },
@@ -34,7 +34,7 @@ export const STATUSES = [
 export const FAILURE_STATUSES = new Set(STATUSES.map(s => s.value).filter(v => v !== 'done'));
 export const TERMINAL_STATUSES = new Set(['done', ...FAILURE_STATUSES]);
 
-export const PAYROLL_PRODUCTS = ['income', 'employment', 'deposit_switch', 'pll'];
+export const PAYROLL_PRODUCTS = ['income', 'employment'];
 export const JOB_TYPES = [['F', 'Full time'], ['P', 'Part time'], ['S', 'Seasonal'], ['D', 'Per diem'], ['C', 'Contract'], ['V', 'Volunteer']];
 export const INCOME_UNITS = ['YEARLY', 'MONTHLY', 'WEEKLY', 'DAILY', 'HOURLY'];
 export const PAY_FREQUENCIES = [['W', 'Weekly'], ['BW', 'Every two weeks'], ['SM', 'Twice a month'], ['M', 'Monthly']];
@@ -161,16 +161,25 @@ export function payDates({ frequency, last, count }) {
 // A run of paystubs, oldest first, each with year-to-date totals that add up.
 //   hours given -> hourly: earnings carry hours and a rate, basis_of_pay is H
 //   otherwise   -> salary: basis_of_pay is S
-export function buildPaystubs({ frequency = 'BW', count = 2, last, gross, net, hours, currency = 'USD' }) {
+export function buildPaystubs({ frequency = 'BW', count = 2, last, gross, net, hours, currency = 'USD', lines = [] }) {
   if (!STEP_DAYS[frequency] && frequency !== 'SM' && frequency !== 'M') throw new Error(`Pay frequency ${frequency} is not supported here`);
   const grossC = toCents(gross);
   const netC = toCents(net);
   const hourly = hours !== undefined && hours !== '' && hours !== null;
+  // Extra earning lines (overtime, a bonus) are part of the gross: Regular is what is left after them.
+  const extra = (Array.isArray(lines) ? lines : []).filter(l => l && String(l.name || '').trim() && isDecimal(String(l.amount ?? '')));
+  const extraC = extra.reduce((sum, l) => sum + toCents(l.amount), 0);
+  const extraUnits = extra.reduce((sum, l) => sum + (parseFloat(l.units) || 0), 0);
+  const regularC = Math.max(0, grossC - extraC);
+  const regularUnits = hourly ? Math.max(0, parseFloat(hours) - extraUnits) : 0;
+  const line = (name, amountC, units, mult) => ({
+    name, amount: fromCents(amountC * mult),
+    ...(hourly && units > 0 ? { rate: fromCents(Math.round(amountC / units)), units: (units * mult).toFixed(2) } : {}),
+  });
   return payDates({ frequency, last, count }).map((payDate) => {
     const { start, end } = periodFor(frequency, payDate);
     const n = payPeriodsThisYear(frequency, payDate);
-    const earnings = [{ name: 'Regular', amount: fromCents(grossC), ...(hourly ? { rate: fromCents(Math.round(grossC / parseFloat(hours))), units: parseFloat(hours).toFixed(2) } : {}) }];
-    const earningsYtd = [{ name: 'Regular', amount: fromCents(grossC * n), ...(hourly ? { rate: earnings[0].rate, units: (parseFloat(hours) * n).toFixed(2) } : {}) }];
+    const parts = [['Regular', regularC, regularUnits], ...extra.map(l => [String(l.name).trim(), toCents(l.amount), parseFloat(l.units) || 0])];
     return {
       pay_date: payDate,
       period_start: start,
@@ -182,8 +191,8 @@ export function buildPaystubs({ frequency = 'BW', count = 2, last, gross, net, h
       net_pay_ytd: fromCents(netC * n),
       ...(hourly ? { hours: parseFloat(hours).toFixed(2) } : {}),
       basis_of_pay: hourly ? 'H' : 'S',
-      earnings,
-      earnings_ytd: earningsYtd,
+      earnings: parts.map(([name, c, u]) => line(name, c, u, 1)),
+      earnings_ytd: parts.map(([name, c, u]) => line(name, c, u, n)),
     };
   });
 }
@@ -368,7 +377,31 @@ export const MFA_PRESETS = [
       { type: 'OPTIONS', label: 'Where should we send your code?', options: [{ value: 'sms', label: 'Text message' }, { value: 'email', label: 'Email' }], answers: ['sms', 'email'] },
     ],
   },
+  {
+    id: 'choice-code', label: 'How to send it, then a code',
+    challenges: [
+      { type: 'OPTIONS', label: 'Where should we send your code?', options: [{ value: 'sms', label: 'Text message' }, { value: 'email', label: 'Email' }], answers: ['sms', 'email'] },
+      { type: 'TEXT', label: 'Enter the code we sent you', answer: '12345' },
+    ],
+  },
 ];
+
+// What a screen holds when its type changes: the old label and answer would not make sense for the new kind.
+export function retypeChallenge(c, type) {
+  if (c.type === type) return c;
+  return type === 'OPTIONS'
+    ? { type, label: '', options: [], answers: [] }
+    : { type, label: '', answer: '' };
+}
+
+// Move item `at` of a list by `by` places (-1 up, +1 down); out of range returns the list as it was.
+export function moveItem(list, at, by) {
+  const to = at + by;
+  if (at < 0 || at >= list.length || to < 0 || to >= list.length) return list;
+  const out = [...list];
+  [out[at], out[to]] = [out[to], out[at]];
+  return out;
+}
 
 // --- Matching ---
 
@@ -464,7 +497,7 @@ export function typeProblems(s) {
   return out;
 }
 
-export function validate(s, { others = [], self = null, requireNew = false } = {}) {
+export function validate(s, { others = [], self = null, requireNew = false, prefix = 'qa' } = {}) {
   const typed = typeProblems(s);
   if (typed.length) return typed.map(t => ({ level: 'error', path: t.path, message: t.message }));
   const out = [];
@@ -481,7 +514,7 @@ export function validate(s, { others = [], self = null, requireNew = false } = {
   if ((s.provider_id || '').length > 64) err('provider_id', 'Keep the provider under 64 characters.');
   if ((s.company_domain || '').length > 128) err('company_domain', 'Keep the website under 128 characters.');
   if (s.data_source && !DATA_SOURCES.includes(s.data_source)) err('data_source', `The data source has to be one of: ${DATA_SOURCES.join(', ')}.`);
-  if (s.username && HARD_RESERVED.has(s.username.toLowerCase())) err('username', `${s.username} is one of Truv's own test logins, so the API will not accept it. Use your own name, such as qa.${slug(s.label) || 'login'}.`);
+  if (s.username && HARD_RESERVED.has(s.username.toLowerCase())) err('username', `${s.username} is one of Truv's own test logins, so the API will not accept it. Use your own name, such as ${suggestUsername(s.label, prefix)}.`);
   else if (s.username && KNOWN_LOGINS.has(s.username.toLowerCase())) warn('username', `${s.username} is also one of Truv's standard test logins. The API may refuse it, and if it does not, it will not replace the standard one.`);
   if (s.username && /\s/.test(s.username)) warn('username', 'This username has a space in it. People will have to type it exactly.');
   if (/\{\{.*\}\}/.test(`${s.username || ''}${s.password || ''}`)) warn('username', 'This looks like a template placeholder that was never filled in.');
@@ -510,7 +543,7 @@ export function validate(s, { others = [], self = null, requireNew = false } = {
   if (s.data_source === 'payroll' || !s.data_source) {
     if (!emps.length && !FAILURE_STATUSES.has(status)) err('payload.employments', 'Add at least one job, or make the login fail.');
     if (emps.length > LIMITS.employments) err('payload.employments', `Up to ${LIMITS.employments} jobs.`);
-    emps.forEach((e, i) => validateEmployment(e, `payload.employments[${i}]`, err, warn));
+    emps.forEach((e, i) => validateEmployment(e, `payload.employments[${i}]`, err, warn, emps.length > 1 ? `Job ${i + 1}: ` : ''));
   }
   if (JSON.stringify(s.payload || {}).length > LIMITS.payloadBytes) err('payload', 'The data is over 1 MB.');
 
@@ -533,13 +566,25 @@ export function validate(s, { others = [], self = null, requireNew = false } = {
 
 const stubsAfter = (e) => (e.paystubs || []).some(p => p && parseISO(p.pay_date) && p.pay_date > e.end_date);
 
-function validateEmployment(e, base, err, warn) {
+function validateEmployment(e, base, err, warn, who = '') {
   const date = (k) => { if (e[k] && !parseISO(e[k])) err(`${base}.${k}`, 'Use a date like 2026-03-31.'); };
   ['start_date', 'end_date', 'original_hire_date'].forEach(date);
   if (e.start_date && e.end_date && parseISO(e.start_date) && parseISO(e.end_date) && e.end_date < e.start_date) err(`${base}.end_date`, 'The end date cannot be before the start date.');
   const ssn = e.profile?.ssn;
   if (ssn && !SSN.test(ssn)) err(`${base}.profile.ssn`, 'Sandbox SSNs are made up: NNN-NN-NNNN with the first three digits from 900 to 999.');
   const given = (v) => v !== undefined && v !== null && v !== '';
+  const person = e.profile;
+  if (person && typeof person === 'object') {
+    if (given(person.email) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(person.email)) err(`${base}.profile.email`, 'Use an email like jane@example.com.');
+    if (given(person.date_of_birth) && (!parseISO(person.date_of_birth) || person.date_of_birth > todayISO())) err(`${base}.profile.date_of_birth`, 'Use a past date like 1988-04-17.');
+    if (given(person.phone) && String(person.phone).replace(/\D/g, '').length < 7) err(`${base}.profile.phone`, 'A phone number needs at least seven digits.');
+    const home = person.home_address;
+    if (home && typeof home === 'object') {
+      if (given(home.zip) && !/^\d{5}(-\d{4})?$/.test(home.zip)) err(`${base}.profile.home_address.zip`, 'Use a ZIP code like 94105.');
+      if (given(home.state) && !/^[A-Za-z]{2}$/.test(home.state)) err(`${base}.profile.home_address.state`, 'Use the two-letter state, like CA.');
+    }
+  }
+  if (!given(e.income) && !given(e.pay_rate)) warn(`${base}.income`, `${who}No pay amount. An income report will show no pay for this job.`);
   if (given(e.income) && !isDecimal(e.income)) err(`${base}.income`, 'Use digits and a decimal point, like 124800.00.');
   else if (given(e.income) && parseFloat(e.income) <= 0) err(`${base}.income`, 'Pay has to be more than zero.');
   else if (given(e.income) && toCents(e.income) > MAX_CENTS) err(`${base}.income`, 'That amount is too large. Keep it under 1,000,000,000,000.');
@@ -567,6 +612,8 @@ function validateEmployment(e, base, err, warn) {
     }
     if (isDecimal(p.gross_pay) && isDecimal(p.net_pay) && toCents(p.net_pay) > toCents(p.gross_pay)) over.push(i);
   });
+  const blank = stubs.filter(p => p && !given(p.gross_pay) && !given(p.net_pay)).length;
+  if (blank) warn(`${base}.paystubs`, `${who}${blank === 1 ? 'A paystub has' : `${blank} paystubs have`} no gross or net pay.`);
   if (over.length) warn(`${base}.paystubs[${over[0]}].net_pay`, over.length === 1 ? 'Net pay is higher than gross pay.' : `Net pay is higher than gross pay on ${over.length} paystubs.`);
   if ((e.w2s || []).length > LIMITS.w2s) err(`${base}.w2s`, `Up to ${LIMITS.w2s} W-2s per job.`);
   (e.w2s || []).forEach((w, i) => {
@@ -586,6 +633,15 @@ function validateEmployment(e, base, err, warn) {
 
 // --- Request bodies ---
 
+// A scenario with the fields people look for first, in an order that reads top to bottom: who, how it behaves, then the data.
+const KEY_ORDER = ['data_source', 'label', 'description', 'username', 'password', 'enabled', 'products', 'provider_id', 'company_domain', 'is_refresh', 'behavior_status', 'behavior_error_message', 'behavior_duration_seconds', 'behavior_mfa', 'payload'];
+export function orderKeys(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+  const first = KEY_ORDER.filter(k => k in obj);
+  const rest = Object.keys(obj).filter(k => !KEY_ORDER.includes(k)).sort();
+  return Object.fromEntries([...first, ...rest].map(k => [k, obj[k]]));
+}
+
 const dropEmpty = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== '' && v !== null && v !== undefined));
 
 // What to send to create a scenario: empty optional fields left out.
@@ -597,6 +653,16 @@ function cleanPayload(body) {
       if (!e || typeof e !== 'object') return e;
       const out = { ...e };
       for (const k of ['start_date', 'end_date', 'original_hire_date']) if (out[k] === '') delete out[k];
+      // Identity details left empty in the form are not sent: an empty email or ZIP is refused as the wrong format.
+      if (out.profile && typeof out.profile === 'object' && !Array.isArray(out.profile)) {
+        const profile = { ...out.profile };
+        for (const k of ['email', 'phone', 'date_of_birth']) if (profile[k] === '') delete profile[k];
+        if (profile.home_address && typeof profile.home_address === 'object') {
+          const home = Object.fromEntries(Object.entries(profile.home_address).filter(([, v]) => v !== ''));
+          if (Object.keys(home).length) profile.home_address = home; else delete profile.home_address;
+        }
+        out.profile = profile;
+      }
       return out;
     });
   }
@@ -610,7 +676,7 @@ export function toCreateBody(s) {
   if (body.behavior_mfa && !Object.keys(body.behavior_mfa).length) delete body.behavior_mfa;
   if (body.behavior_duration_seconds === 0) delete body.behavior_duration_seconds;
   if (body.behavior_status === 'done') delete body.behavior_status;
-  return body;
+  return orderKeys(body);
 }
 
 // --- Export and import ---
@@ -640,14 +706,20 @@ export function parseBundle(text) {
 
 // What importing would do with each scenario, in order: create it, or skip it and say why. Each one is
 // checked against the account and against the ones before it in the same file.
-export function planImport(scenarios, existing) {
+export function planImport(scenarios, existing, { update = false } = {}) {
   const placed = [...existing];
+  const taken = new Set();
   return scenarios.map((body) => {
-    const problem = validate(body, { others: placed, requireNew: true }).find(i => i.level === 'error');
+    // With "update" on, a scenario with the same name (in the same data source) changes the one on the account.
+    const mine = update ? existing.find(o => (o.data_source || 'payroll') === (body.data_source || 'payroll') && String(o.label ?? '').trim() === String(body.label ?? '').trim()) : null;
+    if (mine && taken.has(mine.id)) return { body, action: 'skip', reason: 'Another scenario in this file already updates the one with this name.' };
+    const others = mine ? placed.filter(o => o !== mine && o.id !== mine.id) : placed;
+    const problem = validate(body, { others, self: mine || null, requireNew: !mine }).find(i => i.level === 'error');
     if (problem) {
-      const clash = placed.find(o => matchKey(o) === matchKey(body));
+      const clash = others.find(o => matchKey(o) === matchKey(body));
       return { body, action: 'skip', reason: clash && /already answers/.test(problem.message) ? `Same login as "${clash.label}". Change the username or password.` : problem.message };
     }
+    if (mine) { taken.add(mine.id); placed.splice(placed.indexOf(mine), 1, { ...mine, ...body }); return { body, action: 'update', id: mine.id, reason: '' }; }
     placed.push(body);
     return { body, action: 'create', reason: '' };
   });
@@ -809,12 +881,11 @@ export function describeError(env) {
 // --- Reading a run ---
 
 // Where a run stands, from the user's tasks and the order. `settled` is true once nothing is still working.
-export function readRun({ tasks = [], order = null } = {}) {
-  const task = tasks.length ? tasks[tasks.length - 1] : null;
-  const status = task?.status || null;
-  const settled = !!status && TERMINAL_STATUSES.has(status);
-  const sub = (order?.employers || [])[0] || null;
-  const employments = (sub?.employments || order?.employments || []).map(e => ({
+const newestFirst = (list) => [...list].sort((x, y) => String(y?.pay_date || '').localeCompare(String(x?.pay_date || '')));
+
+function readEmployment(e) {
+  const statements = Array.isArray(e.statements) ? e.statements : [];
+  return {
     company: e.company?.name || e.company_name || '',
     title: e.job_title || '',
     jobType: e.job_type || '',
@@ -822,11 +893,53 @@ export function readRun({ tasks = [], order = null } = {}) {
     startDate: e.start_date || '',
     endDate: e.end_date || '',
     income: e.income, incomeUnit: e.income_unit, payFrequency: e.pay_frequency,
-    statements: (e.statements || []).length,
-    latest: (e.statements || [])[0] || null,
+    statements: statements.length,
+    latest: newestFirst(statements)[0] || null,
+    profile: e.profile || null,
     raw: e,
-  }));
-  return { status, errorMessage: task?.error_message || null, settled, ok: status === 'done', employments, statuses: tasks.map(t => t.status), suborderStatus: sub?.last_task_status || sub?.status || null };
+  };
+}
+
+// Where a run stands, from the user's tasks and the order. With one employer the answer is that employer's. With
+// several (one login each), a task belongs to the employer whose link it ran on, and the run is settled only when
+// every one of them is, and ok only when all of them worked.
+// `names` is the order the employers were made in. Truv lists them in its own order, so they are put back in ours.
+export function readRun({ tasks = [], order = null, names = null } = {}) {
+  const taskList = Array.isArray(tasks) ? tasks : [];
+  const listed = Array.isArray(order?.employers) ? order.employers : [];
+  const rank = (e) => { const at = names ? names.indexOf(e?.company_name) : -1; return at < 0 ? names?.length ?? 0 : at; };
+  const emps = Array.isArray(names) && names.length > 1 ? [...listed].sort((a, b) => rank(a) - rank(b)) : listed;
+  const many = emps.length > 1;
+  const one = (emp, mine) => {
+    const task = mine.length ? mine[mine.length - 1] : null;
+    const status = task?.status || (many ? emp?.last_task_status : null) || null;
+    return {
+      company: emp?.company_name || '',
+      status,
+      settled: !!status && TERMINAL_STATUSES.has(status),
+      ok: status === 'done',
+      errorMessage: task?.error_message || null,
+      employments: (emp?.employments || order?.employments || []).map(readEmployment),
+      suborderStatus: emp?.last_task_status || emp?.status || null,
+    };
+  };
+  const employers = many
+    ? emps.map(emp => one(emp, taskList.filter(t => t.link_id && t.link_id === emp.link_id)))
+    : [one(emps[0] || null, taskList)];
+  const settled = employers.every(x => x.settled);
+  const ok = employers.every(x => x.ok);
+  const failed = employers.find(x => x.settled && !x.ok);
+  const status = many
+    ? (employers.every(x => x.status === employers[0].status) ? employers[0].status : (failed?.status || employers.find(x => !x.settled)?.status || null))
+    : employers[0].status;
+  return {
+    status, settled, ok,
+    errorMessage: (many ? failed?.errorMessage : employers[0].errorMessage) || null,
+    employments: employers.flatMap((x, employerIndex) => x.employments.map(e => ({ ...e, employerIndex }))),
+    employers,
+    statuses: taskList.map(t => t.status),
+    suborderStatus: employers[0].suborderStatus,
+  };
 }
 
 // Does signing in with these need the real widget (a person has to type a code)?
@@ -855,7 +968,152 @@ export function expectedStatus({ login = '', password = '', scenario = null, sta
   // The catalog marks the MFA logins 'mfa' for the screen they stop at; once it is answered they work.
   if (known) return known.status === 'mfa' ? 'done' : known.status;
   if (login === 'error.user') return password;
-  return 'done';
+  // Nothing answers this sign-in, so Truv does: an unknown login is refused.
+  return 'login_error';
+}
+
+// The scenario that would answer this sign-in, if one is switched on and matches both login and password.
+export function scenarioForLogin(scenarios, login, password, { refresh = false } = {}) {
+  if (!login) return null;
+  return (scenarios || []).find(s => (s.data_source || 'payroll') === 'payroll' && s.enabled !== false
+    && s.username === login && (s.password || '') === (password || '') && (s.is_refresh === true) === refresh) || null;
+}
+
+// --- Passing or failing a run ---
+
+const authoredMessage = (scenario) => String(scenario?.behavior_error_message || '').trim();
+
+// Did this run do what the scenario said it would? { verdict: 'pass' | 'fail' | 'pending', reasons: [...], notes: [...], rows }
+// `scenario` is only passed when it really answers the typed login; with none, only the status is checked.
+export function judge({ scenario = null, expected = null, run = null, product = 'income', refresh = false } = {}) {
+  if (!run || !run.settled) return { verdict: 'pending', reasons: [], notes: [], rows: [] };
+  const reasons = [];
+  const notes = [];
+  const want = expected || 'done';
+  if (run.status !== want) reasons.push(`Expected ${statusName(want)}, got ${statusName(run.status) || 'no status'}.`);
+  const rows = want === 'done' && run.ok && scenario ? compareToScenario(scenario, run, { product, refresh }) : [];
+  for (const row of rows) if (!row.same) reasons.push(`${row.label}: expected ${row.authored || 'nothing'}, got ${row.returned || 'nothing'}.`);
+  if (want !== 'done' && scenario) {
+    const wrote = authoredMessage(scenario);
+    if (wrote && run.errorMessage && run.errorMessage.trim() !== wrote) notes.push(`Truv returned "${run.errorMessage}" while the scenario says "${wrote}".`);
+    if (wrote && !run.errorMessage) notes.push(`The scenario has a failure message ("${wrote}") but the task returned none.`);
+  }
+  return { verdict: reasons.length ? 'fail' : 'pass', reasons, notes, rows };
+}
+
+// --- Before and after a refresh ---
+
+const money = (x) => (x === undefined || x === null || x === '' ? '' : String(x));
+
+// What changed between two runs of the same login, job by job: pay, dates, paystubs.
+export function refreshDiff(before, after, { product = 'income' } = {}) {
+  const a = before?.employments || [];
+  const b = after?.employments || [];
+  const used = new Set();
+  const pairs = a.map((x) => {
+    let at = b.findIndex((y, i) => !used.has(i) && y.company === x.company);
+    if (at < 0) at = b.findIndex((_, i) => !used.has(i));
+    if (at >= 0) used.add(at);
+    return [x, at >= 0 ? b[at] : null];
+  });
+  b.forEach((y, i) => { if (!used.has(i)) pairs.push([null, y]); });
+  const rows = [];
+  pairs.forEach(([x, y], n) => {
+    const prefix = pairs.length > 1 ? `Job ${n + 1}: ` : '';
+    const add = (label, was, now) => rows.push({ label: `${prefix}${label}`, before: money(was), after: money(now), changed: money(was) !== money(now) });
+    const pay = (e) => (e ? `${money(e.income)} ${String(e.incomeUnit || '').toLowerCase()}`.trim() : '');
+    const yes = (e) => (e ? (e.active === false ? 'No' : 'Yes') : '');
+    add('Employer', x?.company, y?.company);
+    add('Job title', x?.title, y?.title);
+    if (product !== 'employment') add('Pay amount', pay(x), pay(y));
+    if (product !== 'employment') add('Pay frequency', x ? payFrequencyLabel(x.payFrequency) : '', y ? payFrequencyLabel(y.payFrequency) : '');
+    add('Still employed', yes(x), yes(y));
+    add('End date', x?.endDate, y?.endDate);
+    if (product !== 'employment') {
+      add('Paystubs', x?.statements, y?.statements);
+      add('Newest paystub date', x?.latest?.pay_date, y?.latest?.pay_date);
+      add('Newest gross pay', x?.latest?.gross_pay, y?.latest?.gross_pay);
+      add('Newest take-home', x?.latest?.net_pay, y?.latest?.net_pay);
+    }
+  });
+  return rows;
+}
+
+// --- Suite results ---
+
+const csvCell = (v) => {
+  let t = String(v ?? '');
+  // A cell that starts with = + - @ would run as a formula when the file is opened in a spreadsheet.
+  if (/^[=+\-@\t\r]/.test(t)) t = `'${t}`;
+  return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+};
+
+export const SUITE_COLUMNS = ['Scenario', 'Login', 'Expected', 'Result', 'Verdict', 'Seconds', 'Order id', 'Notes'];
+
+export function suiteRow(r) {
+  return {
+    Scenario: r.label || '', Login: r.login || '', Expected: statusName(r.expected) || '', Result: statusName(r.status) || (r.skipped ? 'Not run' : ''),
+    Verdict: r.skipped ? 'Skipped' : r.verdict === 'pass' ? 'Pass' : r.verdict === 'fail' ? 'Fail' : r.verdict === 'error' ? 'Could not run' : '',
+    Seconds: r.seconds ?? '', 'Order id': r.orderId || '', Notes: [r.skipped, ...(r.reasons || []), r.note].filter(Boolean).join(' ') ,
+  };
+}
+
+export function suiteCsv(results) {
+  return [SUITE_COLUMNS.join(','), ...results.map(r => { const row = suiteRow(r); return SUITE_COLUMNS.map(c => csvCell(row[c])).join(','); })].join('\n');
+}
+
+// Scenarios the suite can run on its own: switched on, payroll, with a login and password, and nobody has to type a code.
+export function suiteSkip(s) {
+  if (s.enabled === false) return 'Switched off.';
+  if ((s.data_source || 'payroll') !== 'payroll') return 'Not a payroll scenario.';
+  if (!s.username) return 'Needs a login.';
+  if (s.is_refresh === true) return 'Only answers refreshes.';
+  if (s.provider_id || s.company_domain) return 'Only answers one provider or employer, so a sign-in here would not match it.';
+  if ((s.behavior_mfa?.challenges || []).length) return 'Asks for a code, which only Bridge can answer.';
+  return '';
+}
+
+// One line of a suite from a scenario you made.
+export function suiteItemFromScenario(s) {
+  return { key: s.id, label: s.label, login: s.username || '', password: s.password || 'password', scenario: s, expected: expectedStatus({ scenario: s }), skip: suiteSkip(s) };
+}
+
+// One line of a suite from a standard login (a row of the catalog).
+export function suiteItemFromLogin(l) {
+  return { key: `${l.login}/${l.password}`, label: `${l.login} / ${l.password}`, login: l.login, password: l.password, scenario: null, expected: expectedStatus({ login: l.login, password: l.password, status: l.status }), skip: '' };
+}
+
+// --- Finding scenarios ---
+
+const SYNONYMS = { terminated: ['ended', 'not active', 'former'], ended: ['terminated'], fail: ['error', 'failure'], hourly: ['overtime'], mfa: ['code', 'verify', 'verification'] };
+
+// Everything a person might type to find a scenario: its fields, its employers, and what it does.
+const safelySummary = (s) => { try { return summarizeScenario(s); } catch { return ''; } };
+export function searchText(s) {
+  const emps = (Array.isArray(s?.payload?.employments) ? s.payload.employments : []).filter(e => e && typeof e === 'object');
+  const parts = [s.label, s.username, s.password, s.description, s.provider_id, s.company_domain,
+    ...emps.flatMap(e => [e.company?.name, e.company?.domain, e.job_title, e.profile?.full_name]),
+    statusName(s.behavior_status || 'done'), safelySummary(s), (s.behavior_mfa?.challenges || []).length ? 'mfa code verify' : '',
+    emps.some(e => e.is_active === false || e.end_date) ? 'terminated ended' : '', s.is_refresh ? 'refresh' : ''];
+  return parts.filter(Boolean).join('\n').toLowerCase();
+}
+
+export function matchesQuery(s, query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return true;
+  const hay = searchText(s);
+  const words = q.split(/\s+/);
+  return words.every(w => hay.includes(w) || (Object.hasOwn(SYNONYMS, w) ? SYNONYMS[w] : []).some(x => hay.includes(x)));
+}
+
+export const SORTS = [['name', 'Name'], ['updated', 'Recently updated'], ['login', 'Login']];
+export function sortScenarios(list, by = 'name') {
+  const cmp = {
+    name: (a, b) => String(a.label || '').localeCompare(String(b.label || ''), undefined, { sensitivity: 'base', numeric: true }),
+    login: (a, b) => String(a.username || '').localeCompare(String(b.username || ''), undefined, { sensitivity: 'base', numeric: true }),
+    updated: (a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')),
+  }[by] || (() => 0);
+  return [...list].sort(cmp);
 }
 
 // --- Sharing ---
@@ -870,6 +1128,39 @@ export function toCurl(body) {
     "  --header 'Content-Type: application/json' \\",
     `  --data '${JSON.stringify(body, null, 2).replace(/'/g, "'\\''")}'`,
   ].join('\n');
+}
+
+const API_BASE = 'https://prod.truv.com/v1';
+
+// A shell script that creates every scenario with curl. The keys come from the environment, never from this file.
+export function toCurlScript(list) {
+  const lines = ['#!/usr/bin/env bash', '# Creates sandbox scenarios. Set TRUV_CLIENT_ID and TRUV_SANDBOX_SECRET first.', 'set -euo pipefail', ''];
+  list.forEach((s, i) => {
+    const body = toCreateBody(s);
+    lines.push(`# ${i + 1}. ${String(body.label || '').replace(/[\r\n]+/g, ' ')}`);
+    lines.push(`curl --fail-with-body --request POST \\`, `  --url ${API_BASE}/sandbox/scenarios/ \\`, "  --header \"X-Access-Client-Id: $TRUV_CLIENT_ID\" \\", "  --header \"X-Access-Secret: $TRUV_SANDBOX_SECRET\" \\", "  --header 'Content-Type: application/json' \\", `  --data '${JSON.stringify(body, null, 2).replace(/'/g, "'\\''")}'`, 'echo', '');
+  });
+  return lines.join('\n');
+}
+
+// A Postman collection (v2.1) with one create request per scenario, the keys as variables.
+export function toPostman(list, name = 'Truv sandbox scenarios') {
+  return {
+    info: { name, schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
+    variable: [{ key: 'client_id', value: '' }, { key: 'sandbox_secret', value: '' }],
+    item: list.map((s) => {
+      const body = toCreateBody(s);
+      return {
+        name: body.label || 'Scenario',
+        request: {
+          method: 'POST',
+          header: [{ key: 'X-Access-Client-Id', value: '{{client_id}}' }, { key: 'X-Access-Secret', value: '{{sandbox_secret}}' }, { key: 'Content-Type', value: 'application/json' }],
+          url: { raw: `${API_BASE}/sandbox/scenarios/`, protocol: 'https', host: ['prod', 'truv', 'com'], path: ['v1', 'sandbox', 'scenarios', ''] },
+          body: { mode: 'raw', raw: JSON.stringify(body, null, 2), options: { raw: { language: 'json' } } },
+        },
+      };
+    }),
+  };
 }
 
 // "3 minutes ago", for the list of deleted scenarios.
@@ -925,11 +1216,14 @@ export const usedBy = (docId, scenarios) => (scenarios || []).filter(s => docume
 export const stripLegalSuffix = (name) => String(name || '').replace(/[,\s]+(inc|llc|l\.l\.c|ltd|corp|corporation|co|company)\.?$/i, '').trim();
 
 // Line up each job of a scenario with the job a run returned for it (by employer name, then by position).
-// Each row: { label, authored, returned, same }. With more than one job the labels say which.
-export function compareToScenario(scenario, run) {
+// Each row: { label, authored, returned, same }. With more than one job the labels say which. An employment-only run
+// returns no pay and no paystubs, so those rows are left out for it.
+export function compareToScenario(scenario, run, { product = 'income', refresh = false } = {}) {
   const authored = (Array.isArray(scenario?.payload?.employments) ? scenario.payload.employments : []).filter(e => e && typeof e === 'object');
   const returned = run?.employments || [];
   if (!authored.length || !returned.length) return [];
+  const withPay = product !== 'employment';
+  const same = (a, b) => parseFloat(a) === parseFloat(b);
   const used = new Set();
   const rows = [];
   authored.forEach((a, n) => {
@@ -939,14 +1233,29 @@ export function compareToScenario(scenario, run) {
     const r = at >= 0 ? returned[at] : null;
     if (at >= 0) used.add(at);
     const prefix = authored.length > 1 ? `Job ${n + 1}: ` : '';
-    const add = (label, wrote, got, same) => rows.push({ label: `${prefix}${label}`, authored: wrote ?? '', returned: got ?? '', same: same ?? (String(wrote ?? '') === String(got ?? '')) });
+    const add = (label, wrote, got, ok) => rows.push({ label: `${prefix}${label}`, authored: wrote ?? '', returned: got ?? '', same: ok ?? (String(wrote ?? '') === String(got ?? '')) });
     if (!r) { add('Employer', a.company?.name, 'Not returned', false); return; }
     add('Employer', a.company?.name, r.company, name === String(r.company || '').trim());
     if (a.job_title) add('Job title', a.job_title, r.title);
-    if (a.pay_frequency) add('Pay frequency', payFrequencyLabel(a.pay_frequency), payFrequencyLabel(r.payFrequency), a.pay_frequency === r.payFrequency);
-    if (a.income) add('Pay amount', `${a.income} ${String(a.income_unit || '').toLowerCase()}`.trim(), r.income === undefined ? '' : `${r.income} ${String(r.incomeUnit || '').toLowerCase()}`.trim(), parseFloat(a.income) === parseFloat(r.income) && String(a.income_unit || '').toUpperCase() === String(r.incomeUnit || '').toUpperCase());
-    const stubs = (Array.isArray(a.paystubs) ? a.paystubs : []).length;
-    if (stubs) add('Paystubs', stubs, r.statements, stubs === r.statements);
+    if (a.start_date) add('Start date', a.start_date, r.startDate);
+    if (a.end_date) add('End date', a.end_date, r.endDate);
+    add('Still employed', a.is_active === false ? 'No' : 'Yes', r.active === false ? 'No' : 'Yes');
+    if (withPay && a.pay_frequency) add('Pay frequency', payFrequencyLabel(a.pay_frequency), payFrequencyLabel(r.payFrequency), a.pay_frequency === r.payFrequency);
+    if (withPay && a.income) add('Pay amount', `${a.income} ${String(a.income_unit || '').toLowerCase()}`.trim(), r.income === undefined ? '' : `${r.income} ${String(r.incomeUnit || '').toLowerCase()}`.trim(), same(a.income, r.income) && String(a.income_unit || '').toUpperCase() === String(r.incomeUnit || '').toUpperCase());
+    const stubs = (Array.isArray(a.paystubs) ? a.paystubs : []).filter(x => x && typeof x === 'object');
+    if (withPay && stubs.length) {
+      // A refresh adds its paystubs to the ones already there, so it can only return more than it was given.
+      add(refresh ? 'Paystubs (a refresh adds to the old ones)' : 'Paystubs', stubs.length, r.statements, refresh ? r.statements >= stubs.length : stubs.length === r.statements);
+      const newest = newestFirst(stubs)[0];
+      const got = r.latest || {};
+      if (newest.pay_date) add('Newest paystub date', newest.pay_date, got.pay_date || '');
+      if (newest.gross_pay) add('Newest gross pay', newest.gross_pay, got.gross_pay ?? '', same(newest.gross_pay, got.gross_pay));
+      if (newest.net_pay) add('Newest take-home', newest.net_pay, got.net_pay ?? '', same(newest.net_pay, got.net_pay));
+      if (newest.hours) add('Newest hours', newest.hours, got.hours ?? '', same(newest.hours, got.hours));
+      const isOvertime = (x) => /overtime/i.test(x?.name || '');
+      const overtime = (Array.isArray(newest.earnings) ? newest.earnings : []).find(isOvertime);
+      if (overtime?.amount) add('Newest overtime', overtime.amount, (Array.isArray(got.earnings) ? got.earnings : []).find(isOvertime)?.amount ?? '', same(overtime.amount, (Array.isArray(got.earnings) ? got.earnings : []).find(isOvertime)?.amount));
+    }
   });
   return rows;
 }

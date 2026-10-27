@@ -1,7 +1,7 @@
 /**
  * FILE SUMMARY: Bring scenarios in from a file made by Export, or pasted JSON. Shows what would be
  * created and what would be skipped (and why) before anything is sent, then creates them one at a time.
- * Nothing is ever replaced or deleted: a scenario that clashes with one on the account is skipped.
+ * A scenario that clashes with one on the account is skipped, unless "update" is on: then one with the same name is changed.
  */
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { parseBundle, planImport, summarizeScenario } from './model.js';
@@ -10,10 +10,11 @@ import { Dialog, Notice, Spinner, announce, plural } from './ui.jsx';
 // What an imported file holds may be anything, so only text is drawn as text.
 const plain = (v) => (typeof v === 'string' || typeof v === 'number' ? String(v) : '');
 
-export function Import({ open, onClose, existing, onCreate }) {
+export function Import({ open, onClose, existing, onCreate, onUpdate }) {
   const [text, setText] = useState('');
   const [problem, setProblem] = useState('');
   const [plan, setPlan] = useState(null);       // [{ body, action, reason }]
+  const [update, setUpdate] = useState(false);  // change a scenario with the same name instead of skipping it
   const [phase, setPhase] = useState('choose'); // choose | review | running | done
   const [results, setResults] = useState({});   // index -> { ok, message }
   const input = useRef(null);
@@ -24,7 +25,7 @@ export function Import({ open, onClose, existing, onCreate }) {
 
   useEffect(() => {
     if (!open) return;
-    setText(''); setProblem(''); setPlan(null); setPhase('choose'); setResults({}); stop.current = false;
+    setText(''); setProblem(''); setPlan(null); setPhase('choose'); setResults({}); setUpdate(false); stop.current = false;
   }, [open]);
 
   function readFile(file) {
@@ -44,10 +45,10 @@ export function Import({ open, onClose, existing, onCreate }) {
     const parsed = parseBundle(text);
     if (!parsed.ok) { setProblem(parsed.problem); return; }
     setProblem('');
-    const next = planImport(parsed.scenarios, existing);
+    const next = planImport(parsed.scenarios, existing, { update });
     setPlan(next);
     setPhase('review');
-    announce(`${next.filter(p => p.action === 'create').length} of ${next.length} will be created.`);
+    announce(`${next.filter(p => p.action !== 'skip').length} of ${next.length} will be created or updated.`);
   }
 
   async function run() {
@@ -57,9 +58,9 @@ export function Import({ open, onClose, existing, onCreate }) {
     setPhase('running');
     const next = {};
     for (let i = 0; i < plan.length; i++) {
-      if (plan[i].action !== 'create') continue;
+      if (plan[i].action === 'skip') continue;
       if (stop.current) { next[i] = { ok: false, notTried: true, message: 'Not tried. You stopped the import.' }; setResults({ ...next }); continue; }
-      try { next[i] = await onCreate(plan[i].body); } catch { next[i] = { ok: false, message: 'Something went wrong while creating this one.' }; }
+      try { next[i] = plan[i].action === 'update' ? await onUpdate(plan[i].id, plan[i].body) : await onCreate(plan[i].body); } catch { next[i] = { ok: false, message: 'Something went wrong while creating this one.' }; }
       setResults({ ...next });
     }
     setPhase('done');
@@ -67,6 +68,8 @@ export function Import({ open, onClose, existing, onCreate }) {
   }
 
   const toCreate = plan ? plan.filter(p => p.action === 'create').length : 0;
+  const toUpdate = plan ? plan.filter(p => p.action === 'update').length : 0;
+  const toDo = toCreate + toUpdate;
   const made = Object.values(results).filter(r => r.ok).length;
   const failed = Object.values(results).filter(r => !r.ok && !r.notTried).length;
   const notTried = Object.values(results).filter(r => r.notTried).length;
@@ -84,6 +87,10 @@ export function Import({ open, onClose, existing, onCreate }) {
           </div>
           <label class="sbx-sr" for="sbx-import-text">Scenarios as JSON</label>
           <textarea id="sbx-import-text" class="sbx-import-text" rows={10} spellcheck={false} value={text} onInput={(e) => { setText(e.currentTarget.value); setProblem(''); }} placeholder='{ "scenarios": [ ... ] }' />
+          <label class="sbx-checkrow">
+            <input type="checkbox" checked={update} onChange={(e) => setUpdate(e.currentTarget.checked)} />
+            <span>Update scenarios that already exist with the same name <span class="sbx-small">(otherwise they are skipped)</span></span>
+          </label>
           {problem && <p class="sbx-error" role="alert">{problem}</p>}
           <div class="sbx-trydone">
             <button type="button" class="sbx-btn ghost" onClick={onClose}>Cancel</button>
@@ -95,9 +102,11 @@ export function Import({ open, onClose, existing, onCreate }) {
       {phase !== 'choose' && plan && (
         <>
           <p>
-            {phase === 'review' && (toCreate > 0 ? <><strong>{plural(toCreate, 'scenario')}</strong> will be created{toCreate < plan.length ? `, ${plan.length - toCreate} skipped` : ''}. Nothing on the account is changed or replaced.</> : <><strong>Nothing to create.</strong> Every scenario in the file was skipped.</>)}
+            {phase === 'review' && (toDo > 0
+              ? <><strong>{[toCreate && `${plural(toCreate, 'scenario')} will be created`, toUpdate && `${plural(toUpdate, 'scenario')} will be updated`].filter(Boolean).join(', ')}</strong>{toDo < plan.length ? `, ${plan.length - toDo} skipped` : ''}. {toUpdate ? 'An update replaces that scenario\'s current data on the account for everyone, and cannot be undone here.' : 'Nothing on the account is changed or replaced.'}</>
+              : <><strong>Nothing to create.</strong> Every scenario in the file was skipped.</>)}
             {busy && <><Spinner /> Creating, one at a time...</>}
-            {phase === 'done' && <><strong>{made} created</strong>{failed ? `, ${failed} did not go through` : ''}{notTried ? `, ${notTried} not tried` : ''}{plan.length - toCreate ? `, ${plan.length - toCreate} skipped` : ''}.</>}
+            {phase === 'done' && <><strong>{made} created or updated</strong>{failed ? `, ${failed} did not go through` : ''}{notTried ? `, ${notTried} not tried` : ''}{plan.length - toDo ? `, ${plan.length - toDo} skipped` : ''}.</>}
           </p>
           <div class="sbx-tablewrap sbx-import-table-wrap" tabIndex={0} role="region" aria-label="What the import does">
             <table class="sbx-table sbx-import-table">
@@ -106,11 +115,11 @@ export function Import({ open, onClose, existing, onCreate }) {
                 {plan.map((p, i) => {
                   const r = results[i];
                   const state = p.action === 'skip' ? { text: `Skipped. ${p.reason}`, tone: 'warn' }
-                    : r ? (r.ok ? { text: 'Created', tone: 'good' } : { text: r.message, tone: 'bad' })
-                      : busy ? { text: 'Waiting', tone: 'plain' } : { text: 'Will be created', tone: 'plain' };
+                    : r ? (r.ok ? { text: p.action === 'update' ? 'Updated' : 'Created', tone: 'good' } : { text: r.message, tone: 'bad' })
+                      : busy ? { text: 'Waiting', tone: 'plain' } : { text: p.action === 'update' ? 'Will be updated' : 'Will be created', tone: 'plain' };
                   return (
                     <tr key={i}>
-                      <td><strong>{plain(p.body.label) || 'No name'}</strong><br /><span class="sbx-small">{p.action === 'create' ? summarizeScenario(p.body) : ''}</span></td>
+                      <td><strong>{plain(p.body.label) || 'No name'}</strong><br /><span class="sbx-small">{p.action !== 'skip' ? summarizeScenario(p.body) : ''}</span></td>
                       <td><code>{plain(p.body.username) || '(none)'}</code>{plain(p.body.password) ? <> / <code>{plain(p.body.password)}</code></> : null}</td>
                       <td class={`sbx-import-${state.tone}`}>{state.text}</td>
                     </tr>
@@ -122,7 +131,7 @@ export function Import({ open, onClose, existing, onCreate }) {
           {phase === 'done' && failed > 0 && <Notice tone="bad" title="Some did not go through">Each reason is in the table. The ones that were created are on your account now.</Notice>}
           <div class="sbx-trydone">
             {phase === 'review' && <button type="button" class="sbx-btn ghost" onClick={() => { setPhase('choose'); setPlan(null); }}>Back</button>}
-            {phase === 'review' && <button type="button" class="sbx-btn primary" onClick={run} disabled={toCreate === 0}>Create {toCreate}</button>}
+            {phase === 'review' && <button type="button" class="sbx-btn primary" onClick={run} disabled={toDo === 0}>{toUpdate ? (toCreate ? `Create ${toCreate} and update ${toUpdate}` : `Update ${toUpdate}`) : `Create ${toCreate}`}</button>}
             {busy && <button type="button" class="sbx-btn ghost" onClick={() => { if (Date.now() - startedAt.current > 700) stop.current = true; }}>Stop after this one</button>}
             {phase === 'done' && <button type="button" class="sbx-btn primary" onClick={onClose}>Close</button>}
           </div>

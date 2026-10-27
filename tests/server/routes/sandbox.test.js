@@ -262,11 +262,13 @@ describe('trying a login', () => {
     expect(c.createOrder.mock.calls[0][0]).toMatchObject({ product_type: 'assets' });
   });
 
-  it('gives deposit switch and PLL an employer to attach the test account to', async () => {
+  it('leaves out deposit switch and paycheck-linked loans, which the public sector does not use', async () => {
     const c = client();
     const base = await start(c);
-    await send(base, 'POST', '/api/sandbox/run', { mode: 'widget', product: 'pll' });
-    expect(c.createOrder.mock.calls[0][0].employers).toEqual([{ company_name: 'Sandbox Employer' }]);
+    for (const product of ['deposit_switch', 'pll']) {
+      expect((await send(base, 'POST', '/api/sandbox/run', { mode: 'widget', product })).http).toBe(400);
+    }
+    expect(c.createOrder).not.toHaveBeenCalled();
   });
 
   it('stops where it failed and says so', async () => {
@@ -335,6 +337,224 @@ describe('trying a login', () => {
     const { json } = await send(base, 'GET', '/api/sandbox/run/o1?user_id=u1');
     expect(json.data.order).toBeNull();
     expect(json.data.order_status).toBe(404);
+  });
+});
+
+describe('reading one scenario and who the page is signed in as', () => {
+  it('reads a scenario by id and refuses an id that is not one', async () => {
+    const sandbox = vi.fn().mockResolvedValue(ok({ id: 's1', updated_at: '2026-10-01T00:00:00Z' }));
+    const base = await start({ sandbox });
+    const { json } = await send(base, 'GET', '/api/sandbox/scenarios/s1');
+    expect(sandbox).toHaveBeenCalledWith('GET', 'scenarios/s1/');
+    expect(json).toMatchObject({ status: 200, data: { id: 's1' } });
+    expect(json.calls[0]).toMatchObject({ method: 'GET', endpoint: '/v1/sandbox/scenarios/s1/' });
+    expect((await send(base, 'GET', '/api/sandbox/scenarios/a.b')).http).toBe(400);
+  });
+
+  it('hands back Truv\'s answer when the scenario is gone', async () => {
+    const base = await start({ sandbox: vi.fn().mockResolvedValue(ok({ detail: 'Not found.' }, 404)) });
+    expect((await send(base, 'GET', '/api/sandbox/scenarios/s1')).json.status).toBe(404);
+  });
+
+  it('says it is a sandbox key and shows only the end of the client id', async () => {
+    const base = await start({ sandbox: vi.fn().mockResolvedValue(ok({ results: [] })), clientId: 'abcd1234wxyz', secret: 'sh-secret' });
+    const { json } = await send(base, 'GET', '/api/sandbox/whoami');
+    expect(json.data).toEqual({ environment: 'sandbox', key_hint: '\u2026wxyz' });
+    expect(JSON.stringify(json)).not.toContain('sh-secret');
+    expect(JSON.stringify(json)).not.toContain('abcd1234');
+  });
+
+  it('refuses a production key and a missing session', async () => {
+    const base = await start({ sandbox: vi.fn().mockResolvedValue(ok({ error: { code: 'env_not_sandbox' } }, 403)), clientId: 'prod-key-0001', secret: 's' });
+    expect((await send(base, 'GET', '/api/sandbox/whoami')).json.status).toBe(403);
+    const none = await start(null, { session: false });
+    expect((await send(none, 'GET', '/api/sandbox/whoami')).http).toBe(401);
+    expect((await send(none, 'GET', '/api/sandbox/scenarios/s1')).http).toBe(401);
+  });
+});
+
+describe('trying several logins in one order', () => {
+  function client(overrides = {}) {
+    return {
+      clientId: 'cid-0001', secret: 's',
+      sandbox: vi.fn().mockResolvedValue(ok({ results: [] })),
+      createOrder: vi.fn().mockResolvedValue(ok({ id: 'o1', user_id: 'u1', employers: [{ bridge_token: 'bt3', company_name: 'Sandbox login 3' }, { bridge_token: 'bt1', company_name: 'Sandbox login 1' }, { bridge_token: 'bt2', company_name: 'Sandbox login 2' }] }, 201)),
+      createCheck: vi.fn().mockImplementation(async (token) => ok({ check_id: `c-${token}`, task_id: `t-${token}` }, 201)),
+      ...overrides,
+    };
+  }
+  const post = (base, body) => send(base, 'POST', '/api/sandbox/run', { mode: 'headless', product: 'income', ...body });
+
+  it('makes one employer per login and signs in to the first only', async () => {
+    const c = client();
+    const base = await start(c);
+    const { json } = await post(base, { logins: [{ login: 'a', password: 'pa' }, { login: 'b', password: 'pb' }] });
+    expect(c.createOrder.mock.calls[0][0].employers).toHaveLength(2);
+    expect(c.createCheck.mock.calls.map(x => [x[0], x[1].login, x[1].password])).toEqual([['bt1', 'a', 'pa']]);
+    expect(json.status).toBe(201);
+    expect(json.data).toMatchObject({ order_id: 'o1', user_id: 'u1', check_id: 'c-bt1', task_id: 't-bt1' });
+    expect(json.data.employers.map(e => e.login)).toEqual(['a', 'b']);
+    expect(json.calls.filter(x => x.endpoint === '/v1/checks/')).toHaveLength(1);
+    expect(JSON.stringify(json)).not.toContain('"pa"');
+  });
+
+  it('lets logins replace login and password, and keeps a single login as it was', async () => {
+    const c = client();
+    const base = await start(c);
+    await post(base, { login: 'ignored', password: 'x', logins: [{ login: 'only', password: 'p' }] });
+    expect(c.createCheck.mock.calls[0][1].login).toBe('only');
+    expect(c.createOrder.mock.calls[0][0]).not.toHaveProperty('employers');
+    const one = client({ createOrder: vi.fn().mockResolvedValue(ok({ id: 'o1', user_id: 'u1', employers: [{ bridge_token: 'bt1', company_name: 'Acme' }] }, 201)) });
+    const { json } = await post(await start(one), { login: 'solo', password: 'p' });
+    expect(json.data.employers).toEqual([{ company_name: 'Acme', login: 'solo' }]);
+  });
+
+  it('checks the list before it creates anything', async () => {
+    const c = client();
+    const base = await start(c);
+    const l = (n) => ({ login: `u${n}`, password: 'p' });
+    for (const logins of [[], 'a', [l(1), l(2), l(3), l(4)], [l(1), { login: 'x', password: '' }], [{ login: '', password: 'p' }], [l(1), l(1)], [null]]) {
+      expect((await post(base, { logins })).http).toBe(400);
+    }
+    expect((await send(base, 'POST', '/api/sandbox/run', { mode: 'headless', product: 'assets', logins: [l(1)] })).http).toBe(400);
+    expect(c.createOrder).not.toHaveBeenCalled();
+  });
+
+  it('reports a failure of the first check along with the order that was made', async () => {
+    const createCheck = vi.fn().mockResolvedValueOnce(ok({ error: { message: 'no' } }, 400));
+    const c = client({ createCheck });
+    const base = await start(c);
+    const { json } = await post(base, { logins: [{ login: 'a', password: 'p' }, { login: 'b', password: 'p' }, { login: 'c', password: 'p' }] });
+    expect(json.status).toBe(400);
+    expect(json.order_id).toBe('o1');
+    expect(json.employers).toHaveLength(3);
+    expect(createCheck).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports a missing token for any employer, and still signs nothing in', async () => {
+    const c = client({ createOrder: vi.fn().mockResolvedValue(ok({ id: 'o1', user_id: 'u1', employers: [{ bridge_token: 'bt1', company_name: 'Sandbox login 1' }] }, 201)) });
+    const base = await start(c);
+    const { json } = await post(base, { logins: [{ login: 'a', password: 'p' }, { login: 'b', password: 'p' }] });
+    expect(json.status).toBe(502);
+    expect(c.createCheck).not.toHaveBeenCalled();
+  });
+
+  it('remembers the user for this session when a database is given', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => { req.truv = client(); req.session = { id: 'sess1' }; next(); });
+    const db = { recordSessionUser: vi.fn() };
+    app.use(sandboxRoutes({ truv: null, db }));
+    const server = http.createServer(app);
+    servers.push(server);
+    await new Promise(r => server.listen(0, '127.0.0.1', r));
+    await send(`http://127.0.0.1:${server.address().port}`, 'POST', '/api/sandbox/run', { login: 'a', password: 'p' });
+    expect(db.recordSessionUser).toHaveBeenCalledWith('sess1', 'u1');
+  });
+});
+
+describe('signing in to the next login of an order', () => {
+  function client(overrides = {}) {
+    return {
+      sandbox: vi.fn().mockResolvedValue(ok({ results: [] })),
+      getOrder: vi.fn().mockResolvedValue(ok({ id: 'o1', employers: [{ bridge_token: 'bt2', company_name: 'Sandbox login 3' }, { bridge_token: 'bt0', company_name: 'Sandbox login 1' }, { bridge_token: 'bt1', company_name: 'Sandbox login 2' }] })),
+      createCheck: vi.fn().mockResolvedValue(ok({ check_id: 'c2', task_id: 't2' }, 201)),
+      ...overrides,
+    };
+  }
+  const body = (extra = {}) => ({ user_id: 'u1', index: 1, login: 'b', password: 'pb', product: 'income', ...extra });
+
+  it('uses that employer\'s token and keeps the password out of the trace', async () => {
+    const c = client();
+    const base = await start(c);
+    const { json } = await send(base, 'POST', '/api/sandbox/run/o1/check', body({ index: 2 }));
+    expect(c.createCheck).toHaveBeenCalledWith('bt2', { login: 'b', password: 'pb', productType: 'income' });
+    expect(json).toMatchObject({ status: 201, data: { order_id: 'o1', user_id: 'u1', index: 2, check_id: 'c2', task_id: 't2' } });
+    expect(json.calls.find(x => x.endpoint === '/v1/checks/').request_body).toMatchObject({ employee_password: '***' });
+    expect(JSON.stringify(json)).not.toContain('"pb"');
+  });
+
+  it('checks its input before it asks Truv anything', async () => {
+    const c = client();
+    const base = await start(c);
+    for (const bad of [{ index: 0 }, { index: 3 }, { index: '1' }, { index: 1.5 }, { login: '' }, { password: '' }, { user_id: '..' }, { product: 'assets' }, { product: undefined }]) {
+      expect((await send(base, 'POST', '/api/sandbox/run/o1/check', body(bad))).http).toBe(400);
+    }
+    expect((await send(base, 'POST', '/api/sandbox/run/..x/check', body())).http).toBe(400);
+    expect(c.getOrder).not.toHaveBeenCalled();
+    expect(c.createCheck).not.toHaveBeenCalled();
+  });
+
+  it('says so when the order has no such login, or cannot be read', async () => {
+    const c = client({ getOrder: vi.fn().mockResolvedValue(ok({ id: 'o1', employers: [{ bridge_token: 'bt0', company_name: 'Sandbox login 1' }] })) });
+    const base = await start(c);
+    expect((await send(base, 'POST', '/api/sandbox/run/o1/check', body())).http).toBe(400);
+    const gone = client({ getOrder: vi.fn().mockResolvedValue(ok({ detail: 'Not found.' }, 404)) });
+    expect((await send(await start(gone), 'POST', '/api/sandbox/run/o1/check', body())).json.status).toBe(404);
+    expect(c.createCheck).not.toHaveBeenCalled();
+  });
+
+  it('passes on Truv\'s refusal while the earlier task is still running', async () => {
+    const c = client({ createCheck: vi.fn().mockResolvedValue(ok({ error: { code: 'task_exists', message: 'Connection is already in progress' } }, 409)) });
+    const base = await start(c);
+    const { json } = await send(base, 'POST', '/api/sandbox/run/o1/check', body());
+    expect(json.status).toBe(409);
+    expect(json.data.error.code).toBe('task_exists');
+  });
+
+  it('will not run on a production key', async () => {
+    const c = client({ sandbox: vi.fn().mockResolvedValue(ok({ error: { code: 'env_not_sandbox' } }, 403)) });
+    const base = await start(c);
+    expect((await send(base, 'POST', '/api/sandbox/run/o1/check', body())).json.status).toBe(403);
+    expect(c.createCheck).not.toHaveBeenCalled();
+  });
+});
+
+describe('refreshing a run', () => {
+  function client(overrides = {}) {
+    return {
+      sandbox: vi.fn().mockResolvedValue(ok({ results: [] })),
+      createRefreshOrder: vi.fn().mockResolvedValue(ok({ id: 'o2', user_id: 'u1' }, 201)),
+      ...overrides,
+    };
+  }
+
+  it('asks Truv for a refresh of the one product and returns the new order id', async () => {
+    const c = client();
+    const base = await start(c);
+    const { json } = await send(base, 'POST', '/api/sandbox/run/o1/refresh', { user_id: 'u1', product: 'income' });
+    expect(c.createRefreshOrder).toHaveBeenCalledWith('o1', { products: ['income'] });
+    expect(json).toMatchObject({ status: 201, data: { order_id: 'o2', user_id: 'u1', product: 'income' } });
+    expect(json.calls.map(x => `${x.method} ${x.endpoint}`)).toEqual(['GET /v1/sandbox/scenarios/', 'POST /v1/orders/o1/']);
+  });
+
+  it('passes Truv\'s refusal on, such as an order that never finished in Bridge', async () => {
+    const c = client({ createRefreshOrder: vi.fn().mockResolvedValue(ok({ error: { code: 'not_refreshable', message: 'No completed connections' } }, 400)) });
+    const base = await start(c);
+    const { json } = await send(base, 'POST', '/api/sandbox/run/o1/refresh', { user_id: 'u1', product: 'employment' });
+    expect(json.status).toBe(400);
+    expect(json.data.error.message).toBe('No completed connections');
+  });
+
+  it('checks its input and the key before it asks Truv', async () => {
+    const c = client();
+    const base = await start(c);
+    expect((await send(base, 'POST', '/api/sandbox/run/o1/refresh', { product: 'income' })).http).toBe(400);
+    expect((await send(base, 'POST', '/api/sandbox/run/o1/refresh', { user_id: ['u1'], product: 'income' })).http).toBe(400);
+    expect((await send(base, 'POST', '/api/sandbox/run/o1/refresh', { user_id: 'u1', product: 'assets' })).http).toBe(400);
+    expect((await send(base, 'POST', '/api/sandbox/run/o1/refresh', { user_id: '..', product: 'income' })).http).toBe(400);
+    expect(c.createRefreshOrder).not.toHaveBeenCalled();
+    const prod = client({ sandbox: vi.fn().mockResolvedValue(ok({ error: { code: 'env_not_sandbox' } }, 403)) });
+    const pbase = await start(prod);
+    expect((await send(pbase, 'POST', '/api/sandbox/run/o1/refresh', { user_id: 'u1', product: 'income' })).json.status).toBe(403);
+    expect(prod.createRefreshOrder).not.toHaveBeenCalled();
+  });
+
+  it('puts the user id on a run read, so a refresh order can be followed the same way', async () => {
+    const c = { sandbox: vi.fn().mockResolvedValue(ok({ results: [] })), getUserTasks: vi.fn().mockResolvedValue(ok([])), getOrder: vi.fn().mockResolvedValue(ok({ id: 'o2' })) };
+    const base = await start(c);
+    const { json } = await send(base, 'GET', '/api/sandbox/run/o2?user_id=u1');
+    expect(json.data).toMatchObject({ user_id: 'u1', order: { id: 'o2' } });
   });
 });
 

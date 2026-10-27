@@ -3,22 +3,29 @@
  * be run here. Data comes from standard-logins.js, which is copied from the Truv docs.
  */
 import { useMemo, useState } from 'preact/hooks';
-import { GROUPS, LOGINS, IDENTITIES, FILES, REPORT_IDS, VERIFIED_ON, DOCS } from './standard-logins.js';
+import { GROUPS, LOGINS, IDENTITIES, FILES, DOCS } from './standard-logins.js';
 import { Chip, Copyable, StatusChip, plural } from './ui.jsx';
-import { statusName } from './model.js';
+import { statusName, suiteItemFromLogin } from './model.js';
+import { OUTCOMES, DOC_LINKS } from './outcomes.js';
 
 const FILTERS = [
-  ['all', 'All'], ['universal', 'Errors and MFA'], ['income', 'Income'], ['assets', 'Bank'], ['dds', 'Deposit switch'],
-  ['pll', 'Paycheck-linked loans'], ['mortgage', 'Mortgage'], ['education', 'Education'], ['documents', 'Documents'],
+  ['all', 'All'], ['universal', 'Errors and MFA'], ['income', 'Income'], ['assets', 'Bank'],
+  ['education', 'Education'], ['documents', 'Documents'],
 ];
-const PRODUCT_NAMES = { income: 'Income', employment: 'Employment', assets: 'Assets', deposit_switch: 'Deposit switch', pll: 'Paycheck-linked loans' };
+// Deposit switch, paycheck-linked loans and mortgage are not used by the public sector flows this tool sits under.
+const LEFT_OUT = new Set(['dds', 'pll', 'mortgage']);
+const PRODUCT_NAMES = { income: 'Income', employment: 'Employment', assets: 'Assets' };
 
 const has = (text, q) => String(text || '').toLowerCase().includes(q);
+// People search with their own words; the catalog uses Truv's.
+const SYNONYMS = { terminated: ['ended', 'is_active: false'], fired: ['ended'], inactive: ['is_active: false', 'ended'], lock: ['locked'], wrong: ['login_error', 'incorrect'], fail: ['error'], failure: ['error'], code: ['mfa'], verify: ['mfa'], slow: ['wait', 'delay'] };
+// Every word typed has to be found, either as typed or as a word Truv uses for it.
+const found = (hay, q) => q.split(/\s+/).filter(Boolean).every(w => hay.includes(w) || (Object.hasOwn(SYNONYMS, w) ? SYNONYMS[w] : []).some(x => hay.includes(x)));
+const demoLinks = [['customer-portal', 'Customer Portal'], ['verifier-portal', 'Case Worker Portal'], ['renewals-refresh', 'Renewals & Data Refresh']];
 
 function countFor(id) {
   if (id === 'education') return IDENTITIES.length;
   if (id === 'documents') return FILES.length;
-  if (id === 'mortgage') return LOGINS.filter(l => l.group === id).length + REPORT_IDS.length;
   return LOGINS.filter(l => l.group === id).length;
 }
 
@@ -31,7 +38,7 @@ function LoginRow({ row, onTry }) {
       <div class="sbx-cell sbx-grow" data-label="What you get">
         <p class="sbx-what">{row.returns}</p>
         <div class="sbx-meta">
-          {row.status && row.status !== 'done' && <><span class="sbx-meta-label">Ends as</span> <StatusChip status={row.status} /></>}
+          {row.status && row.status !== 'mfa' && <><span class="sbx-meta-label">Result</span> <StatusChip status={row.status} /></>}
           {row.group === 'universal' && products.map(p => <Chip key={p}>{PRODUCT_NAMES[p]}</Chip>)}
           {row.ssn && <span class="sbx-small">Applicant SSN ends {row.ssn.slice(-4)}</span>}
           {row.sample && <a class="sbx-link" href={row.sample} target="_blank" rel="noopener noreferrer">Sample report</a>}
@@ -70,18 +77,19 @@ function bySection(rows, key = 'section') {
   return out;
 }
 
-export function StandardLogins({ onTry, onGo }) {
-  const [query, setQuery] = useState('');
+export function StandardLogins({ onTry, onGo, onSuite, initialQuery = '', onQuery }) {
+  const [query, setQueryState] = useState(initialQuery);
+  const setQuery = (v) => { setQueryState(v); onQuery?.(v); };
   const [filter, setFilter] = useState('all');
   const q = query.trim().toLowerCase();
 
   const match = useMemo(() => {
-    const login = (l) => !q || [l.login, l.password, l.returns, l.id, l.section, l.note, l.ssn, statusName(l.status), ...(l.products || []).map(p => PRODUCT_NAMES[p])].some(v => has(v, q));
+    const hay = (parts) => parts.filter(Boolean).join('\n').toLowerCase();
     return {
-      logins: LOGINS.filter(login),
-      identities: IDENTITIES.filter(i => !q || [i.ssnLast4, i.dob, i.returns, i.section].some(v => has(v, q))),
-      files: FILES.filter(f => !q || [f.filename, f.label, f.returns, f.section].some(v => has(v, q))),
-      reports: REPORT_IDS.filter(r => !q || [r.id, r.borrower, r.ssn, r.agency, r.kind].some(v => has(v, q))),
+      logins: LOGINS.filter(l => !q || found(hay([l.login, l.password, l.returns, l.id, l.section, l.note, l.ssn, statusName(l.status), ...(l.products || []).map(p => PRODUCT_NAMES[p])]), q)),
+      identities: IDENTITIES.filter(i => !q || found(hay([i.ssnLast4, i.dob, i.returns, i.section]), q)),
+      files: FILES.filter(f => !q || found(hay([f.filename, f.label, f.returns, f.section]), q)),
+      reports: [],
     };
   }, [q]);
 
@@ -95,8 +103,21 @@ export function StandardLogins({ onTry, onGo }) {
   return (
     <div class="sbx-standard">
       <div class="sbx-intro">
-        <p>Every account has these. Click a value to copy it, or press Try to run it here. Want your own data instead? <button type="button" class="sbx-linkbtn" onClick={() => onGo?.('build')}>Build a scenario</button>.</p>
-        <p class="sbx-small">Copied from the <a class="sbx-link" href={`${DOCS}/developers/testing/test-credentials`} target="_blank" rel="noopener noreferrer">Truv docs</a> on {VERIFIED_ON}. These logins are reserved, so your own scenarios cannot reuse them.</p>
+        <p>Every account has these. Click a value to copy it, or press Try to run it. Want your own data instead? <button type="button" class="sbx-linkbtn" onClick={() => onGo?.('build')}>Build a scenario</button>.</p>
+        <p class="sbx-small">
+          Use these logins in the demos: {demoLinks.map(([id, name], i) => <span key={id}>{i > 0 && ', '}<a class="sbx-link" href={`#public-sector/${id}`}>{name}</a></span>)}. Search for the Truv Payroll Provider in Bridge.
+        </p>
+        <details class="sbx-glossary">
+          <summary>What each result means</summary>
+          <div class="sbx-tablewrap" tabIndex={0} role="region" aria-label="What each result means">
+            <table class="sbx-table">
+              <thead><tr><th>Result</th><th>What it means</th><th>What to do</th><th>Who can fix it</th></tr></thead>
+              <tbody>{OUTCOMES.map(o => <tr key={o.status}><td><StatusChip status={o.status} /><br /><code class="sbx-small">{o.status}</code></td><td>{o.means}</td><td>{o.do}</td><td>{o.fix}</td></tr>)}</tbody>
+            </table>
+          </div>
+          <p class="sbx-small">From the Truv docs: {Object.values(DOC_LINKS).map((l, i) => <span key={l.href}>{i > 0 && ', '}<a class="sbx-link" href={l.href} target="_blank" rel="noopener noreferrer">{l.label}</a></span>)}.</p>
+        </details>
+        <p class="sbx-small">The logins below are generic test credentials that every client can use.</p>
       </div>
 
       <div class="sbx-toolbar">
@@ -113,9 +134,15 @@ export function StandardLogins({ onTry, onGo }) {
         </div>
       </div>
 
+      {onSuite && (
+        <p class="sbx-small sbx-matrix">
+          Test your error handling in one go: <button type="button" class="sbx-linkbtn" onClick={() => onSuite({ title: 'Run the failure matrix', intro: 'Signs in with every error login and the no-records login, and checks that each ends the way the docs say.', items: LOGINS.filter(l => l.group === 'universal' && (l.login === 'error.user' || l.password === 'no_data')).map(suiteItemFromLogin) })}>Run the failure matrix</button>
+        </p>
+      )}
+
       <p class="sbx-sr" role="status">{plural(visibleTotal, 'result')}</p>
 
-      {GROUPS.filter(g => shown(g.id)).map(group => {
+      {GROUPS.filter(g => shown(g.id) && !LEFT_OUT.has(g.id)).map(group => {
         if (group.id === 'education') {
           if (!match.identities.length) return null;
           return (
@@ -165,7 +192,6 @@ export function StandardLogins({ onTry, onGo }) {
         if (!rows.length && !reports.length) return null;
         return (
           <Group key={group.id} group={group} count={rows.length + reports.length}>
-            {group.id === 'dds' && <p class="sbx-small sbx-pad">Create the bridge token with <code>product_type: deposit_switch</code> and an <code>account</code> block, then sign in with the login below.</p>}
             {bySection(rows).map(sec => (
               <div key={sec.name}>
                 {bySection(rows).length > 1 && <h3 class="sbx-sub">{sec.name}</h3>}

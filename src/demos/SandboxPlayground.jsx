@@ -17,7 +17,7 @@ import { useCallback, useEffect, useErrorBoundary, useMemo, useRef, useState } f
 import { Layout } from '../components/Layout.jsx';
 import { api, isOk } from '../sandbox/api.js';
 import {
-  blankScenario, PRESETS, validate, toCreateBody, toUpdateBody, duplicate, suggestUsername, refreshDates, describeError, errorText, explain, todayISO,
+  blankScenario, PRESETS, validate, toCreateBody, toUpdateBody, duplicate, suggestUsername, refreshDates, describeError, errorText, explain, todayISO, suiteItemFromScenario,
 } from '../sandbox/model.js';
 import * as store from '../sandbox/store.js';
 import { StandardLogins } from '../sandbox/StandardLogins.jsx';
@@ -26,6 +26,8 @@ import { Builder } from '../sandbox/Builder.jsx';
 import { Documents } from '../sandbox/Documents.jsx';
 import { TryIt } from '../sandbox/TryIt.jsx';
 import { Resolve } from '../sandbox/Resolve.jsx';
+import { Suite } from '../sandbox/Suite.jsx';
+import { useUserWebhooks } from '../sandbox/webhooks.js';
 import { ConfirmDialog, Notice, ToastRegion, useToasts, plural, scrollBehavior } from '../sandbox/ui.jsx';
 import '../sandbox/sandbox.css';
 
@@ -34,7 +36,7 @@ const TABS = ['standard', 'mine', 'build', 'pdfs'];
 const STEPS = [
   {
     title: 'Standard logins',
-    guide: '<p>These exist on every account. Sign in with one to the <strong>Truv Payroll Provider</strong> (or <strong>Truv Bank</strong> for assets) in Bridge. Try signs in for you, the way Bridge does:</p><pre>POST /v1/orders/\n{ "products": ["income"] }\n\nPOST /v1/checks/\nX-Bridge-Token: &lt;employers[0].bridge_token&gt;\n{ "employee_login": "goodlogin",\n  "employee_password": "goodpassword",\n  "payroll_provider_id": "truv",\n  "product_type": "income" }</pre><p>Then read <code>GET /v1/tasks/?user_id=</code> until a task ends, and <code>GET /v1/orders/{id}/</code> for the data.</p>',
+    guide: '<p>These exist on every account. Sign in with one to the <strong>Truv Payroll Provider</strong> (or <strong>Truv Bank</strong> for assets) in Bridge. Try signs in for you, the way Bridge does:</p><pre>POST /v1/orders/\n{ "products": ["income"] }\n\nPOST /v1/checks/\nX-Bridge-Token: &lt;employers[0].bridge_token&gt;\n{ "employee_login": "goodlogin",\n  "employee_password": "goodpassword",\n  "payroll_provider_id": "truv",\n  "product_type": "income" }</pre><p>Then read <code>GET /v1/tasks/?user_id=</code> until a task ends, and <code>GET /v1/orders/{id}/</code> for the data.</p><p>This page does those steps through its own server, which you can call too (it needs a sandbox key; a production key gets <code>403 env_not_sandbox</code>):</p><pre>POST /api/sandbox/run\n{ "mode": "headless", "product": "income",\n  "login": "goodlogin", "password": "goodpassword" }\n  (or "logins": [ {login, password}, ... ] up to 3,\n   one employer each, on one order)\n\nPOST /api/sandbox/run/:orderId/check\n{ "user_id", "index", "login", "password", "product" }\n  starts the 2nd and 3rd login once the one\n  before it has ended\n\nGET  /api/sandbox/run/:orderId?user_id=\n  the user\'s tasks and the order\n\nPOST /api/sandbox/run/:orderId/refresh\n{ "user_id", "product" }\n  refreshes an order finished in Bridge\n\nGET  /api/sandbox/whoami</pre><p>Truv only refreshes a connection that was finished in Bridge. A headless sign-in leaves the order unfinished, so it cannot be refreshed. Each user can have one connection running at a time, which is why extra logins start one after another. Task and order webhooks for these users appear in the Dev panel.</p>',
   },
   {
     title: 'Scenarios',
@@ -51,6 +53,10 @@ const STEPS = [
 ];
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
+
+// The address can carry a search, #public-sector/sandbox-playground/standard?q=locked, so a result can be shared as a link.
+const tabOf = (part) => String(part || '').split('?')[0];
+const hashQuery = () => { try { return new URLSearchParams(location.hash.split('?')[1] || '').get('q') || ''; } catch { return ''; } };
 
 // A form writes '' where a saved scenario has null or nothing. For "has this changed?" those are the same, so
 // typing a letter and deleting it leaves nothing unsaved.
@@ -80,10 +86,11 @@ function Guarded({ children, onReset }) {
 export function SandboxPlayground({ screen }) {
   const stash = useRef(undefined);
   if (stash.current === undefined) stash.current = readStash();
-  const [tab, setTab] = useState(TABS.includes(screen) ? screen : 'standard');
+  const [tab, setTab] = useState(TABS.includes(tabOf(screen)) ? tabOf(screen) : 'standard');
   const [mode, setMode] = useState('checking');          // checking | ok | production | signedout | error
   const [scenarios, setScenarios] = useState(null);
   const [documents, setDocuments] = useState(null);
+  const [account, setAccount] = useState(null);         // { key_hint } for the key this page is using
   const restoreEditId = useRef(stash.current?.editingId || null);
   const listLoaded = useRef(false);
   // The lists start as null until the first load, and a change can land before it does.
@@ -116,6 +123,7 @@ export function SandboxPlayground({ screen }) {
   const [openCount, setOpenCount] = useState(0);
   openCountNow.current = openCount;
   const [askDiscard, setAskDiscard] = useState(null);     // { run } waiting for a yes
+  const [conflict, setConflict] = useState(null);           // { how, theirs }: the scenario changed since it was opened
   const draftNow = useRef(draft);
   draftNow.current = draft;
   const editingNow = useRef(null);
@@ -125,6 +133,8 @@ export function SandboxPlayground({ screen }) {
   const [serverIssues, setServerIssues] = useState(null);   // { draft, list }
 
   const [trying, setTrying] = useState(null);
+  const [suite, setSuite] = useState(null);             // { title, intro, items } for the suite dialog
+  const { webhooks, follow } = useUserWebhooks();
   const [resolving, setResolving] = useState(null);
   const { toasts, push, dismiss, pause, resume } = useToasts();
   const docCache = useRef(new Map());
@@ -138,12 +148,12 @@ export function SandboxPlayground({ screen }) {
     return () => { document.title = was; };
   }, []);
   // A link to another tab (or the back button) changes the route's last part.
-  useEffect(() => { if (TABS.includes(screen)) setTab(screen); }, [screen]);
+  useEffect(() => { if (TABS.includes(tabOf(screen))) setTab(tabOf(screen)); }, [screen]);
   // The page rewrites the hash itself as tabs change, so the route prop can lag behind it.
   useEffect(() => {
     const onHash = () => {
       if (!location.hash.startsWith('#public-sector/sandbox-playground')) return;
-      const t = location.hash.split('/').pop();
+      const t = tabOf(location.hash.split('/').pop());
       if (TABS.includes(t)) setTab(t);
       else { setTab('standard'); try { window.history.replaceState(null, '', '#public-sector/sandbox-playground/standard'); } catch { /* cosmetic */ } }
     };
@@ -195,6 +205,10 @@ export function SandboxPlayground({ screen }) {
   }, [call, push]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => {
+    if (mode !== 'ok' || account) return;
+    call('GET', '/whoami', undefined, { quiet: true }).then(env => { if (isOk(env) && env.data?.key_hint) setAccount(env.data); });
+  }, [mode]);
 
   const blocked = mode === 'production' || mode === 'signedout';
   const guardMessage = mode === 'production' ? describeError({ status: 403, data: { error: { code: 'env_not_sandbox' } } }) : mode === 'signedout' ? describeError({ status: 401, data: {} }) : null;
@@ -208,10 +222,14 @@ export function SandboxPlayground({ screen }) {
     const how = replace || location.hash === hash ? 'replaceState' : 'pushState';
     try { window.history[how](null, '', hash); } catch { /* the address bar is cosmetic */ }
   }
+  // What is typed in a search is kept in the address (without adding to the history), so the view can be shared.
+  const rememberQuery = (value) => {
+    try { window.history.replaceState(null, '', `#public-sector/sandbox-playground/${tab}${value.trim() ? `?q=${encodeURIComponent(value.trim())}` : ''}`); } catch { /* cosmetic */ }
+  };
   // An address that names no tab shows the first one, so the address should say so.
   useEffect(() => {
-    const last = location.hash.split('/').pop();
-    if (location.hash.startsWith('#public-sector/sandbox-playground') && !TABS.includes(last)) go(TABS.includes(screen) ? screen : 'standard', { replace: true });
+    const last = tabOf(location.hash.split('/').pop());
+    if (location.hash.startsWith('#public-sector/sandbox-playground') && !TABS.includes(last)) go(TABS.includes(tabOf(screen)) ? tabOf(screen) : 'standard', { replace: true });
   }, []);
 
   // --- The builder ---
@@ -235,10 +253,10 @@ export function SandboxPlayground({ screen }) {
   useEffect(() => { if (stash.current) push('Your unsaved draft is back. Open the Build tab to carry on.', { ms: 9000 }); }, []);
 
   const issues = useMemo(() => {
-    const local = validate(draft, { others: scenarios || [], self: editing, requireNew: !editing });
+    const local = validate(draft, { others: scenarios || [], self: editing, requireNew: !editing, prefix });
     const remote = serverIssues && serverIssues.draft === draft ? serverIssues.list : [];
     return [...local, ...remote];
-  }, [draft, scenarios, editing, serverIssues]);
+  }, [draft, scenarios, editing, serverIssues, prefix]);
 
   // `unsaved` marks a copy that exists nowhere yet, so it counts as changed from the start.
   function open(body, scenario = null, { unsaved = false } = {}) {
@@ -268,7 +286,7 @@ export function SandboxPlayground({ screen }) {
     else newScenario();
   }
 
-  async function save(how) {
+  async function save(how, { force = false } = {}) {
     const problems = issues.filter(i => i.level === 'error');
     if (problems.length) {
       setServerError(null);
@@ -278,6 +296,15 @@ export function SandboxPlayground({ screen }) {
     setSaving(true); setServerError(null); setServerIssues(null);
     const sent = draft;
     const openedAs = openCountNow.current;
+    // Scenarios are shared by everyone on the account, and a save replaces what is there: look first.
+    if (editing && !force && editing.updated_at) {
+      const latest = await call('GET', `/scenarios/${editing.id}`);
+      if (isOk(latest) && latest.data?.updated_at && latest.data.updated_at !== editing.updated_at) {
+        setSaving(false);
+        setConflict({ how, theirs: latest.data });
+        return;
+      }
+    }
     const env = editing
       ? await call('PATCH', `/scenarios/${editing.id}`, toUpdateBody(sent))
       : await call('POST', '/scenarios', toCreateBody(sent));
@@ -383,21 +410,47 @@ export function SandboxPlayground({ screen }) {
     }
     return { ok: false, message: errorText(describeError(env)) };
   }
+  async function updateOne(id, body) {
+    const env = await call('PATCH', `/scenarios/${id}`, toUpdateBody(body));
+    if (isOk(env)) { changeScenarios(l => l.map(x => (x.id === id ? env.data : x))); followInForm(env.data); return { ok: true }; }
+    return { ok: false, message: errorText(describeError(env)) };
+  }
   const restore = (entry) => restoreMany([{ body: entry.scenario, trashId: entry.id }]);
   const forget = (entry) => { putTrash(store.dropTrash(entry.id, trashNow.current)); };
 
-  async function moveDates(s) {
-    if (openAndDirty(s)) { push(OPEN_NOTE, { tone: 'warn' }); return; }
-    const { payload, changed } = refreshDates(s.payload, today);
-    if (!changed) { push('Every paystub is already current.'); return; }
-    const env = await call('PATCH', `/scenarios/${s.id}`, { payload });
-    if (!isOk(env)) { push(`${describeError(env).title}. The dates were not moved.`, { tone: 'bad' }); return; }
-    changeScenarios(l => l.map(x => (x.id === s.id ? env.data : x)));
-    // The open form follows only while nothing has been typed in it.
-    const followInForm = (saved) => { if (editingNow.current?.id === saved.id && !dirtyNow.current) { setEditing(saved); setDraftState(clone(saved)); setBaseline(canon(saved)); } };
-    followInForm(env.data);
-    push(`Updated the paystub dates in ${s.label}.`, {
-      action: { label: 'Undo', run: async () => { const back = await call('PATCH', `/scenarios/${s.id}`, { payload: s.payload }); if (isOk(back)) { changeScenarios(l => l.map(x => (x.id === s.id ? back.data : x))); followInForm(back.data); push('Put the dates back.'); } } },
+  // The open form follows a scenario changed from the list only while nothing has been typed in it.
+  const followInForm = (saved) => { if (editingNow.current?.id === saved.id && !dirtyNow.current) { setEditing(saved); setDraftState(clone(saved)); setBaseline(canon(saved)); } };
+
+  async function moveDates(todo) {
+    const list = [].concat(todo);
+    const done = [];
+    let current = 0;
+    let busy = 0;
+    let failed = null;
+    for (const s of list) {
+      if (openAndDirty(s)) { busy++; continue; }
+      const { payload, changed } = refreshDates(s.payload, today);
+      if (!changed) { current++; continue; }
+      const env = await call('PATCH', `/scenarios/${s.id}`, { payload });
+      if (!isOk(env)) { failed = { s, err: describeError(env) }; break; }
+      changeScenarios(l => l.map(x => (x.id === s.id ? env.data : x)));
+      followInForm(env.data);
+      done.push(s);
+    }
+    if (busy) push(list.length === 1 ? OPEN_NOTE : `${busy} of them ${busy === 1 ? 'is' : 'are'} open in Build with unsaved changes, so ${busy === 1 ? 'it was' : 'they were'} left alone.`, { tone: 'warn' });
+    if (failed) push(`${failed.err.title}. ${failed.s.label} and the ones after it were not changed.`, { tone: 'bad' });
+    if (!done.length) { if (!failed && !busy) push(list.length === 1 ? 'Every paystub is already current.' : 'Every paystub in them is already current.'); return; }
+    push(done.length === 1 ? `Updated the paystub dates in ${done[0].label}.` : `Updated the paystub dates in ${done.length} scenarios.`, {
+      action: {
+        label: 'Undo',
+        run: async () => {
+          for (const s of done) {
+            const back = await call('PATCH', `/scenarios/${s.id}`, { payload: s.payload });
+            if (isOk(back)) { changeScenarios(l => l.map(x => (x.id === s.id ? back.data : x))); followInForm(back.data); }
+          }
+          push('Put the dates back.');
+        },
+      },
       ms: 12000,
     });
   }
@@ -442,10 +495,10 @@ export function SandboxPlayground({ screen }) {
   // --- Trying ---
 
   const tryStandard = (row) => setTrying({ kind: 'standard', login: row.login, password: row.password, status: row.status, label: `${row.login} / ${row.password}`, products: row.products });
-  const tryTarget = (s) => ({ kind: 'scenario', login: s.username, password: s.password || '', label: s.label, products: s.products?.length ? s.products : ['income', 'employment', 'deposit_switch', 'pll'], scenario: s });
+  const tryTarget = (s) => ({ kind: 'scenario', login: s.username, password: s.password || '', label: s.label, products: s.products?.length ? s.products : ['income', 'employment'], scenario: s });
   const addBridgeEvent = useCallback((type, data) => setBridgeEvents(prev => [...prev, { type, data, timestamp: Date.now() }]), []);
 
-  const panel = { apiLogs: log, bridgeEvents, webhooks: [], tunnelUrl: null, currentStep: TABS.indexOf(tab) };
+  const panel = { apiLogs: log, bridgeEvents, webhooks, tunnelUrl: null, currentStep: TABS.indexOf(tab) };
   const listsReady = !blocked && mode !== 'error';
   const counts = { mine: listsReady && scenarios ? scenarios.length : null, pdfs: listsReady && documents ? documents.length : null };
   const tabLabel = { standard: 'Standard logins', mine: 'Scenarios', build: 'Build', pdfs: 'PDFs' };
@@ -456,6 +509,7 @@ export function SandboxPlayground({ screen }) {
         <header class="sbx-title">
           <h1>Sandbox Data Playground</h1>
           <p>Use the logins every account has, or build your own that return exactly the data you choose. Every request is logged in the Dev panel.</p>
+          {account && <p class="sbx-account"><span class="sbx-chip sbx-chip-info">Sandbox</span><span>Using the sandbox key ending <code>{String(account.key_hint).replace(/^…/, '')}</code>. Scenarios belong to this account.</span></p>}
         </header>
 
         {guardMessage && (
@@ -491,13 +545,14 @@ export function SandboxPlayground({ screen }) {
         </div>
 
         <div class="sbx-panel" role="tabpanel" id={`sbx-panel-${tab}`} aria-labelledby={`sbx-tab-${tab}`}>
-          {tab === 'standard' && <StandardLogins onGo={go} onTry={blocked ? () => push(guardMessage.hint || guardMessage.detail, { tone: 'bad' }) : tryStandard} />}
+          {tab === 'standard' && <StandardLogins onGo={go} initialQuery={hashQuery()} onQuery={rememberQuery} onSuite={blocked ? undefined : setSuite} onTry={blocked ? () => push(guardMessage.hint || guardMessage.detail, { tone: 'bad' }) : tryStandard} />}
           <Guarded key={tab} onReset={tab === 'build' ? () => { setDraftState(freshDraft(today)); setBaseline(canon(freshDraft(today))); setEditing(null); setOpenCount(n => n + 1); } : undefined}>
           {tab === 'mine' && (blocked || mode === 'error' ? <p class="sbx-small">{mode === 'error' ? 'Nothing to show until the list loads.' : 'Nothing to show until this is a sandbox key.'}</p> : (
             <Scenarios
-              scenarios={scenarios} loading={loading} blocked={blocked} today={today} made={made} trash={trash}
+              scenarios={scenarios} loading={loading} blocked={blocked} today={today} made={made} trash={trash} initialQuery={hashQuery()} onQuery={rememberQuery}
               onNew={guarded(newScenario)} onEdit={guarded(editScenario)} onDuplicate={guarded(copyScenario)} editingId={editing?.id} unsaved={dirty} onTry={(s) => setTrying(tryTarget(s))} onToggle={toggle}
-              onDelete={remove} onImportOne={importOne} onRestore={restore} onForget={forget} onReload={loadAll} onMoveDates={moveDates} onCheck={setResolving}
+              onDelete={remove} onImportOne={importOne} onUpdateOne={updateOne} onRestore={restore} onForget={forget} onReload={loadAll} onMoveDates={moveDates} onCheck={setResolving}
+              onSuite={(list) => setSuite({ title: `Run ${list.length} headless`, items: list.map(suiteItemFromScenario) })}
             />
           ))}
           {tab === 'build' && (blocked ? <p class="sbx-small">Building needs a sandbox key.</p> : (
@@ -533,8 +588,23 @@ export function SandboxPlayground({ screen }) {
         <p>Your edits on the Build tab will be lost.</p>
       </ConfirmDialog>
 
+      <ConfirmDialog
+        open={!!conflict}
+        danger
+        focusCancel
+        title="This scenario changed since you opened it"
+        confirmLabel="Overwrite their changes"
+        cancelLabel="Keep editing"
+        onCancel={() => setConflict(null)}
+        onConfirm={() => { const c = conflict; setConflict(null); save(c.how, { force: true }); }}
+      >
+        <p>Someone else, or another tab, saved <strong>{conflict?.theirs?.label}</strong> after you opened it here{conflict?.theirs?.updated_at ? ` (${new Date(conflict.theirs.updated_at).toLocaleString()})` : ''}. Saving now replaces their changes with yours.</p>
+        <p class="sbx-small">To keep both, cancel, copy what you changed, reload the list and open it again.</p>
+      </ConfirmDialog>
+
       <Guarded key="dialogs">
-        <TryIt target={trying} onClose={() => setTrying(null)} call={call} logCalls={logCalls} onBridgeEvent={addBridgeEvent} />
+        <TryIt target={trying} scenarios={scenarios || []} onClose={() => setTrying(null)} call={call} logCalls={logCalls} onBridgeEvent={addBridgeEvent} onUser={follow} />
+        <Suite plan={suite} onClose={() => setSuite(null)} call={call} logCalls={logCalls} onUser={follow} today={today} />
         <Resolve seed={resolving} onClose={() => setResolving(null)} call={call} onEdit={guarded(editScenario)} />
       </Guarded>
       <ToastRegion toasts={toasts} dismiss={dismiss} pause={pause} resume={resume} />

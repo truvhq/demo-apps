@@ -6,13 +6,13 @@
 import { useMemo, useState, useEffect, useRef } from 'preact/hooks';
 import {
   PRESETS, STATUSES, FAILURES, MFA_PRESETS, JOB_TYPES, INCOME_UNITS, PAY_FREQUENCIES, OTHER_PAY_FREQUENCIES, PAYROLL_PRODUCTS, LIMITS,
-  FAILURE_STATUSES, typeProblems, friendlyField, blankEmployment, buildPaystubs, defaultStubAmounts, snapPayDate, suggestUsername, parseISO, DATA_SOURCE_LABELS,
+  FAILURE_STATUSES, typeProblems, friendlyField, blankEmployment, buildPaystubs, defaultStubAmounts, snapPayDate, suggestUsername, parseISO, DATA_SOURCE_LABELS, retypeChallenge, moveItem, orderKeys,
 } from './model.js';
 import { getIn, setIn, removeAt, isUnder } from './paths.js';
 import { Field, Notice, Chip, Spinner, ConfirmDialog, announce, scrollBehavior } from './ui.jsx';
 
 const FREQUENCY_OPTIONS = [...PAY_FREQUENCIES, ...OTHER_PAY_FREQUENCIES];
-const PRODUCT_LABELS = { income: 'Income', employment: 'Employment', deposit_switch: 'Deposit switch', pll: 'Paycheck-linked loans' };
+const PRODUCT_LABELS = { income: 'Income', employment: 'Employment' };
 
 // A text box that keeps what is typed and passes the parsed value up as you go, but does not rewrite the
 // box while it has focus, so punctuation you are part way through typing is left alone.
@@ -73,8 +73,16 @@ export function Builder({
   // A draft the form cannot read is shown as JSON from the first paint, not after it has already crashed.
   const shownView = broken.length > 0 || !payroll ? 'json' : view;
   const failing = FAILURE_STATUSES.has(draft.behavior_status);
-  const errors = issues.filter(i => i.level === 'error');
-  const warns = issues.filter(i => i.level === 'warn');
+  // With more than one job, a message about one says which.
+  const jobsNow = draft.payload?.employments || [];
+  const named = (i) => {
+    const m = /^payload\.employments\[(\d+)\]/.exec(i.path || '');
+    if (!m || jobsNow.length < 2) return i;
+    const who = getIn(jobsNow[Number(m[1])], 'company.name', '');
+    return { ...i, message: `Job ${Number(m[1]) + 1}${who ? ` (${who})` : ''}: ${i.message.replace(/^Job \d+: /, '')}` };
+  };
+  const errors = issues.filter(i => i.level === 'error').map(named);
+  const warns = issues.filter(i => i.level === 'warn').map(named);
   // A blank new form should not open covered in red: name and login complaints wait until the
   // field has been left, or a save was tried.
   const [attempted, setAttempted] = useState(false);
@@ -221,7 +229,7 @@ export function Builder({
               </Field>
               <Field label="Username" error={err('username')} warn={warn('username')} hint="What someone types in Bridge, matched exactly. Suggest a username builds one from the name.">
                 {(p) => (
-                  <div class="sbx-inputrow">
+                  <div class="sbx-inputrow sbx-inputrow-wrap">
                     <input {...p} type="text" {...text('username', { onBlur: () => touch('username') })} autocomplete="off" spellcheck={false} placeholder="qa.salaried" />
                     <label class="sbx-prefixbox" title="Suggestions start with this, so yours do not collide with Truv's logins">
                       <span>Username prefix</span>
@@ -282,6 +290,7 @@ export function Builder({
                 <h3>The data it returns</h3>
                 <div class="sbx-card-tools">
                   {employments.some(e => (e.paystubs || []).length) && <button type="button" class="sbx-btn ghost small" onClick={onMoveDates}>Update paystub dates</button>}
+                  {employments.length >= LIMITS.employments && <span class="sbx-small">Up to {LIMITS.employments} jobs.</span>}
                   <button type="button" class="sbx-btn ghost small" onClick={() => set('payload.employments', [...employments, blankEmployment({ paystubs: [] })])} disabled={employments.length >= LIMITS.employments}>Add a job</button>
                 </div>
               </header>
@@ -403,15 +412,13 @@ function MfaEditor({ draft, set, err, warn }) {
           <div class="sbx-filters" role="group" aria-label="Start from">
             {MFA_PRESETS.map(p => <button type="button" key={p.id} class="sbx-pill" onClick={() => setChallenges(p.challenges)}>{p.label}</button>)}
           </div>
-          <p class="sbx-small">A code is only asked for in Bridge. Running a login here cannot answer it, so use Open in Bridge to try these.</p>
+          <p class="sbx-small">A code is only asked for in Bridge. A headless run cannot answer it, so use Enter creds manually to try these.</p>
           {challenges.map((c, i) => (
             <div class="sbx-mfa-screen" key={i}>
               <div class="sbx-grid">
                 <Field label={`Screen ${i + 1} type`}>
                   {(p) => (
-                    <select {...p} value={c.type} onChange={(e) => update(i, e.currentTarget.value === 'OPTIONS'
-                      ? { type: 'OPTIONS', options: c.options?.length ? c.options : [{ value: 'sms', label: 'Text message' }, { value: 'email', label: 'Email' }], answers: c.answers || [] }
-                      : { type: 'TEXT', options: undefined, answers: undefined })}>
+                    <select {...p} value={c.type} onChange={(e) => setChallenges(challenges.map((x, k) => (k === i ? retypeChallenge(x, e.currentTarget.value) : x)))}>
                       <option value="TEXT">A code to type</option>
                       <option value="OPTIONS">A choice to pick</option>
                     </select>
@@ -435,7 +442,11 @@ function MfaEditor({ draft, set, err, warn }) {
                   </Field>
                 )}
               </div>
-              <button type="button" class="sbx-linkbtn" onClick={() => setChallenges(challenges.filter((_, k) => k !== i))}>Remove screen {i + 1}</button>
+              <div class="sbx-mfa-tools">
+                <button type="button" class="sbx-linkbtn" onClick={() => setChallenges(moveItem(challenges, i, -1))} disabled={i === 0} aria-label={`Move screen ${i + 1} up`}>Move up</button>
+                <button type="button" class="sbx-linkbtn" onClick={() => setChallenges(moveItem(challenges, i, 1))} disabled={i === challenges.length - 1} aria-label={`Move screen ${i + 1} down`}>Move down</button>
+                <button type="button" class="sbx-linkbtn" onClick={() => setChallenges(challenges.filter((_, k) => k !== i))}>Remove screen {i + 1}</button>
+              </div>
             </div>
           ))}
           {challenges.length < LIMITS.mfa && (
@@ -513,11 +524,31 @@ function Employment({ index, e, set, err, warn, issues, documents, today, onRemo
         <Field label="SSN" optional error={err(f('profile.ssn'))} hint="Made up. First three digits 900 to 999.">
           {(p) => <input {...p} type="text" {...text('profile.ssn')} spellcheck={false} placeholder="991-91-9991" />}
         </Field>
+        <Field label="Email" optional error={err(f('profile.email'))}>
+          {(p) => <input {...p} type="text" inputmode="email" {...text('profile.email')} spellcheck={false} placeholder="jane.roe@example.com" />}
+        </Field>
+        <Field label="Phone" optional error={err(f('profile.phone'))}>
+          {(p) => <input {...p} type="text" inputmode="tel" {...text('profile.phone')} spellcheck={false} placeholder="415-555-0100" />}
+        </Field>
+        <Field label="Date of birth" optional error={err(f('profile.date_of_birth'))}>
+          {(p) => <input {...p} type="date" {...text('profile.date_of_birth')} />}
+        </Field>
+        <Field label="Home street" optional wide>
+          {(p) => <input {...p} type="text" {...text('profile.home_address.street')} placeholder="1 Market St" />}
+        </Field>
+        <Field label="City" optional>
+          {(p) => <input {...p} type="text" {...text('profile.home_address.city')} />}
+        </Field>
+        <Field label="State" optional error={err(f('profile.home_address.state'))}>
+          {(p) => <input {...p} type="text" maxLength="2" {...text('profile.home_address.state')} placeholder="CA" />}
+        </Field>
+        <Field label="ZIP" optional error={err(f('profile.home_address.zip'))}>
+          {(p) => <input {...p} type="text" inputmode="numeric" {...text('profile.home_address.zip')} placeholder="94105" />}
+        </Field>
         <label class="sbx-checkline sbx-wide"><input type="checkbox" checked={e.is_active !== false} onChange={(ev) => { set(f('is_active'), ev.currentTarget.checked); if (ev.currentTarget.checked) set(f('end_date'), ''); }} /> Still employed</label>
       </div>
 
       <Paystubs e={e} base={base} set={set} err={err} today={today} />
-      <BankAccounts e={e} base={base} set={set} err={err} />
       <W2s e={e} base={base} set={set} err={err} documents={documents} />
 
       {canRemove && <button type="button" class="sbx-linkbtn sbx-danger-link" onClick={onRemove}>Remove this job</button>}
@@ -530,14 +561,14 @@ function Paystubs({ e, base, set, err, today }) {
   const [open, setOpen] = useState(false);
   const supported = ['W', 'BW', 'SM', 'M'].includes(e.pay_frequency);
   const defaults = useMemo(() => defaultStubAmounts(e), [e.income, e.income_unit, e.pay_frequency]);
-  const [form, setForm] = useState({ count: 4, last: '', gross: '', net: '', hours: '' });
+  const [form, setForm] = useState({ count: 4, last: '', gross: '', net: '', hours: '', otPay: '', otHours: '' });
   const [problem, setProblem] = useState('');
 
   function openGenerator() {
     setForm({
       count: Math.min(Math.max(stubs.length, 4), 26),
       last: supported ? snapPayDate(e.pay_frequency, today, today) : today,
-      gross: defaults.gross, net: defaults.net, hours: e.income_unit === 'HOURLY' ? defaults.hours : '',
+      gross: defaults.gross, net: defaults.net, hours: e.income_unit === 'HOURLY' ? defaults.hours : '', otPay: '', otHours: '',
     });
     setProblem('');
     setOpen(true);
@@ -552,7 +583,15 @@ function Paystubs({ e, base, set, err, today }) {
     if (parseFloat(form.gross) < 0.01 || parseFloat(form.net) < 0.01) return setProblem('Gross and take-home have to be at least 0.01.');
     if (parseFloat(form.gross) > 99999999 || parseFloat(form.net) > 99999999) return setProblem('Keep each amount under 100 million.');
     if (form.hours && parseFloat(form.hours) < 0.01) return setProblem('Hours have to be at least 0.01, or left empty.');
-    set(`${base}.paystubs`, buildPaystubs({ frequency: e.pay_frequency, count, last: form.last, gross: form.gross, net: form.net, hours: form.hours || undefined, currency: e.income_currency || 'USD' }));
+    const money = /^\d+(\.\d{1,2})?$/;
+    if (form.otPay && parseFloat(form.otPay) <= 0) return setProblem('Overtime pay has to be more than zero, or left empty.');
+    if (form.otPay && !money.test(form.otPay)) return setProblem('Enter the overtime pay as an amount with up to two decimals, like 450.00.');
+    if (form.otPay && parseFloat(form.otPay) >= parseFloat(form.gross)) return setProblem('Overtime is part of the gross, so it has to be less than the gross.');
+    if (form.otHours && !money.test(form.otHours)) return setProblem('Enter the overtime hours as a number, like 10.');
+    if (form.otHours && !form.otPay) return setProblem('Give the overtime pay too, or clear the overtime hours.');
+    if (form.otHours && form.hours && parseFloat(form.otHours) >= parseFloat(form.hours)) return setProblem('Overtime hours are part of the hours, so they have to be fewer.');
+    const lines = form.otPay ? [{ name: 'Overtime', amount: form.otPay, ...(form.hours && form.otHours ? { units: form.otHours } : {}) }] : [];
+    set(`${base}.paystubs`, buildPaystubs({ frequency: e.pay_frequency, count, last: form.last, gross: form.gross, net: form.net, hours: form.hours || undefined, currency: e.income_currency || 'USD', lines }));
     setOpen(false);
   }
   const f = (k) => ({ value: form[k], onInput: (ev) => setForm(x => ({ ...x, [k]: ev.currentTarget.value })) });
@@ -574,6 +613,8 @@ function Paystubs({ e, base, set, err, today }) {
             <Field label="Gross each">{(p) => <input {...p} type="text" inputmode="decimal" {...f('gross')} />}</Field>
             <Field label="Take-home each" hint="Starts at about 70% of gross. Change it.">{(p) => <input {...p} type="text" inputmode="decimal" {...f('net')} />}</Field>
             {e.income_unit === 'HOURLY' && <Field label="Hours each" optional>{(p) => <input {...p} type="text" inputmode="decimal" {...f('hours')} />}</Field>}
+            <Field label="Overtime pay each" optional hint="Part of the gross, shown as its own earning line.">{(p) => <input {...p} type="text" inputmode="decimal" {...f('otPay')} placeholder="450.00" />}</Field>
+            {e.income_unit === 'HOURLY' && <Field label="Overtime hours each" optional hint="Part of the hours above.">{(p) => <input {...p} type="text" inputmode="decimal" {...f('otHours')} placeholder="10" />}</Field>}
           </div>
           <p class="sbx-small">Dates step back from the newest on the pay schedule. Year-to-date totals add up. This replaces the paystubs below.</p>
           {problem && <p class="sbx-error" role="alert">{problem}</p>}
@@ -607,40 +648,6 @@ function Paystubs({ e, base, set, err, today }) {
         </div>
       )}
       {stubs.some((s, i) => err(`${base}.paystubs[${i}].gross_pay`) || err(`${base}.paystubs[${i}].pay_date`)) && <p class="sbx-error">Some paystubs have a problem. Fix the marked dates and amounts in the table, or make new ones.</p>}
-    </div>
-  );
-}
-
-function BankAccounts({ e, base, set, err }) {
-  const rows = e.bank_accounts || [];
-  const update = (i, k, v) => set(`${base}.bank_accounts`, rows.map((r, n) => (n === i ? { ...r, [k]: v } : r)));
-  return (
-    <div class="sbx-part">
-      <div class="sbx-sub-head">
-        <h4>Direct deposit accounts <span class="sbx-small">{rows.length || 'none'}</span></h4>
-        <button type="button" class="sbx-btn ghost small" disabled={rows.length >= LIMITS.bankAccounts}
-          onClick={() => set(`${base}.bank_accounts`, [...rows, { bank_name: 'Acme CU', account_name: 'Everyday', account_number: String(Math.max(1234567889, ...rows.map(r => Number(r.account_number) || 0)) + 1), routing_number: '111000025', account_type: 'C', deposit_type: 'E' }])}>Add an account</button>
-      </div>
-      {err(`${base}.bank_accounts`) && <p class="sbx-error">{err(`${base}.bank_accounts`)}</p>}
-      {rows.map((r, i) => (
-        <div class="sbx-mini" key={i}>
-          <div class="sbx-grid sbx-grid-4">
-            <Field label="Bank">{(p) => <input {...p} type="text" value={r.bank_name || ''} onInput={(ev) => update(i, 'bank_name', ev.currentTarget.value)} />}</Field>
-            <Field label="Account number">{(p) => <input {...p} type="text" value={r.account_number || ''} onInput={(ev) => update(i, 'account_number', ev.currentTarget.value)} />}</Field>
-            <Field label="Type">{(p) => <select {...p} value={r.account_type || 'C'} onChange={(ev) => update(i, 'account_type', ev.currentTarget.value)}><option value="C">Checking</option><option value="S">Savings</option></select>}</Field>
-            <Field label="Takes">
-              {(p) => (
-                <div class="sbx-inputrow">
-                  <select {...p} value={r.deposit_type || 'E'} onChange={(ev) => update(i, 'deposit_type', ev.currentTarget.value)}><option value="E">Entire paycheck</option><option value="P">A percent</option><option value="A">An amount</option></select>
-                  {r.deposit_type && r.deposit_type !== 'E' && <input aria-label={r.deposit_type === 'P' ? 'Percent of the paycheck' : 'Amount'} placeholder={r.deposit_type === 'P' ? 'Percent, like 25' : 'Amount, like 200.00'} aria-invalid={err(`${base}.bank_accounts[${i}].deposit_value`) ? 'true' : undefined} type="text" inputmode="decimal" value={r.deposit_value || ''} onInput={(ev) => update(i, 'deposit_value', ev.currentTarget.value)} />}
-                </div>
-              )}
-            </Field>
-          </div>
-          {err(`${base}.bank_accounts[${i}].deposit_value`) && <p class="sbx-error">{err(`${base}.bank_accounts[${i}].deposit_value`)}</p>}
-          <button type="button" class="sbx-linkbtn" onClick={() => set(`${base}.bank_accounts`, rows.filter((_, n) => n !== i))}>Remove account {i + 1}</button>
-        </div>
-      ))}
     </div>
   );
 }
@@ -680,12 +687,12 @@ function W2s({ e, base, set, err, documents }) {
 // --- JSON ---
 
 function JsonView({ draft, setDraft, onInvalid, problems }) {
-  const [text, setText] = useState(() => JSON.stringify(draft, null, 2));
+  const [text, setText] = useState(() => JSON.stringify(orderKeys(draft), null, 2));
   const [problem, setProblem] = useState('');
   // The object last read from the box. A draft that is exactly that came from typing here, so the text
   // is left alone: rewriting it would move the caret and reformat what was just typed.
   const lastParsed = useRef(null);
-  useEffect(() => { if (!problem && draft !== lastParsed.current) setText(JSON.stringify(draft, null, 2)); }, [draft]);
+  useEffect(() => { if (!problem && draft !== lastParsed.current) setText(JSON.stringify(orderKeys(draft), null, 2)); }, [draft]);
   useEffect(() => { onInvalid(!!problem); return () => onInvalid(false); }, [problem]);
   function edit(value) {
     setText(value);

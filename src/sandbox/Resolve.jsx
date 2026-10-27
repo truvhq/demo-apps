@@ -9,7 +9,7 @@ import { isOk } from './api.js';
 import { Dialog, Field, Notice, Chip, Spinner, announce } from './ui.jsx';
 
 const MATCH_NAMES = { username: 'username', password: 'password', provider_id: 'provider', company_domain: 'employer website', product: 'product', is_refresh: 'type of sign-in' };
-const PRODUCTS = [['', 'Any product'], ['income', 'Income'], ['employment', 'Employment'], ['deposit_switch', 'Deposit switch'], ['pll', 'Paycheck-linked loans']];
+const PRODUCTS = [['', 'Any product'], ['income', 'Income'], ['employment', 'Employment']];
 
 export function Resolve({ seed, onClose, call, onEdit }) {
   const open = !!seed;

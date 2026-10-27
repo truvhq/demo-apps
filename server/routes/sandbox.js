@@ -23,8 +23,17 @@ const MAX_PDF_BYTES = 10 * 1024 * 1024;
 // The size of a base64 string once decoded, to the byte.
 const decodedBytes = (b64) => Math.floor((b64.length * 3) / 4) - (b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0);
 
-export default function sandboxRoutes({ truv }) {
+export default function sandboxRoutes({ truv, db }) {
   const router = Router();
+
+  // An order without the tokens that sign in to it: those belong in the request that uses them, not in a trace or a download.
+  const scrub = (o) => {
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return o;
+    const out = { ...o };
+    delete out.bridge_token;
+    if (Array.isArray(out.employers)) out.employers = out.employers.map(e => (e && typeof e === 'object' ? (({ bridge_token, ...rest }) => rest)(e) : e));
+    return out;
+  };
 
   // One Truv request, recorded. Returns { result, call }.
   async function traced(calls, fn, method, endpoint, requestBody) {
@@ -37,7 +46,7 @@ export default function sandboxRoutes({ truv }) {
       endpoint,
       status_code: result.statusCode,
       request_body: requestBody ?? result.requestBody ?? null,
-      response_body: result.statusCode === 204 ? null : result.data,
+      response_body: result.statusCode === 204 ? null : scrub(result.data),
       duration_ms: result.durationMs,
     };
     calls.push(call);
@@ -109,6 +118,29 @@ export default function sandboxRoutes({ truv }) {
         if (page === MAX_PAGES - 1) truncated = true;
       }
       res.json({ status: 200, data: { results, truncated }, calls });
+    } catch (err) { fail(res, err); }
+  });
+
+  // GET /api/sandbox/scenarios/:id
+  router.get('/api/sandbox/scenarios/:id', async (req, res) => {
+    try {
+      const c = client(req, res); if (!c) return;
+      if (!ID.test(req.params.id)) return bad(res, 'That is not a scenario id.');
+      const calls = [];
+      const r = await traced(calls, () => c.sandbox('GET', `scenarios/${req.params.id}/`), 'GET', `/v1/sandbox/scenarios/${req.params.id}/`);
+      envelope(res, r, calls);
+    } catch (err) { fail(res, err); }
+  });
+
+  // GET /api/sandbox/whoami   Which account the page is talking to: the last four characters of the client id, never the secret.
+  router.get('/api/sandbox/whoami', async (req, res) => {
+    try {
+      const c = client(req, res); if (!c) return;
+      const calls = [];
+      const refused = await sandboxKeyOnly(c, calls);
+      if (refused) return envelope(res, refused, calls);
+      const id = String(c.clientId || '');
+      res.json({ status: 200, data: { environment: 'sandbox', key_hint: id ? `\u2026${id.slice(-4)}` : '' }, calls });
     } catch (err) { fail(res, err); }
   });
 
@@ -224,44 +256,64 @@ export default function sandboxRoutes({ truv }) {
 
   // --- Try a login ---
 
-  const PRODUCTS = ['income', 'employment', 'assets', 'deposit_switch', 'pll'];
+  const PRODUCTS = ['income', 'employment', 'assets'];
   const HEADLESS_PRODUCTS = ['income', 'employment'];
+  const MAX_LOGINS = 3;
 
-  // POST /api/sandbox/run   { mode: 'headless' | 'widget', product, login?, password? }
+  // POST /api/sandbox/run   { mode: 'headless' | 'widget', product, login?, password?, logins?: [{ login, password }] }
   //   headless: creates a sandbox order, then signs in to the Truv test payroll provider with the login,
   //             the way Bridge would. Income and employment only. A login that asks for an MFA code
   //             cannot be answered without the widget, so the page sends those to widget mode.
   //   widget:   creates the order and returns its bridge token, for opening Bridge as a dialog.
+  //   logins:   headless only, one to three. The order gets one employer per login and only the first is signed in to
+  //             here: Truv refuses a second check while the first is still running, so the page starts each later one
+  //             with POST /api/sandbox/run/:orderId/check once the one before it has finished. It replaces login and password.
   // Returns the ids to read the run back with.
   router.post('/api/sandbox/run', async (req, res) => {
     try {
       const c = client(req, res); if (!c) return;
-      const { mode = 'headless', product = 'income', login, password } = req.body || {};
+      const { mode = 'headless', product = 'income', login, password, logins } = req.body || {};
       if (!['headless', 'widget'].includes(mode)) return bad(res, 'Choose headless or widget.');
       if (!PRODUCTS.includes(product)) return bad(res, 'That product cannot be tried here.');
       if (mode === 'headless') {
         if (!HEADLESS_PRODUCTS.includes(product)) return bad(res, 'Running a login here covers income and employment. Open the others in Bridge.');
-        if (typeof login !== 'string' || !login) return bad(res, 'Enter a login.');
-        if (typeof password !== 'string' || !password) return bad(res, 'Enter a password.');
+        if (logins === undefined) {
+          if (typeof login !== 'string' || !login) return bad(res, 'Enter a login.');
+          if (typeof password !== 'string' || !password) return bad(res, 'Enter a password.');
+        } else {
+          if (!Array.isArray(logins) || !logins.length) return bad(res, 'Enter a login.');
+          if (logins.length > MAX_LOGINS) return bad(res, `Use up to ${MAX_LOGINS} logins in one order.`);
+          for (const l of logins) {
+            if (!isObject(l) || typeof l.login !== 'string' || !l.login) return bad(res, 'Enter a login.');
+            if (typeof l.password !== 'string' || !l.password) return bad(res, 'Enter a password.');
+          }
+          if (new Set(logins.map(l => l.login)).size !== logins.length) return bad(res, 'Each login in an order must be different.');
+        }
       }
+      const attempts = mode === 'headless' ? (logins === undefined ? [{ login, password }] : logins.map(l => ({ login: l.login, password: l.password }))) : [];
       const calls = [];
       const refused = await sandboxKeyOnly(c, calls);
       if (refused) return envelope(res, refused, calls);
-      // Deposit switch and PLL attach their test account to an employer; the others take none.
-      const employers = ['deposit_switch', 'pll'].includes(product) ? [{ company_name: 'Sandbox Employer' }] : undefined;
-      const order = await traced(calls, () => c.createOrder({ product_type: product, first_name: 'Test', last_name: 'Login', ...(employers ? { employers } : {}) }), 'POST', '/v1/orders/');
+      const several = attempts.length > 1;
+      const names = attempts.map((_, i) => `Sandbox login ${i + 1}`);
+      const order = await traced(calls, () => c.createOrder({ product_type: product, first_name: 'Test', last_name: 'Login', ...(several ? { employers: names.map(company_name => ({ company_name })) } : {}) }), 'POST', '/v1/orders/');
       if (order.statusCode >= 400) return envelope(res, order, calls);
       const ids = { order_id: order.data?.id, user_id: order.data?.user_id };
+      db?.recordSessionUser(req.session?.id, ids.user_id);
       if (mode === 'widget') {
         if (!order.data?.bridge_token) return res.json({ status: 502, data: { error: { code: 'no_bridge_token', message: 'Truv created the order but returned no token to open Bridge with.' } }, calls });
         return res.json({ status: 201, data: { ...ids, bridge_token: order.data.bridge_token }, calls });
       }
-      const bridgeToken = order.data?.employers?.[0]?.bridge_token || order.data?.bridge_token;
-      if (!bridgeToken) return res.json({ status: 502, data: { error: { code: 'no_bridge_token', message: 'Truv created the order but returned no token to sign in with.' } }, calls });
-      const checkBody = { employee_login: login, employee_password: '***', payroll_provider_id: 'truv', product_type: product };
-      const check = await traced(calls, () => c.createCheck(bridgeToken, { login, password, productType: product }), 'POST', '/v1/checks/', checkBody);
-      if (check.statusCode >= 400) return envelope(res, check, calls, ids);
-      res.json({ status: 201, data: { ...ids, check_id: check.data?.check_id || null, task_id: check.data?.task_id || null }, calls });
+      // Truv does not list a created order's employers in the order they were made, so each is found by its name.
+      const byName = (name) => order.data?.employers?.find(e => e?.company_name === name)?.bridge_token;
+      const tokens = attempts.map((_, i) => (several ? byName(names[i]) : (order.data?.employers?.[0]?.bridge_token || order.data?.bridge_token)) || null);
+      if (tokens.some(t => !t)) return res.json({ status: 502, data: { error: { code: 'no_bridge_token', message: 'Truv created the order but returned no token to sign in with.' } }, calls });
+      const employers = attempts.map((a, i) => ({ company_name: several ? names[i] : (order.data?.employers?.[0]?.company_name || null), login: a.login }));
+      const { login: l, password: pw } = attempts[0];
+      const checkBody = { employee_login: l, employee_password: '***', payroll_provider_id: 'truv', product_type: product };
+      const check = await traced(calls, () => c.createCheck(tokens[0], { login: l, password: pw, productType: product }), 'POST', '/v1/checks/', checkBody);
+      if (check.statusCode >= 400) return envelope(res, check, calls, { ...ids, employers });
+      res.json({ status: 201, data: { ...ids, check_id: check.data?.check_id || null, task_id: check.data?.task_id || null, employers }, calls });
     } catch (err) { fail(res, err); }
   });
 
@@ -279,12 +331,59 @@ export default function sandboxRoutes({ truv }) {
       res.json({
         status: 200,
         data: {
+          user_id: userId,
           tasks: Array.isArray(tasks.data) ? tasks.data : (tasks.data?.results || []),
-          order: order.statusCode < 400 ? order.data : null,
+          order: order.statusCode < 400 ? scrub(order.data) : null,
           order_status: order.statusCode,
         },
         calls,
       });
+    } catch (err) { fail(res, err); }
+  });
+
+  // POST /api/sandbox/run/:orderId/check   { user_id, index, login, password, product }
+  // Signs in to the order's next employer (index 1 or 2). Call it once the previous task has finished.
+  router.post('/api/sandbox/run/:orderId/check', async (req, res) => {
+    try {
+      const c = client(req, res); if (!c) return;
+      const { user_id: userId, index, login, password, product } = isObject(req.body) ? req.body : {};
+      if (!ID.test(req.params.orderId) || typeof userId !== 'string' || !ID.test(userId)) return bad(res, 'That run could not be found.');
+      if (!HEADLESS_PRODUCTS.includes(product)) return bad(res, 'Running a login here covers income and employment. Open the others in Bridge.');
+      if (!Number.isInteger(index) || index < 1 || index >= MAX_LOGINS) return bad(res, 'Choose which login of the order to run.');
+      if (typeof login !== 'string' || !login) return bad(res, 'Enter a login.');
+      if (typeof password !== 'string' || !password) return bad(res, 'Enter a password.');
+      const calls = [];
+      const refused = await sandboxKeyOnly(c, calls);
+      if (refused) return envelope(res, refused, calls);
+      const order = await traced(calls, () => c.getOrder(req.params.orderId), 'GET', `/v1/orders/${req.params.orderId}/`);
+      if (order.statusCode >= 400) return envelope(res, order, calls);
+      const token = order.data?.employers?.find(e => e?.company_name === `Sandbox login ${index + 1}`)?.bridge_token;
+      if (!token) return bad(res, 'That order has no such login to run.');
+      const checkBody = { employee_login: login, employee_password: '***', payroll_provider_id: 'truv', product_type: product };
+      const check = await traced(calls, () => c.createCheck(token, { login, password, productType: product }), 'POST', '/v1/checks/', checkBody);
+      if (check.statusCode >= 400) return envelope(res, check, calls);
+      res.json({ status: 201, data: { order_id: req.params.orderId, user_id: userId, index, check_id: check.data?.check_id || null, task_id: check.data?.task_id || null }, calls });
+    } catch (err) { fail(res, err); }
+  });
+
+  // POST /api/sandbox/run/:orderId/refresh   { user_id, product }
+  // Asks Truv to refresh the connections the order made. Truv only does that for connections finished in Bridge,
+  // and says so when it cannot; its answer is passed on as it is.
+  router.post('/api/sandbox/run/:orderId/refresh', async (req, res) => {
+    try {
+      const c = client(req, res); if (!c) return;
+      const { user_id: userId, product } = isObject(req.body) ? req.body : {};
+      if (!ID.test(req.params.orderId) || typeof userId !== 'string' || !ID.test(userId)) return bad(res, 'That run could not be found.');
+      if (!HEADLESS_PRODUCTS.includes(product)) return bad(res, 'Choose income or employment.');
+      const calls = [];
+      const refused = await sandboxKeyOnly(c, calls);
+      if (refused) return envelope(res, refused, calls);
+      const body = { products: [product] };
+      const r = await traced(calls, () => c.createRefreshOrder(req.params.orderId, body), 'POST', `/v1/orders/${req.params.orderId}/`, body);
+      if (r.statusCode >= 400) return envelope(res, r, calls);
+      // Only the user Truv names is recorded as this session's: the one in the request is not checked against the order.
+      if (r.data?.user_id) db?.recordSessionUser(req.session?.id, r.data.user_id);
+      res.json({ status: r.statusCode, data: { order_id: r.data?.id, user_id: r.data?.user_id || userId, product }, calls });
     } catch (err) { fail(res, err); }
   });
 

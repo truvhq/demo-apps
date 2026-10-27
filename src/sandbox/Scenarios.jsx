@@ -3,26 +3,32 @@
  * and delete them. Deleting always asks first and keeps a copy, so it can be undone.
  */
 import { useMemo, useState, useEffect, useRef } from 'preact/hooks';
-import { DATA_SOURCES, DATA_SOURCE_LABELS, LIMITS, summarizeScenario, lint, toCreateBody, toBundle, toCurl, ago } from './model.js';
+import { DATA_SOURCES, DATA_SOURCE_LABELS, LIMITS, SORTS, summarizeScenario, lint, toCreateBody, toBundle, toCurl, toCurlScript, toPostman, orderKeys, ago, matchesQuery, sortScenarios } from './model.js';
 import { Import } from './Import.jsx';
+import { JsonViewer } from './JsonViewer.jsx';
 import { TRASH_LIMIT } from './store.js';
 import { Chip, ConfirmDialog, Copyable, CopyButton, Dialog, Spinner, plural } from './ui.jsx';
 
 // A scenario kept on the account may have been written by anything. A value that cannot be read must not take the list down with it.
 const safely = (fn, fallback) => { try { return fn(); } catch { return fallback; } };
 
-// Saves scenarios as a file that Import can read back.
-function download(list, today) {
-  const blob = new Blob([`${JSON.stringify(toBundle(list), null, 2)}\n`], { type: 'application/json' });
+// Saves text as a file the person picks up from their downloads.
+function save(name, text, type) {
+  const blob = new Blob([text], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `sandbox-scenarios-${today}.json`;
+  a.download = name;
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+const exports = (list, today) => [
+  { label: 'JSON file (Import reads it back)', run: () => save(`sandbox-scenarios-${today}.json`, `${JSON.stringify(toBundle(list), null, 2)}\n`, 'application/json') },
+  { label: 'curl script', run: () => save(`sandbox-scenarios-${today}.sh`, `${toCurlScript(list)}\n`, 'text/x-shellscript') },
+  { label: 'Postman collection', run: () => save(`sandbox-scenarios-${today}.postman_collection.json`, `${JSON.stringify(toPostman(list), null, 2)}\n`, 'application/json') },
+];
 
 // A button that opens a short list of actions. Arrow keys move through them; Escape or a click
 // elsewhere closes it and Escape hands focus back to the button.
@@ -76,10 +82,12 @@ function Switch({ checked, onChange, label, disabled }) {
 
 export function Scenarios({
   scenarios, loading, blocked, today, made, trash,
-  onNew, onEdit, onDuplicate, onTry, onToggle, onDelete, onRestore, onForget, onReload, onMoveDates, onCheck, onImportOne, editingId, unsaved,
+  onNew, onEdit, onDuplicate, onTry, onToggle, onDelete, onRestore, onForget, onReload, onMoveDates, onCheck, onImportOne, onUpdateOne, onSuite, editingId, unsaved, initialQuery = '', onQuery,
 }) {
-  const [query, setQuery] = useState('');
+  const [query, setQueryState] = useState(initialQuery);
+  const setQuery = (v) => { setQueryState(v); onQuery?.(v); };
   const [source, setSource] = useState('all');
+  const [sort, setSort] = useState('name');
   const [onlyMade, setOnlyMade] = useState(false);
   const [selected, setSelected] = useState(() => new Set());
   const [confirm, setConfirm] = useState(null);   // { list }
@@ -93,12 +101,12 @@ export function Scenarios({
   useEffect(() => { if (!refocus) return undefined; const t = setTimeout(() => document.getElementById('sbx-s-search')?.focus(), 80); return () => clearTimeout(t); }, [refocus]);
 
   const list = scenarios || [];
-  const q = query.trim().toLowerCase();
-  const shown = useMemo(() => list.filter(s => (
+  const shown = useMemo(() => sortScenarios(list.filter(s => (
     (source === 'all' || s.data_source === source)
     && (!onlyMade || made.has(s.id))
-    && (!q || [s.label, s.username, s.password, s.description, s.provider_id, s.company_domain].some(v => String(v || '').toLowerCase().includes(q)))
-  )), [list, source, onlyMade, q, made]);
+    && safely(() => matchesQuery(s, query), true)
+  )), sort), [list, source, onlyMade, query, made, sort]);
+  const stale = useMemo(() => shown.filter(s => safely(() => lint(s, today, list), []).some(n => n.id === 'stale')), [shown, list, today]);
 
   // Selection only keeps ids that still exist.
   useEffect(() => { setSelected(prev => new Set([...prev].filter(id => list.some(s => s.id === id)))); }, [scenarios]);
@@ -120,6 +128,8 @@ export function Scenarios({
     setRefocus(n => n + 1);
   }
 
+  const notMine = (confirm?.list || []).filter(s => !made.has(s.id));
+
   if (blocked) return null;
 
   return (
@@ -134,12 +144,12 @@ export function Scenarios({
       <div class="sbx-toolbar">
         <div class="sbx-search">
           <label for="sbx-s-search" class="sbx-sr">Search your scenarios</label>
-          <input id="sbx-s-search" type="search" placeholder="Search by name, login or password" value={query} onInput={(e) => setQuery(e.currentTarget.value)} />
+          <input id="sbx-s-search" type="search" placeholder="Search by name, login, employer or notes" value={query} onInput={(e) => setQuery(e.currentTarget.value)} />
         </div>
         <div class="sbx-toolbar-end">
           <button type="button" class="sbx-btn ghost small" onClick={onReload} disabled={loading}>{loading ? 'Loading...' : 'Reload list'}</button>
           <button type="button" class="sbx-btn ghost small" onClick={() => setImporting(true)}>Import</button>
-          <button type="button" class="sbx-btn ghost small" onClick={() => download(list, today)} disabled={!list.length}>{list.length ? `Export all ${list.length} as JSON` : 'Export all'}</button>
+          <Menu label={list.length ? `Export all ${list.length}` : 'Export all'} ariaLabel={`${list.length ? `Export all ${list.length}` : 'Export all'} scenarios`} items={list.length ? exports(list, today) : []} />
           <button type="button" class="sbx-btn primary" onClick={() => onNew()}>New scenario</button>
         </div>
       </div>
@@ -156,6 +166,10 @@ export function Scenarios({
         </div>
         )}
         <span class="sbx-filterbar-end">
+          {scenarios && list.length > 1 && (
+            <label class="sbx-sort">Sort by <select value={sort} onChange={(e) => setSort(e.currentTarget.value)}>{SORTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+          )}
+          {scenarios && stale.length > 0 && <button type="button" class="sbx-linkbtn" onClick={() => setDatesFor(stale)}>Update dates on {plural(stale.length, 'stale scenario')}</button>}
           {scenarios && list.length > 0 && <button type="button" class="sbx-linkbtn sbx-selectall-small" onClick={toggleAll}>{allShownSelected ? 'Clear selection' : 'Select all shown'}</button>}
           {scenarios && <span class="sbx-small">{list.length} of {LIMITS.scenarios} scenarios used</span>}
         </span>
@@ -166,7 +180,9 @@ export function Scenarios({
           <strong>{plural(chosen.length, 'scenario')} selected</strong>
           <span class="sbx-bulk-actions">
             <button type="button" class="sbx-btn ghost small" onClick={() => setSelected(new Set())}>Clear</button>
-            <button type="button" class="sbx-btn ghost small" onClick={() => download(chosen, today)}>Export {chosen.length}</button>
+            <button type="button" class="sbx-btn ghost small" onClick={() => onSuite(chosen)}>Run {chosen.length} headless</button>
+            <button type="button" class="sbx-btn ghost small" onClick={() => setDatesFor(chosen)}>Update dates for {chosen.length}</button>
+            <Menu label={`Export ${chosen.length}`} ariaLabel={`Export ${chosen.length} selected`} items={exports(chosen, today)} />
             <button type="button" class="sbx-btn danger small" onClick={() => setConfirm({ list: chosen })}>Delete {chosen.length}...</button>
           </span>
         </div>
@@ -204,7 +220,9 @@ export function Scenarios({
                       {s.provider_id && <Chip>Provider {s.provider_id}</Chip>}
                     </p>
                     <p class="sbx-item-sum">{safely(() => summarizeScenario(s), '') || (s.data_source !== 'payroll' ? 'Data for ' + (DATA_SOURCE_LABELS[s.data_source] || s.data_source).toLowerCase() : 'No data')}</p>
+                    {s.description && <p class="sbx-item-notes">{String(s.description)}</p>}
                     {notes.map(n => <p key={n.id} class={`sbx-lint sbx-lint-${n.level}`}>{n.text}</p>)}
+                    {s.updated_at && Number.isFinite(Date.parse(s.updated_at)) && <p class="sbx-small sbx-item-updated">Updated <time dateTime={s.updated_at}>{ago(Date.parse(s.updated_at))}</time></p>}
                   </div>
                   <div class="sbx-item-login">
                     {s.username ? <Copyable value={s.username} what="username" /> : <span class="sbx-small">no username</span>}
@@ -217,7 +235,7 @@ export function Scenarios({
                     <Menu label="More" ariaLabel={`More actions for ${s.label}`} items={[
                       { label: 'Duplicate', run: () => onDuplicate(s) },
                       s.data_source === 'payroll' && { label: 'Check which scenario a login uses', run: () => onCheck(s) },
-                      notes.some(n => n.id === 'stale') && { label: 'Update paystub dates', run: () => setDatesFor(s) },
+                      s.data_source === 'payroll' && { label: 'Update paystub dates', run: () => setDatesFor([s]) },
                       { label: 'View the JSON', run: () => setViewing(s) },
                       { label: 'Delete...', danger: true, run: () => setConfirm({ list: [s] }) },
                     ]} />
@@ -256,7 +274,7 @@ export function Scenarios({
         </details>
       )}
 
-      <Import open={importing} onClose={() => setImporting(false)} existing={list} onCreate={onImportOne} />
+      <Import open={importing} onClose={() => setImporting(false)} existing={list} onCreate={onImportOne} onUpdate={onUpdateOne} />
 
       <ConfirmDialog
         open={!!confirm}
@@ -272,6 +290,7 @@ export function Scenarios({
           {(confirm?.list || []).slice(0, 12).map(s => <li key={s.id}><strong>{s.label}</strong> <span class="sbx-small">{s.username}</span></li>)}
           {(confirm?.list.length || 0) > 12 && <li class="sbx-small">and {confirm.list.length - 12} more</li>}
         </ul>
+        {notMine.length > 0 && <p class="sbx-bad"><strong>{notMine.length === confirm.list.length ? 'None of these were created in this browser.' : `${notMine.length} of these were not created in this browser.`}</strong> They may belong to someone else using this account{notMine.length <= 3 ? `: ${notMine.map(s => s.label).join(', ')}` : ''}.</p>}
         {unsaved && confirm?.list.some(s => s.id === editingId) && <p class="sbx-bad">You have unsaved changes to {confirm.list.length === 1 ? 'this scenario' : 'one of these'} in the Build tab. They are lost too.</p>}
         <p class="sbx-small">
           {(confirm?.list.length || 0) > TRASH_LIMIT
@@ -282,24 +301,25 @@ export function Scenarios({
 
       <ConfirmDialog
         open={!!datesFor}
-        title="Update the paystub dates?"
+        title={datesFor?.length > 1 ? `Update the paystub dates in ${datesFor.length} scenarios?` : 'Update the paystub dates?'}
         confirmLabel="Update the dates"
         onCancel={() => setDatesFor(null)}
-        onConfirm={async () => { const s = datesFor; setDatesFor(null); await onMoveDates(s); }}
+        onConfirm={async () => { const todo = datesFor; setDatesFor(null); await onMoveDates(todo); }}
       >
-        <p>This moves every paystub in <strong>{datesFor?.label}</strong> forward by whole pay periods, so the newest one is the latest pay date on or before today. The amounts stay the same, and year-to-date totals are worked out again for the new dates.</p>
-        <p class="sbx-small">It changes the scenario for everyone on the account. You can undo it right after.</p>
+        <p>This moves every paystub in {datesFor?.length === 1 ? <strong>{datesFor[0].label}</strong> : 'each of them'} forward by whole pay periods, so the newest one is the latest pay date on or before today. The amounts stay the same, and year-to-date totals are worked out again for the new dates.</p>
+        {datesFor?.length > 1 && <ul class="sbx-confirm-list">{datesFor.slice(0, 12).map(x => <li key={x.id}><strong>{x.label}</strong></li>)}{datesFor.length > 12 && <li class="sbx-small">and {datesFor.length - 12} more</li>}</ul>}
+        <p class="sbx-small">It changes {datesFor?.length === 1 ? 'the scenario' : 'them'} for everyone on the account. You can undo it right after.</p>
       </ConfirmDialog>
 
       <Dialog open={!!viewing} onClose={() => setViewing(null)} title={viewing ? `${viewing.label}` : ''} wide>
         {viewing && (
           <>
             <div class="sbx-dialog-tools">
-              <CopyButton text={JSON.stringify(viewing, null, 2)} label="Copy JSON" />
+              <CopyButton text={JSON.stringify(orderKeys(viewing), null, 2)} label="Copy JSON" />
               <CopyButton text={toCurl(toCreateBody(viewing))} label="Copy as curl" />
               <span class="sbx-small">The curl command creates a copy of this scenario. Add your sandbox key where it says.</span>
             </div>
-            <pre class="sbx-json" tabIndex={0}>{JSON.stringify(viewing, null, 2)}</pre>
+            <JsonViewer value={orderKeys(viewing)} label="Scenario" copy={false} filename={`${(viewing.label || 'scenario').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'scenario'}.json`} maxHeight={380} />
           </>
         )}
       </Dialog>
