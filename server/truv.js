@@ -253,12 +253,6 @@ export class TruvClient {
   }
 
   // Retrieves the current state of an order by its Truv-assigned ID.
-  // PATCH /v1/orders/{id}/ (EditOrder). Used to un-suppress notifications so Truv
-  // sends the order link by email and SMS. Returns 204 with an empty body.
-  async updateOrder(truvOrderId, body) {
-    return this._request('PATCH', `orders/${truvOrderId}/`, { json: body });
-  }
-
   // POST /v1/orders/{id}/cancel/. Used when the applicant changes an answer and the
   // order's products no longer match, so orders don't stack up.
   async cancelOrder(truvOrderId) {

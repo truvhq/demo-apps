@@ -37,11 +37,22 @@ export const STEPS = [
     title: 'Applicant completes verification',
     guide: '<p>The order page renders when the income step loads, with no button in front of it.</p>'
       + '<pre>TruvBridge.init({\n  bridgeToken, isOrder: true,\n  position: { type: \'inline\', container }\n  // full-dialog fallback: { type: \'dialog\' }\n}).open()</pre>'
-      + '<p>Beneath it: an <em>Enter income manually</em> link, hidden on <code>onEvent(\'SUCCESS\', payload, \'bridge\')</code>, and <em>Email or text me this link</em>, which un-suppresses notifications on the same order:</p>'
-      + '<pre>PATCH /v1/orders/{id}/\n{ "notification_settings":\n  { "suppress_user_notifications": false } }</pre>'
+      + '<p>Beneath it: an <em>Enter income manually</em> link, hidden on <code>onEvent(\'SUCCESS\', payload, \'bridge\')</code>, and <em>Email or text me this link</em> (next step).</p>'
       + '<p>The portal advances only on <code>onEvent(\'COMPLETED\', payload, \'order\')</code>, after self-certification where enabled, then closes the order page itself. <code>onSuccess</code> and <code>onClose</code> are logged but not used as the gate.</p>'
       + '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>'
       + '<p><a href="https://docs.truv.com/developers/best-practices/embedded-orders" target="_blank">Embedded Orders best practices →</a></p>',
+  },
+  {
+    title: 'Hand off to the applicant\'s phone',
+    guide: '<p>The applicant can switch to their phone at any point without losing data. Truv sends the link by email or SMS only when an order is <em>created</em> with that contact and notifications on. The spec has no call that sends it for an existing order, so the portal no longer PATCHes <code>suppress_user_notifications</code> (it returned 204 and sent nothing).</p>'
+      + '<p>What the button does depends on the order:</p>'
+      + '<ul><li><strong>Nothing connected:</strong> close Bridge, cancel the order (<code>POST /v1/orders/{id}/cancel/</code>), create a new one for the same products with the contact and notifications on.</li>'
+      + '<li><strong>Partly done</strong> (a suborder finished, or <code>SUCCESS</code> from <code>bridge</code>): never cancel. Keep it and create a phone order for the rest only. The step finishes when the phone order completes; the result combines both.</li>'
+      + '<li><strong>Sign-in open:</strong> the button waits. Finish or close the sign-in first.</li>'
+      + '<li><strong>Completed:</strong> the button is gone, like the manual link.</li>'
+      + '<li><strong>Repeats:</strong> one phone order per hand-off. <em>Do it here instead</em> mounts that order\'s own <code>bridge_token</code>, no third order.</li>'
+      + '<li><strong>No contact:</strong> the applicant enters an email or phone before sending.</li></ul>'
+      + '<p>The waiting screen reads the phone order every 5 seconds and finishes on <code>completed_at</code>, since no Bridge event reaches this page from another device.</p>',
   },
   { title: 'Agency receives webhooks', guide: '<p>The waiting screen watches for <code>order-status-updated</code> with status <code>completed</code> before fetching reports.</p><p><a href="https://docs.truv.com/api-reference/webhooks" target="_blank">Webhooks Docs →</a></p>' },
   {

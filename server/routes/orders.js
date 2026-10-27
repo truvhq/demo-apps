@@ -124,24 +124,6 @@ export default function ordersRoutes({ truv, db, apiLogger }) {
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 
-  // POST /api/orders/:id/notify: send the order link to the applicant's email and phone.
-  // The order is created with notifications suppressed while the applicant is in the
-  // portal; un-suppressing makes Truv send the link and run its reminder sequence.
-  // Truv refuses this (400) once the order is finished.
-  router.post('/api/orders/:id/notify', async (req, res) => {
-    try {
-      const order = db.getOrder(req.params.id);
-      if (!order) return res.status(404).json({ error: 'Order not found' });
-      const truvClient = req.truv || truv;
-      if (!truvClient) return res.status(401).json({ error: 'session_required' });
-      const body = { notification_settings: { suppress_user_notifications: false } };
-      const result = await truvClient.updateOrder(order.truv_order_id, body);
-      apiLogger.logApiCall({ userId: order.user_id, method: 'PATCH', endpoint: `/v1/orders/${order.truv_order_id}/`, requestBody: body, responseBody: result.data, statusCode: result.statusCode, durationMs: result.durationMs });
-      if (result.statusCode >= 400) return res.status(result.statusCode).json({ error: result.data?.error?.message || 'Truv API error', details: result.data });
-      res.json({ sent: true });
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
-  });
-
   // POST /api/orders/:id/cancel: cancel an order that the applicant's answers replaced.
   router.post('/api/orders/:id/cancel', async (req, res) => {
     try {

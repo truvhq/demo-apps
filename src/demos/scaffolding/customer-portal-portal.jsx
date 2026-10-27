@@ -59,6 +59,32 @@ export function templateFor(products, display) {
 }
 const STEP_TITLES = ['Get started', 'About you', 'Verify income', 'Review & submit'];
 
+// --- Hand-off to the applicant's phone ---
+// Truv sends the order link by email or SMS only when an order is CREATED with that
+// contact and notifications on; no documented call sends it for an existing order. So a
+// hand-off creates a phone order, and never discards data already connected here.
+const DONE_STATES = ['completed', 'done'];
+// Products whose connection on this order already finished (employers = income,
+// financial_accounts = assets).
+export function doneProducts(raw = {}) {
+  const ok = list => (list || []).some(x => DONE_STATES.includes(x.status) || DONE_STATES.includes(x.last_task_status));
+  return [...(ok(raw.employers) ? ['income'] : []), ...(ok(raw.financial_accounts) ? ['assets'] : [])];
+}
+// What pressing "Email or text me this link" does, given the order's products, what is
+// already connected on it, and whether a SUCCESS from the connection widget was seen.
+//   restart  : nothing connected - cancel this order, send a new one for every product
+//   remaining: something connected - keep this order, send one for the rest only
+//   wait     : a connection succeeded but the order doesn't show it yet - don't cancel
+//   complete : everything is connected here - nothing to hand off
+export function planHandoff(products, done, connectedSeen) {
+  const rest = products.filter(p => !done.includes(p));
+  if (!rest.length) return { action: 'complete', phoneProducts: [], cancelDesk: false };
+  if (!done.length) return connectedSeen
+    ? { action: 'wait', phoneProducts: [], cancelDesk: false }
+    : { action: 'restart', phoneProducts: products, cancelDesk: true };
+  return { action: 'remaining', phoneProducts: rest, cancelDesk: false };
+}
+
 // --- Saved cases (this browser only) ---
 const STORE_KEY = 'cp-portal-cases';
 export function loadCases() {
@@ -226,6 +252,12 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
   // Rule 5: a connection succeeded (SUCCESS from the connection widget), so manual entry goes away.
   const [connected, setConnected] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  // A sign-in is open in the connection widget (modal): hand-off must wait for it.
+  const [signingIn, setSigningIn] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sendVia, setSendVia] = useState('email');
+  const [sendTo, setSendTo] = useState('');
+  const [handoffStatus, setHandoffStatus] = useState(null);
   const [stepMsg, setStepMsg] = useState('');
   const bridgeRef = useRef(null);
   const inlineRef = useRef(null);
@@ -240,7 +272,8 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
   // Step completion and the reason a step is still locked. The income step has three
   // states (Rule 4): blocked, deferred (link sent or manual entry), verified (COMPLETED).
   const f = app.form;
-  const deferred = !app.verified && (!!app.linkSent || !!app.manual?.amount);
+  const handoff = app.handoff || null;
+  const deferred = !app.verified && (!!handoff || !!app.manual?.amount);
   const done = [
     app.programs.length > 0,
     !!(f.first_name.trim() && f.last_name.trim() && /\S+@\S+/.test(f.email)),
@@ -257,7 +290,9 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
   // page whenever it is unlocked (the questions live in it, so answering them is arriving).
   const atIncome = !lockReason(2) && (app.layout === 'hero' || app.step === 2);
   // Launch as soon as the answers settle the products: no button between them and Truv.
-  const shouldMount = atIncome && route && !nothing && !app.verified;
+  // While the verification is handed to the phone the embed is swapped for the waiting
+  // screen; "Do it here instead" mounts the phone order here.
+  const shouldMount = atIncome && route && !nothing && !app.verified && (!handoff || handoff.here);
 
   // Close any open widget when the portal unmounts.
   useEffect(() => () => { try { bridgeRef.current?.close(); } catch {} }, []);
@@ -267,7 +302,27 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
   useEffect(() => {
     if (shouldMount && !bridgeOpen && !mounting.current && !app.dialogClosed) mount();
     if (!shouldMount && bridgeOpen) closeBridge();
-  }, [shouldMount, app.orderId, app.dialogClosed]);
+  }, [shouldMount, app.orderId, app.dialogClosed, handoff?.here]);
+
+  // Waiting screen: no event reaches this page from the phone, so read the phone order.
+  // It is finished when completed_at is set (the order read's own completion field).
+  useEffect(() => {
+    if (!handoff || handoff.here || app.verified) return;
+    let stop = false;
+    const tick = async () => {
+      try {
+        const r = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(handoff.orderId)}`);
+        const data = await r.json();
+        if (stop || !r.ok) return;
+        const raw = data.raw_response || {};
+        setHandoffStatus({ done: doneProducts(raw), completed: !!raw.completed_at });
+        if (raw.completed_at) patch({ verified: true, manual: null });
+      } catch {}
+    };
+    tick();
+    const t = setInterval(tick, 5000);
+    return () => { stop = true; clearInterval(t); };
+  }, [handoff?.orderId, handoff?.here, app.verified]);
 
   // Get a bridge_token: re-read the open order (same token, Rule: reinitialize) or create one.
   async function mount() {
@@ -275,13 +330,18 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
     setBusy(true); setStepMsg('');
     try {
       let data;
-      if (app.orderId) {
+      if (handoff?.here) {
+        // "Do it here instead": the phone order's own bridge_token, no third order.
+        const r = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(handoff.orderId)}/info`);
+        if (!r.ok) throw new Error('We could not reopen your verification. Try again.');
+        data = await r.json();
+      } else if (app.orderId) {
         const r = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(app.orderId)}/info`);
         if (!r.ok) throw new Error('We could not reopen your verification. Try again.');
         data = await r.json();
       } else {
-        // Notifications stay suppressed while the applicant is here (Rule 4); the
-        // "Email or text me this link" button turns them on.
+        // Notifications stay suppressed while the applicant is here (Rule 4). A hand-off
+        // sends the link by creating a phone order (see planHandoff).
         const r = await fetch(`${API_BASE}/api/orders`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...f, products: route.products, template_id: templateFor(route.products, app.display),
@@ -292,7 +352,7 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
         if (!r.ok) throw new Error('We could not start your verification. Try again.');
         patch({ orderId: data.order_id });
       }
-      onOrder(data, route.products);
+      onOrder(data, handoff?.here ? handoff.products : route.products);
       openBridge(data.bridge_token);
     } catch (e) { setStepMsg(e.message); }
     setBusy(false);
@@ -315,11 +375,16 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
         // Rule 5: hide manual entry the moment a connection succeeds; bring it back on an error.
         if (type === 'SUCCESS' && source === 'bridge') { setConnected(true); setManualOpen(false); }
         if (type === 'ERROR' && source === 'bridge') setConnected(false);
+        // Track an open sign-in so the hand-off can't start under it.
+        if (source === 'bridge') {
+          if (['OPEN', 'SCREEN_VIEW', 'EMPLOYER_SELECTED', 'PROVIDER_SELECTED', 'LOGIN_COMPLETE'].includes(type)) setSigningIn(true);
+          if (['CLOSE', 'SUCCESS', 'ERROR'].includes(type)) setSigningIn(false);
+        }
         // Rule 8: only COMPLETED with source "order" means the order reached its final state
         // (after self-certification where it is on). The templates hide the close button, so
         // close the order page ourselves.
         if (type === 'COMPLETED' && source === 'order') {
-          patch({ verified: true, linkSent: false, manual: null });
+          patch({ verified: true, manual: null });
           setTimeout(() => closeBridge(), 1500);
         }
       },
@@ -330,6 +395,7 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
         onEvent('onClose()');
         bridgeRef.current = null;
         setBridgeOpen(false);
+        setSigningIn(false);
         if (!inline) patch({ dialogClosed: true });
         if (container) container.innerHTML = '';
       },
@@ -347,32 +413,62 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
     if (inlineRef.current) inlineRef.current.innerHTML = '';
   }
 
-  // Rule 4, send-link: Truv sends the same order by email and SMS once notifications are
-  // un-suppressed (PATCH /v1/orders/{id}/). The embed stays mounted.
-  async function sendLink() {
-    if (!app.orderId || busy) return;
-    setBusy(true); setStepMsg('');
-    try {
-      const r = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(app.orderId)}/notify`, { method: 'POST' });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data.error || 'We could not send the link. Try again.');
-      patch({ linkSent: true });
-      setStepMsg(`Truv will send the link to ${[f.email, f.phone].filter(Boolean).join(' and ')}. Finish on your phone, or right here.`);
-    } catch (e) { setStepMsg(e.message); }
-    setBusy(false);
+  // Rule 4, send-link: hand the verification to the applicant's phone.
+  function openSend() {
+    if (handoff) { patch({ handoff: { ...handoff, here: false } }); closeBridge(); return; }
+    setSendOpen(true); setStepMsg('');
+    setSendVia(f.email ? 'email' : 'phone');
+    setSendTo(f.email || f.phone || '');
   }
-  // Finished on the phone: no COMPLETED reaches this page, so read the order (completed_at).
-  async function checkStatus() {
+  async function readOrder(id) {
+    const r = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(id)}`);
+    const data = await r.json();
+    if (!r.ok) throw new Error('We could not read your verification. Try again.');
+    return data.raw_response || {};
+  }
+  async function sendToPhone() {
+    const to = sendTo.trim();
+    if (!to || busy || handoff) return;
+    if (signingIn) { setStepMsg('Finish or close the sign-in first.'); return; }
     setBusy(true); setStepMsg('');
     try {
-      const r = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(app.orderId)}`);
+      // What is already connected here decides cancel-and-resend vs send-the-rest.
+      let done = doneProducts(await readOrder(app.orderId));
+      if (!done.length && connected) {
+        await new Promise(r => setTimeout(r, 2000));
+        done = doneProducts(await readOrder(app.orderId));
+      }
+      const plan = planHandoff(route.products, done, connected);
+      if (plan.action === 'wait') throw new Error('Your connection is still saving. Try again in a moment.');
+      if (plan.action === 'complete') throw new Error('Everything is connected already. Finish here.');
+      closeBridge();
+      if (plan.cancelDesk) {
+        await fetch(`${API_BASE}/api/orders/${encodeURIComponent(app.orderId)}/cancel`, { method: 'POST' });
+      }
+      // A new order with the contact and notifications on: Truv sends the link.
+      const contact = sendVia === 'email' ? { email: to } : { phone: to.replace(/\D/g, '') };
+      const r = await fetch(`${API_BASE}/api/orders`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: f.first_name, last_name: f.last_name, ...contact, products: plan.phoneProducts,
+          template_id: templateFor(plan.phoneProducts, app.display), external_user_id: app.clientId,
+          order_number: app.caseNumber, demo_id: 'customer-portal' }),
+      });
       const data = await r.json();
-      if (!r.ok) throw new Error('We could not check your verification. Try again.');
-      if (data.raw_response?.completed_at) { closeBridge(); patch({ verified: true, linkSent: false, manual: null }); }
-      else setStepMsg('Not finished yet. You can also finish right here.');
+      if (!r.ok) throw new Error('We could not send the link. Try again.');
+      onOrder(data, plan.phoneProducts);
+      setSendOpen(false); setHandoffStatus(null);
+      patch({
+        orderId: plan.cancelDesk ? null : app.orderId,
+        handoff: { orderId: data.order_id, products: plan.phoneProducts, doneHere: done, to, via: sendVia, here: false },
+        dialogClosed: false,
+      });
     } catch (e) { setStepMsg(e.message); }
     setBusy(false);
   }
+  function cancelOrder(id) {
+    if (id) fetch(`${API_BASE}/api/orders/${encodeURIComponent(id)}/cancel`, { method: 'POST' }).catch(() => {});
+  }
+
   // An answer that changes the products replaces the order: cancel the old one
   // (POST /v1/orders/{id}/cancel/) so orders don't stack, then the mount effect creates
   // one for the new product set. An answer that keeps the products changes nothing.
@@ -380,18 +476,17 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
     const next = { ...ans, [k]: v };
     const before = route?.products.join(',') ?? null;
     const after = routeFor(next)?.products.join(',') ?? null;
-    if (app.orderId && before !== after) {
-      const old = app.orderId;
-      closeBridge(); setConnected(false); setManualOpen(false); setStepMsg('');
-      patch({ answers: next, orderId: null, verified: false, linkSent: false, manual: null, dialogClosed: false });
-      fetch(`${API_BASE}/api/orders/${encodeURIComponent(old)}/cancel`, { method: 'POST' }).catch(() => {});
+    if ((app.orderId || handoff) && before !== after) {
+      cancelOrder(app.orderId); cancelOrder(handoff?.orderId);
+      closeBridge(); setConnected(false); setManualOpen(false); setSendOpen(false); setStepMsg('');
+      patch({ answers: next, orderId: null, handoff: null, verified: false, manual: null, dialogClosed: false });
       return;
     }
     patch({ answers: next });
   }
 
   // Rule 9 edit affordance: a finished order is not reopened; start a new one for the same person.
-  function editIncome() { closeBridge(); setConnected(false); patch({ verified: false, orderId: null, linkSent: false, manual: null, dialogClosed: false }); }
+  function editIncome() { closeBridge(); setConnected(false); setHandoffStatus(null); patch({ verified: false, orderId: null, handoff: null, manual: null, dialogClosed: false }); }
 
   function goto(step) { if (app.step === 2 && step !== 2) closeBridge(); patch({ step, dialogClosed: false }); }
   function save() { saveCase(app); setNote(`Saved. Case ${app.caseNumber} can be picked up from the start screen.`); }
@@ -467,7 +562,22 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
         </div>
       )}
       {route && !nothing && !app.verified && (<>
-        {inline
+        {handoff && !handoff.here ? (
+          // Waiting screen: the verification is on the applicant's phone.
+          <div class="cpp-phone">
+            <h3>Check your phone</h3>
+            <p>We sent a link {handoff.via === 'email' ? 'by email' : 'by text'} to <strong>{handoff.to}</strong>. Open it to finish. This page updates when you're done.</p>
+            <ul class="cpp-parts">
+              {route.products.map(p => {
+                const here = handoff.doneHere.includes(p);
+                const there = handoffStatus?.done.includes(p);
+                return <li key={p}><span>{p === 'income' ? 'Income and employment' : 'Bank accounts'}</span>
+                  <span class={here || there ? 'cpp-ok' : 'cpp-muted'}>{here ? '✓ Connected here' : there ? '✓ Connected on your phone' : 'Waiting for your phone'}</span></li>;
+              })}
+            </ul>
+            <button type="button" class="cpp-link" onClick={() => patch({ handoff: { ...handoff, here: true }, dialogClosed: false })}>Do it here instead</button>
+          </div>
+        ) : inline
           ? <div ref={inlineRef} class="cpp-inline-body" data-loading={busy && !bridgeOpen ? 'true' : undefined} />
           : !bridgeOpen && (
             <div class="cpp-dialog-closed">
@@ -476,20 +586,33 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
             </div>
           )}
         {/* Rule 4: one row directly beneath the embed - manual entry as a text link, and a
-            secondary button that sends the same order by email or SMS. */}
-        {app.orderId && (
+            secondary button that hands the verification to the applicant's phone. */}
+        {(app.orderId || handoff) && (
           <div class="cpp-escapes">
-            {!connected && <button type="button" class="cpp-link" onClick={() => setManualOpen(o => !o)}>Enter income manually</button>}
-            {!app.linkSent
-              ? <button type="button" class="cpp-btn-ghost" onClick={sendLink} disabled={busy}>Email or text me this link</button>
-              : <button type="button" class="cpp-link" onClick={checkStatus} disabled={busy}>Finished on your phone? Check now</button>}
+            {!connected && !(handoff && !handoff.here) && <button type="button" class="cpp-link" onClick={() => setManualOpen(o => !o)}>Enter income manually</button>}
+            {!(handoff && !handoff.here) && (
+              <button type="button" class="cpp-btn-ghost" onClick={openSend} disabled={busy || signingIn || sendOpen}
+                title={signingIn ? 'Finish or close the sign-in first' : undefined}>
+                {handoff ? 'Continue on my phone' : 'Email or text me this link'}</button>
+            )}
           </div>
         )}
-        {manualOpen && !connected && (
-          <div class="cpp-manual-form">
-            <label class="cpp-field"><span>Employer or income source</span><input value={app.manual?.source || ''} onInput={setManual('source')} /></label>
-            <label class="cpp-field"><span>Gross monthly income ($)</span><input inputMode="decimal" value={app.manual?.amount || ''} onInput={setManual('amount')} /></label>
-            <p class="cpp-muted">The agency may ask you for proof of this income later.</p>
+        {signingIn && <p class="cpp-muted">Finish or close the sign-in first to send the link to your phone.</p>}
+        {sendOpen && !handoff && (
+          <div class="cpp-send">
+            <p>Where should we send the link?</p>
+            <div class="cpp-send-via">
+              {[['email', 'Email'], ['phone', 'Text']].map(([v, l]) => (
+                <label key={v} class="cpp-check"><input type="radio" name="send-via" checked={sendVia === v}
+                  onChange={() => { setSendVia(v); setSendTo(v === 'email' ? f.email : f.phone); }} /><span>{l}</span></label>
+              ))}
+            </div>
+            <div class="cpp-row">
+              <input class="cpp-send-to" type={sendVia === 'email' ? 'email' : 'tel'} value={sendTo} onInput={e => setSendTo(e.currentTarget.value)}
+                placeholder={sendVia === 'email' ? 'name@domain.com' : '4155554193'} aria-label={sendVia === 'email' ? 'Email address' : 'Mobile number'} />
+              <button type="button" class="cpp-btn" onClick={sendToPhone} disabled={busy || !sendTo.trim()}>{busy ? 'Sending…' : 'Send link'}</button>
+              <button type="button" class="cpp-link" onClick={() => setSendOpen(false)}>Cancel</button>
+            </div>
           </div>
         )}
         {stepMsg && <p class="cpp-muted" role="status">{stepMsg}</p>}
@@ -499,7 +622,7 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
       <dl>
         <dt>Programs</dt><dd>{app.programs.map(id => PROGRAMS.find(p => p.id === id)?.name).join(', ') || '—'}</dd>
         <dt>Applicant</dt><dd>{f.first_name} {f.last_name} · {f.email}</dd>
-        <dt>Verification</dt><dd>{nothing ? 'Nothing to verify' : app.verified ? `${route.name}: verified` : app.manual?.amount ? `Entered manually: $${app.manual.amount}/month` : app.linkSent ? 'Link sent, not yet verified' : 'Not yet verified'}</dd>
+        <dt>Verification</dt><dd>{nothing ? 'Nothing to verify' : app.verified ? `${route.name}: verified` : app.manual?.amount ? `Entered manually: $${app.manual.amount}/month` : handoff ? 'Sent to your phone, not yet verified' : 'Not yet verified'}</dd>
       </dl>
       <div class="cpp-row">
         {/* Demo stops here: submitting is a placeholder, nothing is sent anywhere. */}
