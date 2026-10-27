@@ -45,10 +45,10 @@ const SAMPLES = [
   { id: 's3', sample: true, caseNumber: '40220055', first_name: 'Ana', last_name: 'Nguyen', email: 'ana.nguyen@example.com', program: 'TANF', products: ['assets'], parts: { assets: 'pending' }, created: '2026-10-26' },
 ];
 
-// --- Saved cases (this browser only) ---
-const KEY = 'cw-cases';
-function loadCases() { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } }
-function storeCases(list) { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* private window */ } }
+// --- Cases created in this visit ---
+// Kept in memory only, so a reload or closing the page leaves just the samples above.
+// Earlier versions saved cases to the browser: clear that on load.
+try { localStorage.removeItem('cw-cases'); } catch { /* private window */ }
 
 const newCaseNumber = () => String(40220000 + Math.floor(Math.random() * 90000));
 const today = () => new Date().toISOString().slice(0, 10);
@@ -83,14 +83,13 @@ function StatusPill({ status }) {
 
 // --- Component: the dashboard ---
 export function CWDashboard({ onOrder, onEvent }) {
-  const [cases, setCases] = useState(loadCases);
+  const [cases, setCases] = useState([]);
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
 
-  const save = list => { setCases(list); storeCases(list); };
-  const patchCase = (id, p) => save(loadCases().map(c => (c.id === id ? { ...c, ...p } : c)));
+  const patchCase = (id, p) => setCases(list => list.map(c => (c.id === id ? { ...c, ...p } : c)));
 
   const all = [...cases, ...SAMPLES];
   const q = query.trim().toLowerCase();
@@ -147,11 +146,11 @@ export function CWDashboard({ onOrder, onEvent }) {
       {creating && (
         <NewVerification
           onClose={() => setCreating(false)}
-          onCreated={c => { save([c, ...loadCases()]); setCreating(false); setOpenId(c.id); onOrder?.(c); }}
+          onCreated={c => { setCases(list => [c, ...list]); setCreating(false); setOpenId(c.id); onOrder?.(c); }}
           onEvent={onEvent}
         />
       )}
-      {open && <CaseDrawer c={open} onClose={() => setOpenId(null)} onPatch={p => patchCase(open.id, p)} onDiscard={() => { save(loadCases().filter(x => x.id !== open.id)); setOpenId(null); }} />}
+      {open && <CaseDrawer c={open} onClose={() => setOpenId(null)} onPatch={p => patchCase(open.id, p)} onDiscard={() => { setCases(list => list.filter(x => x.id !== open.id)); setOpenId(null); }} />}
     </div>
   );
 }
