@@ -146,3 +146,24 @@ describe('AddApplicantForm canSubmitApplicant', () => {
     expect(canSubmitApplicant({ firstName: '  ', lastName: '  ' })).toBe(false);
   });
 });
+
+// --- Dashboard: product mix picks the template; status comes from the suborders ---
+import { templateFor, TEMPLATES, caseStatus } from '../../src/demos/scaffolding/case-worker-dashboard.jsx';
+
+describe('Case worker dashboard', () => {
+  it('picks one template per product mix', () => {
+    expect(templateFor(['income'])).toBe(TEMPLATES.income);
+    expect(templateFor(['assets'])).toBe(TEMPLATES.assets);
+    expect(templateFor(['income', 'assets'])).toBe(TEMPLATES.both);
+    expect(templateFor(['assets', 'income'])).toBe(TEMPLATES.both);
+  });
+
+  it('derives case status from each product', () => {
+    const c = (parts, extra = {}) => ({ products: Object.keys(parts), parts, ...extra });
+    expect(caseStatus(c({ income: 'completed', assets: 'done' }))).toBe('done');
+    expect(caseStatus(c({ income: 'completed', assets: 'error' }))).toBe('error');
+    expect(caseStatus(c({ income: 'completed', assets: 'sent' }))).toBe('partial');
+    expect(caseStatus(c({ income: 'sent' }, { email: 'a@b.co' }))).toBe('sent');
+    expect(caseStatus(c({ income: 'sent' }))).toBe('created');
+  });
+});
