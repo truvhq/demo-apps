@@ -43,6 +43,7 @@ import { PSDocumentProcessingDemo } from './demos/PSDocumentProcessing.jsx';
 import { BatchingWalkthrough } from './demos/Batching.jsx';
 import { EmbeddedOrdersGuide } from './demos/EmbeddedOrdersGuide.jsx';
 import { PublicSectorHub } from './industry/PublicSectorHub.jsx';
+import { CoverageHub } from './industry/CoverageHub.jsx';
 import { SmartRoutingDemo } from './demos/SmartRouting.jsx';
 import { BankIncomeDemo } from './demos/BankIncome.jsx';
 import { PayrollIncomeDemo } from './demos/PayrollIncome.jsx';
@@ -243,7 +244,8 @@ export function App() {
 
   // Public Sector has its own Demos + Guides page; every other industry keeps IndustryPage.
   // #public-sector/demos, /guides and /tools scroll to that section of the page.
-  const Landing = industry.id === 'public-sector' ? PublicSectorHub : IndustryPage;
+  const Landing = industry.id === 'public-sector' ? PublicSectorHub
+    : industry.id === 'coverage-analysis' ? CoverageHub : IndustryPage;
   if (!route.demo) return <Landing key={`industry/${route.industry}/${restartNonce}`} industry={industry} />;
   if (route.demo === 'demos' || route.demo === 'guides' || route.demo === 'tools') {
     return <Landing key={`industry/${route.industry}/${route.demo}/${restartNonce}`} industry={industry} section={route.demo} />;

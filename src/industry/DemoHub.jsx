@@ -32,7 +32,7 @@ export const TOOLS = [
     desc: 'Upload up to 10,000 financial institutions and see which ones Truv can connect to for transactions or assets data.' },
 ];
 
-function Tile({ href, name, desc, Icon, index }) {
+export function Tile({ href, name, desc, Icon, index }) {
   return (
     <a class="psh-tile" href={href} style={{ '--i': index }}>
       <div class="psh-tile-top">
@@ -45,7 +45,7 @@ function Tile({ href, name, desc, Icon, index }) {
   );
 }
 
-function Section({ id, title, sub, children }) {
+export function Section({ id, title, sub, children }) {
   return (
     <section class="psh-section-block" id={`psh-${id}`} aria-labelledby={`psh-${id}-h`}>
       <div class="psh-section-head">

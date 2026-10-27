@@ -156,7 +156,7 @@ export function CoverageRunner({ kind, productOptions, sampleUrl, sampleFilename
     <div class="px-4 py-6 sm:px-8 sm:py-10 max-w-[1100px] w-full mx-auto">
       <div class="mb-8">
         <h2 class="text-[28px] font-semibold tracking-[-0.02em] text-[#000000]">{kind === 'payroll' ? 'Payroll Coverage Analysis' : 'Financial Accounts Coverage Analysis'}</h2>
-        <p class="text-[15px] text-[#808080] leading-[1.5] mt-1">Upload up to 10,000 {kind === 'payroll' ? 'employers' : 'financial institutions'} and we will look up each one against the Truv {kind === 'payroll' ? 'company-mappings-search' : 'providers'} endpoint.</p>
+        <p class="text-[15px] text-[#808080] leading-[1.5] mt-1">Upload up to 10,000 {kind === 'payroll' ? 'employers' : 'financial institutions'} and we will look up each one against Truv's {kind === 'payroll' ? 'companies' : 'providers'} endpoint.</p>
       </div>
 
       <div class="flex flex-wrap items-end gap-4 mb-6 pb-6 border-b border-[#e5e7eb]">
