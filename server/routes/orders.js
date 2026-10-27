@@ -53,13 +53,23 @@ export default function ordersRoutes({ truv, db, apiLogger }) {
         company_mapping_id: data.company_mapping_id,
         provider_id: data.provider_id,
         data_sources: data.data_sources,
+        template_id: data.template_id,
       };
 
       const truvClient = req.truv || truv;
       if (!truvClient) return res.status(401).json({ error: 'session_required' });
 
       // Proxy the order creation to Truv API
-      const result = await truvClient.createOrder(params);
+      let result = await truvClient.createOrder(params);
+      // Templates belong to one Truv account. A demo may name templates that the
+      // signed-in keys don't own; Truv then answers 400 "Invalid template_id", so
+      // retry once without it and let the account's default template apply.
+      let templateFallback = false;
+      const invalid = result.data?.error?.extra?.['invalid-params'] || [];
+      if (params.template_id && result.statusCode === 400 && invalid.some(p => p.field === 'template_id')) {
+        templateFallback = true;
+        result = await truvClient.createOrder({ ...params, template_id: undefined });
+      }
       const truvData = result.data;
       if (result.statusCode >= 400) {
         console.error('Order creation failed:', JSON.stringify({ request: result.requestBody, response: truvData }));
@@ -75,7 +85,7 @@ export default function ordersRoutes({ truv, db, apiLogger }) {
       apiLogger.logApiCall({ userId, method: 'POST', endpoint: '/v1/orders/', requestBody: result.requestBody, responseBody: truvData, statusCode: result.statusCode, durationMs: result.durationMs });
 
       // Return the minimal order info the frontend needs to proceed
-      res.json({ order_id: orderId, truv_order_id: truvData.id, user_id: userId, bridge_token: truvData.bridge_token, status: truvData.status, company_mapping_id: data.company_mapping_id || null });
+      res.json({ order_id: orderId, truv_order_id: truvData.id, user_id: userId, bridge_token: truvData.bridge_token, status: truvData.status, company_mapping_id: data.company_mapping_id || null, template_id: truvData.template_id || null, template_fallback: templateFallback });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 

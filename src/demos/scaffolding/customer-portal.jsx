@@ -25,17 +25,29 @@ import { CP_DIAGRAMS } from '../../diagrams/customer-portal.js';
 // --- Config: step definitions for the sidebar Guide tab ---
 export const STEPS = [
   {
-    title: 'Applicant submits information',
-    guide: '<p>The form collects applicant PII and employer/institution. Employers are searched via:</p>'
-      + '<pre>GET /v1/company-mappings-search/?query=...</pre>'
-      + '<p>For financial institutions (banks):</p>'
-      + '<pre>GET /v1/providers/?query=...</pre>'
-      + '<p>Then an order is created:</p><pre>POST /v1/orders/</pre>'
-      + '<p><a href="https://docs.truv.com/api-reference/companies/company_autocomplete_search" target="_blank">Company Search</a> · <a href="https://docs.truv.com/api-reference/data-providers/providers-list" target="_blank">Providers</a> · <a href="https://docs.truv.com/api-reference/orders/orders_create" target="_blank">Orders</a></p>',
+    title: 'Agency creates the order',
+    guide: '<p>Two questions decide the products: a job adds <code>income</code>, a bank account adds <code>assets</code>. No to both creates no order.</p>'
+      + '<p>The server creates one order per applicant:</p>'
+      + '<pre>POST /v1/orders/\n{\n  first_name, last_name,\n  email, phone,\n  products,\n  template_id,\n  external_user_id,\n  order_number\n}</pre>'
+      + '<p><code>template_id</code> depends on the products and on dialog vs inline. If the signed-in account does not own it, Truv returns 400 and the order is retried without it (account default template).</p>'
+      + '<p>Only the <code>bridge_token</code> reaches the browser.</p>'
+      + '<p><a href="https://docs.truv.com/api-reference/orders/orders_create" target="_blank">Orders API →</a></p>',
   },
-  { title: 'Applicant completes verification', guide: '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p><p><a href="https://docs.truv.com/developers/integration/bridge-widget/overview" target="_blank">Bridge Docs →</a></p>' },
-  { title: 'Agency processes results', guide: '<p>Truv sends webhooks as the verification progresses.</p><p><a href="https://docs.truv.com/api-reference/webhooks" target="_blank">Webhooks Docs →</a></p>' },
-  { title: 'Agency reviews report', guide: '<p>Fetch reports:</p><pre>POST /v1/users/{user_id}/reports/</pre><p><a href="https://docs.truv.com/api-reference/user-income-and-employment-reports/users_reports" target="_blank">Reports API →</a></p>' },
+  {
+    title: 'Applicant completes verification',
+    guide: '<pre>TruvBridge.init({\n  bridgeToken, isOrder: true,\n  position: { type: \'dialog\' }\n  // or { type: \'inline\', container }\n})</pre>'
+      + '<p>The portal advances only on <code>onEvent(\'COMPLETED\', payload, \'order\')</code>, after self-certification where enabled, then closes the order page itself. <code>onSuccess</code> and <code>onClose</code> are logged but not used as the gate.</p>'
+      + '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>'
+      + '<p><a href="https://docs.truv.com/developers/best-practices/embedded-orders" target="_blank">Embedded Orders best practices →</a></p>',
+  },
+  { title: 'Agency receives webhooks', guide: '<p>The waiting screen watches for <code>order-status-updated</code> with status <code>completed</code> before fetching reports.</p><p><a href="https://docs.truv.com/api-reference/webhooks" target="_blank">Webhooks Docs →</a></p>' },
+  {
+    title: 'Agency reviews reports',
+    guide: '<p>One report per product, each created then retrieved:</p>'
+      + '<pre>income:\nPOST /v1/users/{id}/reports/\n\nassets:\nPOST /v1/users/{id}/assets/reports/\nPOST /v1/users/{id}/income_insights/reports/</pre>'
+      + '<p>Income Insights is added automatically for <code>assets</code>.</p>'
+      + '<p><a href="https://docs.truv.com/api-reference/user-income-and-employment-reports/users_reports" target="_blank">Reports API →</a></p>',
+  },
 ];
 
 // --- Config: product bundles for the customer portal. Each maps to one or more Truv products. ---
