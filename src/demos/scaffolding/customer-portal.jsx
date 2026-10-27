@@ -25,17 +25,43 @@ import { CP_DIAGRAMS } from '../../diagrams/customer-portal.js';
 // --- Config: step definitions for the sidebar Guide tab ---
 export const STEPS = [
   {
-    title: 'Applicant submits information',
-    guide: '<p>The form collects applicant PII and employer/institution. Employers are searched via:</p>'
-      + '<pre>GET /v1/company-mappings-search/?query=...</pre>'
-      + '<p>For financial institutions (banks):</p>'
-      + '<pre>GET /v1/providers/?query=...</pre>'
-      + '<p>Then an order is created:</p><pre>POST /v1/orders/</pre>'
-      + '<p><a href="https://docs.truv.com/api-reference/companies/company_autocomplete_search" target="_blank">Company Search</a> · <a href="https://docs.truv.com/api-reference/data-providers/providers-list" target="_blank">Providers</a> · <a href="https://docs.truv.com/api-reference/orders/orders_create" target="_blank">Orders</a></p>',
+    title: 'Agency creates the order',
+    guide: '<p>Two questions decide the products: a job adds <code>income</code>, a bank account adds <code>assets</code>. No to both creates no order.</p>'
+      + '<p>The server creates one order per applicant as soon as the two answers settle the products, with notifications suppressed while they are in the portal. Changing an answer later cancels that order (<code>POST /v1/orders/{id}/cancel/</code>) and creates one for the new products:</p>'
+      + '<pre>POST /v1/orders/\n{\n  first_name, last_name,\n  email, phone,\n  products,\n  template_id,\n  external_user_id,\n  order_number,\n  notification_settings: {\n    suppress_user_notifications: true\n  }\n}</pre>'
+      + '<p><code>template_id</code> depends on the products and on dialog vs inline. If the signed-in account does not own it, Truv returns 400 and the order is retried without it (account default template).</p>'
+      + '<p>Only the <code>bridge_token</code> reaches the browser.</p>'
+      + '<p><a href="https://docs.truv.com/api-reference/orders/orders_create" target="_blank">Orders API →</a></p>',
   },
-  { title: 'Applicant completes verification', guide: '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p><p><a href="https://docs.truv.com/developers/integration/bridge-widget/overview" target="_blank">Bridge Docs →</a></p>' },
-  { title: 'Agency processes results', guide: '<p>Truv sends webhooks as the verification progresses.</p><p><a href="https://docs.truv.com/api-reference/webhooks" target="_blank">Webhooks Docs →</a></p>' },
-  { title: 'Agency reviews report', guide: '<p>Fetch reports:</p><pre>POST /v1/users/{user_id}/reports/</pre><p><a href="https://docs.truv.com/api-reference/user-income-and-employment-reports/users_reports" target="_blank">Reports API →</a></p>' },
+  {
+    title: 'Applicant completes verification',
+    guide: '<p>The order page renders when the income step loads, with no button in front of it.</p>'
+      + '<pre>TruvBridge.init({\n  bridgeToken, isOrder: true,\n  position: { type: \'inline\', container }\n  // full-dialog fallback: { type: \'dialog\' }\n}).open()</pre>'
+      + '<p>Beneath it: an <em>Enter income manually</em> link, hidden on <code>onEvent(\'SUCCESS\', payload, \'bridge\')</code>, and <em>Email or text me this link</em> (next step).</p>'
+      + '<p>The portal advances only on <code>onEvent(\'COMPLETED\', payload, \'order\')</code>, after self-certification where enabled, then closes the order page itself. <code>onSuccess</code> and <code>onClose</code> are logged but not used as the gate.</p>'
+      + '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>'
+      + '<p><a href="https://docs.truv.com/developers/best-practices/embedded-orders" target="_blank">Embedded Orders best practices →</a></p>',
+  },
+  {
+    title: 'Hand off to the applicant\'s phone',
+    guide: '<p>The applicant can switch to their phone at any point without losing data. Truv sends the link by email or SMS only when an order is <em>created</em> with that contact and notifications on. The spec has no call that sends it for an existing order, so the portal no longer PATCHes <code>suppress_user_notifications</code> (it returned 204 and sent nothing).</p>'
+      + '<p>What the button does depends on the order:</p>'
+      + '<ul><li><strong>Nothing connected:</strong> close Bridge, cancel the order (<code>POST /v1/orders/{id}/cancel/</code>), create a new one for the same products with the contact and notifications on.</li>'
+      + '<li><strong>Partly done</strong> (a suborder finished, or <code>SUCCESS</code> from <code>bridge</code>): never cancel. Keep it and create a phone order for the rest only. The step finishes when the phone order completes; the result combines both.</li>'
+      + '<li><strong>Sign-in open:</strong> the button waits. Finish or close the sign-in first.</li>'
+      + '<li><strong>Completed:</strong> the button is gone, like the manual link.</li>'
+      + '<li><strong>Repeats:</strong> one phone order per hand-off. <em>Do it here instead</em> mounts that order\'s own <code>bridge_token</code>, no third order.</li>'
+      + '<li><strong>No contact:</strong> the applicant enters an email or phone before sending.</li></ul>'
+      + '<p>The waiting screen reads the phone order every 5 seconds and finishes on <code>completed_at</code>, since no Bridge event reaches this page from another device.</p>',
+  },
+  { title: 'Agency receives webhooks', guide: '<p>The waiting screen watches for <code>order-status-updated</code> with status <code>completed</code> before fetching reports.</p><p><a href="https://docs.truv.com/api-reference/webhooks" target="_blank">Webhooks Docs →</a></p>' },
+  {
+    title: 'Agency reviews reports',
+    guide: '<p>One report per product, each created then retrieved:</p>'
+      + '<pre>income:\nPOST /v1/users/{id}/reports/\n\nassets:\nPOST /v1/users/{id}/assets/reports/\nPOST /v1/users/{id}/income_insights/reports/</pre>'
+      + '<p>Income Insights is added automatically for <code>assets</code>.</p>'
+      + '<p><a href="https://docs.truv.com/api-reference/user-income-and-employment-reports/users_reports" target="_blank">Reports API →</a></p>',
+  },
 ];
 
 // --- Config: product bundles for the customer portal. Each maps to one or more Truv products. ---

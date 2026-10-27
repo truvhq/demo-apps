@@ -10,7 +10,7 @@ import { DemoHub } from './DemoHub.jsx';
 // flagged `guide` in the registry (Batching) are listed under Guides instead; the
 // coverage tools are listed under Tools (see DemoHub.jsx).
 const CARD_TEXT = {
-  'customer-portal': 'An applicant applies for benefits and verifies their own income and employment in a self-service portal.',
+  'customer-portal': 'An applicant applies for benefits in a self-service portal. Their answers decide whether income, assets, or both get verified.',
   'verifier-portal': 'A case worker creates verification orders from applicant data on file and sends the link by email or SMS.',
   'renewals-refresh': 'Recertify without asking for documents again. Refresh the connections applicants already made, and contact only those who need to act.',
   'documents': 'Verify income from pay stubs, W-2s, and tax returns you have already collected.',
