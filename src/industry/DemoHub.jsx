@@ -26,6 +26,8 @@ export const GUIDES = [
 
 // Tools: things you run on your own data, not an applicant flow.
 export const TOOLS = [
+  { id: 'sandbox-playground', name: 'Sandbox Data Playground', icon: 'flask', href: '#public-sector/sandbox-playground',
+    desc: 'Try the test logins every account has, or build your own that return exactly the data you choose.' },
   { id: 'payroll-coverage', name: 'Payroll Coverage', icon: 'barChart', href: '#coverage-analysis/payroll-coverage',
     desc: 'Upload up to 10,000 employers and see which ones Truv supports for income, employment, deposit switch, or paycheck‑linked loans.' },
   { id: 'bank-coverage', name: 'Financial Accounts Coverage', icon: 'search', href: '#coverage-analysis/bank-coverage',
@@ -93,7 +95,7 @@ export function DemoHub({ trail, back, title, lead, items, section }) {
         <Section id="guides" title="Guides" sub="Step-by-step help for building and rolling out.">
           {GUIDES.map((g, i) => <Tile key={g.id} href={g.href} name={g.name} desc={g.desc} Icon={Icons[g.icon]} index={i} />)}
         </Section>
-        <Section id="tools" title="Tools" sub="Check coverage with your own data.">
+        <Section id="tools" title="Tools" sub="Test with sandbox logins, or check coverage with your own data.">
           {TOOLS.map((g, i) => <Tile key={g.id} href={g.href} name={g.name} desc={g.desc} Icon={Icons[g.icon]} index={i} />)}
         </Section>
       </main>

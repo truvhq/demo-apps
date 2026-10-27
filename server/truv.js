@@ -32,11 +32,11 @@ export class TruvClient {
   // Core HTTP helper: sends a request to the Truv API and returns a normalized
   // response object with statusCode, parsed data, timing, and the original request body.
   // All public methods delegate to this.
-  async _request(method, endpoint, { json } = {}) {
+  async _request(method, endpoint, { json, headers } = {}) {
     const url = this.apiUrl + endpoint;
     const start = performance.now();
 
-    const opts = { method, headers: this.headers };
+    const opts = { method, headers: headers || this.headers };
     if (json) opts.body = JSON.stringify(json);
 
     let response;
@@ -367,6 +367,24 @@ export class TruvClient {
   // payroll provider. Fetched after the borrower confirms the PLL order in Bridge.
   async getPllReport(linkId) {
     return this._request('GET', `links/${linkId}/pll/report/`);
+  }
+
+  // --- Sandbox data API ---
+  // Scenarios and the PDF library behind custom test logins. `path` is relative to
+  // /v1/sandbox/ and keeps its trailing slash, e.g. 'scenarios/' or 'scenarios/{id}/'.
+  // These accept sandbox keys only; a production key gets 403 env_not_sandbox.
+  async sandbox(method, path, json) {
+    return this._request(method, `sandbox/${path}`, json === undefined ? {} : { json });
+  }
+
+  // Signs in to a test provider without the Bridge UI, the way the widget does (POST /v1/checks/ with the
+  // order's bridge token). It is not in the public API reference; it was checked against the live sandbox.
+  // Authenticates with the order's bridge token instead of the API keys.
+  async createCheck(bridgeToken, { login, password, productType = 'income', providerId = 'truv' }) {
+    return this._request('POST', 'checks/', {
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Bridge-Token': bridgeToken },
+      json: { employee_login: login, employee_password: password, payroll_provider_id: providerId, product_type: productType },
+    });
   }
 
   // Lists all tasks (connection attempts) for a user, including provider
