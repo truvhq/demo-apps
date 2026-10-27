@@ -35,6 +35,7 @@ import voiePllRoutes from './routes/voie-pll.js';
 import renewalsRefreshRoutes from './routes/renewals-refresh.js';
 import coverageAnalysisRoutes from './routes/coverage-analysis.js';
 import sandboxRoutes from './routes/sandbox.js';
+import { errorHandler } from './lib/error-handler.js';
 
 // Local mode keeps one TruvClient built from your .env keys and uses it for
 // every request. (Hosted deployments build a client per visitor instead.)
@@ -249,16 +250,8 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 // last so its SPA catch-all doesn't shadow other routes.
 mountStaticIfBuilt(app, config);
 
-// A malformed or oversized request body gets a short JSON answer, not Express's default page with a
-// stack trace and file paths in it.
-app.use((err, _req, res, next) => {
-  if (res.headersSent) return next(err);
-  if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'bad_request', message: 'The request body is not valid JSON.' });
-  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'too_large', message: 'The request body is too large.' });
-  console.error(err);
-  const status = Number.isInteger(err.status) && err.status >= 400 && err.status < 600 ? err.status : 500;
-  res.status(status).json({ error: 'internal_error' });
-});
+// A malformed or oversized request body gets a short JSON answer, not Express's page with a stack trace.
+app.use(errorHandler);
 
 // --- Start ---
 // Local mode registers a single shared webhook at startup; otherwise webhooks

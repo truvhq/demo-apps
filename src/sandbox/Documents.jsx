@@ -3,7 +3,7 @@
  * scenarios at it as you like. Truv refuses to delete a file a scenario still uses, so this says
  * which ones use it before it asks.
  */
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { usedBy } from './model.js';
 import { Chip, ConfirmDialog, Copyable, Dialog, Field, Spinner, plural } from './ui.jsx';
 
@@ -54,7 +54,9 @@ export function Documents({ documents, scenarios, loading, onUpload, onRename, o
   }
 
   const list = documents || [];
-  const deletingUse = deleting ? usedBy(deleting.id, scenarios) : [];
+  // Which scenarios use which file, worked out once per change of either list, not on every keystroke.
+  const usage = useMemo(() => new Map((documents || []).map(d => [d.id, usedBy(d.id, scenarios)])), [documents, scenarios]);
+  const deletingUse = deleting ? usage.get(deleting.id) || [] : [];
 
   return (
     <div class="sbx-docs">
@@ -93,7 +95,7 @@ export function Documents({ documents, scenarios, loading, onUpload, onRename, o
       {documents && list.length === 0 && <div class="sbx-empty"><p><strong>No files yet.</strong></p></div>}
       <ul class="sbx-list">
         {list.map(d => {
-          const uses = usedBy(d.id, scenarios);
+          const uses = usage.get(d.id) || [];
           const f = d.uploaded_file || {};
           const failed = f.validations && Object.values(f.validations).some(v => v === false);
           return (

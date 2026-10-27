@@ -154,7 +154,7 @@ describe('refreshDates', () => {
   });
 });
 
-describe('scenario shape', () => {
+describe('the scenario objects the presets make', () => {
   it('opens every preset as a scenario that passes validation once it has a name and login', () => {
     for (const p of PRESETS) {
       const s = { ...p.build('2026-10-23'), label: p.name, username: `qa.${p.id}` };
@@ -850,7 +850,7 @@ describe('type problems in every field the screens draw', () => {
   });
 });
 
-describe('moving paystub dates keeps year-to-date honest', () => {
+describe('moving paystub dates keeps year-to-date correct', () => {
   it('works the totals out again for the new dates', () => {
     const stubs = buildPaystubs({ frequency: 'BW', count: 3, last: '2025-12-26', gross: '1000.00', net: '700.00' });
     const moved = refreshDates({ employments: [{ pay_frequency: 'BW', paystubs: stubs }] }, '2026-10-22').payload.employments[0].paystubs;
@@ -872,5 +872,89 @@ describe('dates in unusual years', () => {
     expect(iso(parseISO('2024-02-29'))).toBe('2024-02-29');
     expect(parseISO('2023-02-29')).toBeNull();
     expect(parseISO('2026-13-01')).toBeNull();
+  });
+});
+
+describe('names are unique per data source', () => {
+  const mine = (over) => ({ label: 'Alpha', username: 'qa.a', data_source: 'payroll', payload: { employments: [{ company: { name: 'Acme' } }] }, ...over });
+  const other = { id: 'o1', label: 'Alpha', username: 'qa.other', password: 'x', data_source: 'payroll' };
+  const labelErrors = (s, ctx) => validate(s, ctx).filter(i => i.level === 'error' && i.path === 'label');
+
+  it('refuses a name already used, as the API does', () => {
+    expect(labelErrors(mine(), { others: [other] })).toHaveLength(1);
+  });
+  it('counts capitals, and ignores spaces at the ends', () => {
+    expect(labelErrors(mine({ label: 'ALPHA' }), { others: [other] })).toHaveLength(0);
+    expect(labelErrors(mine({ label: '  Alpha ' }), { others: [other] })).toHaveLength(1);
+  });
+  it('is per data source, and a scenario does not clash with itself', () => {
+    expect(labelErrors(mine(), { others: [{ ...other, data_source: 'docs' }] })).toHaveLength(0);
+    expect(labelErrors(mine(), { others: [other], self: other })).toHaveLength(0);
+  });
+  it('is checked when planning an import', () => {
+    const plan = planImport([{ ...mine(), data_source: 'payroll' }], [other]);
+    expect(plan[0].action).toBe('skip');
+    expect(plan[0].reason).toMatch(/already the name/);
+  });
+});
+
+describe('limits the API enforces', () => {
+  const base = { label: 'A', username: 'u', payload: { employments: [{ company: { name: 'Acme' } }] } };
+  const paths = (s) => validate(s).filter(i => i.level === 'error').map(i => i.path);
+  it('stops a provider, website, currency or data source that is too long or unknown', () => {
+    expect(paths({ ...base, provider_id: 'a'.repeat(65) })).toContain('provider_id');
+    expect(paths({ ...base, company_domain: 'a'.repeat(129) })).toContain('company_domain');
+    expect(paths({ ...base, data_source: 'nonsense' })).toContain('data_source');
+    expect(paths({ ...base, payload: { employments: [{ company: { name: 'A' }, income_currency: 'USDD' }] } })).toContain('payload.employments[0].income_currency');
+  });
+  it('stops verification screens that are too long, have too many choices, or set both an answer and answers', () => {
+    const screen = (c) => ({ ...base, behavior_mfa: { challenges: [c] } });
+    expect(paths(screen({ type: 'TEXT', label: 'a'.repeat(256) }))).toContain('behavior_mfa.challenges[0].label');
+    expect(paths(screen({ type: 'TEXT', label: 'x', answer: 'a'.repeat(256) }))).toContain('behavior_mfa.challenges[0].answer');
+    expect(paths(screen({ type: 'OPTIONS', label: 'x', options: Array.from({ length: 21 }, (_, i) => ({ value: `${i}`, label: `${i}` })) }))).toContain('behavior_mfa.challenges[0].options');
+    expect(paths(screen({ type: 'OPTIONS', label: 'x', options: [{ value: 'a', label: 'a' }], answers: Array.from({ length: 21 }, (_, i) => `${i}`) }))).toContain('behavior_mfa.challenges[0].answers');
+    expect(paths(screen({ type: 'TEXT', label: 'x', answer: '1', answers: ['2'] }))).toContain('behavior_mfa.challenges[0].answer');
+  });
+});
+
+describe('year-to-date with several earnings', () => {
+  it('follows each earning by name, and leaves one it cannot match alone', () => {
+    const stub = { pay_date: '2026-01-02', gross_pay: '3000.00', net_pay: '2000.00', earnings: [{ name: 'Regular', amount: '2400.00', units: '80.00' }, { name: 'Overtime', amount: '600.00', units: '10.00' }], earnings_ytd: [{ name: 'Regular', amount: '1.00' }, { name: 'Overtime', amount: '1.00' }, { name: 'Bonus', amount: '5.00' }] };
+    const moved = refreshDates({ employments: [{ pay_frequency: 'W', paystubs: [stub] }] }, '2026-10-22').payload.employments[0].paystubs[0];
+    const n = payPeriodsThisYear('W', moved.pay_date);
+    expect(moved.earnings_ytd[0]).toMatchObject({ name: 'Regular', amount: (2400 * n).toFixed(2), units: (80 * n).toFixed(2) });
+    expect(moved.earnings_ytd[1]).toMatchObject({ name: 'Overtime', amount: (600 * n).toFixed(2) });
+    expect(moved.earnings_ytd[2]).toEqual({ name: 'Bonus', amount: '5.00' });
+    expect(moved.gross_pay_ytd).toBe((3000 * n).toFixed(2));
+  });
+});
+
+describe('suggested usernames, the odd cases', () => {
+  it('does not end on a dot where a long name was cut', () => {
+    const name = `${'a'.repeat(38)} b`;
+    expect(suggestUsername(name, '', [])).not.toMatch(/\.$/);
+    expect(suggestUsername('a'.repeat(20) + ' ' + 'b'.repeat(30), 'qa', [])).not.toMatch(/\.$/);
+  });
+  it('never suggests a reserved login', () => {
+    expect(suggestUsername('goodlogin', '', [])).toBe('goodlogin.test');
+    expect(suggestUsername('error user', '', [])).toBe('error.user.test');
+  });
+});
+
+describe('errors that carry no code', () => {
+  it('reads a 403 without a code as a production key, and a 429 as too many requests', () => {
+    expect(describeError({ status: 403, data: {} }).code).toBe('env_not_sandbox');
+    expect(describeError({ status: 429, data: {} })).toMatchObject({ code: 'rate_limited', title: 'Too many requests' });
+    expect(describeError({ status: 404, data: {} }).code).toBe('not_found');
+  });
+});
+
+describe('rounding in money', () => {
+  it('does not lose a cent to floating point', () => {
+    const [stub] = buildPaystubs({ frequency: 'M', count: 1, last: '2026-01-31', gross: '0.29', net: '0.29' });
+    expect(stub.gross_pay).toBe('0.29');
+    expect(stub.gross_pay_ytd).toBe('0.29');
+    const [two] = buildPaystubs({ frequency: 'M', count: 1, last: '2026-02-28', gross: '0.29', net: '0.29' });
+    expect(two.gross_pay_ytd).toBe('0.58');
   });
 });

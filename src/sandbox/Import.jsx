@@ -59,7 +59,7 @@ export function Import({ open, onClose, existing, onCreate }) {
     for (let i = 0; i < plan.length; i++) {
       if (plan[i].action !== 'create') continue;
       if (stop.current) { next[i] = { ok: false, notTried: true, message: 'Not tried. You stopped the import.' }; setResults({ ...next }); continue; }
-      next[i] = await onCreate(plan[i].body);
+      try { next[i] = await onCreate(plan[i].body); } catch { next[i] = { ok: false, message: 'Something went wrong while creating this one.' }; }
       setResults({ ...next });
     }
     setPhase('done');

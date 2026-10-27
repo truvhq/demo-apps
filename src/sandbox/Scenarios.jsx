@@ -6,7 +6,7 @@ import { useMemo, useState, useEffect, useRef } from 'preact/hooks';
 import { DATA_SOURCES, DATA_SOURCE_LABELS, LIMITS, summarizeScenario, lint, toCreateBody, toBundle, toCurl, ago } from './model.js';
 import { Import } from './Import.jsx';
 import { TRASH_LIMIT } from './store.js';
-import { Chip, ConfirmDialog, Copyable, CopyButton, Dialog, Notice, Spinner, plural } from './ui.jsx';
+import { Chip, ConfirmDialog, Copyable, CopyButton, Dialog, Spinner, plural } from './ui.jsx';
 
 // A scenario kept on the account may have been written by anything. A value that cannot be read must not take the list down with it.
 const safely = (fn, fallback) => { try { return fn(); } catch { return fallback; } };
@@ -113,8 +113,8 @@ export function Scenarios({
 
   async function runDelete() {
     setBusy(true);
-    await onDelete(confirm.list);
-    setBusy(false);
+    // Whatever happens, the dialog must be closable again afterwards.
+    try { await onDelete(confirm.list); } catch { /* the page reports what failed */ } finally { setBusy(false); }
     setConfirm(null);
     setSelected(new Set());
     setRefocus(n => n + 1);

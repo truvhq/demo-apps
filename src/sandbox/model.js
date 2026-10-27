@@ -201,9 +201,11 @@ function restateYtd(x, freq) {
   const n = payPeriodsThisYear(freq, x.pay_date);
   if (isDecimal(x.gross_pay)) x.gross_pay_ytd = fromCents(toCents(x.gross_pay) * n);
   if (isDecimal(x.net_pay)) x.net_pay_ytd = fromCents(toCents(x.net_pay) * n);
-  if (Array.isArray(x.earnings) && Array.isArray(x.earnings_ytd) && x.earnings.length === x.earnings_ytd.length) {
-    x.earnings_ytd = x.earnings_ytd.map((y, i) => {
-      const e = x.earnings[i] || {};
+  // Each year-to-date earning follows the earning of the same name on this stub (Regular, Overtime, ...).
+  if (Array.isArray(x.earnings) && Array.isArray(x.earnings_ytd)) {
+    x.earnings_ytd = x.earnings_ytd.map((y) => {
+      const e = x.earnings.find(z => z && z.name === y?.name);
+      if (!e) return y;
       const out = { ...y };
       if (isDecimal(e.amount)) out.amount = fromCents(toCents(e.amount) * n);
       if (isDecimal(e.units)) out.units = (parseFloat(e.units) * n).toFixed(2);
@@ -385,7 +387,10 @@ export function suggestUsername(label, prefix = 'qa', taken = []) {
   const p = slug(prefix);
   const l = slug(label);
   // A name that already starts with the prefix does not get it twice.
-  const base = (p && (l === p || l.startsWith(`${p}.`)) ? l : [p, l].filter(Boolean).join('.')) || 'qa.login';
+  const joined = (p && (l === p || l.startsWith(`${p}.`)) ? l : [p, l].filter(Boolean).join('.')) || 'qa.login';
+  // A cut name can end on a dot, and a bare reserved word would be refused, so neither is suggested.
+  const trimmed = joined.slice(0, 40).replace(/\.+$/, '') || 'qa.login';
+  const base = HARD_RESERVED.has(trimmed) ? `${trimmed}.test` : trimmed;
   const used = new Set(taken);
   if (!used.has(base)) return base;
   for (let i = 2; i < 100; i++) if (!used.has(`${base}.${i}`)) return `${base}.${i}`;
@@ -473,6 +478,9 @@ export function validate(s, { others = [], self = null, requireNew = false } = {
   const matchers = ['username', 'password', 'provider_id', 'company_domain'].filter(k => s[k]);
   if (!matchers.length) err('username', 'Set a username, a password, a provider or a company. Otherwise this would answer every sign-in on the account.');
   for (const k of ['username', 'password']) if ((s[k] || '').length > LIMITS.credential) err(k, `Keep it under ${LIMITS.credential} characters.`);
+  if ((s.provider_id || '').length > 64) err('provider_id', 'Keep the provider under 64 characters.');
+  if ((s.company_domain || '').length > 128) err('company_domain', 'Keep the website under 128 characters.');
+  if (s.data_source && !DATA_SOURCES.includes(s.data_source)) err('data_source', `The data source has to be one of: ${DATA_SOURCES.join(', ')}.`);
   if (s.username && HARD_RESERVED.has(s.username.toLowerCase())) err('username', `${s.username} is one of Truv's own test logins, so the API will not accept it. Use your own name, such as qa.${slug(s.label) || 'login'}.`);
   else if (s.username && KNOWN_LOGINS.has(s.username.toLowerCase())) warn('username', `${s.username} is also one of Truv's standard test logins. The API may refuse it, and if it does not, it will not replace the standard one.`);
   if (s.username && /\s/.test(s.username)) warn('username', 'This username has a space in it. People will have to type it exactly.');
@@ -490,6 +498,11 @@ export function validate(s, { others = [], self = null, requireNew = false } = {
     if (!['TEXT', 'OPTIONS'].includes(c.type)) err(`behavior_mfa.challenges[${i}].type`, 'A screen is either a code (TEXT) or a choice (OPTIONS).');
     if (!c.label) err(`behavior_mfa.challenges[${i}].label`, 'Say what the screen asks.');
     if (c.type === 'OPTIONS' && !(c.options || []).length) err(`behavior_mfa.challenges[${i}].options`, 'A choice needs at least one option.');
+    if ((c.label || '').length > 255) err(`behavior_mfa.challenges[${i}].label`, 'Keep what it asks under 255 characters.');
+    if ((c.answer || '').length > 255) err(`behavior_mfa.challenges[${i}].answer`, 'Keep the accepted code under 255 characters.');
+    if ((c.options || []).length > 20) err(`behavior_mfa.challenges[${i}].options`, 'Up to 20 choices.');
+    if ((c.answers || []).length > 20) err(`behavior_mfa.challenges[${i}].answers`, 'Up to 20 accepted answers.');
+    if (c.answer && (c.answers || []).length) err(`behavior_mfa.challenges[${i}].answer`, 'Use a code or a list of answers, not both.');
   });
   if (challenges.length && FAILURE_STATUSES.has(status)) warn('behavior_mfa', 'This login ends in a failure, so the screens will be answered and then it fails.');
 
@@ -505,6 +518,11 @@ export function validate(s, { others = [], self = null, requireNew = false } = {
     const sibling = others.some(o => o !== self && o.id !== self?.id && o.data_source === s.data_source && o.username === s.username && o.password === s.password && o.is_refresh !== true);
     if (!sibling) warn('is_refresh', 'This only answers refreshes. Make the original sign-in scenario too, or the first sign-in gets Truv\'s built-in data.');
   }
+
+  // Names are unique within a data source, exactly as typed (capitals count, spaces at the ends do not).
+  const name = String(s.label ?? '').trim();
+  const sameName = name && others.find(o => o !== self && (!self?.id || o.id !== self.id) && (o.data_source || 'payroll') === (s.data_source || 'payroll') && String(o.label ?? '').trim() === name);
+  if (sameName) err('label', `"${name}" is already the name of another scenario. Give this one a different name.`);
 
   const clash = others.find(o => o !== self && (!self?.id || o.id !== self.id) && matchKey(o) === matchKey(s));
   if (clash) err('username', `"${clash.label}" already answers this exact login. Change the username, the password or a matching field, or edit that one.`);
@@ -525,6 +543,7 @@ function validateEmployment(e, base, err, warn) {
   if (given(e.income) && !isDecimal(e.income)) err(`${base}.income`, 'Use digits and a decimal point, like 124800.00.');
   else if (given(e.income) && parseFloat(e.income) <= 0) err(`${base}.income`, 'Pay has to be more than zero.');
   else if (given(e.income) && toCents(e.income) > MAX_CENTS) err(`${base}.income`, 'That amount is too large. Keep it under 1,000,000,000,000.');
+  if ((e.income_currency || '').length > 3) err(`${base}.income_currency`, 'A currency is three letters, like USD.');
   if (e.job_type && !ENUM.job_type.has(e.job_type)) err(`${base}.job_type`, 'Pick one of the job types.');
   if (e.income_unit && !ENUM.income_unit.has(e.income_unit)) err(`${base}.income_unit`, 'Pick one of the income units.');
   if (e.pay_frequency && !ENUM.pay_frequency.has(e.pay_frequency)) err(`${base}.pay_frequency`, 'Pick one of the pay frequencies.');

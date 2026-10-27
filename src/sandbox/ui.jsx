@@ -186,7 +186,7 @@ export function useToasts() {
     const id = ++seq.current;
     const stay = ms === undefined ? (action ? 15000 : 8000) : ms;
     lengths.current.set(id, stay);
-    setToasts(t => [...t.slice(-3), { id, message, action, tone }]);
+    setToasts(t => [...t.slice(-5), { id, message, action, tone }]);
     arm(id, stay);
     return id;
   }, [arm]);

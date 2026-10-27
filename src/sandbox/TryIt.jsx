@@ -79,10 +79,17 @@ export function TryIt({ target, onClose, call, logCalls, onBridgeEvent }) {
     const begun = Date.now();
     let lastStatus = null;
     let latest = { run: readRun({}), order: null };
+    let failed = false;
     const read = async (logIt) => {
-      const env = await call('GET', `/run/${ids.order_id}?user_id=${ids.user_id}`, undefined, { quiet: true });
-      if (!live()) return null;
-      if (!isOk(env)) { logCalls(env.calls); setError(describeError(env)); return null; }
+      // A reading that fails on the way (no answer, a 5xx, rate limiting) is tried again a few times before it ends the run.
+      let env = null;
+      for (let attempt = 0; attempt < 4 && live(); attempt++) {
+        env = await call('GET', `/run/${ids.order_id}?user_id=${ids.user_id}`, undefined, { quiet: true });
+        if (isOk(env) || !(env.status === 0 || env.status === 429 || env.status >= 500)) break;
+        await sleep(POLL_MS * (attempt + 1));
+      }
+      if (!live() || !env) return null;
+      if (!isOk(env)) { failed = true; logCalls(env.calls); setError(describeError(env)); return null; }
       const run = readRun({ tasks: env.data.tasks, order: env.data.order });
       latest = { run, order: env.data.order };
       if (logIt || run.status !== lastStatus || run.settled) logCalls(env.calls);
@@ -109,7 +116,7 @@ export function TryIt({ target, onClose, call, logCalls, onBridgeEvent }) {
         if (!(await read(false))) break;
       }
     }
-    if (live() && !latest.run.settled) note('Still not finished after 2 and a half minutes. Stopped waiting.', 'bad');
+    if (live() && !failed && !latest.run.settled) note('Still not finished after 2 and a half minutes. Stopped waiting.', 'bad');
     return live() ? latest : null;
   }
 

@@ -15,9 +15,13 @@ export function getIn(obj, path, fallback) {
   return cur === undefined ? fallback : cur;
 }
 
+const UNSAFE = new Set(['__proto__', 'constructor', 'prototype']);
+
 export function setIn(obj, path, value) {
   const keys = parse(path);
   if (!keys.length) return value;
+  // A path that names a prototype is refused outright, whatever the object is.
+  if (keys.some(k => UNSAFE.has(k))) return obj;
   const root = Array.isArray(obj) ? obj.slice() : { ...obj };
   let cur = root;
   keys.forEach((k, i) => {

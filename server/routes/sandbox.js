@@ -14,6 +14,7 @@
  * Truv request the route made, so the Dev panel can show exactly what happened.
  */
 
+import { createHash } from 'crypto';
 import { Router } from 'express';
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -28,6 +29,8 @@ export default function sandboxRoutes({ truv }) {
   // One Truv request, recorded. Returns { result, call }.
   async function traced(calls, fn, method, endpoint, requestBody) {
     const result = await fn();
+    // A network failure carries the upstream address and system text; the page gets a fixed line.
+    if (result.statusCode === 502 && result.data?.error === 'network_error') result.data = { error: 'network_error', message: 'The request could not reach Truv.' };
     const call = {
       id: `${Date.now()}-${calls.length}`,
       method,
@@ -50,18 +53,32 @@ export default function sandboxRoutes({ truv }) {
 
   // Creating an order on a production key would create a real one, so a run first asks the sandbox
   // data API, which only sandbox keys can use. A good answer is remembered for ten minutes per client.
-  const sandboxKeys = new WeakMap();
+  // Hosted mode builds a new client for every request, so the answer is remembered per set of keys (a hash, not
+  // the keys), not per client object.
+  const sandboxKeys = new Map();
+  const keyId = (c) => createHash('sha256').update(`${c.clientId}\u0000${c.secret}`).digest('hex');
   async function sandboxKeyOnly(c, calls) {
-    if (sandboxKeys.get(c) > Date.now() - 10 * 60 * 1000) return null;
+    const id = keyId(c);
+    if (sandboxKeys.get(id) > Date.now() - 10 * 60 * 1000) return null;
     const r = await traced(calls, () => c.sandbox('GET', 'scenarios/'), 'GET', '/v1/sandbox/scenarios/');
-    if (r.statusCode === 200) { sandboxKeys.set(c, Date.now()); return null; }
+    if (r.statusCode === 200) {
+      if (sandboxKeys.size >= 500) sandboxKeys.delete(sandboxKeys.keys().next().value);
+      sandboxKeys.set(id, Date.now());
+      // The check only matters for its status; keep the account's scenarios out of the trace.
+      const call = calls.at(-1);
+      if (call) call.response_body = { checked: 'This is a sandbox key.' };
+      return null;
+    }
     return r;
   }
 
   const bad = (res, message) => res.status(400).json({ error: 'bad_request', message });
   const envelope = (res, result, calls, extra = {}) => res.json({ status: result.statusCode, data: result.data, calls, ...extra });
-  const fail = (res, err) => { console.error(err); res.status(500).json({ error: 'internal_error', message: err?.message }); };
+  const fail = (res, err) => { console.error(err); res.status(500).json({ error: 'internal_error', message: 'The request could not be completed.' }); };
   const isObject = (v) => v && typeof v === 'object' && !Array.isArray(v);
+  // A scenario is a small object. An empty body is what Express leaves when the content type was not JSON.
+  const BODY_LIMIT = 1_500_000;
+  const badBody = (req, what) => (!isObject(req.body) || !Object.keys(req.body).length ? `Send ${what} as a JSON object.` : (req.rawBody?.length ?? 0) > BODY_LIMIT ? 'That is over the 1 MB limit for a scenario.' : null);
 
   // GET /api/sandbox/scenarios?data_source=&enabled=&product=
   // Follows the cursor to the end, so the page always holds the whole list.
@@ -99,7 +116,7 @@ export default function sandboxRoutes({ truv }) {
   router.post('/api/sandbox/scenarios', async (req, res) => {
     try {
       const c = client(req, res); if (!c) return;
-      if (!isObject(req.body)) return bad(res, 'Send the scenario as a JSON object.');
+      const why = badBody(req, 'the scenario'); if (why) return bad(res, why);
       const calls = [];
       const r = await traced(calls, () => c.sandbox('POST', 'scenarios/', req.body), 'POST', '/v1/sandbox/scenarios/', req.body);
       envelope(res, r, calls);
@@ -111,7 +128,7 @@ export default function sandboxRoutes({ truv }) {
     try {
       const c = client(req, res); if (!c) return;
       if (!ID.test(req.params.id)) return bad(res, 'That is not a scenario id.');
-      if (!isObject(req.body)) return bad(res, 'Send the changes as a JSON object.');
+      const why = badBody(req, 'the changes'); if (why) return bad(res, why);
       const calls = [];
       const r = await traced(calls, () => c.sandbox('PATCH', `scenarios/${req.params.id}/`, req.body), 'PATCH', `/v1/sandbox/scenarios/${req.params.id}/`, req.body);
       envelope(res, r, calls);
@@ -133,7 +150,7 @@ export default function sandboxRoutes({ truv }) {
   router.post('/api/sandbox/resolve', async (req, res) => {
     try {
       const c = client(req, res); if (!c) return;
-      if (!isObject(req.body)) return bad(res, 'Send the login to check as a JSON object.');
+      const why = badBody(req, 'the login to check'); if (why) return bad(res, why);
       const calls = [];
       const r = await traced(calls, () => c.sandbox('POST', 'scenarios/resolve/', req.body), 'POST', '/v1/sandbox/scenarios/resolve/', req.body);
       envelope(res, r, calls);

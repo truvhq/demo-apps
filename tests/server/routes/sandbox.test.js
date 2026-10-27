@@ -10,7 +10,8 @@ const ok = (data, statusCode = 200) => ({ statusCode, data, durationMs: 3, reque
 
 function start(client, { session = true } = {}) {
   const app = express();
-  app.use(express.json({ limit: '100mb' })); // the real server allows this much; the route enforces 10 MB for files
+  // The real server allows this much and keeps the raw text (the webhook routes need it); the routes enforce their own limits.
+  app.use(express.json({ limit: '100mb', verify: (req, _res, buf) => { req.rawBody = buf.toString('utf-8'); } }));
   if (session) app.use((req, _res, next) => { req.truv = client; next(); });
   app.use(sandboxRoutes({ truv: null }));
   return new Promise((resolve) => {
@@ -334,6 +335,72 @@ describe('trying a login', () => {
     const { json } = await send(base, 'GET', '/api/sandbox/run/o1?user_id=u1');
     expect(json.data.order).toBeNull();
     expect(json.data.order_status).toBe(404);
+  });
+});
+
+describe('hosted mode: a new client for every request', () => {
+  // The session middleware builds a client from the visitor's keys on each request.
+  function perRequest(keys, sandbox) {
+    const app = express();
+    app.use(express.json({ limit: '100mb', verify: (req, _res, buf) => { req.rawBody = buf.toString('utf-8'); } }));
+    app.use((req, _res, next) => { req.truv = { clientId: keys.id, secret: keys.secret, sandbox, getUserTasks: vi.fn().mockResolvedValue(ok([])), getOrder: vi.fn().mockResolvedValue(ok({ id: 'o1' })) }; next(); });
+    app.use(sandboxRoutes({ truv: null }));
+    return new Promise((resolve) => {
+      const server = http.createServer(app);
+      servers.push(server);
+      server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`));
+    });
+  }
+
+  it('checks the key once for the same keys, even though each request has its own client', async () => {
+    const sandbox = vi.fn().mockResolvedValue(ok({ results: [{ id: 'a', username: 'secret-login', password: 'secret-pw' }] }));
+    const base = await perRequest({ id: 'cid', secret: 'sec' }, sandbox);
+    const first = await send(base, 'GET', '/api/sandbox/run/o1?user_id=u1');
+    await send(base, 'GET', '/api/sandbox/run/o1?user_id=u1');
+    await send(base, 'GET', '/api/sandbox/run/o1?user_id=u1');
+    expect(sandbox).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(first.json.calls)).not.toContain('secret-pw');
+  });
+
+  it('checks again for different keys, and does not remember a refusal', async () => {
+    const refuse = vi.fn().mockResolvedValue(ok({ error: { code: 'env_not_sandbox' } }, 403));
+    const base = await perRequest({ id: 'prod', secret: 'x' }, refuse);
+    await send(base, 'GET', '/api/sandbox/run/o1?user_id=u1');
+    await send(base, 'GET', '/api/sandbox/run/o1?user_id=u1');
+    expect(refuse).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('request bodies and error text', () => {
+  it('turns away an empty body, such as one sent with the wrong content type, before it reaches Truv', async () => {
+    const sandbox = vi.fn();
+    const base = await start({ sandbox });
+    const res = await fetch(`${base}/api/sandbox/scenarios`, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: 'label=x' });
+    expect(res.status).toBe(400);
+    expect((await send(base, 'POST', '/api/sandbox/scenarios', {})).http).toBe(400);
+    expect((await send(base, 'PATCH', '/api/sandbox/scenarios/abc', {})).http).toBe(400);
+    expect(sandbox).not.toHaveBeenCalled();
+  });
+
+  it('refuses a scenario body over 1 MB', async () => {
+    const sandbox = vi.fn();
+    const base = await start({ sandbox });
+    const { http: code, json } = await send(base, 'POST', '/api/sandbox/scenarios', { label: 'x', pad: 'A'.repeat(1_600_000) });
+    expect(code).toBe(400);
+    expect(json.message).toMatch(/1 MB/);
+    expect(sandbox).not.toHaveBeenCalled();
+  });
+
+  it('keeps upstream addresses and system text out of what the page is told', async () => {
+    const down = { statusCode: 502, data: { error: 'network_error', message: 'connect ECONNREFUSED https://prod.truv.com/v1/sandbox/scenarios/' }, durationMs: 1, requestBody: null };
+    const base = await start({ sandbox: vi.fn().mockResolvedValue(down) });
+    const { json } = await send(base, 'POST', '/api/sandbox/resolve', { username: 'a' });
+    expect(JSON.stringify(json)).not.toContain('ECONNREFUSED');
+    expect(JSON.stringify(json)).not.toContain('prod.truv.com');
+    const broke = await start({ sandbox: vi.fn().mockRejectedValue(new Error('boom at /Users/someone/file.js')) });
+    const r = await send(broke, 'GET', '/api/sandbox/scenarios');
+    expect(r.http).toBe(500);
+    expect(JSON.stringify(r.json)).not.toContain('/Users/');
   });
 });
 

@@ -2,7 +2,7 @@
  * FILE SUMMARY: "Which scenario answers this login?" A dry run of the sandbox resolver: type what a
  * person would type, see which scenario wins and why, without running a verification.
  */
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { describeError } from './model.js';
 import { LOGINS } from './standard-logins.js';
 import { isOk } from './api.js';
@@ -16,6 +16,7 @@ export function Resolve({ seed, onClose, call, onEdit }) {
   const [form, setForm] = useState({ username: '', password: '', provider_id: '', company_domain: '', product: '', refresh: 'first' });
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState(null);   // { winner, matched_on } | { none: true } | { error }
+  const asked = useRef(0);                       // each question has a number; an answer to an older one is dropped
 
   useEffect(() => {
     if (!seed) return;
@@ -24,12 +25,15 @@ export function Resolve({ seed, onClose, call, onEdit }) {
       product: '', refresh: seed.is_refresh === true ? 'refresh' : 'first',
     });
     setAnswer(null);
+    setBusy(false);
+    asked.current++;
   }, [seed]);
 
-  const f = (k) => ({ value: form[k], onInput: (e) => { setAnswer(null); setForm(x => ({ ...x, [k]: e.currentTarget.value })); } });
+  const f = (k) => ({ value: form[k], onInput: (e) => { asked.current++; setBusy(false); setAnswer(null); setForm(x => ({ ...x, [k]: e.currentTarget.value })); } });
 
   async function check() {
     setBusy(true); setAnswer(null);
+    const mine = ++asked.current;
     const body = {
       data_source: 'payroll',
       ...(form.username ? { username: form.username } : {}),
@@ -40,6 +44,7 @@ export function Resolve({ seed, onClose, call, onEdit }) {
       is_refresh: form.refresh === 'refresh',
     };
     const env = await call('POST', '/resolve', body);
+    if (mine !== asked.current) return;        // the inputs changed, or the dialog moved on, while it was away
     setBusy(false);
     if (isOk(env)) { setAnswer({ winner: env.data.scenario, matched: env.data.matched_on || [], tier: env.data.tier }); announce(`${env.data.scenario?.label || 'A scenario'} answers it.`); }
     else if (env.status === 404) {

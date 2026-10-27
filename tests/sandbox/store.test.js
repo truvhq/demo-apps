@@ -10,10 +10,10 @@ beforeEach(() => { globalThis.localStorage = fakeStorage(); });
 
 describe('recently deleted', () => {
   it('keeps scenarios deleted in the same moment apart, so one can be restored without the other', () => {
-    const after = store.pushTrash([{ label: 'A' }, { label: 'B' }, { label: 'C' }]);
+    const after = store.pushTrash([{ label: 'A' }, { label: 'B' }, { label: 'C' }]).list;
     expect(new Set(after.map(t => t.id)).size).toBe(3);
     const b = after.find(t => t.scenario.label === 'B');
-    const left = store.dropTrash(b.id);
+    const left = store.dropTrash(b.id).list;
     expect(left.map(t => t.scenario.label).sort()).toEqual(['A', 'C']);
     expect(store.loadTrash()).toHaveLength(2);
   });
@@ -30,7 +30,7 @@ describe('recently deleted', () => {
     const [first, second] = store.loadTrash();
     expect(first.id).not.toBe(second.id);
     expect(store.loadTrash()[0].id).toBe(first.id);
-    expect(store.dropTrash(first.id).map(t => t.scenario.label)).toEqual(['older']);
+    expect(store.dropTrash(first.id).list.map(t => t.scenario.label)).toEqual(['older']);
   });
 
   it('survives storage that is blocked', () => {
@@ -67,5 +67,27 @@ describe('damaged storage', () => {
   it('keeps the usable entries among unusable ones', () => {
     localStorage.setItem('sbx-trash', JSON.stringify([null, { id: 'a', at: 1, scenario: { label: 'ok' } }, { at: 2 }]));
     expect(store.loadTrash().map(t => t.scenario.label)).toEqual(['ok']);
+  });
+});
+
+describe('a storage that is full', () => {
+  const full = () => ({ getItem: () => null, setItem: () => { throw new Error('QuotaExceededError'); }, removeItem: () => {} });
+  it('says it could not keep the copy, and still hands back the list to show', () => {
+    globalThis.localStorage = full();
+    const out = store.pushTrash([{ label: 'A' }, { label: 'B' }]);
+    expect(out.saved).toBe(false);
+    expect(out.list.map(t => t.scenario.label)).toEqual(['A', 'B']);
+  });
+  it('works from the list it is given, not from what storage held', () => {
+    globalThis.localStorage = full();
+    const first = store.pushTrash({ label: 'A' }).list;
+    const second = store.pushTrash({ label: 'B' }, first).list;
+    expect(second.map(t => t.scenario.label)).toEqual(['B', 'A']);
+    const left = store.dropTrash(second[0].id, second);
+    expect(left.list.map(t => t.scenario.label)).toEqual(['A']);
+    expect(left.saved).toBe(false);
+  });
+  it('says it saved when it did', () => {
+    expect(store.pushTrash({ label: 'A' }).saved).toBe(true);
   });
 });

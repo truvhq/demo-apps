@@ -49,7 +49,7 @@ function missingText(errors) {
 
 export function Builder({
   draft, setDraft, editing, dirty, issues, serverError, documents, scenarios, today, prefix, onPrefix,
-  onSave, saving, onDiscard, onMoveDates, onCheck, onRefreshVersion, pristine, focusHeading,
+  onSave, saving, onDiscard, onMoveDates, onCheck, onRefreshVersion, pristine, onPristine, focusHeading,
 }) {
   const [view, setView] = useState(() => (typeProblems(draft).length ? 'json' : 'form'));
   const [jsonBad, setJsonBad] = useState(false);           // the JSON box holds text that does not parse
@@ -58,6 +58,11 @@ export function Builder({
   const basePayload = useRef(pristine ?? JSON.stringify(draft.payload ?? null));
   const payloadTouched = JSON.stringify(draft.payload ?? null) !== basePayload.current;
   const headingRef = useRef(null);
+  // The "When it applies" section opens when something is set in it. It is never closed by the data, or it
+  // would fold up under the cursor the moment a field was cleared.
+  const hasNarrowing = !!(draft.provider_id || draft.company_domain || (draft.is_refresh !== null && draft.is_refresh !== undefined) || (draft.products || []).length || draft.enabled === false);
+  const [advancedOpen, setAdvancedOpen] = useState(hasNarrowing);
+  useEffect(() => { if (hasNarrowing) setAdvancedOpen(true); }, [hasNarrowing]);
   const [delayText, setDelayText] = useState(() => String(draft.behavior_duration_seconds ?? 0));
   const delayNumber = delayText.trim() === '' ? 0 : Number(delayText);
   const delayBad = !Number.isFinite(delayNumber);       // typed something that is not a number; the draft keeps the last good one
@@ -105,6 +110,7 @@ export function Builder({
   function applyPreset(p) {
     const payload = p.build(today).payload;
     basePayload.current = JSON.stringify(payload);
+    onPristine?.(basePayload.current);
     announce(`${p.name} applied. The jobs below were replaced.`);
     setDraft(d => ({ ...d, payload }));
     setPendingPreset(null);
@@ -291,7 +297,7 @@ export function Builder({
             </section>
           )}
 
-          <details class="sbx-card sbx-advanced" id="sbx-sec-when" open={!!(draft.provider_id || draft.company_domain || draft.is_refresh !== null && draft.is_refresh !== undefined || (draft.products || []).length || draft.enabled === false)}>
+          <details class="sbx-card sbx-advanced" id="sbx-sec-when" open={advancedOpen} onToggle={(e) => setAdvancedOpen(e.currentTarget.open)}>
             <summary><h3>When it applies</h3><span class="sbx-small">Narrow it to one provider, one employer, or refreshes only</span></summary>
             <div class="sbx-grid">
               <Field label="Only for this provider" optional hint="A provider id such as adp. Leave empty for any.">
@@ -448,9 +454,12 @@ function Employment({ index, e, set, err, warn, issues, documents, today, onRemo
   const f = (k) => `${base}.${k}`;
   const text = (k, extra = {}) => ({ value: getIn(e, k, '') ?? '', onInput: (ev) => set(f(k), ev.currentTarget.value), ...extra });
   const issueCount = issues.filter(i => i.level === 'error' && isUnder(i.path, base)).length;
+  // Open at the start for the first job or one with problems, and opened (never closed) by a new problem.
+  const [jobOpen, setJobOpen] = useState(index === 0 || issueCount > 0);
+  useEffect(() => { if (issueCount > 0) setJobOpen(true); }, [issueCount > 0]);
   const stubs = e.paystubs || [];
   return (
-    <details class="sbx-job" role="group" aria-label={`Job ${index + 1}: ${getIn(e, 'company.name', '') || 'no employer yet'}`} open={index === 0 || issueCount > 0}>
+    <details class="sbx-job" role="group" aria-label={`Job ${index + 1}: ${getIn(e, 'company.name', '') || 'no employer yet'}`} open={jobOpen} onToggle={(ev) => setJobOpen(ev.currentTarget.open)}>
       <summary>
         <span><strong>{getIn(e, 'company.name', '') || 'Employer'}</strong> <span class="sbx-small">{e.job_title || ''}</span></span>
         {issueCount > 0 && <Chip tone="bad">{issueCount} to fix</Chip>}
@@ -574,7 +583,7 @@ function Paystubs({ e, base, set, err, today }) {
       {stubs.length > 0 && (
         <div class="sbx-tablewrap" tabIndex={0} role="region" aria-label="Paystubs">
           <table class="sbx-table">
-            <thead><tr><th>Pay date</th><th>Period</th><th class="r">Gross</th><th class="r">Take-home</th>{stubs.some(x => x.hours) && <th class="r">Hours</th>}<th class="r">Gross year to date</th><th><span class="sbx-sr">Remove</span></th></tr></thead>
+            <thead><tr><th>Pay date</th><th>Period</th><th class="r">Gross</th><th class="r">Take-home</th>{stubs.some(x => x.hours !== undefined) && <th class="r">Hours</th>}<th class="r">Gross year to date</th><th><span class="sbx-sr">Remove</span></th></tr></thead>
             <tbody>
               {stubs.map((st, i) => {
                 const at = `${base}.paystubs[${i}]`;
@@ -587,7 +596,7 @@ function Paystubs({ e, base, set, err, today }) {
                     <td class="sbx-small">{st.period_start && st.period_end ? `${st.period_start} to ${st.period_end}` : ''}</td>
                     <td class="r">{cell('gross_pay', 'gross')}</td>
                     <td class="r">{cell('net_pay', 'take-home')}</td>
-                    {stubs.some(x => x.hours) && <td class="r">{cell('hours', 'hours')}</td>}
+                    {stubs.some(x => x.hours !== undefined) && <td class="r">{cell('hours', 'hours')}</td>}
                     <td class="r">{cell('gross_pay_ytd', 'gross year to date')}</td>
                     <td><button type="button" class="sbx-linkbtn" aria-label={`Remove paystub ${i + 1}`} onClick={() => set(`${base}.paystubs`, stubs.filter((_, n) => n !== i))}>Remove</button></td>
                   </tr>
@@ -673,8 +682,10 @@ function W2s({ e, base, set, err, documents }) {
 function JsonView({ draft, setDraft, onInvalid, problems }) {
   const [text, setText] = useState(() => JSON.stringify(draft, null, 2));
   const [problem, setProblem] = useState('');
-  // Follow changes made elsewhere (a preset, the form) unless the person is mid-edit with invalid JSON.
-  useEffect(() => { if (!problem) setText(JSON.stringify(draft, null, 2)); }, [draft]);
+  // The object last read from the box. A draft that is exactly that came from typing here, so the text
+  // is left alone: rewriting it would move the caret and reformat what was just typed.
+  const lastParsed = useRef(null);
+  useEffect(() => { if (!problem && draft !== lastParsed.current) setText(JSON.stringify(draft, null, 2)); }, [draft]);
   useEffect(() => { onInvalid(!!problem); return () => onInvalid(false); }, [problem]);
   function edit(value) {
     setText(value);
@@ -682,6 +693,7 @@ function JsonView({ draft, setDraft, onInvalid, problems }) {
       const parsed = JSON.parse(value);
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('A scenario is a JSON object.');
       setProblem('');
+      lastParsed.current = parsed;
       setDraft(parsed);
     } catch (e) {
       setProblem(e.message);

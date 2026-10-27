@@ -41,16 +41,17 @@ export const loadTrash = () => {
   if (!Array.isArray(v)) return [];
   return v.filter(t => isObj(t) && isObj(t.scenario)).map((t, i) => ({ ...t, at: Number.isFinite(t.at) ? t.at : 0, id: typeof t.id === 'string' && t.id ? t.id : `legacy-${t.at}-${i}` }));
 };
-export function pushTrash(items) {
+// Both take the list the page is showing, so what is on screen and what is stored cannot drift apart, and both
+// say whether it could be stored. A full or blocked storage is not an error to the person, but they should be told
+// that Undo will not survive a reload.
+export function pushTrash(items, current = loadTrash()) {
   const added = [].concat(items).map(s => ({ id: newId(), at: Date.now(), scenario: s }));
-  const next = [...added, ...loadTrash()].slice(0, TRASH_LIMIT);
-  write(KEY.trash, next);
-  return next;
+  const list = [...added, ...current].slice(0, TRASH_LIMIT);
+  return { list, saved: write(KEY.trash, list) };
 }
-export function dropTrash(id) {
-  const next = loadTrash().filter(t => t.id !== id);
-  write(KEY.trash, next);
-  return next;
+export function dropTrash(id, current = loadTrash()) {
+  const list = current.filter(t => t.id !== id);
+  return { list, saved: write(KEY.trash, list) };
 }
 
 export const loadPrefix = () => { const v = read(KEY.prefix, 'qa'); return typeof v === 'string' && v.length <= 16 ? v : 'qa'; };

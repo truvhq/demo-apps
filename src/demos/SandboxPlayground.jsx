@@ -52,6 +52,11 @@ const STEPS = [
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
+// A form writes '' where a saved scenario has null or nothing. For "has this changed?" those are the same, so
+// typing a letter and deleting it leaves nothing unsaved.
+const isPlain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const canon = (o) => JSON.stringify(o, (_k, v) => (v === '' || v === null || (Array.isArray(v) && !v.length) || (isPlain(v) && !Object.keys(v).length) ? undefined : v));
+
 // An unsaved draft is kept for the visit, so leaving this page and coming back does not lose it.
 const STASH = 'sbx-draft';
 function readStash() {
@@ -63,7 +68,7 @@ function writeStash(value) {
 
 // Anything that goes wrong while drawing a tab lands here instead of leaving a blank page.
 function Guarded({ children, onReset }) {
-  const [error, reset] = useErrorBoundary();
+  const [error, reset] = useErrorBoundary((e) => console.error('Sandbox Data Playground: a screen failed to draw.', e));
   if (!error) return children;
   return (
     <Notice tone="bad" title="Something went wrong showing this tab" action={<button type="button" class="sbx-btn ghost small" onClick={() => { onReset?.(); reset(); }}>Start this tab again</button>}>
@@ -90,6 +95,9 @@ export function SandboxPlayground({ screen }) {
   const [bridgeEvents, setBridgeEvents] = useState([]);
   const [made, setMade] = useState(() => store.loadMade());
   const [trash, setTrash] = useState(() => store.loadTrash());
+  const trashNow = useRef(trash);
+  trashNow.current = trash;
+  const putTrash = (out) => { trashNow.current = out.list; setTrash(out.list); return out.saved; };
   const [prefix, setPrefixState] = useState(() => store.loadPrefix());
   // Today moves on if the page is left open past midnight, so presets and date moves do not use yesterday.
   const [today, setToday] = useState(() => todayISO());
@@ -97,14 +105,21 @@ export function SandboxPlayground({ screen }) {
 
   const [draft, setDraftState] = useState(() => stash.current?.draft || freshDraft(today));
   // A restored draft counts as unsaved, so its baseline is deliberately different from it.
-  const [baseline, setBaseline] = useState(() => (stash.current ? '' : JSON.stringify(freshDraft(today))));
+  const [baseline, setBaseline] = useState(() => (stash.current ? '' : canon(freshDraft(today))));
   const [editing, setEditing] = useState(null);
   // The jobs a preset would replace without asking: what the form opened with, unless it was a copy or a restored draft.
-  const [pristine, setPristine] = useState(() => (stash.current ? JSON.stringify(freshDraft(todayISO()).payload) : undefined));
-  const [openCount, setOpenCount] = useState(0);        // changes whenever a different draft is opened, so the form starts afresh
+  const [pristine, setPristine] = useState(() => JSON.stringify(freshDraft(todayISO()).payload));
+  const focusAfterOpen = useRef(false);               // set by New, Edit and Copy, so a plain visit to the tab keeps focus where it was
+  useEffect(() => { focusAfterOpen.current = false; });
+  const openCountNow = useRef(0);
+  // Changes whenever a different draft is opened, so the form starts afresh.
+  const [openCount, setOpenCount] = useState(0);
+  openCountNow.current = openCount;
   const [askDiscard, setAskDiscard] = useState(null);     // { run } waiting for a yes
   const draftNow = useRef(draft);
   draftNow.current = draft;
+  const editingNow = useRef(null);
+  editingNow.current = editing;
   const [saving, setSaving] = useState(false);
   const [serverError, setServerError] = useState(null);
   const [serverIssues, setServerIssues] = useState(null);   // { draft, list }
@@ -115,10 +130,12 @@ export function SandboxPlayground({ screen }) {
   const docCache = useRef(new Map());
 
   useEffect(() => {
+    const was = document.title;
     document.title = 'Sandbox Data Playground | Truv Demo Apps';
     // Arriving from the hub keeps its scroll position, which would drop you into the middle of this page.
     window.scrollTo(0, 0);
     document.querySelector('main')?.scrollTo?.(0, 0);
+    return () => { document.title = was; };
   }, []);
   // A link to another tab (or the back button) changes the route's last part.
   useEffect(() => { if (TABS.includes(screen)) setTab(screen); }, [screen]);
@@ -146,9 +163,13 @@ export function SandboxPlayground({ screen }) {
     return env;
   }, [logCalls]);
 
+  const loadSeq = useRef(0);
   const loadAll = useCallback(async () => {
+    const mine = ++loadSeq.current;
     setLoading(true);
     const [s, d] = await Promise.all([call('GET', '/scenarios'), call('GET', '/documents')]);
+    // A later load, or a change made while this one was on its way, has already put newer data on screen.
+    if (mine !== loadSeq.current) return;
     setLoading(false);
     if (isOk(s)) {
       setScenarios(s.data.results);
@@ -160,7 +181,7 @@ export function SandboxPlayground({ screen }) {
       const wanted = restoreEditId.current;
       restoreEditId.current = null;
       const found = wanted && s.data.results.find(x => x.id === wanted);
-      if (found) { setEditing(found); setBaseline(JSON.stringify(found)); }
+      if (found) { setEditing(found); setBaseline(canon(found)); }
     } else {
       const err = describeError(s);
       const blockedNow = err.code === 'env_not_sandbox' || err.code === 'session_required';
@@ -195,7 +216,9 @@ export function SandboxPlayground({ screen }) {
 
   // --- The builder ---
 
-  const dirty = JSON.stringify(draft) !== baseline;
+  const dirty = canon(draft) !== baseline;
+  const dirtyNow = useRef(false);
+  dirtyNow.current = dirty;
   const setDraft = useCallback((updater) => {
     setDraftState(prev => (typeof updater === 'function' ? updater(prev) : updater));
     setServerError(null);
@@ -219,7 +242,8 @@ export function SandboxPlayground({ screen }) {
 
   // `unsaved` marks a copy that exists nowhere yet, so it counts as changed from the start.
   function open(body, scenario = null, { unsaved = false } = {}) {
-    setDraftState(body); setBaseline(unsaved ? '' : JSON.stringify(body)); setEditing(scenario); setServerError(null); setServerIssues(null);
+    setDraftState(body); setBaseline(unsaved ? '' : canon(body)); setEditing(scenario); setServerError(null); setServerIssues(null);
+    focusAfterOpen.current = true;
     setOpenCount(n => n + 1);
     setPristine(unsaved ? '' : JSON.stringify(body.payload ?? null));
     go('build');
@@ -240,7 +264,7 @@ export function SandboxPlayground({ screen }) {
     push('This version only answers refreshes. Change the data to show what is different after one.', { ms: 8000 });
   }
   function discard() {
-    if (editing) { setEditing(null); setDraftState(freshDraft(today)); setBaseline(JSON.stringify(freshDraft(today))); setOpenCount(n => n + 1); setPristine(JSON.stringify(freshDraft(today).payload)); go('mine'); }
+    if (editing) { setEditing(null); setDraftState(freshDraft(today)); setBaseline(canon(freshDraft(today))); setOpenCount(n => n + 1); setPristine(JSON.stringify(freshDraft(today).payload)); go('mine'); }
     else newScenario();
   }
 
@@ -253,6 +277,7 @@ export function SandboxPlayground({ screen }) {
     }
     setSaving(true); setServerError(null); setServerIssues(null);
     const sent = draft;
+    const openedAs = openCountNow.current;
     const env = editing
       ? await call('PATCH', `/scenarios/${editing.id}`, toUpdateBody(sent))
       : await call('POST', '/scenarios', toCreateBody(sent));
@@ -274,7 +299,12 @@ export function SandboxPlayground({ screen }) {
     const saved = env.data;
     changeScenarios(list => (editing ? list.map(s => (s.id === saved.id ? saved : s)) : [...list, saved]));
     if (!editing) { store.rememberMade(saved.id); setMade(store.loadMade()); }
-    setEditing(saved); setBaseline(JSON.stringify(saved));
+    if (openedAs !== openCountNow.current) {
+      // Another scenario was opened while this one was being saved: the list learns of it, the form is left alone.
+      push(`Saved ${saved.label}.`);
+      return;
+    }
+    setEditing(saved); setBaseline(canon(saved));
     // Typing that happened while the save was in flight is kept, and still counts as unsaved.
     if (draftNow.current === sent) setDraftState(clone(saved));
     if (how === 'try') setTrying(tryTarget(saved));
@@ -292,7 +322,8 @@ export function SandboxPlayground({ screen }) {
     const env = await call('PATCH', `/scenarios/${s.id}`, { enabled });
     if (isOk(env)) {
       changeScenarios(list => list.map(x => (x.id === s.id ? env.data : x)));
-      if (editing?.id === s.id) { setEditing(env.data); setDraftState(clone(env.data)); setBaseline(JSON.stringify(env.data)); }
+      // The form follows only if nothing was typed in it while this was on its way.
+      if (editing?.id === s.id && !dirtyNow.current) { setEditing(env.data); setDraftState(clone(env.data)); setBaseline(canon(env.data)); }
     } else if (env.status === 404) { push(`${s.label} was deleted somewhere else. The list was reloaded.`, { tone: 'warn' }); loadAll(); }
     else push(`${describeError(env).title}. ${s.label} was not changed.`, { tone: 'bad' });
   }
@@ -313,12 +344,12 @@ export function SandboxPlayground({ screen }) {
     }
     if (gone.length) {
       changeScenarios(l => l.filter(x => !gone.some(g => g.id === x.id)));
-      const kept = store.pushTrash(gone.map(g => toCreateBody(g)));
-      setTrash(kept);
-      const entries = kept.slice(0, gone.length);
+      const out = store.pushTrash(gone.map(g => toCreateBody(g)), trashNow.current);
+      const entries = out.list.slice(0, gone.length);
+      if (!putTrash(out)) push('This browser could not keep a copy, so Undo works only until the page is reloaded.', { tone: 'warn', ms: 10000 });
       store.forgetMade(gone.map(g => g.id));
       setMade(store.loadMade());
-      if (editing && gone.some(g => g.id === editing.id)) { setEditing(null); setDraftState(freshDraft(today)); setBaseline(JSON.stringify(freshDraft(today))); }
+      if (editing && gone.some(g => g.id === editing.id)) { setEditing(null); setDraftState(freshDraft(today)); setBaseline(canon(freshDraft(today))); }
       push(gone.length === 1 ? `Deleted ${gone[0].label}.` : `Deleted ${gone.length} scenarios.`, { action: { label: 'Undo', run: () => restoreMany(entries.map(t => ({ body: t.scenario, trashId: t.id }))) }, ms: 12000 });
     }
     if (failed.length) push(`${plural(failed.length, 'scenario')} could not be deleted: ${failed[0].err.title}.`, { tone: 'bad', ms: 0 });
@@ -335,7 +366,7 @@ export function SandboxPlayground({ screen }) {
         ok++;
         changeScenarios(l => [...l, env.data]);
         store.rememberMade(env.data.id);
-        setTrash(store.dropTrash(trashId));
+        putTrash(store.dropTrash(trashId, trashNow.current));
       } else push(`${body.label} could not be brought back. ${errorText(describeError(env))}`, { tone: 'bad', ms: 0 });
       restoring.current.delete(trashId);
     }
@@ -353,7 +384,7 @@ export function SandboxPlayground({ screen }) {
     return { ok: false, message: errorText(describeError(env)) };
   }
   const restore = (entry) => restoreMany([{ body: entry.scenario, trashId: entry.id }]);
-  const forget = (entry) => setTrash(store.dropTrash(entry.id));
+  const forget = (entry) => { putTrash(store.dropTrash(entry.id, trashNow.current)); };
 
   async function moveDates(s) {
     if (openAndDirty(s)) { push(OPEN_NOTE, { tone: 'warn' }); return; }
@@ -362,9 +393,11 @@ export function SandboxPlayground({ screen }) {
     const env = await call('PATCH', `/scenarios/${s.id}`, { payload });
     if (!isOk(env)) { push(`${describeError(env).title}. The dates were not moved.`, { tone: 'bad' }); return; }
     changeScenarios(l => l.map(x => (x.id === s.id ? env.data : x)));
-    if (editing?.id === s.id) { setEditing(env.data); setDraftState(clone(env.data)); setBaseline(JSON.stringify(env.data)); }
-    push(`Moved the paystub dates in ${s.label}.`, {
-      action: { label: 'Undo', run: async () => { const back = await call('PATCH', `/scenarios/${s.id}`, { payload: s.payload }); if (isOk(back)) { changeScenarios(l => l.map(x => (x.id === s.id ? back.data : x))); push('Put the dates back.'); } } },
+    // The open form follows only while nothing has been typed in it.
+    const followInForm = (saved) => { if (editingNow.current?.id === saved.id && !dirtyNow.current) { setEditing(saved); setDraftState(clone(saved)); setBaseline(canon(saved)); } };
+    followInForm(env.data);
+    push(`Updated the paystub dates in ${s.label}.`, {
+      action: { label: 'Undo', run: async () => { const back = await call('PATCH', `/scenarios/${s.id}`, { payload: s.payload }); if (isOk(back)) { changeScenarios(l => l.map(x => (x.id === s.id ? back.data : x))); followInForm(back.data); push('Put the dates back.'); } } },
       ms: 12000,
     });
   }
@@ -380,6 +413,8 @@ export function SandboxPlayground({ screen }) {
     const env = await call('POST', '/documents', { filename, content });
     if (isOk(env)) {
       docCache.current.set(env.data.id, { filename, content });
+      // Undo for a deleted PDF needs its bytes, but not for every upload of the visit: keep the last five.
+      while (docCache.current.size > 5) docCache.current.delete(docCache.current.keys().next().value);
       changeDocuments(l => [...(l || []), env.data]);
       push(`Uploaded ${filename}.`);
       return { ok: true };
@@ -457,7 +492,7 @@ export function SandboxPlayground({ screen }) {
 
         <div class="sbx-panel" role="tabpanel" id={`sbx-panel-${tab}`} aria-labelledby={`sbx-tab-${tab}`}>
           {tab === 'standard' && <StandardLogins onGo={go} onTry={blocked ? () => push(guardMessage.hint || guardMessage.detail, { tone: 'bad' }) : tryStandard} />}
-          <Guarded onReset={() => { setDraftState(freshDraft(today)); setBaseline(JSON.stringify(freshDraft(today))); setEditing(null); }}>
+          <Guarded key={tab} onReset={tab === 'build' ? () => { setDraftState(freshDraft(today)); setBaseline(canon(freshDraft(today))); setEditing(null); setOpenCount(n => n + 1); } : undefined}>
           {tab === 'mine' && (blocked || mode === 'error' ? <p class="sbx-small">{mode === 'error' ? 'Nothing to show until the list loads.' : 'Nothing to show until this is a sandbox key.'}</p> : (
             <Scenarios
               scenarios={scenarios} loading={loading} blocked={blocked} today={today} made={made} trash={trash}
@@ -469,7 +504,8 @@ export function SandboxPlayground({ screen }) {
             <Builder
               key={openCount}
               pristine={pristine}
-              focusHeading={openCount > 0}
+              onPristine={setPristine}
+              focusHeading={focusAfterOpen.current}
               draft={draft} setDraft={setDraft} editing={editing} dirty={dirty} issues={issues} serverError={serverError}
               documents={documents || []} scenarios={scenarios || []} today={today} prefix={prefix}
               onPrefix={(p) => { setPrefixState(p); store.savePrefix(p); }}
@@ -497,8 +533,10 @@ export function SandboxPlayground({ screen }) {
         <p>Your edits on the Build tab will be lost.</p>
       </ConfirmDialog>
 
-      <TryIt target={trying} onClose={() => setTrying(null)} call={call} logCalls={logCalls} onBridgeEvent={addBridgeEvent} />
-      <Resolve seed={resolving} onClose={() => setResolving(null)} call={call} onEdit={guarded(editScenario)} />
+      <Guarded key="dialogs">
+        <TryIt target={trying} onClose={() => setTrying(null)} call={call} logCalls={logCalls} onBridgeEvent={addBridgeEvent} />
+        <Resolve seed={resolving} onClose={() => setResolving(null)} call={call} onEdit={guarded(editScenario)} />
+      </Guarded>
       <ToastRegion toasts={toasts} dismiss={dismiss} pause={pause} resume={resume} />
     </Layout>
   );

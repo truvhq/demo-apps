@@ -377,7 +377,8 @@ export class TruvClient {
     return this._request(method, `sandbox/${path}`, json === undefined ? {} : { json });
   }
 
-  // Signs in to a test provider without the Bridge UI, the way the widget would.
+  // Signs in to a test provider without the Bridge UI, the way the widget does (POST /v1/checks/ with the
+  // order's bridge token). It is not in the public API reference; it was checked against the live sandbox.
   // Authenticates with the order's bridge token instead of the API keys.
   async createCheck(bridgeToken, { login, password, productType = 'income', providerId = 'truv' }) {
     return this._request('POST', 'checks/', {
