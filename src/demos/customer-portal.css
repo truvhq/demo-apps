@@ -134,6 +134,14 @@ html:has(.cpp-portal), body:has(.cpp-portal) { height: 100%; background: #f0f2f5
 
 /* Container queries: the portal sits in DeviceFrame, so the phone frame, not the window, sets the width. */
 .cpp-portal { container-type: inline-size; }
+/* Step 3: send the link to a phone, and the manual path */
+.cpp-send { margin-top: 14px; padding: 14px 16px; background: #f0f2f5; border-radius: 6px; }
+.cpp-send p { margin: 0 0 10px; }
+.cpp-send-via { display: flex; gap: 18px; margin-bottom: 10px; }
+.cpp-send-to { flex: 1; min-width: 0; font: inherit; border: 1px solid #bcc5d1; border-radius: 6px; padding: 10px 12px; background: #fff; }
+.cpp-manual { margin-top: 18px; padding-top: 14px; border-top: 1px solid #d8dee5; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.cpp-manual p { margin: 0; color: #474c52; }
+
 @container (max-width: 640px) {
   .cpp-hero { grid-template-columns: 1fr; gap: 12px; }
   .cpp-nav { position: static; flex-direction: row; gap: 4px; }
@@ -167,4 +175,6 @@ html:has(.cpp-portal), body:has(.cpp-portal) { height: 100%; background: #f0f2f5
   .cpp-away { margin: 24px 12px; padding: 20px; }
   .cpp-fields { grid-template-columns: 1fr; }
   .cpp-review dl { grid-template-columns: 1fr; }
+  .cpp-send .cpp-row { flex-direction: column; align-items: stretch; }
+  .cpp-person .cpp-row .cpp-btn-ghost { width: 100%; }
 }

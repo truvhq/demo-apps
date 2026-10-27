@@ -222,6 +222,10 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
   const [busy, setBusy] = useState(false);
   const [bridgeOpen, setBridgeOpen] = useState(false);
   const [note, setNote] = useState('');
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sendVia, setSendVia] = useState('email');
+  const [sendTo, setSendTo] = useState('');
+  const [sendMsg, setSendMsg] = useState('');
   const bridgeRef = useRef(null);
   const inlineRef = useRef(null);
   const sectionRefs = useRef([]);
@@ -236,14 +240,14 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
   const done = [
     app.programs.length > 0,
     !!(f.first_name.trim() && f.last_name.trim() && /\S+@\S+/.test(f.email)),
-    app.verified || !!nothing,
+    app.verified || !!nothing || !!app.manual,
     false,
   ];
   const lockReason = (i) => {
     for (let j = 0; j < i; j++) if (!done[j]) return `Finish "${STEP_TITLES[j]}" first`;
     return null;
   };
-  const why = ['Choose at least one program', 'Enter first name, last name and a valid email', nothing ? null : 'Answer both questions, then complete the verification', null];
+  const why = ['Choose at least one program', 'Enter first name, last name and a valid email', nothing ? null : 'Answer both questions, then complete the verification or continue manually', null];
 
   // Close any open widget when the portal unmounts.
   useEffect(() => () => { try { bridgeRef.current?.close(); } catch {} }, []);
@@ -270,6 +274,50 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
       onOrder(data, route.products);
       openBridge(data.bridge_token);
     } catch (e) { setNote(e.message); }
+    setBusy(false);
+  }
+
+  // "Email or text me this link": Truv sends the order link itself when an order is
+  // created with an email or phone (order events email_first_sent / sms_first_sent).
+  // The Orders API has no resend endpoint, so once an order exists we can only say
+  // where Truv already sent it.
+  function openSend() {
+    setSendOpen(true); setSendMsg('');
+    setSendVia(f.email ? 'email' : 'phone');
+    setSendTo(f.email || f.phone || '');
+  }
+  async function sendLink() {
+    const to = sendTo.trim();
+    if (!to || busy) return;
+    setBusy(true); setSendMsg('');
+    try {
+      const contact = sendVia === 'email' ? { email: to } : { phone: to.replace(/\D/g, '') };
+      const r = await fetch(`${API_BASE}/api/orders`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: f.first_name, last_name: f.last_name, ...contact, products: route.products, template_id: templateFor(route.products, app.display), external_user_id: app.clientId, demo_id: 'customer-portal' }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Could not send the link');
+      patch({ orderId: data.order_id, sentTo: to });
+      onOrder(data, route.products);
+      setSendMsg(`Truv is sending the link ${sendVia === 'email' ? 'by email' : 'by text'} to ${to}. Finish on your phone, then check your status here.`);
+    } catch (e) { setSendMsg(e.message); }
+    setBusy(false);
+  }
+  // Reads the live order from Truv (GET /v1/orders/{id}/): verified once every
+  // payroll and bank connection on it is complete.
+  async function checkStatus() {
+    setBusy(true); setSendMsg('');
+    try {
+      const r = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(app.orderId)}`);
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Could not check the status');
+      const raw = data.raw_response || {};
+      const parts = [...(raw.employers || []), ...(raw.financial_accounts || [])].map(x => x.status);
+      const complete = parts.length > 0 && parts.every(x => x === 'completed' || x === 'done');
+      if (complete) patch({ verified: true });
+      setSendMsg(complete ? 'Verified. You can continue.' : 'Not finished yet. Complete the link on your phone, then check again.');
+    } catch (e) { setSendMsg(e.message); }
     setBusy(false);
   }
 
@@ -376,8 +424,33 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
       </div>
       {question('job', 'Do you have a job or earn income?')}
       {ans.job != null && question('account', 'Do you have a checking or savings account?')}
-      {route && !nothing && !app.verified && (
+      {route && !nothing && !app.verified && !app.manual && (
         <div class="cpp-row"><button type="button" class="cpp-btn" onClick={launch} disabled={bridgeOpen || busy || !!lockReason(2)}>{busy ? 'Preparing…' : launchLabel}</button>
+          <button type="button" class="cpp-btn-ghost" onClick={openSend} disabled={bridgeOpen || !!lockReason(2)}>Email or text me this link</button>
+        </div>
+      )}
+      {sendOpen && route && !nothing && !app.verified && !app.manual && (
+        <div class="cpp-send">
+          {app.orderId && !app.sentTo ? (
+            <p>Truv sent this link to {[f.email, f.phone].filter(Boolean).join(' and ')} when your verification started. Open it on your phone to finish.</p>
+          ) : !app.orderId ? (<>
+            <p>Get the link on your phone and finish there, for example with your phone's saved sign-in.</p>
+            <div class="cpp-send-via">
+              {[['email', 'Email'], ['phone', 'Text']].map(([v, l]) => (
+                <label key={v} class="cpp-check"><input type="radio" name="send-via" checked={sendVia === v}
+                  onChange={() => { setSendVia(v); setSendTo(v === 'email' ? f.email : f.phone); }} /><span>{l}</span></label>
+              ))}
+            </div>
+            <div class="cpp-row">
+              <input class="cpp-send-to" type={sendVia === 'email' ? 'email' : 'tel'} value={sendTo} onInput={e => setSendTo(e.currentTarget.value)}
+                placeholder={sendVia === 'email' ? 'name@domain.com' : '4155554193'} aria-label={sendVia === 'email' ? 'Email address' : 'Mobile number'} />
+              <button type="button" class="cpp-btn" onClick={sendLink} disabled={busy || !sendTo.trim()}>{busy ? 'Sending…' : 'Send link'}</button>
+            </div>
+          </>) : null}
+          {app.orderId && (
+            <div class="cpp-row"><button type="button" class="cpp-btn-ghost" onClick={checkStatus} disabled={busy}>{busy ? 'Checking…' : 'I finished on my phone'}</button></div>
+          )}
+          {sendMsg && <p class="cpp-muted" role="status">{sendMsg}</p>}
         </div>
       )}
       {nothing && <p class="cpp-muted">No job and no account: no order is created and nothing needs verifying.</p>}
@@ -388,12 +461,23 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
           <div ref={inlineRef} class="cpp-inline-body" />
         </div>
       )}
+      {route && !nothing && !app.verified && (
+        <div class="cpp-manual">
+          {app.manual ? (<>
+            <p><strong>You chose to continue manually.</strong> The agency will contact you about other ways to show your income, such as documents or an interview.</p>
+            <button type="button" class="cpp-link" onClick={() => patch({ manual: false })}>Verify online instead</button>
+          </>) : (<>
+            <p>Don't want to connect your accounts online?</p>
+            <button type="button" class="cpp-link" onClick={() => { closeBridge(); setSendOpen(false); patch({ manual: true }); }}>Continue manually</button>
+          </>)}
+        </div>
+      )}
     </div>,
     <div class="cpp-review">
       <dl>
         <dt>Programs</dt><dd>{app.programs.map(id => PROGRAMS.find(p => p.id === id)?.name).join(', ') || '—'}</dd>
         <dt>Applicant</dt><dd>{f.first_name} {f.last_name} · {f.email}</dd>
-        <dt>Verification</dt><dd>{nothing ? 'Nothing to verify' : app.verified ? `${route.name}: verified` : 'Not yet verified'}</dd>
+        <dt>Verification</dt><dd>{nothing ? 'Nothing to verify' : app.verified ? `${route.name}: verified` : app.manual ? 'Continuing manually' : 'Not yet verified'}</dd>
       </dl>
       <div class="cpp-row">
         {/* Demo stops here: submitting is a placeholder, nothing is sent anywhere. */}
