@@ -11,7 +11,8 @@
  * Follows the Embedded Orders Field Guide rules (src/guides/embedded-orders).
  * The step content is identical in all four; only the chrome and the mount point change.
  *
- * Saved cases live in this browser (localStorage). Resuming re-reads the SAME order
+ * Saved cases live in memory for this visit only: a reload or closing the tab leaves just the
+ * canned demo. Resuming re-reads the SAME order
  * (GET /api/orders/:id/info), so the applicant gets the same bridge_token back.
  */
 
@@ -85,12 +86,16 @@ export function planHandoff(products, done, connectedSeen) {
   return { action: 'remaining', phoneProducts: rest, cancelDesk: false };
 }
 
-// --- Saved cases (this browser only) ---
+// --- Saved cases (this visit only) ---
+// Kept in memory so test data never piles up between visits. Earlier builds wrote them to
+// localStorage under this key; remove that on load.
 const STORE_KEY = 'cp-portal-cases';
+try { localStorage.removeItem(STORE_KEY); } catch {}
+let memCases = [];
 export function loadCases() {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); } catch { return []; }
+  return memCases;
 }
-function writeCases(list) { try { localStorage.setItem(STORE_KEY, JSON.stringify(list)); } catch {} }
+function writeCases(list) { memCases = list; }
 export function saveCase(app) {
   writeCases([{ ...app, savedAt: new Date().toISOString() }, ...loadCases().filter(c => c.caseNumber !== app.caseNumber)]);
 }
@@ -152,7 +157,7 @@ export function CPStartScreen({ onStart, onResume, showDetails, setShowDetails, 
 
         {walkAway && (
           <div class="cpp-saved">
-            {cases.length === 0 ? <p class="cpp-muted">No saved cases in this browser yet.</p> : (
+            {cases.length === 0 ? <p class="cpp-muted">No saved cases in this visit yet. They clear when you reload or close the tab.</p> : (
               <>
                 <ul>
                   {cases.map(c => (
