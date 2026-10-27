@@ -34,6 +34,7 @@ import userReportsRoutes from './routes/user-reports.js';
 import voiePllRoutes from './routes/voie-pll.js';
 import renewalsRefreshRoutes from './routes/renewals-refresh.js';
 import coverageAnalysisRoutes from './routes/coverage-analysis.js';
+import sandboxRoutes from './routes/sandbox.js';
 
 // Local mode keeps one TruvClient built from your .env keys and uses it for
 // every request. (Hosted deployments build a client per visitor instead.)
@@ -64,6 +65,7 @@ const sweeper = startSweeper({
 // Express setup: JSON body parsing (with raw body capture for webhook HMAC
 // verification) and CORS restricted to localhost origins.
 const app = express();
+app.disable('x-powered-by');
 app.use(express.json({ limit: '100mb', verify: (req, _res, buf) => { req.rawBody = buf.toString('utf-8'); } }));
 app.use(cors({ origin: /^http:\/\/localhost(:\d+)?$/, credentials: true }));
 app.use(cookieParser());
@@ -237,6 +239,7 @@ app.use(userReportsRoutes(deps));
 app.use(voiePllRoutes(deps));
 app.use(renewalsRefreshRoutes(deps));
 app.use(coverageAnalysisRoutes(deps));
+app.use(sandboxRoutes(deps));
 
 // --- Health check ---
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
@@ -245,6 +248,17 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 // No-op locally (Vite serves the frontend). Serves dist/ after a build; must be
 // last so its SPA catch-all doesn't shadow other routes.
 mountStaticIfBuilt(app, config);
+
+// A malformed or oversized request body gets a short JSON answer, not Express's default page with a
+// stack trace and file paths in it.
+app.use((err, _req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'bad_request', message: 'The request body is not valid JSON.' });
+  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'too_large', message: 'The request body is too large.' });
+  console.error(err);
+  const status = Number.isInteger(err.status) && err.status >= 400 && err.status < 600 ? err.status : 500;
+  res.status(status).json({ error: 'internal_error' });
+});
 
 // --- Start ---
 // Local mode registers a single shared webhook at startup; otherwise webhooks

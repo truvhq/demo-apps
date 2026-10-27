@@ -42,6 +42,7 @@ import { CustomerPortalDemo } from './demos/CustomerPortal.jsx';
 import { PSDocumentProcessingDemo } from './demos/PSDocumentProcessing.jsx';
 import { BatchingWalkthrough } from './demos/Batching.jsx';
 import { EmbeddedOrdersGuide } from './demos/EmbeddedOrdersGuide.jsx';
+import { SandboxPlayground } from './demos/SandboxPlayground.jsx';
 import { PublicSectorHub } from './industry/PublicSectorHub.jsx';
 import { SmartRoutingDemo } from './demos/SmartRouting.jsx';
 import { BankIncomeDemo } from './demos/BankIncome.jsx';
@@ -77,6 +78,7 @@ export const INDUSTRIES = [
       { id: 'verifier-portal', name: 'Case Worker Portal', component: CaseWorkerPortalDemo, desc: 'A Case Worker creates verification orders using applicant data on file and sends verification links via email or SMS.', tags: ['Orders', 'Share URL', 'Status Tracking', 'Reports'] },
       { id: 'batching', name: 'Batching', component: BatchingWalkthrough, guide: true, desc: 'Animated walkthrough of bulk order intake: staff drop a CSV into a folder and a scheduled job creates one order per row. Ends with the setup guides and the runnable kit to hand to a customer.', tags: ['Guided', 'Bulk', 'CSV', 'Orders', 'Webhooks'] },
       { id: 'embedded-orders', name: 'Embedded Orders Field Guide', component: EmbeddedOrdersGuide, guide: true, desc: 'For teams building a benefits application: where the order page goes, nine rules, the settings to check, and a pre-launch checklist.', tags: ['Guide'] },
+      { id: 'sandbox-playground', name: 'Sandbox Data Playground', component: SandboxPlayground, tool: true, desc: 'Try the test logins every account has, or build your own that return exactly the data you choose.', tags: ['Tool'] },
       { id: 'renewals-refresh', name: 'Renewals & Data Refresh', component: RenewalsRefreshDemo, desc: 'Recertify without asking for documents again. Refresh the payroll and bank connections applicants already made, see which refreshes finish on their own and which need the applicant, and contact only those applicants.', tags: ['Guided', 'Orders', 'Refresh', 'Webhooks'] },
     ],
   },

@@ -26,6 +26,8 @@ Demos are organized by industry. Each starts with a split intro screen (business
 | **Case Worker Portal** | A Case Worker creates verification orders using applicant data on file |
 | **Renewals & Data Refresh** | Guided walkthrough plus a live recertification cycle with four ready-made applicants (payroll only, assets only, payroll and assets, two employers) and an Add more Applicants button: refresh existing payroll and bank connections via `POST /v1/orders/{id}/`, then see each connection's outcome. If a refresh needs the applicant, Truv sends `order-refresh-failed` and that connection stays unfinished until they act. Listening only for `order-status-updated` will not tell you it failed |
 
+**Sandbox Data Playground** (a tool, in the Public Sector Tools section): use Truv's standard sandbox logins, or create your own test logins that return exactly the data you choose, through the Sandbox Data API (`/v1/sandbox/scenarios/` and `/v1/sandbox/documents/`). Build a scenario from a form or JSON, upload PDFs for W-2s, try a login headlessly (`POST /v1/checks/`) or in Bridge, check which scenario answers a login, and import or export scenarios as JSON. It needs a sandbox key: a production key gets `403 env_not_sandbox`. Scenarios live on the account, so everyone using that sandbox key sees them.
+
 ### Consumer Credit
 
 | Demo | What it shows |
@@ -211,6 +213,7 @@ server/
     reports.js           Legacy order-based report fetching with caching
     bridge.js            Bridge token flow (Consumer Credit, Retail Banking)
     voie-pll.js          Income then paycheck-linked-loan chained orders
+    sandbox.js           Sandbox Data Playground: scenarios, PDF library, headless and Bridge runs
     upload-documents.js  Document collections
     coverage-analysis.js Bulk coverage lookups
     session.js           Hosted mode: bring-your-own-keys session routes
@@ -233,6 +236,7 @@ src/
     POSTasks.jsx, LOS.jsx, DocumentProcessing.jsx   Mortgage demos
     CustomerPortal.jsx, CaseWorkerPortal.jsx, PSDocumentProcessing.jsx   Public Sector and Retail Banking demos
     PayrollCoverage.jsx, BankCoverage.jsx   Coverage Analysis
+    SandboxPlayground.jsx  Public Sector tool: standard and custom sandbox logins (logic and screens in src/sandbox/)
   diagrams/              Mermaid architecture diagrams, one per demo
   components/            Shared UI: Layout, Panel (Guide/API/Bridge/Webhooks tabs), Walkthrough,
                          DeviceFrame, WebhookFeed, CompanySearch, IntroSlide, and more
