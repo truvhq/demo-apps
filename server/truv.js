@@ -187,7 +187,7 @@ export class TruvClient {
   async createOrder(params = {}) {
     const productType = params.product_type || 'income';
     const payload = {
-      order_number: `qs-${uuidv4()}`, // Replace with your internal order/application ID
+      order_number: params.order_number || `qs-${uuidv4()}`, // Replace with your internal order/application ID
       external_user_id: params.external_user_id || `qs-${uuidv4()}`,
       first_name: params.first_name || 'John',
       last_name: params.last_name || 'Johnson',
@@ -202,6 +202,7 @@ export class TruvClient {
     if (params.phone) payload.phone = params.phone;
     if (params.ssn) payload.social_security_number = params.ssn;
     if (params.template_id) payload.template_id = params.template_id;
+    if (params.notification_settings) payload.notification_settings = params.notification_settings;
 
     // The Truv Orders API uses different arrays for payroll vs bank:
     //   - Payroll products: employers: [{ company_mapping_id }]
@@ -252,6 +253,12 @@ export class TruvClient {
   }
 
   // Retrieves the current state of an order by its Truv-assigned ID.
+  // PATCH /v1/orders/{id}/ (EditOrder). Used to un-suppress notifications so Truv
+  // sends the order link by email and SMS. Returns 204 with an empty body.
+  async updateOrder(truvOrderId, body) {
+    return this._request('PATCH', `orders/${truvOrderId}/`, { json: body });
+  }
+
   async getOrder(truvOrderId) {
     return this._request('GET', `orders/${truvOrderId}/`);
   }

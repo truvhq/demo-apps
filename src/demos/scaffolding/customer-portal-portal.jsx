@@ -6,8 +6,9 @@
  * branding and cut down to one applicant. Two independent axes are picked up front:
  *   layout  : 'hero'  (every step on one scrolling page, fixed left nav)
  *             'slide' (one step per screen, Back / Continue)
- *   display : 'dialog' (order page opens over the portal, position { type: 'dialog' })
- *             'inline' (order page expands inside the applicant's card)
+ *   display : 'inline' (recommended: order page is the income step, position { type: 'inline' })
+ *             'dialog' (full-dialog fallback, opens over the portal on arrival)
+ * Follows the Embedded Orders Field Guide rules (src/guides/embedded-orders).
  * The step content is identical in all four; only the chrome and the mount point change.
  *
  * Saved cases live in this browser (localStorage). Resuming re-reads the SAME order
@@ -27,10 +28,10 @@ export const LAYOUTS = [
     points: ['Same four steps, shown one at a time', 'Continue stays blocked, with a reason, until the step is done', 'Closest to how most state portals are built today'] },
 ];
 export const DISPLAYS = [
-  { id: 'dialog', name: 'Dialog', desc: 'Opens over the portal',
-    points: ['Default for Embedded Orders, nothing to size', 'Button reads "Verify"'] },
-  { id: 'inline', name: 'Inline', desc: "Expands inside the applicant's card",
-    points: ['Mounted in your own container', 'Panel grows to the order page via iframe-resizer', 'Button reads "Connect"'] },
+  { id: 'inline', name: 'Inline', desc: 'Recommended: the order page is the income step',
+    points: ['Order page mounted in the step on arrival', 'Sign-in opens as a modal over it', 'Panel grows to the order page via iframe-resizer'] },
+  { id: 'dialog', name: 'Full dialog (fallback)', desc: 'Opens over the portal on arrival',
+    points: ['The fallback when a step cannot be restructured', 'Right for a caseworker tool', 'Nothing to size'] },
 ];
 const PROGRAMS = [
   { id: 'snap', name: 'SNAP (food assistance)' },
@@ -90,7 +91,7 @@ export function newApplication({ layout, display }) {
 // --- Component: CPStartScreen. The chooser. ---
 export function CPStartScreen({ onStart, onResume, showDetails, setShowDetails, notice }) {
   const [layout, setLayout] = useState('hero');
-  const [display, setDisplay] = useState('dialog');
+  const [display, setDisplay] = useState('inline');
   const [walkAway, setWalkAway] = useState(false);
   const [cases, setCases] = useState(loadCases);
   const [msg, setMsg] = useState(notice || '');
@@ -222,109 +223,101 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
   const [busy, setBusy] = useState(false);
   const [bridgeOpen, setBridgeOpen] = useState(false);
   const [note, setNote] = useState('');
-  const [sendOpen, setSendOpen] = useState(false);
-  const [sendVia, setSendVia] = useState('email');
-  const [sendTo, setSendTo] = useState('');
-  const [sendMsg, setSendMsg] = useState('');
+  // Rule 5: a connection succeeded (SUCCESS from the connection widget), so manual entry goes away.
+  const [connected, setConnected] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [stepMsg, setStepMsg] = useState('');
   const bridgeRef = useRef(null);
   const inlineRef = useRef(null);
   const sectionRefs = useRef([]);
+  const mounting = useRef(false);
   const inline = app.display === 'inline';
   const ans = app.answers || { job: null, account: null };
   const route = routeFor(ans);
   const nothing = route && !route.products.length;
   const patch = (p) => setApp(a => ({ ...a, ...p }));
 
-  // Step completion and the reason a step is still locked.
+  // Step completion and the reason a step is still locked. The income step has three
+  // states (Rule 4): blocked, deferred (link sent or manual entry), verified (COMPLETED).
   const f = app.form;
+  const deferred = !app.verified && (!!app.linkSent || !!app.manual?.amount);
   const done = [
     app.programs.length > 0,
-    !!(f.first_name.trim() && f.last_name.trim() && /\S+@\S+/.test(f.email)),
-    app.verified || !!nothing || !!app.manual,
+    !!(f.first_name.trim() && f.last_name.trim() && /\S+@\S+/.test(f.email)) && !!route,
+    app.verified || !!nothing || deferred,
     false,
   ];
   const lockReason = (i) => {
     for (let j = 0; j < i; j++) if (!done[j]) return `Finish "${STEP_TITLES[j]}" first`;
     return null;
   };
-  const why = ['Choose at least one program', 'Enter first name, last name and a valid email', nothing ? null : 'Answer both questions, then complete the verification or continue manually', null];
+  const why = ['Choose at least one program', 'Enter your name and email, and answer both questions', 'Finish verifying, or use one of the options below it', null];
+
+  // The income step is "here" on the slide layout when it is the current step, and on the
+  // hero page as soon as it unlocks (every step is on screen).
+  const [heroInView, setHeroInView] = useState(false);
+  const atIncome = !lockReason(2) && (app.layout === 'hero' ? heroInView : app.step === 2);
+  const shouldMount = atIncome && route && !nothing && !app.verified;
+
+  // Hero page: the applicant "arrives" at the income step when its section scrolls into view.
+  useEffect(() => {
+    if (app.layout !== 'hero' || lockReason(2)) return;
+    const check = () => {
+      const el = sectionRefs.current[2];
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      if (r.top < win.innerHeight * 0.7 && r.bottom > 0) { setHeroInView(true); win.removeEventListener('scroll', check); }
+    };
+    check();
+    win.addEventListener('scroll', check, { passive: true });
+    return () => win.removeEventListener('scroll', check);
+  }, [app.layout, !!lockReason(2)]);
 
   // Close any open widget when the portal unmounts.
   useEffect(() => () => { try { bridgeRef.current?.close(); } catch {} }, []);
 
-  async function launch() {
-    if (bridgeOpen || busy) return;
-    setBusy(true);
+  // Rule 1: render the order page when the step loads, not behind a button. Inline mounts
+  // into the step; the dialog fallback opens over the portal on arrival.
+  useEffect(() => {
+    if (shouldMount && !bridgeOpen && !mounting.current && !app.dialogClosed) mount();
+    if (!shouldMount && bridgeOpen) closeBridge();
+  }, [shouldMount, app.orderId, app.dialogClosed]);
+
+  // Get a bridge_token: re-read the open order (same token, Rule: reinitialize) or create one.
+  async function mount() {
+    mounting.current = true;
+    setBusy(true); setStepMsg('');
     try {
       let data;
       if (app.orderId) {
-        // Walk-away resume: same order, same bridge_token.
         const r = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(app.orderId)}/info`);
-        if (!r.ok) throw new Error('Saved order not found on this server');
+        if (!r.ok) throw new Error('We could not reopen your verification. Try again.');
         data = await r.json();
       } else {
+        // Notifications stay suppressed while the applicant is here (Rule 4); the
+        // "Email or text me this link" button turns them on.
         const r = await fetch(`${API_BASE}/api/orders`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...f, products: route.products, template_id: templateFor(route.products, app.display), external_user_id: app.clientId, demo_id: 'customer-portal' }),
+          body: JSON.stringify({ ...f, products: route.products, template_id: templateFor(route.products, app.display),
+            external_user_id: app.clientId, order_number: app.caseNumber,
+            notification_settings: { suppress_user_notifications: true }, demo_id: 'customer-portal' }),
         });
         data = await r.json();
-        if (!r.ok) throw new Error(data.error || 'Order creation failed');
+        if (!r.ok) throw new Error('We could not start your verification. Try again.');
         patch({ orderId: data.order_id });
       }
       onOrder(data, route.products);
       openBridge(data.bridge_token);
-    } catch (e) { setNote(e.message); }
+    } catch (e) { setStepMsg(e.message); }
     setBusy(false);
-  }
-
-  // "Email or text me this link": Truv sends the order link itself when an order is
-  // created with an email or phone (order events email_first_sent / sms_first_sent).
-  // The Orders API has no resend endpoint, so once an order exists we can only say
-  // where Truv already sent it.
-  function openSend() {
-    setSendOpen(true); setSendMsg('');
-    setSendVia(f.email ? 'email' : 'phone');
-    setSendTo(f.email || f.phone || '');
-  }
-  async function sendLink() {
-    const to = sendTo.trim();
-    if (!to || busy) return;
-    setBusy(true); setSendMsg('');
-    try {
-      const contact = sendVia === 'email' ? { email: to } : { phone: to.replace(/\D/g, '') };
-      const r = await fetch(`${API_BASE}/api/orders`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ first_name: f.first_name, last_name: f.last_name, ...contact, products: route.products, template_id: templateFor(route.products, app.display), external_user_id: app.clientId, demo_id: 'customer-portal' }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Could not send the link');
-      patch({ orderId: data.order_id, sentTo: to });
-      onOrder(data, route.products);
-      setSendMsg(`Truv is sending the link ${sendVia === 'email' ? 'by email' : 'by text'} to ${to}. Finish on your phone, then check your status here.`);
-    } catch (e) { setSendMsg(e.message); }
-    setBusy(false);
-  }
-  // Reads the live order from Truv (GET /v1/orders/{id}/): verified once every
-  // payroll and bank connection on it is complete.
-  async function checkStatus() {
-    setBusy(true); setSendMsg('');
-    try {
-      const r = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(app.orderId)}`);
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Could not check the status');
-      const raw = data.raw_response || {};
-      const parts = [...(raw.employers || []), ...(raw.financial_accounts || [])].map(x => x.status);
-      const complete = parts.length > 0 && parts.every(x => x === 'completed' || x === 'done');
-      if (complete) patch({ verified: true });
-      setSendMsg(complete ? 'Verified. You can continue.' : 'Not finished yet. Complete the link on your phone, then check again.');
-    } catch (e) { setSendMsg(e.message); }
-    setBusy(false);
+    mounting.current = false;
   }
 
   function openBridge(bridgeToken) {
-    if (!win.TruvBridge) { setNote('Truv Bridge script did not load.'); return; }
+    if (!win.TruvBridge) { setStepMsg('Truv Bridge script did not load.'); return; }
     const container = inline ? inlineRef.current : null;
-    if (inline && container) container.innerHTML = '';
+    if (inline && !container) return;
+    if (container) container.innerHTML = '';
     setBridgeOpen(true);
     const b = win.TruvBridge.init({
       bridgeToken, isOrder: true,
@@ -333,20 +326,25 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
       onLoad: () => onEvent('onLoad()'),
       onEvent: (type, payload, source) => {
         onEvent(`onEvent("${type}", ${payload ? 'payload' : 'undefined'}, "${source}")`, payload);
-        // Rule 8: only COMPLETED with source "order" means the order reached its final
-        // state, i.e. after self-certification where it is enabled. Mark verified and
-        // close the order page ourselves: the templates hide the close button, so the
-        // applicant would otherwise be left on the completion screen.
+        // Rule 5: hide manual entry the moment a connection succeeds; bring it back on an error.
+        if (type === 'SUCCESS' && source === 'bridge') { setConnected(true); setManualOpen(false); }
+        if (type === 'ERROR' && source === 'bridge') setConnected(false);
+        // Rule 8: only COMPLETED with source "order" means the order reached its final state
+        // (after self-certification where it is on). The templates hide the close button, so
+        // close the order page ourselves.
         if (type === 'COMPLETED' && source === 'order') {
-          patch({ verified: true });
+          patch({ verified: true, linkSent: false, manual: null });
           setTimeout(() => closeBridge(), 1500);
         }
       },
       onSuccess: (publicToken, meta) => onEvent('onSuccess(public_token, meta)', meta ? { public_token: publicToken, meta } : null),
+      // onClose is the order-page close (source "order"). A close from the connection
+      // widget arrives as onEvent('CLOSE', …, 'bridge') and leaves the order page live.
       onClose: () => {
         onEvent('onClose()');
         bridgeRef.current = null;
         setBridgeOpen(false);
+        if (!inline) patch({ dialogClosed: true });
         if (container) container.innerHTML = '';
       },
     });
@@ -363,11 +361,41 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
     if (inlineRef.current) inlineRef.current.innerHTML = '';
   }
 
+  // Rule 4, send-link: Truv sends the same order by email and SMS once notifications are
+  // un-suppressed (PATCH /v1/orders/{id}/). The embed stays mounted.
+  async function sendLink() {
+    if (!app.orderId || busy) return;
+    setBusy(true); setStepMsg('');
+    try {
+      const r = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(app.orderId)}/notify`, { method: 'POST' });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || 'We could not send the link. Try again.');
+      patch({ linkSent: true });
+      setStepMsg(`Truv will send the link to ${[f.email, f.phone].filter(Boolean).join(' and ')}. Finish on your phone, or right here.`);
+    } catch (e) { setStepMsg(e.message); }
+    setBusy(false);
+  }
+  // Finished on the phone: no COMPLETED reaches this page, so read the order (completed_at).
+  async function checkStatus() {
+    setBusy(true); setStepMsg('');
+    try {
+      const r = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(app.orderId)}`);
+      const data = await r.json();
+      if (!r.ok) throw new Error('We could not check your verification. Try again.');
+      if (data.raw_response?.completed_at) { closeBridge(); patch({ verified: true, linkSent: false, manual: null }); }
+      else setStepMsg('Not finished yet. You can also finish right here.');
+    } catch (e) { setStepMsg(e.message); }
+    setBusy(false);
+  }
+  // Rule 9 edit affordance: a finished order is not reopened; start a new one for the same person.
+  function editIncome() { closeBridge(); setConnected(false); patch({ verified: false, orderId: null, linkSent: false, manual: null, dialogClosed: false }); }
+
+  function goto(step) { if (app.step === 2 && step !== 2) closeBridge(); patch({ step, dialogClosed: false }); }
   function save() { saveCase(app); setNote(`Saved. Case ${app.caseNumber} can be picked up from the start screen.`); }
   function stepAway() { closeBridge(); saveCase(app); setAway(true); }
   function comeBack() {
     const rec = loadCases().find(c => c.caseNumber === app.caseNumber);
-    if (rec) setApp({ ...rec, step: rec.orderId && !rec.verified ? 2 : rec.step });
+    if (rec) setApp({ ...rec, dialogClosed: false, step: rec.orderId && !rec.verified ? 2 : rec.step });
     setAway(false);
   }
   function startOver() { closeBridge(); discardCase(app.caseNumber); onExit(`Discarded case ${app.caseNumber}.`); }
@@ -390,7 +418,9 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
       <input type={type} value={f[k]} onInput={e => patch({ form: { ...f, [k]: e.currentTarget.value } })} disabled={!!app.orderId} />
     </label>
   );
-  // Changing an answer after an order exists would change its products, so lock them.
+  // Rule 3: these two declarations drive eligibility (which products are verified), so they
+  // stay, on "About you", and Continue goes straight to the order page. Locked once an order
+  // exists, since changing them would change its products.
   const question = (k, text) => (
     <fieldset class="cpp-q"><legend>{text}</legend>
       {['yes', 'no'].map(v => (
@@ -399,7 +429,7 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
       ))}
     </fieldset>
   );
-  const launchLabel = bridgeOpen ? 'Verification in progress' : app.orderId ? 'Resume verification' : inline ? 'Connect' : 'Verify';
+  const setManual = (k) => (e) => patch({ manual: { ...(app.manual || {}), [k]: e.currentTarget.value } });
 
   const bodies = [
     <div class="cpp-programs">
@@ -408,76 +438,63 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
         <label key={p.id} class="cpp-check"><input type="checkbox" checked={app.programs.includes(p.id)} onChange={() => toggleProgram(p.id)} /><span>{p.name}</span></label>
       ))}
     </div>,
-    <div class="cpp-fields">
-      {field('first_name', 'First name')}{field('last_name', 'Last name')}
-      {field('email', 'Email *', 'email')}{field('phone', 'Phone', 'tel')}
-      <p class="cpp-note">* Enter an email for demo purposes.</p>
+    <div>
+      <div class="cpp-fields">
+        {field('first_name', 'First name')}{field('last_name', 'Last name')}
+        {field('email', 'Email *', 'email')}{field('phone', 'Phone', 'tel')}
+        <p class="cpp-note">* Enter an email for demo purposes.</p>
+      </div>
+      <div class="cpp-person cpp-declare">
+        {question('job', 'Do you have a job or earn income?')}
+        {ans.job != null && question('account', 'Do you have a checking or savings account?')}
+      </div>
       {app.orderId && <p class="cpp-muted">Locked: a verification order already uses these details.</p>}
     </div>,
-    <div class={`cpp-person${bridgeOpen && inline ? ' is-open' : ''}`}>
-      <div class="cpp-person-head">
-        <div>
-          <strong>{f.first_name || 'Applicant'} {f.last_name}</strong>
-          <span class="cpp-muted">{route ? route.name : 'Answer the questions below'}</span>
-        </div>
-        {app.verified && <span class="cpp-verified">✓ Verified</span>}
-      </div>
-      {question('job', 'Do you have a job or earn income?')}
-      {ans.job != null && question('account', 'Do you have a checking or savings account?')}
-      {route && !nothing && !app.verified && !app.manual && (
-        <div class="cpp-row"><button type="button" class="cpp-btn" onClick={launch} disabled={bridgeOpen || busy || !!lockReason(2)}>{busy ? 'Preparing…' : launchLabel}</button>
-          <button type="button" class="cpp-btn-ghost" onClick={openSend} disabled={bridgeOpen || !!lockReason(2)}>Email or text me this link</button>
+    // Rule 1/2: the order page is the step's content; nothing of ours above it.
+    <div class="cpp-income">
+      {nothing && <p class="cpp-muted">No job and no account: nothing needs verifying.</p>}
+      {app.verified && (
+        // Rule 9: the verified result, read-only, with an edit affordance.
+        <div class="cpp-result">
+          <span class="cpp-verified">✓ Verified</span>
+          <span>{route?.name}</span>
+          <button type="button" class="cpp-link" onClick={editIncome}>Edit</button>
         </div>
       )}
-      {sendOpen && route && !nothing && !app.verified && !app.manual && (
-        <div class="cpp-send">
-          {app.orderId && !app.sentTo ? (
-            <p>Truv sent this link to {[f.email, f.phone].filter(Boolean).join(' and ')} when your verification started. Open it on your phone to finish.</p>
-          ) : !app.orderId ? (<>
-            <p>Get the link on your phone and finish there, for example with your phone's saved sign-in.</p>
-            <div class="cpp-send-via">
-              {[['email', 'Email'], ['phone', 'Text']].map(([v, l]) => (
-                <label key={v} class="cpp-check"><input type="radio" name="send-via" checked={sendVia === v}
-                  onChange={() => { setSendVia(v); setSendTo(v === 'email' ? f.email : f.phone); }} /><span>{l}</span></label>
-              ))}
+      {route && !nothing && !app.verified && (<>
+        {inline
+          ? <div ref={inlineRef} class="cpp-inline-body" data-loading={busy && !bridgeOpen ? 'true' : undefined} />
+          : !bridgeOpen && (
+            <div class="cpp-dialog-closed">
+              <p class="cpp-muted">{busy ? 'Opening your verification…' : app.dialogClosed ? 'You closed your verification.' : 'Your verification opens in a window over this page.'}</p>
+              {app.dialogClosed && !busy && <button type="button" class="cpp-btn" onClick={() => patch({ dialogClosed: false })}>Reopen verification</button>}
             </div>
-            <div class="cpp-row">
-              <input class="cpp-send-to" type={sendVia === 'email' ? 'email' : 'tel'} value={sendTo} onInput={e => setSendTo(e.currentTarget.value)}
-                placeholder={sendVia === 'email' ? 'name@domain.com' : '4155554193'} aria-label={sendVia === 'email' ? 'Email address' : 'Mobile number'} />
-              <button type="button" class="cpp-btn" onClick={sendLink} disabled={busy || !sendTo.trim()}>{busy ? 'Sending…' : 'Send link'}</button>
-            </div>
-          </>) : null}
-          {app.orderId && (
-            <div class="cpp-row"><button type="button" class="cpp-btn-ghost" onClick={checkStatus} disabled={busy}>{busy ? 'Checking…' : 'I finished on my phone'}</button></div>
           )}
-          {sendMsg && <p class="cpp-muted" role="status">{sendMsg}</p>}
-        </div>
-      )}
-      {nothing && <p class="cpp-muted">No job and no account: no order is created and nothing needs verifying.</p>}
-      {inline && (
-        <div class="cpp-inline" hidden={!bridgeOpen}>
-          <div class="cpp-inline-head"><span>{app.verified ? 'Verification complete' : 'Verify your income'}</span>
-            <button type="button" class="cpp-link" onClick={closeBridge}>{app.verified ? 'Done' : 'Close'}</button></div>
-          <div ref={inlineRef} class="cpp-inline-body" />
-        </div>
-      )}
-      {route && !nothing && !app.verified && (
-        <div class="cpp-manual">
-          {app.manual ? (<>
-            <p><strong>You chose to continue manually.</strong> The agency will contact you about other ways to show your income, such as documents or an interview.</p>
-            <button type="button" class="cpp-link" onClick={() => patch({ manual: false })}>Verify online instead</button>
-          </>) : (<>
-            <p>Don't want to connect your accounts online?</p>
-            <button type="button" class="cpp-link" onClick={() => { closeBridge(); setSendOpen(false); patch({ manual: true }); }}>Continue manually</button>
-          </>)}
-        </div>
-      )}
+        {/* Rule 4: one row directly beneath the embed - manual entry as a text link, and a
+            secondary button that sends the same order by email or SMS. */}
+        {app.orderId && (
+          <div class="cpp-escapes">
+            {!connected && <button type="button" class="cpp-link" onClick={() => setManualOpen(o => !o)}>Enter income manually</button>}
+            {!app.linkSent
+              ? <button type="button" class="cpp-btn-ghost" onClick={sendLink} disabled={busy}>Email or text me this link</button>
+              : <button type="button" class="cpp-link" onClick={checkStatus} disabled={busy}>Finished on your phone? Check now</button>}
+          </div>
+        )}
+        {manualOpen && !connected && (
+          <div class="cpp-manual-form">
+            <label class="cpp-field"><span>Employer or income source</span><input value={app.manual?.source || ''} onInput={setManual('source')} /></label>
+            <label class="cpp-field"><span>Gross monthly income ($)</span><input inputMode="decimal" value={app.manual?.amount || ''} onInput={setManual('amount')} /></label>
+            <p class="cpp-muted">The agency may ask you for proof of this income later.</p>
+          </div>
+        )}
+        {stepMsg && <p class="cpp-muted" role="status">{stepMsg}</p>}
+      </>)}
     </div>,
     <div class="cpp-review">
       <dl>
         <dt>Programs</dt><dd>{app.programs.map(id => PROGRAMS.find(p => p.id === id)?.name).join(', ') || '—'}</dd>
         <dt>Applicant</dt><dd>{f.first_name} {f.last_name} · {f.email}</dd>
-        <dt>Verification</dt><dd>{nothing ? 'Nothing to verify' : app.verified ? `${route.name}: verified` : app.manual ? 'Continuing manually' : 'Not yet verified'}</dd>
+        <dt>Verification</dt><dd>{nothing ? 'Nothing to verify' : app.verified ? `${route.name}: verified` : app.manual?.amount ? `Entered manually: $${app.manual.amount}/month` : app.linkSent ? 'Link sent, not yet verified' : 'Not yet verified'}</dd>
       </dl>
       <div class="cpp-row">
         {/* Demo stops here: submitting is a placeholder, nothing is sent anywhere. */}
@@ -560,12 +577,12 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
         {bodies[i]}
         {i < 3 && (
           <div class="cpp-row cpp-slide-nav">
-            <button type="button" class="cpp-btn-ghost" disabled={i === 0 || bridgeOpen} onClick={() => patch({ step: i - 1 })}>Back</button>
+            <button type="button" class="cpp-btn-ghost" disabled={i === 0} onClick={() => goto(i - 1)}>Back</button>
             <span class="cpp-muted">{blocked}</span>
-            <button type="button" class="cpp-btn" disabled={!!blocked || bridgeOpen} onClick={() => patch({ step: i + 1 })}>Continue</button>
+            <button type="button" class="cpp-btn" disabled={!!blocked} onClick={() => goto(i + 1)}>{i === 2 && deferred ? 'Continue without verifying here' : 'Continue'}</button>
           </div>
         )}
-        {i === 3 && <button type="button" class="cpp-btn-ghost" onClick={() => patch({ step: 2 })}>Back</button>}
+        {i === 3 && <button type="button" class="cpp-btn-ghost" onClick={() => goto(2)}>Back</button>}
       </section>
       {aside}
       </div>
