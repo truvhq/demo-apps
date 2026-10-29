@@ -10,7 +10,6 @@
 import { useState } from 'preact/hooks';
 import { Layout, usePanel, IntroSlide } from '../components/index.js';
 import { CoverageRunner } from '../components/CoverageRunner.jsx';
-import { BANK_COVERAGE_DIAGRAM as DIAGRAM } from '../diagrams/coverage-analysis.js';
 import { STEPS, INTRO_SLIDE_CONFIG, PRODUCT_OPTIONS } from './scaffolding/bank-coverage.jsx';
 
 export function BankCoverageDemo() {
@@ -26,14 +25,14 @@ export function BankCoverageDemo() {
   const isIntro = screen === 'select';
 
   return (
-    <Layout badge="Financial Accounts Coverage" steps={STEPS} panel={panel} hidePanel={isIntro}>
+    <Layout badge="Financial Accounts Coverage" steps={STEPS} panel={panel} hidePanel={isIntro} theme="checkr">
       <div class={isIntro ? 'flex-1 flex flex-col' : 'flex-1 overflow-y-auto'}>
         {isIntro ? (
           <IntroSlide
+            theme="checkr"
             label={INTRO_SLIDE_CONFIG.label}
             title={INTRO_SLIDE_CONFIG.title}
             subtitle={INTRO_SLIDE_CONFIG.subtitle}
-            diagram={DIAGRAM}
             actions={<button onClick={start} class="w-full py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover active:bg-primary-active transition-colors text-center">Get started</button>}
           />
         ) : (
