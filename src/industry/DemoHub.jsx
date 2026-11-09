@@ -14,6 +14,7 @@ const DEMO_ICONS = {
   'verifier-portal': Icons.shieldCheck,
   'renewals-refresh': Icons.repeat,
   'documents': Icons.upload,
+  'batch-orders': Icons.fileCsv,
 };
 
 // Guides: how to build and roll these out.
