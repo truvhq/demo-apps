@@ -169,19 +169,24 @@ Two guarantees worth knowing:
 - **One bad row never blocks the rest.** The good rows are sent; the bad ones come
   back in a small file you can fix and drop straight back into `input/`. Only the
   rows you fix get sent - the ones already created are not repeated.
-- **The same applicant is not ordered twice by accident.** The tool keeps a list
-  of everyone it has submitted, in `state/ledger.csv`, keyed on the **person and
-  the case** - not the case alone. Re-dropping the same file, or a renamed copy,
-  creates nothing new.
-  - **This works best when every row has a `case_number`.** Truv also checks the
-    case-based order reference, so a repeat is caught even if the ledger is lost.
-    Rows without a case number are matched on name, email and phone in the
-    ledger only.
+- **The same applicant is not ordered twice by accident.** Two checks stop it:
+  - Every order carries a stable reference. Truv refuses a reference it already
+    has, so a repeat is caught even after a timeout retry or a lost ledger. With
+    a `case_number` the reference is the case plus the name
+    (`CASE-1001-Maria-Lopez`); without one it is built from name, email and phone
+    (`P-3f9a1c0b7e2d4a65`).
+  - The tool also keeps a list of everyone it has submitted, in
+    `state/ledger.csv`, kept separately for sandbox and production. People you
+    test in sandbox are not skipped when you go live.
   - A household sharing one `case_number` is several applicants, and each one
     gets their own order.
-  - Repeat verification for the same person is legitimate - a redetermination, a
-    retry, an expired order. Put `yes` in a `force_new` column on that row and a
-    **new order** is created, with the date and time added to its reference
+  - **Renewals:** set `order_cycle` in `config.ini` (for example `2026-11`), or
+    add a `cycle` column. The cycle is added to every reference
+    (`CASE-1001-Maria-Lopez-2026-11`), so each person is ordered once per cycle
+    and next cycle's file creates new orders.
+  - For a repeat inside the same cycle - a retry or an expired order - put `yes`
+    in a `force_new` column on that row. A **new order** is created, with the
+    date and time added to its reference
     (for example `CASE-1001-Maria-Lopez-R20261019153000`).
   - If Truv already has an order with a row's reference, nothing new is created
     and the row is reported as **already ordered**, never as created.
@@ -221,6 +226,7 @@ instructions rather than half-sent - split it across runs.
 | `staff_name` | No | Staff member who owns the order |
 | `staff_email` | No | Staff member who owns the order - receives Truv's order notifications |
 | `cc_emails` | No | Extra people to copy. Separate several with `;`. Maximum 15. |
+| `cycle` | No | The renewal cycle for this row, for example `2026-11`. Overrides `order_cycle` in `config.ini`. |
 | `force_new` | No | Put `yes` here to create a new order even if this applicant was sent before - redeterminations, retries, expired orders. |
 
 Need a blank one? `python3 truv_intake.py template`. The template has two sample
@@ -443,7 +449,7 @@ Every error message names the thing to check. If `doctor` passes and orders are
 still not appearing, that is ours; if it fails on folders, email or the
 scheduler, that is yours.
 
-**Version.** This is version 2.2. Every request the tool makes carries its
+**Version.** This is version 2.3. Every request the tool makes carries its
 version in the `User-Agent` header. Two things you can do to help:
 
 - Run `python3 truv_intake.py version` and include the output in any support
