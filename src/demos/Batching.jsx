@@ -298,7 +298,7 @@ const ASSETS = [
       files: [
         {
           f: 'truv_intake.py', d: 'the tool - run this',
-          about: 'Builds the order body from one CSV row. The reference is the case number plus the name, so each household member gets their own order. Field names verified against openapi.yaml.',
+          about: 'Builds the order body from one CSV row. Every order gets a stable reference - the case number plus the name, or a person id when there is no case number - plus the renewal cycle, so Truv itself refuses a duplicate. Field names verified against openapi.yaml.',
           code: [
             'def build_payload(row, truv, stamp=None):',
             '    payload = {',
@@ -306,9 +306,7 @@ const ASSETS = [
             '        "first_name": (row.get("first_name") or "").strip(),',
             '        "last_name": (row.get("last_name") or "").strip(),',
             '    }',
-            '    order_number = order_number_for(row, stamp)',
-            '    if order_number:',
-            '        payload["order_number"] = order_number',
+            '    payload["order_number"] = order_number_for(row, stamp, truv)',
             '    if (row.get("email") or "").strip():',
             '        payload["email"] = row["email"].strip()',
             '    phone = normalize_phone(row.get("phone", ""))',

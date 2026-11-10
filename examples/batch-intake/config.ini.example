@@ -17,7 +17,14 @@ access_key = REPLACE_ME
 environment = sandbox
 
 # Which verifications to request on each order. Comma-separated.
-products = income,assets
+# Benefits programs verify income only; add assets only if your program uses it.
+products = income
+
+# Optional. The renewal cycle these orders belong to, e.g. 2026-11. It becomes
+# part of every order reference, so the same person is ordered once per cycle:
+# a re-run of the same file is skipped, and next cycle's file creates new orders.
+# A "cycle" column in the file overrides this for that row.
+order_cycle =
 
 # Optional. Leave blank to use your account's default template.
 template_id =

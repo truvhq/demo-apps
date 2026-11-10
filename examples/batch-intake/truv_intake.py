@@ -33,7 +33,7 @@ nothing to install.
 
 import sys
 
-VERSION = "2.2"
+VERSION = "2.3"
 MIN_PY = (3, 8)
 
 # ------------------------------------------------------------------ python gate
@@ -108,7 +108,7 @@ BATCH_POLL_TIMEOUT_SEC = 3600
 API_BASE = "https://prod.truv.com/v1"
 
 COLUMNS = ["first_name", "last_name", "case_number", "email", "phone",
-           "staff_name", "staff_email", "cc_emails", "force_new"]
+           "staff_name", "staff_email", "cc_emails", "force_new", "cycle"]
 REQUIRED_COLUMNS = ["first_name", "last_name"]
 
 # Common header names from case systems, mapped to the tool's columns. Matching
@@ -152,7 +152,14 @@ access_key = REPLACE_ME
 environment = sandbox
 
 # Which verifications to request on each order. Comma-separated.
-products = income,assets
+# Benefits programs verify income only; add assets only if your program uses it.
+products = income
+
+# Optional. The renewal cycle these orders belong to, e.g. 2026-11. It becomes
+# part of every order reference, so the same person is ordered once per cycle:
+# a re-run of the same file is skipped, and next cycle's file creates new orders.
+# A "cycle" column in the file overrides this for that row.
+order_cycle =
 
 # Optional. Leave blank to use your account's default template.
 template_id =
@@ -332,8 +339,9 @@ def truv_settings(cfg):
         # What the KEY says, as opposed to what config.ini claims. Any disagreement
         # is fatal - see enforce_environment().
         "key_environment": env_from_key(access_key),
-        "products": [p.strip() for p in cfg.get("truv", "products", fallback="income,assets").split(",") if p.strip()],
+        "products": [p.strip() for p in cfg.get("truv", "products", fallback="income").split(",") if p.strip()],
         "template_id": cfg.get("truv", "template_id", fallback="").strip(),
+        "order_cycle": cfg.get("truv", "order_cycle", fallback="").strip(),
     }
 
 
@@ -551,30 +559,54 @@ def row_errors(row, require_staff_email):
     return problems
 
 
-def order_number_for(row, stamp=None):
-    """The order reference Truv stores: the case number plus the applicant's name.
+def row_cycle(row, truv=None):
+    """The renewal cycle for this row: its own cycle column, else order_cycle."""
+    c = (row.get("cycle") or "").strip()
+    if not c and truv:
+        c = truv.get("order_cycle", "")
+    return re.sub(r"\s+", "-", c)
+
+
+def person_hash(row):
+    """A stable id for the person from name, email and phone."""
+    name = "%s|%s" % ((row.get("first_name") or "").strip().lower(),
+                      (row.get("last_name") or "").strip().lower())
+    who = "%s|%s|%s" % (name, (row.get("email") or "").strip().lower(),
+                        normalize_phone(row.get("phone", "")))
+    return hashlib.sha256(who.encode()).hexdigest()[:16]
+
+
+def order_number_for(row, stamp=None, truv=None):
+    """The order reference Truv stores. Every order gets one.
 
     order_number must be unique within the environment, and the BATCH endpoint
     deduplicates on it - an order whose number already exists is skipped and
-    reported as `existing`. A benefits case routinely covers a whole household, so
-    sending the bare case number would create an order for the first person and
-    silently attach everyone after them to it. Verified against sandbox: three
-    household members on one case number produced ONE order.
+    reported as `existing`. That is the only duplicate protection that survives a
+    timeout retry or a lost ledger, so a row without a case number still gets a
+    stable reference built from the person's name, email and phone.
 
-    Adding the name makes each applicant their own order. In the dashboard the
-    reference reads `CASE-1001-Maria-Lopez`; searching the case number still finds
-    the whole household because every reference starts with it.
+    With a case number the reference is the case plus the applicant's name, so a
+    household on one case gets one order per person (verified against sandbox:
+    three household members on a bare case number produced ONE order). It reads
+    `CASE-1001-Maria-Lopez`; searching the case number finds the household.
+    Without one it reads `P-<16 hex>`.
+
+    The renewal cycle (cycle column or order_cycle) is appended, so the same
+    person gets a new order each cycle and a repeat within a cycle is skipped.
     """
     case = (row.get("case_number") or "").strip()
-    if not case:
-        return ""
-    name = "%s %s" % ((row.get("first_name") or "").strip(),
-                      (row.get("last_name") or "").strip())
-    ref = re.sub(r"\s+", "-", ("%s %s" % (case, name)).strip())
-    # A force_new row is a deliberate repeat (redetermination, expired order).
-    # Truv's batch endpoint treats an order_number it already has as `existing`
-    # and creates NOTHING, so a repeat needs its own reference. The run stamp
-    # keeps it unique and still starts with the case number for searching.
+    if case:
+        name = "%s %s" % ((row.get("first_name") or "").strip(),
+                          (row.get("last_name") or "").strip())
+        ref = re.sub(r"\s+", "-", ("%s %s" % (case, name)).strip())
+    else:
+        ref = "P-%s" % person_hash(row)
+    cycle = row_cycle(row, truv)
+    if cycle:
+        ref = "%s-%s" % (ref, cycle)
+    # A force_new row is a deliberate repeat inside the same cycle. Truv's batch
+    # endpoint treats an order_number it already has as `existing` and creates
+    # NOTHING, so a repeat needs its own reference. The run stamp keeps it unique.
     if is_truthy(row.get("force_new")) and stamp:
         ref = "%s-R%s" % (ref, stamp)
     return ref
@@ -587,9 +619,7 @@ def build_payload(row, truv, stamp=None):
         "first_name": (row.get("first_name") or "").strip(),
         "last_name": (row.get("last_name") or "").strip(),
     }
-    order_number = order_number_for(row, stamp)
-    if order_number:
-        payload["order_number"] = order_number
+    payload["order_number"] = order_number_for(row, stamp, truv)
     if (row.get("email") or "").strip():
         payload["email"] = row["email"].strip()
     phone = normalize_phone(row.get("phone", ""))
@@ -722,45 +752,46 @@ def is_truthy(value):
     return (value or "").strip().lower() in ("1", "y", "yes", "true", "t")
 
 
-def row_key(row, index, source_file):
-    """Stable identity for a row: the PERSON within the case, not the case.
+def row_key(row, index, source_file, truv=None):
+    """Stable identity for a row: the PERSON within the case, in this cycle.
 
     A case number is not unique to a person. Benefits cases routinely cover a
     whole household, so several rows legitimately share one case_number - keying
-    on the case alone would reject a household as duplicates and would silently
-    skip everyone after the first. The key is therefore case_number plus the
-    applicant's name.
+    on the case alone would reject a household as duplicates. The key is
+    therefore case_number plus the applicant's name, or, without a case number,
+    the person's name, email and phone.
 
-    Repeat verification for the same person on the same case is also legitimate
-    - redeterminations, an expired order, a second attempt after no_data. Set
-    `force_new` on that row to bypass the check and always create a new order.
+    The renewal cycle is part of the key, so next cycle's file is not skipped as
+    already ordered. For a repeat inside one cycle (an expired order, a second
+    attempt after no_data) set `force_new` on that row.
     """
     case = (row.get("case_number") or "").strip().lower()
     name = "%s|%s" % ((row.get("first_name") or "").strip().lower(),
                       (row.get("last_name") or "").strip().lower())
-    if case:
-        return "case:%s|%s" % (case, name)
-    # No case number: key on who the person is (name plus email and phone), not
-    # on where the row sits, so renaming or re-sorting a file cannot create
-    # duplicates. Truv's own duplicate check needs an order_number, which needs a
-    # case number - so rows without one rely on this local key alone.
-    who = "%s|%s|%s" % (name, (row.get("email") or "").strip().lower(),
-                        normalize_phone(row.get("phone", "")))
-    return "person:%s" % hashlib.sha256(who.encode()).hexdigest()[:16]
+    key = "case:%s|%s" % (case, name) if case else "person:%s" % person_hash(row)
+    cycle = row_cycle(row, truv)
+    if cycle:
+        key = "%s|cycle:%s" % (key, cycle.lower())
+    return key
 
 
 # =============================================================================
 # Ledger - the tool's memory. This is what makes duplicates impossible.
 # =============================================================================
 
-def ledger_load():
+def ledger_load(environment):
+    """Orders already created in THIS environment.
+
+    Keyed per environment so people ordered during a sandbox test are not
+    skipped as already ordered once the tool runs against production.
+    """
     if not os.path.exists(LEDGER_PATH):
         return {}
     out = {}
     try:
         with open(LEDGER_PATH, newline="", encoding="utf-8") as fh:
             for r in csv.DictReader(fh):
-                if r.get("key"):
+                if r.get("key") and (r.get("environment") or "sandbox") == environment:
                     out[r["key"]] = r
     except OSError:
         pass
@@ -1003,7 +1034,7 @@ def process_file(path, truv, cfg, log, dry_run=False):
     for i, row in enumerate(rows, start=1):
         if i in bad_rows or is_truthy(row.get("force_new")):
             continue
-        k = row_key(row, i, path)
+        k = row_key(row, i, path, truv)
         if k in seen_keys:
             bad_rows[i] = ("same applicant as row %d (same name and case_number). "
                            "If this is deliberate - a redetermination or a retry - "
@@ -1033,7 +1064,7 @@ def process_file(path, truv, cfg, log, dry_run=False):
         except (OSError, csv.Error):
             pass
 
-    ledger = ledger_load()
+    ledger = ledger_load(truv["environment"])
 
     def record(row, i, status, order_id, error):
         full = ("%s %s" % ((row.get("first_name") or "").strip(),
@@ -1056,7 +1087,7 @@ def process_file(path, truv, cfg, log, dry_run=False):
             record(row, i, "failed", "", bad_rows[i][:120])
             continue
 
-        key = row_key(row, i, path)
+        key = row_key(row, i, path, truv)
 
         if key in done and not is_truthy(row.get("force_new")):
             summary["skipped"] += 1
@@ -1703,7 +1734,7 @@ def cmd_doctor(args):
             warn("require_sandbox_first is off - production runs are unguarded")
     else:
         ok("the key itself is a SANDBOX key - no real applicants will be contacted")
-    ok("duplicate protection: %d case(s) in the ledger" % len(ledger_load()))
+    ok("duplicate protection: %d case(s) in the %s ledger" % (len(ledger_load(truv["environment"])), truv["environment"]))
 
     say("\nEmail")
     if not cfg.getboolean("email", "enabled", fallback=False):
@@ -1838,9 +1869,9 @@ def cmd_validate(args):
         say("")
         return 0
     ok("No problems found. %d order(s) would be created." % s["rows"])
-    ledger = ledger_load()
+    ledger = ledger_load(truv["environment"])
     dupes = [r for i, r in enumerate(read_rows(args.file)[1], 1)
-             if row_key(r, i, args.file) in ledger]
+             if row_key(r, i, args.file, truv) in ledger]
     if dupes:
         say("")
         warn("%d row(s) were already ordered previously and will be skipped "
@@ -1928,7 +1959,6 @@ def cmd_run(args):
             os.path.join(in_dir, f) for f in names
             if f.lower().endswith(".csv")
             and not f.lower().endswith(".results.csv")
-            and not f.lower().endswith(".failed-rows.csv")
             and f != "orders_template.csv")
 
         summaries = _run_files(paths, cfg, truv, log, started,
@@ -2022,8 +2052,8 @@ def cmd_direct(args):
         die("These values are not valid: %s" % "; ".join(problems),
             "Correct them and run the command again.")
 
-    key = row_key(row, 1, "direct")
-    ledger = ledger_load()
+    key = row_key(row, 1, "direct", truv)
+    ledger = ledger_load(truv["environment"])
     if key in ledger and not args.allow_duplicate:
         prev = ledger[key]
         die("%s was already ordered on %s (order %s)."
