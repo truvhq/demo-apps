@@ -35,6 +35,7 @@ export const STEPS = [
     title: 'Borrower completes verification',
     guide: '<p>The Bridge widget is initialized with:</p>'
       + '<pre>TruvBridge.init({\n  bridgeToken: "...",\n  isOrder: true,\n  position: { type: "inline", container: el }\n})</pre>'
+      + '<p>Bridge resizes the inline iframe to fit its content, so one of the ancestors above <code>el</code> has to be scrollable — usually the page itself, which needs no extra CSS. Just make sure nothing in between clips the overflow or pins the iframe to a fixed height.</p>'
       + '<p>Sandbox credentials: <code>goodlogin</code> / <code>goodpassword</code></p>'
       + '<p><a href="https://docs.truv.com/developers/integration/bridge-widget/overview" target="_blank" rel="noopener noreferrer">Bridge Docs →</a></p>',
   },
