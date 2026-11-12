@@ -32,7 +32,9 @@ const MAX_DELAY_MS = 10_000;
 // Products whose per-order payload may carry employers[] (i.e. company_name). The
 // API rejects employers for anything else ("Providing employers information only
 // supported for products: admin, deposit_switch, employment, income, pll"), so we
-// only attach company_name for these. The curated UI only offers income/employment.
+// only attach company_name for these. The curated UI offers Income & Assets, Income &
+// Employment, or Assets only, so in practice company_name rides along only when the
+// selected products include income (never for the Assets-only option).
 const EMPLOYER_PRODUCTS = new Set(['income', 'employment', 'deposit_switch', 'pll', 'admin']);
 
 // Polling the batch job status: how often, and how long before we give up waiting

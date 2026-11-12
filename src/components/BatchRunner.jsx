@@ -287,17 +287,27 @@ export function BatchRunner({ onStepChange, sessionId, startPolling, stopPolling
       onClose: () => addBridgeEvent?.('onClose()', null),
     });
     bridge.open();
-    // Bridge's dialog is modal and the SDK offers no host-side close, so drop a small
-    // "Close" control into it, matching the Renewals demo, so a presenter is never stuck.
+    // Bridge's dialog is modal and, depending on account settings, may not show its own
+    // close control, so drop a small "Close" button into it and wire Escape, matching the
+    // Renewals demo, so a presenter is never stuck. Tear down with bridge.close() (the SDK's
+    // own close) rather than dialog.close(), which would hide the <dialog> but leave the
+    // Bridge iframe mounted on the page.
     requestAnimationFrame(() => {
       const dialog = document.querySelector('dialog.truv-dialog-root-element');
       if (!dialog || dialog.querySelector('[data-bridge-back]')) return;
+      const leave = () => {
+        dialog.removeEventListener('cancel', onCancel);
+        try { bridge.close(); } catch { /* already closed */ }
+        addBridgeEvent?.('Closed from the demo', null);
+      };
+      const onCancel = (e) => { e.preventDefault(); leave(); };
       const close = document.createElement('button');
       close.type = 'button';
       close.textContent = '← Close';
       close.setAttribute('data-bridge-back', '');
       close.style.cssText = 'position:fixed;top:16px;left:16px;z-index:2;border:0;border-radius:999px;padding:8px 14px;background:#fff;color:#1b1c1f;font-family:inherit;font-weight:500;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.25)';
-      close.addEventListener('click', () => { try { dialog.close(); } catch { /* already closed */ } addBridgeEvent?.('Closed from the demo', null); });
+      close.addEventListener('click', leave);
+      dialog.addEventListener('cancel', onCancel);
       dialog.appendChild(close);
     });
   }
