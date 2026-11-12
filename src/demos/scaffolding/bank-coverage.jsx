@@ -13,7 +13,7 @@ export const STEPS = [
 ];
 
 export const INTRO_SLIDE_CONFIG = {
-  label: 'Coverage Analysis . Bank',
+  label: 'Coverage Analysis · Bank',
   title: 'Bulk-check bank coverage',
   subtitle: 'Upload up to 10,000 financial institutions and see which ones Truv can connect to via Bridge. Hits the providers endpoint with data_source=financial_accounts at scale, with built-in rate limiting and retries.',
 };

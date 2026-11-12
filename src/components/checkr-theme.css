@@ -90,3 +90,14 @@
 .ck-signin .ck-proof-content { opacity:0; animation: ck-proof-in .6s cubic-bezier(.39,.575,.565,1) 1.9s forwards; }
 @keyframes ck-proof-in { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
 @media (prefers-reduced-motion: reduce) { .ck-signin .ck-proof-content { opacity:1; animation:none; } }
+
+/* Status badges (Tailwind light tints) mapped to the Checkr accent palette. */
+.ck-theme .bg-green-100 { background-color: #9bebb2; } .ck-theme .text-green-800 { color: #0f5c3f; }
+.ck-theme .bg-red-100 { background-color: #ff8280; } .ck-theme .text-red-800 { color: #6b1210; }
+.ck-theme .bg-red-50 { background-color: #fff0f0; } .ck-theme .border-red-200 { border-color: #ffc1c0; } .ck-theme .text-red-700 { color: #cc2421; }
+.ck-theme .bg-yellow-100 { background-color: #eff5a6; } .ck-theme .text-yellow-800 { color: #5c6400; }
+.ck-theme .bg-blue-100 { background-color: #d8dee5; }
+.ck-theme .bg-gray-100 { background-color: #f0f2f5; }
+/* Coverage "Export results CSV": hard-coded green, shown as a Checkr primary button. */
+.ck-theme .bg-\[\#16a34a\] { background-color: #1b1c1f; transition: background-color .4s, color .4s; }
+.ck-theme .hover\:bg-\[\#15803d\]:hover, .ck-theme .active\:bg-\[\#166534\]:active { background-color: #23deff; color: #1b1c1f; }
