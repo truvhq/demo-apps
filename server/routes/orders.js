@@ -87,7 +87,7 @@ export default function ordersRoutes({ truv, db, apiLogger }) {
       apiLogger.logApiCall({ userId, method: 'POST', endpoint: '/v1/orders/', requestBody: result.requestBody, responseBody: truvData, statusCode: result.statusCode, durationMs: result.durationMs });
 
       // Return the minimal order info the frontend needs to proceed
-      res.json({ order_id: orderId, truv_order_id: truvData.id, user_id: userId, bridge_token: truvData.bridge_token, status: truvData.status, company_mapping_id: data.company_mapping_id || null, template_id: truvData.template_id || null, template_fallback: templateFallback });
+      res.json({ order_id: orderId, truv_order_id: truvData.id, user_id: userId, bridge_token: truvData.bridge_token, status: truvData.status, share_url: truvData.share_url || truvData.short_share_url || null, company_mapping_id: data.company_mapping_id || null, template_id: truvData.template_id || null, template_fallback: templateFallback });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 
@@ -120,7 +120,7 @@ export default function ordersRoutes({ truv, db, apiLogger }) {
       }
 
       const raw = order.raw_response ? JSON.parse(order.raw_response) : {};
-      res.json({ order_id: order.id, truv_order_id: order.truv_order_id, user_id: userId, status: order.status, bridge_token: order.bridge_token, share_url: order.share_url, raw_response: raw });
+      res.json({ order_id: order.id, truv_order_id: order.truv_order_id, user_id: userId, status: order.status, bridge_token: order.bridge_token, share_url: order.share_url || raw.share_url || raw.short_share_url || null, raw_response: raw });
     } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
   });
 

@@ -13,9 +13,9 @@ import { useState } from 'preact/hooks';
 
 // --- Config: step definitions for the sidebar Guide tab ---
 export const STEPS = [
-  { title: 'Case Worker creates request', guide: '<p>Create a verification order with applicant PII. Truv sends the share link via email/SMS.</p><pre>POST /v1/orders/\n{\n  "first_name": "...",\n  "email": "...",\n  "phone": "...",\n  "products": ["income"]\n}</pre>' },
-  { title: 'Applicant receives link', guide: '<p>The user receives an email/SMS with a verification link. They complete Bridge on their own device.</p><p>Monitor webhooks for status updates.</p>' },
-  { title: 'Case Worker reviews results', guide: '<p>Once the user completes verification, fetch reports:</p><pre>POST /v1/users/{user_id}/reports/</pre>' },
+  { title: 'Case worker creates the order', guide: '<p>The products picked in New verification decide the template. The case number goes in as <code>order_number</code>. With an email or phone, Truv sends the link.</p><pre>POST /v1/orders/\n{\n  "order_number": "40221234",\n  "first_name": "...",\n  "last_name": "...",\n  "email": "...",\n  "phone": "...",\n  "products": ["income", "assets"],\n  "template_id": "..."\n}</pre><p>The response has <code>share_url</code>: the same link, for the case worker to copy.</p>' },
+  { title: 'Applicant completes the link', guide: '<p>The applicant opens the link on their own device and connects payroll, bank, or both.</p><p>Status arrives by the <code>order-status-updated</code> webhook. Refresh status reads it directly:</p><pre>GET /v1/orders/{order_id}/</pre><p><code>employers[].status</code> is the wage earner part, <code>financial_accounts[].status</code> the self-employment part.</p>' },
+  { title: 'Case worker reviews the report', guide: '<p>Once a product is done, create and fetch its report:</p><pre>POST /v1/users/{user_id}/reports/\nPOST /v1/users/{user_id}/assets/reports/</pre>' },
 ];
 
 // --- Config: sample completed applicants shown in the dashboard table ---
@@ -34,10 +34,10 @@ export const VP_PRODUCTS = {
 
 // --- Config: feature cards shown on the intro slide ---
 export const INTRO_FEATURES = [
-  { name: 'Create orders from collected data', desc: 'Use PII from the application. No user interaction needed.' },
-  { name: 'Truv sends verification links', desc: 'Email and SMS sent automatically to the applicant' },
-  { name: 'Track status remotely', desc: 'Monitor webhook events and order status from the dashboard' },
-  { name: 'Fetch reports on completion', desc: 'Pull VOIE, VOE, or VOA reports once the user completes Bridge' },
+  { name: 'Send from the dashboard', desc: 'Pick wage earner, self-employment, or both. The template follows.' },
+  { name: 'Truv delivers the link', desc: 'By email and SMS, or copy it from the case' },
+  { name: 'Track each case', desc: 'Per-product status, refreshed from the order' },
+  { name: 'Open the report', desc: 'Income, assets, and income insights once done' },
 ];
 
 // --- Helper: form validation for AddApplicantForm ---
