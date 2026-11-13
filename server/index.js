@@ -35,6 +35,8 @@ import voiePllRoutes from './routes/voie-pll.js';
 import renewalsRefreshRoutes from './routes/renewals-refresh.js';
 import coverageAnalysisRoutes from './routes/coverage-analysis.js';
 import sandboxRoutes from './routes/sandbox.js';
+import batchOrdersRoutes from './routes/batch-orders.js';
+import { recordBatchEvent } from './batch-events.js';
 import { errorHandler } from './lib/error-handler.js';
 
 // Local mode keeps one TruvClient built from your .env keys and uses it for
@@ -121,6 +123,14 @@ function processWebhookPayload(req) {
   const payload = req.body;
   let userId = payload.user_id || null;
   const linkId = payload.link_id || null;
+
+  // order-batch-completed carries a batch_id and batch counts but no user_id/link_id,
+  // so it can't be stored against a user. The Batch Orders tool reads it from an
+  // in-memory registry keyed by batch_id.
+  if (payload.event_type === 'order-batch-completed' && payload.batch_id) {
+    recordBatchEvent(payload.batch_id, payload);
+    return;
+  }
 
   // When an order completes, update its status in the local database
   if (userId && payload.event_type === 'order-status-updated' && payload.status === 'completed') {
@@ -241,6 +251,7 @@ app.use(voiePllRoutes(deps));
 app.use(renewalsRefreshRoutes(deps));
 app.use(coverageAnalysisRoutes(deps));
 app.use(sandboxRoutes(deps));
+app.use(batchOrdersRoutes({ ...deps, localMode: config.localMode }));
 
 // --- Health check ---
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
