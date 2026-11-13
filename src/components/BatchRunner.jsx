@@ -19,8 +19,8 @@ import {
 } from '../demos/scaffolding/batch-orders.jsx';
 
 const POLL_INTERVAL_MS = 1500;
-const MAX_ROWS = 3000;
-const MAX_BATCH_SIZE = 500;
+const MAX_ROWS = 30000;
+const MAX_BATCH_SIZE = 10000;
 const INBOX_KEY = 'batch-demo-inbox';
 
 // Per-column minimum widths for the editable grid, so wide values (email, notes)
@@ -51,8 +51,8 @@ export function BatchRunner({ onStepChange, sessionId, startPolling, stopPolling
 
   // --- Run config state ---
   const [product, setProduct] = useState(PRODUCT_OPTIONS[0].value);
-  const [batchSize, setBatchSize] = useState(2);
-  const [concurrency, setConcurrency] = useState(1);
+  const [batchSize, setBatchSize] = useState(10000);
+  const [concurrency, setConcurrency] = useState(3);
   const [delayMs, setDelayMs] = useState(0);
   const [templateId, setTemplateId] = useState('');
   const [showScript, setShowScript] = useState(false);
@@ -507,19 +507,19 @@ export function BatchRunner({ onStepChange, sessionId, startPolling, stopPolling
           </Section>
 
           {/* 4. How to send */}
-          <Section title="How to send the file" subtitle="Each batch is one request. Smaller batches let you watch progress, isolate failures, and stay under the 3,000-orders/hour limit. One bad row never blocks the rest.">
-            <div class="max-w-md">
-              <SliderField label="Batch size" help="orders per request" value={batchSize} min={1} max={MAX_BATCH_SIZE} onChange={setBatchSize} />
+          <Section title="How to send the file" subtitle="Each batch is one request, up to 10,000 orders. Need more? Send several in parallel - 30,000 at once is just 3 requests of 10,000. Smaller batches also let you watch progress and isolate failures, and one bad row never blocks the rest.">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5 max-w-xl">
+              <SliderField label="Batch size" help="orders per request" value={batchSize} min={100} max={MAX_BATCH_SIZE} step={100} onChange={setBatchSize} />
+              <SliderField label="Sent at the same time" help="batches in parallel" value={concurrency} min={1} max={8} onChange={setConcurrency} />
             </div>
 
             <Disclosure
               open={showAdvanced}
               onToggle={() => setShowAdvanced(s => !s)}
               label="Advanced"
-              note="concurrency, pacing, template"
+              note="pacing, template"
             >
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
-                <SliderField label="Sent at the same time" help="requests in parallel" value={concurrency} min={1} max={8} onChange={setConcurrency} />
                 <SliderField label="Delay between requests" help="pause to avoid rate limits" value={delayMs} min={0} max={5000} step={100} onChange={setDelayMs} suffix="ms" />
                 <TextField label="Verification template ID (optional)" value={templateId} onChange={setTemplateId} placeholder="tmpl_..." mono
                   hint="Applies a saved verification configuration to every order. Leave blank to use your account default." />
@@ -528,9 +528,9 @@ export function BatchRunner({ onStepChange, sessionId, startPolling, stopPolling
 
             <div class="mt-5 px-4 py-3 rounded-md bg-surface-secondary text-[13px] text-text leading-relaxed">
               <strong>{sendRows.length.toLocaleString()}</strong> applicant{sendRows.length === 1 ? '' : 's'} into{' '}
-              <strong>{batchCount}</strong> batch{batchCount === 1 ? '' : 'es'} of up to <strong>{batchSize}</strong>, {concurrencyWord}
+              <strong>{batchCount}</strong> batch{batchCount === 1 ? '' : 'es'} of up to <strong>{batchSize.toLocaleString()}</strong>, {concurrencyWord}
               {delayMs > 0 ? <>, <strong>{delayMs}ms</strong> apart</> : ''}.
-              <div class="text-[12px] text-muted mt-1">The API accepts up to 10,000 orders per request; this demo caps a run at 3,000 and {MAX_BATCH_SIZE} per batch to stay inside the shared sandbox budget.</div>
+              <div class="text-[12px] text-muted mt-1">A single request takes up to 10,000 orders; this demo lets you send up to 30,000 in one run (e.g. 3 batches of 10,000 in parallel) against the shared sandbox.</div>
             </div>
 
             <button onClick={() => setShowScript(s => !s)} aria-expanded={showScript}
@@ -816,14 +816,14 @@ function SliderField({ label, help, value, min, max, step = 1, onChange, suffix 
     <div>
       <div class="flex items-baseline justify-between mb-1.5">
         <label htmlFor={id} class="text-[13px] font-semibold text-text">{label} <span class="font-normal text-muted">· {help}</span></label>
-        <span class="text-sm font-semibold tabular-nums text-primary">{value}{suffix || ''}</span>
+        <span class="text-sm font-semibold tabular-nums text-primary">{Number(value).toLocaleString()}{suffix || ''}</span>
       </div>
       <input
         id={id}
         type="range"
         min={min} max={max} step={step} value={value}
         onInput={e => onChange(parseInt(e.target.value, 10))}
-        aria-valuetext={`${value}${suffix || ''}`}
+        aria-valuetext={`${Number(value).toLocaleString()}${suffix || ''}`}
         class="w-full accent-primary focus-visible:ring-2 focus-visible:ring-primary rounded focus:outline-none"
       />
     </div>

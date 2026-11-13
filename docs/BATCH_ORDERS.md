@@ -80,10 +80,10 @@ Per-order status:
 `existing` instead of duplicating. A row with no `order_number` gets a generated
 one server-side, so a plain re-run always creates fresh orders.
 
-Limits: the API allows 10,000 orders per batch request and 3,000 orders/hour. This
-demo caps a single run at 3,000 rows and 500 orders per batch so one run can't
-exhaust the hourly budget, and the UI copy, the slider max, and the server clamp
-all agree on those numbers.
+Limits: a single batch request takes up to 10,000 orders; to send more you run several
+requests (e.g. 30,000 at once as 3 requests of 10,000). This demo caps a single run at
+30,000 rows and a single batch at 10,000, and the UI copy, the slider max, and the
+server clamp all agree on those numbers.
 
 Products: the UI offers **Income & Assets** (default), **Income & Employment**, and
 **Assets only**, each mapping to the per-order `products` array (`["income","assets"]`,

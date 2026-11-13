@@ -28,9 +28,9 @@ Demos are organized by industry. Each starts with a split intro screen (business
 
 **Sandbox Data Playground** (a tool, in the Public Sector Tools section): use Truv's standard sandbox logins, or create your own test logins that return exactly the data you choose, through the Sandbox Data API (`/v1/sandbox/scenarios/` and `/v1/sandbox/documents/`). Build a scenario from a form or JSON, upload PDFs for W-2s, try a login headlessly (`POST /v1/checks/`) or in Bridge, check which scenario answers a login, and import or export scenarios as JSON. It needs a sandbox key: a production key gets `403 env_not_sandbox`. Scenarios live on the account, so everyone using that sandbox key sees them.
 
-**Batch Orders** (a demo, in the Public Sector Demos section): a hands-on way to *understand* bulk order creation — the batch endpoint, the job lifecycle, and the `order-batch-completed` webhook and how to handle it. It is a learning sandbox, not a production bulk-runner. Build a small applicant file in an editable grid or upload a CSV (pick which columns ride along; only `first_name` and `last_name` are required, while `phone`, `email`, `company_name`, `order_number`, and `external_user_id` are on by default and can be turned off), send it to the sandbox through `POST /v1/orders/batch/`, and watch the `202 { id }` → poll `GET /v1/orders/batch/{id}/` → per-order results flow. Every row comes back `created`, `existing` (the `order_number` already existed, so nothing was duplicated — safe re-runs), or `failed` (one bad row never blocks the rest). Play with batch size, concurrency, and pacing (the live script rewrites itself to match), and with `notification_settings`. The `order-batch-completed` webhook is surfaced when a webhook URL is configured. Jobs run in-memory (no DB); capped at 3,000 orders per run and 500 per batch for the shared sandbox.
+**Batch Orders** (a demo, in the Public Sector Demos section): a hands-on way to *understand* bulk order creation - the batch endpoint, the job lifecycle, and the `order-batch-completed` webhook and how to handle it. It is a learning sandbox, not a production bulk-runner. Build a small applicant file in an editable grid or upload a CSV (pick which columns ride along; only `first_name` and `last_name` are required, while `phone`, `email`, `company_name`, `order_number`, and `external_user_id` are on by default and can be turned off), send it to the sandbox through `POST /v1/orders/batch/`, and watch the `202 { id }` → poll `GET /v1/orders/batch/{id}/` → per-order results flow. Every row comes back `created`, `existing` (the `order_number` already existed, so nothing was duplicated - safe re-runs), or `failed` (one bad row never blocks the rest). Play with batch size, concurrency, and pacing (the live script rewrites itself to match), and with `notification_settings`. The `order-batch-completed` webhook is surfaced when a webhook URL is configured. Jobs run in-memory (no DB); capped at 30,000 orders per run (3 requests of 10,000) for the shared sandbox.
 
-> **notification_settings for off-hours batches.** When Truv sends the applicant email/SMS and a batch runs off-hours (e.g. a scheduled overnight job), pass `notification_settings` on each order with `first_notification_delay_hours` set so the first notification fires at the start of business hours instead of the middle of the night — e.g. a 2am job with `first_notification_delay_hours: 6` holds notifications until 8am. `suppress_user_notifications: true` turns applicant notifications off entirely and overrides the delay.
+> **notification_settings for off-hours batches.** When Truv sends the applicant email/SMS and a batch runs off-hours (e.g. a scheduled overnight job), pass `notification_settings` on each order with `first_notification_delay_hours` set so the first notification fires at the start of business hours instead of the middle of the night - e.g. a 2am job with `first_notification_delay_hours: 6` holds notifications until 8am. `suppress_user_notifications: true` turns applicant notifications off entirely and overrides the delay.
 
 ### Consumer Credit
 
@@ -145,7 +145,7 @@ npm start      # Backend (Express, port 3000)
 npm run dev    # Frontend (Vite, port 5173)
 ```
 
-Open **http://localhost:5173** and pick an industry — the demos use your `.env`
+Open **http://localhost:5173** and pick an industry - the demos use your `.env`
 keys directly, no Configure screen.
 
 ### Sandbox credentials
@@ -326,8 +326,8 @@ The server verifies webhook signatures via HMAC-SHA256.
 
 This project ships with Truv's documentation wired up for AI coding assistants so you can ask questions about the API and this integration directly in your editor.
 
-- **MCP server** — `https://docs.truv.com/mcp`. Already configured for this repo in [`.mcp.json`](.mcp.json). Reload your editor (Cursor, Windsurf, Claude Code, Claude Desktop) after cloning to pick it up. Full setup docs: [truv.com/docs/mcp](https://truv.com/docs/mcp).
-- **llms.txt** — [truv.com/docs/llms.txt](https://truv.com/docs/llms.txt) is a plain-text index of the Truv docs optimized for LLMs. Paste it into an assistant that doesn't support MCP to give it full context on Truv APIs.
+- **MCP server** - `https://docs.truv.com/mcp`. Already configured for this repo in [`.mcp.json`](.mcp.json). Reload your editor (Cursor, Windsurf, Claude Code, Claude Desktop) after cloning to pick it up. Full setup docs: [truv.com/docs/mcp](https://truv.com/docs/mcp).
+- **llms.txt** - [truv.com/docs/llms.txt](https://truv.com/docs/llms.txt) is a plain-text index of the Truv docs optimized for LLMs. Paste it into an assistant that doesn't support MCP to give it full context on Truv APIs.
 
 ## License
 

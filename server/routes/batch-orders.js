@@ -21,11 +21,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { serializeCsv } from '../lib/csv.js';
 import { getBatchEvent } from '../batch-events.js';
 
-// Guardrails. The API allows 10,000 orders per batch request and 3,000 orders/hour;
-// we cap a single demo run at 3,000 rows so one run can't blow the hourly budget,
-// and cap a single batch at 500 to match the UI slider (one consistent story).
-const MAX_ROWS = 3000;
-const MAX_CHUNK_SIZE = 500;
+// Guardrails. A single batch request takes up to 10,000 orders; to send more you run
+// several requests (e.g. 30,000 at once as 3 requests of 10,000), so we cap a demo run
+// at 30,000 rows and a single batch at 10,000 to match the API and the UI slider.
+const MAX_ROWS = 30000;
+const MAX_CHUNK_SIZE = 10000;
 const MAX_CONCURRENCY = 8;
 const MAX_DELAY_MS = 10_000;
 
@@ -153,8 +153,8 @@ export default function batchOrdersRoutes({ truv, apiLogger, localMode = false }
     if (badProduct) return res.status(400).json({ error: `Invalid product: ${badProduct}` });
 
     // Clamp the knobs so a bad value from the UI can't create a pathological run.
-    const chunkSize = clamp(parseInt(body.chunk_size, 10) || 50, 1, MAX_CHUNK_SIZE);
-    const concurrency = clamp(parseInt(body.concurrency, 10) || 1, 1, MAX_CONCURRENCY);
+    const chunkSize = clamp(parseInt(body.chunk_size, 10) || 10000, 100, MAX_CHUNK_SIZE);
+    const concurrency = clamp(parseInt(body.concurrency, 10) || 3, 1, MAX_CONCURRENCY);
     const delayMs = clamp(parseInt(body.delay_ms, 10) || 0, 0, MAX_DELAY_MS);
     const templateId = (body.template_id || '').trim() || null;
 
