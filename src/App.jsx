@@ -43,6 +43,7 @@ import { PSDocumentProcessingDemo } from './demos/PSDocumentProcessing.jsx';
 import { BatchingWalkthrough } from './demos/Batching.jsx';
 import { EmbeddedOrdersGuide } from './demos/EmbeddedOrdersGuide.jsx';
 import { SandboxPlayground } from './demos/SandboxPlayground.jsx';
+import { BatchOrdersDemo } from './demos/BatchOrders.jsx';
 import { PublicSectorHub } from './industry/PublicSectorHub.jsx';
 import { CoverageHub } from './industry/CoverageHub.jsx';
 import { SmartRoutingDemo } from './demos/SmartRouting.jsx';
@@ -80,6 +81,7 @@ export const INDUSTRIES = [
       { id: 'batching', name: 'Batching', component: BatchingWalkthrough, guide: true, desc: 'Animated walkthrough of bulk order intake: staff drop a CSV into a folder and a scheduled job creates one order per row. Ends with the setup guides and the runnable kit to hand to a customer.', tags: ['Guided', 'Bulk', 'CSV', 'Orders', 'Webhooks'] },
       { id: 'embedded-orders', name: 'Embedded Orders Field Guide', component: EmbeddedOrdersGuide, guide: true, desc: 'For teams building a benefits application: where the order page goes, nine rules, the settings to check, and a pre-launch checklist.', tags: ['Guide'] },
       { id: 'sandbox-playground', name: 'Sandbox Data Playground', component: SandboxPlayground, tool: true, desc: 'Try the test logins every account has, or build your own that return exactly the data you choose.', tags: ['Tool'] },
+      { id: 'batch-orders', name: 'Batch Orders', component: BatchOrdersDemo, desc: 'Learn the batch orders endpoint hands-on: build a small file, send it to the sandbox, and see the job lifecycle, the per-order results (created / existing / failed), and the order-batch-completed webhook. Play with batch size, concurrency, pacing, and notification_settings.', tags: ['Orders', 'Batch', 'orders/batch', 'Webhooks'] },
       { id: 'renewals-refresh', name: 'Renewals & Data Refresh', component: RenewalsRefreshDemo, desc: 'Recertify without asking for documents again. Refresh the payroll and bank connections applicants already made, see which refreshes finish on their own and which need the applicant, and contact only those applicants.', tags: ['Guided', 'Orders', 'Refresh', 'Webhooks'] },
     ],
   },

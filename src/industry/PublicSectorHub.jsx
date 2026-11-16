@@ -14,6 +14,7 @@ const CARD_TEXT = {
   'verifier-portal': 'A case worker creates verification orders from applicant data on file and sends the link by email or SMS.',
   'renewals-refresh': 'Recertify without asking for documents again. Refresh the connections applicants already made, and contact only those who need to act.',
   'documents': 'Verify income from pay stubs, W-2s, and tax returns you have already collected.',
+  'batch-orders': 'Learn the batch orders endpoint hands-on: send a small file to the sandbox and watch the job lifecycle, the per-order results, and the order-batch-completed webhook.',
 };
 const ORDER = Object.keys(CARD_TEXT);
 

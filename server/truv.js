@@ -263,6 +263,28 @@ export class TruvClient {
     return this._request('GET', `orders/${truvOrderId}/`);
   }
 
+  // --- Batch Orders API ---
+  // Creates many orders in one request. Truv responds 202 with a job id and then
+  // processes the orders in the background: valid ones are created, invalid ones are
+  // reported against their position, and an order_number that already exists is
+  // skipped and reported as `existing` (so retrying a batch is safe).
+  // `orders` is the array of per-order payloads (same shape as createOrder's body).
+  // `templateId` / `source` are optional batch-level defaults.
+  // See: https://docs.truv.com/api-reference/orders/orders_batch_create
+  async createBatchOrders(orders, { templateId, source } = {}) {
+    const payload = { orders };
+    if (templateId) payload.template_id = templateId;
+    if (source) payload.source = source;
+    return this._request('POST', 'orders/batch/', { json: payload });
+  }
+
+  // Polls the status of a batch job: overall status (pending | completed | failed),
+  // the per-order results array, and the counts.
+  // See: https://docs.truv.com/api-reference/orders/orders_batch_status
+  async getBatchJob(batchId) {
+    return this._request('GET', `orders/batch/${batchId}/`);
+  }
+
   // --- Data refresh (renewals / recertification) ---
   // Re-pulls data from the connections an existing order already made.
   // POSTing to the order's own path (not a /refresh/ sub-path) creates the refresh:
