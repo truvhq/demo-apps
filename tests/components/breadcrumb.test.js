@@ -111,7 +111,7 @@ describe('getBreadcrumbTrail', () => {
     expect(trail).toEqual([{ label: 'Consumer Credit', href: '#consumer-credit' }]);
   });
 
-  it('returns an empty trail at the Home root', async () => {
-    expect(await trailFor('')).toEqual([]);
+  it('opens Public Sector at the bare root', async () => {
+    expect(await trailFor('')).toEqual([{ label: 'Public Sector', href: '#public-sector' }]);
   });
 });

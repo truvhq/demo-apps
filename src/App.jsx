@@ -126,8 +126,9 @@ const STANDALONE = (import.meta.env?.VITE_STANDALONE_DEMO || '').trim();
 
 function parseHash() {
   // An empty hash in a standalone build resolves to that build's single demo, so
-  // the bare subdomain is a working link.
-  const hash = window.location.hash.slice(1) || STANDALONE;
+  // the bare subdomain is a working link. Otherwise it opens Public Sector, which
+  // also picks the Public Sector sign-in.
+  const hash = window.location.hash.slice(1) || STANDALONE || 'public-sector';
   const [industry, demo, screen, ...rest] = hash.split('/');
   return { industry: industry || '', demo: demo || '', screen: screen || '', param: rest.join('/') || '' };
 }
