@@ -11,9 +11,14 @@
  *
  * The dropdown lives in a plain `relative` wrapper (no overflow-hidden ancestor
  * inside the header), so the menu is never clipped. Closes on outside click,
- * Escape, or selecting an item.
+ * Escape (which restores focus to the trigger), or selecting an item.
+ *
+ * Semantics: this is a disclosure (a button toggling a panel of ordinary nav
+ * links), not an ARIA `menu`. The items are plain <a> links in the natural tab
+ * order, operated with Enter like any link — so there is no menu-pattern
+ * keyboard contract (arrow-key roving) to implement or mis-advertise.
  */
-import { useState, useRef, useEffect } from 'preact/hooks';
+import { useState, useRef, useEffect, useId } from 'preact/hooks';
 import { VERTICAL_META } from '../industries.meta.js';
 
 // Single-demo builds (VITE_STANDALONE_DEMO) open straight on one demo and have
@@ -67,13 +72,17 @@ export function VerticalSwitcher({ theme }) {
   const checkr = theme === 'checkr';
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
+  const triggerRef = useRef(null);
+  const panelId = useId();
   const activeId = currentIndustryId();
 
-  // Close on outside click or Escape while open.
+  // Close on outside click or Escape while open. Escape returns focus to the
+  // trigger (disclosure pattern) so keyboard users are not stranded on a
+  // removed element.
   useEffect(() => {
     if (!open) return;
     const onDown = (e) => { if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false); };
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') { setOpen(false); triggerRef.current?.focus(); } };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -86,9 +95,16 @@ export function VerticalSwitcher({ theme }) {
     ? 'inline-flex items-center gap-1.5 text-[13px] font-medium text-[#474c52] rounded-[6px] px-2 py-1 hover:text-[#1b1c1f] hover:bg-[#f0f2f5] transition-colors duration-[400ms]'
     : 'inline-flex items-center gap-1.5 text-[13px] font-medium text-muted rounded-lg px-2 py-1 hover:text-text hover:bg-[#f5f5f7] transition-colors';
 
-  const panelClass = checkr
-    ? 'absolute left-0 top-full mt-2 w-[280px] rounded-xl border border-[#d8dee5] bg-white shadow-lg ring-1 ring-black/5 p-1.5 z-50'
-    : 'absolute left-0 top-full mt-2 w-[280px] rounded-xl border border-border/60 bg-white shadow-lg ring-1 ring-black/5 p-1.5 z-50';
+  // Positioning: below `sm` the trigger sits close to the left edge, so a 280px
+  // panel anchored to it would overrun a ~320px phone viewport and force
+  // horizontal scrolling. There, pin the panel to the viewport with equal
+  // 12px gutters (fixed, left-3/right-3) under the header. From `sm` up it
+  // reverts to the original left-anchored 280px dropdown — desktop unchanged.
+  const panelPos = 'fixed left-3 right-3 top-14 w-auto sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 sm:w-[280px]';
+  const panelVisual = checkr
+    ? 'rounded-xl border border-[#d8dee5] bg-white shadow-lg ring-1 ring-black/5 p-1.5 z-50'
+    : 'rounded-xl border border-border/60 bg-white shadow-lg ring-1 ring-black/5 p-1.5 z-50';
+  const panelClass = `${panelPos} ${panelVisual}`;
 
   const labelClass = checkr ? 'text-[#5b616b]' : 'text-muted';
   const hoverBg = checkr ? 'hover:bg-[#f0f2f5]' : 'hover:bg-[#f5f5f7]';
@@ -96,10 +112,11 @@ export function VerticalSwitcher({ theme }) {
   return (
     <div ref={rootRef} class="relative shrink-0">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(o => !o)}
-        aria-haspopup="menu"
         aria-expanded={open}
+        aria-controls={panelId}
         aria-label="Switch use case"
         class={triggerClass}
       >
@@ -109,7 +126,7 @@ export function VerticalSwitcher({ theme }) {
       </button>
 
       {open && (
-        <div role="menu" aria-label="Use cases" class={panelClass}>
+        <div id={panelId} class={panelClass}>
           <div class={`px-2.5 pt-1 pb-1.5 text-[10px] font-semibold uppercase tracking-wide ${labelClass}`}>
             Switch use case
           </div>
@@ -118,7 +135,6 @@ export function VerticalSwitcher({ theme }) {
             return (
               <a
                 key={ind.id}
-                role="menuitem"
                 href={`#${ind.id}`}
                 aria-current={isActive ? 'true' : undefined}
                 onClick={() => setOpen(false)}
