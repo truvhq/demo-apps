@@ -26,7 +26,6 @@ export function PublicSectorHub({ industry, section }) {
   return (
     <DemoHub
       trail={[{ label: industry.name, href: `#${industry.id}` }]}
-      back={{ href: '#', label: 'Home' }}
       title="Verify income and employment for benefits"
       lead="Run the applicant, case worker, and renewal flows, then use the guides to build them into your own systems."
       items={items}

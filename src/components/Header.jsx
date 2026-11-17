@@ -13,6 +13,7 @@ import { Icons } from './Icons.jsx';
 import { HeaderActions } from './HeaderActions.jsx';
 import { BrandLogo } from './BrandLogo.jsx';
 import { PhosphorIcons } from './PhosphorIcons.jsx';
+import { VerticalSwitcher } from './VerticalSwitcher.jsx';
 
 // Chevron separator drawn between breadcrumb segments.
 function Chevron({ theme }) {
@@ -104,12 +105,18 @@ export function Header({ trail, badge, sticky, githubInPanel, theme, children })
     : 'flex items-center h-12 bg-white/80 backdrop-blur-xl border-b border-border/40';
   return (
     <header class={`${barClass} ${sticky ? 'sticky top-0 z-10' : ''}`}>
-      {/* overflow-hidden: when the bar runs out of width the breadcrumb clips
-          instead of painting over the action buttons (the logo is shrink-0). */}
-      <div class="flex items-center gap-3 px-3 sm:px-6 flex-1 min-w-0 overflow-hidden">
-        <Breadcrumb trail={trail} theme={theme} />
-        {/* Optional badge label */}
-        {badge && <div class="hidden sm:block text-[11px] font-medium text-muted bg-surface-secondary px-2 py-0.5 rounded-md truncate">{badge}</div>}
+      {/* Left cluster: the breadcrumb (+ optional badge) clips inside its own
+          overflow-hidden group when the bar runs out of width, so it can never
+          paint over the action buttons. The use-case switcher sits just after it
+          as a shrink-0 sibling OUTSIDE that overflow-hidden group — otherwise its
+          dropdown would be clipped by the breadcrumb's clip box. */}
+      <div class="flex items-center gap-2 sm:gap-3 px-3 sm:px-6 flex-1 min-w-0">
+        <div class="flex items-center gap-3 min-w-0 overflow-hidden">
+          <Breadcrumb trail={trail} theme={theme} />
+          {/* Optional badge label */}
+          {badge && <div class="hidden sm:block text-[11px] font-medium text-muted bg-surface-secondary px-2 py-0.5 rounded-md truncate">{badge}</div>}
+        </div>
+        <VerticalSwitcher theme={theme} />
       </div>
       <div class="shrink-0 pr-3 sm:pr-5">
         <HeaderActions githubInPanel={githubInPanel} theme={theme} />
