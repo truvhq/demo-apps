@@ -22,8 +22,8 @@
   --line:#d8dee5; --line-2:#f0f2f5; --bg:#f0f2f5; --panel:#fff;
   --navy:#1b1c1f; --navy-2:#1b1c1f; --brand:#1b1c1f; --brand-soft:#f0f2f5;
   --gold:#1b1c1f; --good:#197d58; --mist:#f0f2f5;
-  --sans:'National 2','Helvetica Neue',Arial,sans-serif; --headline:'National 2 Narrow','Helvetica Neue',Arial,sans-serif;
-  --display:'National 2 Narrow','Helvetica Neue',Arial,sans-serif;
+  --sans:"National 2","Helvetica Neue",Arial,sans-serif; --headline:'National 2 Narrow','Helvetica Neue',Arial,sans-serif;
+  --display:"National 2 Narrow","Arial Narrow",Arial,sans-serif;
   position:relative; display:flex; flex-direction:column;
   background:var(--bg); color:var(--ink); font-family:var(--sans);
   -webkit-font-smoothing:antialiased;
@@ -1013,3 +1013,10 @@
   .bt-prev-page img { width: auto; max-width: 100%; height: auto; max-height: 100%; object-fit: contain; object-position: top; margin: 0 auto; }
 }
 .bt-prev-list { display: grid; grid-template-rows: repeat(4, auto); grid-auto-flow: column; column-gap: 28px; }
+
+/* ---------------- Checkr Brand Guidelines 1.0 (2026) audit ----------------
+   Headlines: National 2 Narrow Medium, 100% line height, -1% tracking.
+   Large call-out numbers: National 2 Narrow Medium. Body: 130% line height. */
+.bt { line-height: 1.3; }
+.bt .wt-title { line-height: 1; letter-spacing: -.01em; }
+.bt-problem-num, .bt-counter-n { font-family: var(--display); font-weight: 500; letter-spacing: -.01em; }
