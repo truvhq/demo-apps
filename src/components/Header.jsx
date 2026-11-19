@@ -9,7 +9,6 @@
 
 // Imports
 import { Fragment } from 'preact';
-import { Icons } from './Icons.jsx';
 import { HeaderActions } from './HeaderActions.jsx';
 import { BrandLogo } from './BrandLogo.jsx';
 import { PhosphorIcons } from './PhosphorIcons.jsx';
@@ -29,17 +28,21 @@ function Chevron({ theme }) {
 //   trail : [{ label, href }] — every segment (including the last / current
 //           page) is a grey, clickable <a href="#..."> anchor. The current
 //           page additionally carries aria-current="page".
-//   theme : 'checkr' for the Public Sector pages (Truv by Checkr logo and
-//           colors); omit for the original look everywhere else.
+//   theme : 'checkr' for the Public Sector / Coverage pages (Checkr colors);
+//           omit for the original look everywhere else. The brand lockup
+//           (Truv by Checkr) shows in both; theme only drives the colors, so
+//           every use case carries the current mark, just sized to its header.
 // Hash-based routing means each segment is a plain <a href="#..."> anchor;
 // clicking it fires hashchange and the router re-renders the target view.
 export function Breadcrumb({ trail = [], theme }) {
   const checkr = theme === 'checkr';
   return (
     <nav aria-label="Breadcrumb" class="flex items-center gap-2 min-w-0">
-      {/* Logo is the implicit Home root of every breadcrumb */}
-      <a href="#" aria-label={checkr ? 'Truv by Checkr home' : 'Truv home'} class="flex items-center shrink-0 hover:opacity-80 transition-opacity">
-        {checkr ? <BrandLogo height={30} /> : <Icons.truvLogo height={21} className="text-text" />}
+      {/* Logo is the implicit Home root of every breadcrumb. The checkr header
+          is taller (h-14) so its mark is a touch larger; the original header
+          (h-12) uses a proportionally smaller one. */}
+      <a href="#" aria-label="Truv by Checkr home" class="flex items-center shrink-0 hover:opacity-80 transition-opacity">
+        <BrandLogo height={checkr ? 30 : 26} />
       </a>
       {/* Trail: hidden only on phones (<sm), where the row cannot physically
           fit it; the logo alone remains as the Home link. From sm up the FULL
