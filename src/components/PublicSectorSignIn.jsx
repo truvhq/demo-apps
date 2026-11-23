@@ -75,6 +75,7 @@ const ERROR_COPY = {
   rate_limited: 'Too many attempts from this address. Wait a few minutes and try again.',
   sso_disabled: 'Sign in with Truv is not enabled on this demo. Use a key instead.',
   sso_callback_failed: 'Sign-in did not complete. Try again or use a key instead.',
+  session_required: 'Your session ended. Sign in again to pick up where you left off.',
 };
 
 function describeError(status, error, retryAfter) {
@@ -141,6 +142,9 @@ export function PublicSectorSignIn({ onSubmit, ssoError }) {
   const ssoBannerError = ssoError && ssoError.error !== 'no_keys_available'
     ? describeError(ssoError.status, ssoError.error, ssoError.retryAfter)
     : null;
+
+  // A session that ended mid-visit is explained in either sign-in mode.
+  const sessionEndedNotice = ssoError?.error === 'session_required' ? ERROR_COPY.session_required : null;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -253,9 +257,9 @@ export function PublicSectorSignIn({ onSubmit, ssoError }) {
                 disabled={busy}
               />
 
-              {error && (
+              {(error || sessionEndedNotice) && (
                 <div class="text-[13px] text-[#b42318] bg-[#fef3f2] border border-[#fda29b]/60 rounded-[10px] px-3 py-2 animate-fadeIn">
-                  {error}
+                  {error || sessionEndedNotice}
                 </div>
               )}
 
