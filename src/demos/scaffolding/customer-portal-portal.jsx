@@ -34,6 +34,24 @@ export const DISPLAYS = [
   { id: 'dialog', name: 'Full dialog (fallback)', desc: 'Opens over the portal on arrival',
     points: ['The fallback when a step cannot be restructured', 'Right for a caseworker tool', 'Nothing to size'] },
 ];
+// --- Remembered choices ---
+// Layout and display are remembered, like the integration panel toggle, so going back to
+// the start screen or reloading does not reset them. Unknown or unreadable values fall
+// back to the defaults.
+const CHOICES_KEY = 'truv-demo-customer-portal-choices';
+export function loadChoices(storage = globalThis.localStorage) {
+  const out = { layout: LAYOUTS[0].id, display: DISPLAYS[0].id };
+  try {
+    const saved = JSON.parse(storage.getItem(CHOICES_KEY) || '{}');
+    if (LAYOUTS.some(l => l.id === saved.layout)) out.layout = saved.layout;
+    if (DISPLAYS.some(d => d.id === saved.display)) out.display = saved.display;
+  } catch { /* storage blocked or corrupt: keep the defaults */ }
+  return out;
+}
+export function saveChoices(choices, storage = globalThis.localStorage) {
+  try { storage.setItem(CHOICES_KEY, JSON.stringify(choices)); } catch { /* storage blocked */ }
+}
+
 const PROGRAMS = [
   { id: 'snap', name: 'SNAP (food assistance)' },
   { id: 'medicaid', name: 'Medicaid' },
@@ -121,8 +139,9 @@ export function newApplication({ layout, display }) {
 
 // --- Component: CPStartScreen. The chooser. ---
 export function CPStartScreen({ onStart, onResume, showDetails, setShowDetails, notice }) {
-  const [layout, setLayout] = useState('hero');
-  const [display, setDisplay] = useState('inline');
+  const [layout, setLayout] = useState(() => loadChoices().layout);
+  const [display, setDisplay] = useState(() => loadChoices().display);
+  useEffect(() => { saveChoices({ layout, display }); }, [layout, display]);
   const [walkAway, setWalkAway] = useState(false);
   const [cases, setCases] = useState(loadCases);
   const [msg, setMsg] = useState(notice || '');
@@ -710,12 +729,16 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
         {bodies[i]}
         {i < 3 && (
           <div class="cpp-row cpp-slide-nav">
-            <button type="button" class="cpp-btn-ghost" disabled={i === 0} onClick={() => goto(i - 1)}>Back</button>
+            <button type="button" class={`cpp-btn-ghost${i === 0 ? ' is-hidden' : ''}`} disabled={i === 0} onClick={() => goto(i - 1)}>Back</button>
             <span class="cpp-muted">{blocked}</span>
             <button type="button" class="cpp-btn" disabled={!!blocked} onClick={() => goto(i + 1)}>{i === 2 && deferred ? 'Continue without verifying here' : 'Continue'}</button>
           </div>
         )}
-        {i === 3 && <button type="button" class="cpp-btn-ghost" onClick={() => goto(2)}>Back</button>}
+        {i === 3 && (
+          <div class="cpp-row cpp-slide-nav">
+            <button type="button" class="cpp-btn-ghost" onClick={() => goto(2)}>Back</button>
+          </div>
+        )}
       </section>
       {aside}
       </div>
