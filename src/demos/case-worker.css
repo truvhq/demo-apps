@@ -62,7 +62,7 @@
 .cw-summary { background: #f0f2f5; padding: 20px 24px; border-left: 1px solid #d8dee5; }
 .cw-summary h3 { margin: 0 0 10px; font-size: 15px; }
 .cw-summary ol { margin: 0; padding-left: 18px; line-height: 1.5; color: #474c52; }
-.cw-summary li { margin-bottom: 8px; }
+.cw-summary li { margin-bottom: 8px; overflow-wrap: anywhere; }
 .cw-err { color: #cc2421; margin: 0; padding: 0 24px 12px; }
 .cw-modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid #d8dee5; }
 
@@ -70,7 +70,7 @@
 .cw-drawer { background: #fff; width: 100%; max-width: 560px; min-height: 100%; }
 .cw-drawer-body { padding: 20px 24px 40px; }
 .cw-drawer-body h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: #7a828c; margin: 22px 0 8px; }
-.cw-drawer-body p { margin: 0; }
+.cw-drawer-body p { margin: 0; overflow-wrap: anywhere; }
 .cw-parts { list-style: none; margin: 0; padding: 0; border: 1px solid #d8dee5; border-radius: 6px; }
 .cw-parts li { display: flex; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #f0f2f5; }
 .cw-parts li:last-child { border-bottom: 0; }
