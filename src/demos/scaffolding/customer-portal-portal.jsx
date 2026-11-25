@@ -2,14 +2,15 @@
  * FILE SUMMARY: Start screen + benefits portal for the Public Sector Customer Portal demo.
  * INTEGRATION PATTERN: Embedded Orders (order created server-side, order page via TruvBridge).
  *
- * Ported from the Georgia Gateway revamp (State Demos/ga_gateway_demo), in Truv by Checkr
- * branding and cut down to one applicant. Two independent axes are picked up front:
- *   layout  : 'hero'  (every step on one scrolling page, fixed left nav)
- *             'slide' (one step per screen, Back / Continue)
- *   display : 'inline' (recommended: order page is the income step, position { type: 'inline' })
- *             'dialog' (full-dialog fallback, opens over the portal on arrival)
+ * A state-style benefits application (government masthead, stepped wizard, agency footer)
+ * with Truv embedded in the income step. The one choice on the start screen is how Truv
+ * appears, in plain terms:
+ *   display : 'inline' ("Render Truv inline in your app" - order page is the income step,
+ *                        position { type: 'inline' }, mounts on arrival)
+ *             'dialog' ("Open Truv with a button" - the applicant clicks to open Truv as a
+ *                        dialog over the portal; never auto-opens, see IMP-371)
+ * The portal layout is always the stepped wizard (few states ship single hero-page apps).
  * Follows the Embedded Orders Field Guide rules (src/guides/embedded-orders).
- * The step content is identical in all four; only the chrome and the mount point change.
  *
  * Saved cases live in memory for this visit only: a reload or closing the tab leaves just the
  * canned demo. Resuming re-reads the SAME order
@@ -21,38 +22,45 @@ import { createPortal } from 'preact/compat';
 import { API_BASE } from '../../components/index.js';
 import '../customer-portal.css';
 
-// --- Config: the two axes on the start screen ---
-export const LAYOUTS = [
-  { id: 'hero', name: 'Hero page', desc: 'Everything on one scrolling page',
-    points: ['All four steps stacked, nav fixed on the left', 'Nav marks each step done, open or locked', 'The applicant sees the whole application at once'] },
-  { id: 'slide', name: 'Slide layout', desc: 'One step per screen, Back and Continue',
-    points: ['Same four steps, shown one at a time', 'Continue stays blocked, with a reason, until the step is done', 'Closest to how most state portals are built today'] },
+// --- Config: how Truv appears in the portal (the one choice on the start screen) ---
+// Replaces the old layout x display matrix. The portal is always the stepped (wizard)
+// layout state benefits apps actually use (few states ship single hero-page apps), so the
+// only choice a prospect makes is how Truv's verification shows up in it, in plain terms.
+export const VARIANTS = [
+  {
+    id: 'inline', display: 'inline',
+    name: 'Render Truv inline in your app',
+    tag: 'Seamless',
+    desc: "Truv's order page renders right inside the application's income step. The applicant never leaves your portal, and the panel grows to fit.",
+    points: ['Mounts into the step on arrival', 'Feels native to your portal', 'Best for a seamless in-app flow'],
+  },
+  {
+    id: 'button', display: 'dialog',
+    name: 'Open Truv with a button',
+    tag: 'Matches your UI',
+    desc: 'A button in your portal opens Truv in a dialog over the page, matching the modals and popups your own UI already uses.',
+    points: ['The applicant clicks a button to open Truv', 'Opens as a dialog over your portal', 'Best when your UI is built around buttons and modals'],
+  },
 ];
-export const DISPLAYS = [
-  { id: 'inline', name: 'Inline', desc: 'Recommended: the order page is the income step',
-    points: ['Order page mounted in the step on arrival', 'Sign-in opens as a modal over it', 'Panel grows to the order page via iframe-resizer'] },
-  { id: 'dialog', name: 'Full dialog (fallback)', desc: 'Opens over the portal on arrival',
-    points: ['The fallback when a step cannot be restructured', 'Right for a caseworker tool', 'Nothing to size'] },
-];
-// --- Remembered choices ---
-// Layout and display are remembered, like the integration panel toggle, so going back to
-// the start screen or reloading does not reset them. Unknown or unreadable values fall
-// back to the defaults.
+export const variantFor = (display) => VARIANTS.find(v => v.display === display) || VARIANTS[0];
+
+// --- Remembered choice ---
+// The chosen variant is remembered, like the integration-panel toggle, so returning to the
+// start screen or reloading keeps it. The portal layout is always 'slide' now; only the
+// Truv display (inline vs button) varies. Unknown/unreadable values fall back to inline.
 const CHOICES_KEY = 'truv-demo-customer-portal-choices';
 // Reading globalThis.localStorage can itself throw when the browser blocks storage, so it is
 // resolved inside the try, not in a parameter default.
 export function loadChoices(storage) {
-  const out = { layout: LAYOUTS[0].id, display: DISPLAYS[0].id };
+  let display = VARIANTS[0].display;
   try {
-    storage = storage || globalThis.localStorage;
-    const saved = JSON.parse(storage.getItem(CHOICES_KEY) || '{}');
-    if (LAYOUTS.some(l => l.id === saved.layout)) out.layout = saved.layout;
-    if (DISPLAYS.some(d => d.id === saved.display)) out.display = saved.display;
-  } catch { /* storage blocked or corrupt: keep the defaults */ }
-  return out;
+    const saved = JSON.parse((storage || globalThis.localStorage).getItem(CHOICES_KEY) || '{}');
+    if (VARIANTS.some(v => v.display === saved.display)) display = saved.display;
+  } catch { /* storage blocked or corrupt: keep the default */ }
+  return { layout: 'slide', display };
 }
 export function saveChoices(choices, storage) {
-  try { (storage || globalThis.localStorage).setItem(CHOICES_KEY, JSON.stringify(choices)); } catch { /* storage blocked */ }
+  try { (storage || globalThis.localStorage).setItem(CHOICES_KEY, JSON.stringify({ display: choices.display })); } catch { /* storage blocked */ }
 }
 
 const PROGRAMS = [
@@ -127,11 +135,12 @@ function ago(iso) {
   return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
 }
 
-export function newApplication({ layout, display }) {
+export function newApplication({ display }) {
   return {
     caseNumber: String(Math.floor(10000000 + Math.random() * 89999999)),
     clientId: 'CL' + Math.floor(100000000 + Math.random() * 899999999),
-    layout, display,
+    // The portal is always the stepped layout now; only the Truv display varies.
+    layout: 'slide', display,
     answers: { job: null, account: null },
     programs: [],
     // Sandbox example values, not a real person.
@@ -140,37 +149,69 @@ export function newApplication({ layout, display }) {
   };
 }
 
-// --- Component: CPStartScreen. The chooser. ---
+// Small illustrative thumbnail per variant: a portal card with Truv shown inline, or a
+// portal card with a button that pops a Truv dialog.
+function VariantThumb({ id }) {
+  const inline = id === 'inline';
+  return (
+    <svg class="cpp-vthumb" viewBox="0 0 120 76" aria-hidden="true">
+      <rect x="1" y="1" width="118" height="74" rx="6" class="cpp-vt-page" />
+      <rect x="10" y="10" width="40" height="5" rx="2.5" class="cpp-vt-line" />
+      <rect x="10" y="20" width="64" height="4" rx="2" class="cpp-vt-faint" />
+      {inline ? (
+        <rect x="10" y="30" width="100" height="36" rx="4" class="cpp-vt-truv" />
+      ) : (
+        <>
+          <rect x="10" y="32" width="46" height="12" rx="3" class="cpp-vt-btn" />
+          <rect x="34" y="18" width="78" height="50" rx="5" class="cpp-vt-dialog" />
+          <rect x="42" y="26" width="40" height="5" rx="2.5" class="cpp-vt-truvline" />
+          <rect x="42" y="36" width="62" height="24" rx="3" class="cpp-vt-truv" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+// A generic (hand-drawn, not any real state's) benefits-agency seal, so the portal reads
+// as a government application without shipping a copyrighted asset.
+function StateSeal() {
+  return (
+    <svg class="cpp-seal" viewBox="0 0 48 48" aria-hidden="true">
+      <circle cx="24" cy="24" r="23" class="cpp-seal-ring" />
+      <circle cx="24" cy="24" r="18" class="cpp-seal-inner" />
+      <path d="M14 30h20v2H14zM16 20l8-5 8 5v1.5H16zM17.5 22h2v7h-2zM23 22h2v7h-2zM28.5 22h2v7h-2z" class="cpp-seal-fig" />
+      <path d="M24 7l1.3 2.7 3 .4-2.2 2.1.5 3-2.6-1.4-2.6 1.4.5-3L18.7 10l3-.4z" class="cpp-seal-star" />
+    </svg>
+  );
+}
+
+// --- Component: CPStartScreen. One choice: how Truv appears in the portal. ---
 export function CPStartScreen({ onStart, onResume, showDetails, setShowDetails, notice }) {
-  const [layout, setLayout] = useState(() => loadChoices().layout);
   const [display, setDisplay] = useState(() => loadChoices().display);
-  useEffect(() => { saveChoices({ layout, display }); }, [layout, display]);
+  useEffect(() => { saveChoices({ display }); }, [display]);
   const [cases, setCases] = useState(loadCases);
   const [msg, setMsg] = useState(notice || '');
-
-  const Option = ({ o, active, onPick, kind }) => (
-    <button type="button" class={`cpp-opt${active ? ' is-on' : ''}`} onClick={() => onPick(o.id)} aria-pressed={active}>
-      <span class={`cpp-thumb cpp-thumb-${kind}-${o.id}`} aria-hidden="true"><i /><i /></span>
-      <span class="cpp-opt-name">{o.name}</span>
-      <span class="cpp-opt-desc">{o.desc}</span>
-      <ul>{o.points.map(p => <li key={p}>{p}</li>)}</ul>
-    </button>
-  );
 
   return (
     <div class="cpp-start">
       <div class="cpp-card">
-        <p class="cpp-eyebrow">Public Sector · Customer Portal</p>
-        <h1>Verify income for benefit eligibility</h1>
-        <p class="cpp-lede">The same benefits portal, four ways. Pick a layout and a verification display, then start the application. The applicant's answers decide what gets verified.</p>
+        <p class="cpp-eyebrow">Public Sector · Applicant Portal</p>
+        <h1>Income verification, built into a benefits application</h1>
+        <p class="cpp-lede">A state-style benefits application with Truv embedded in the income step. Choose how Truv shows up, then run the applicant flow. Their answers decide what gets verified.</p>
 
-        <h2 class="cpp-sect">1 · Portal layout</h2>
-        <div class="cpp-grid">{LAYOUTS.map(o => <Option key={o.id} o={o} kind="layout" active={layout === o.id} onPick={setLayout} />)}</div>
+        <h2 class="cpp-sect">Choose how Truv appears in your portal</h2>
+        <div class="cpp-vgrid">
+          {VARIANTS.map(v => (
+            <button type="button" key={v.id} class={`cpp-variant${display === v.display ? ' is-on' : ''}`} onClick={() => setDisplay(v.display)} aria-pressed={display === v.display}>
+              <VariantThumb id={v.id} />
+              <span class="cpp-vtag">{v.tag}</span>
+              <span class="cpp-vname">{v.name}</span>
+              <span class="cpp-vdesc">{v.desc}</span>
+              <ul>{v.points.map(p => <li key={p}>{p}</li>)}</ul>
+            </button>
+          ))}
+        </div>
 
-        <h2 class="cpp-sect">2 · Verification display</h2>
-        <div class="cpp-grid">{DISPLAYS.map(o => <Option key={o.id} o={o} kind="display" active={display === o.id} onPick={setDisplay} />)}</div>
-
-        <hr />
         {cases.length > 0 && (
           <div class="cpp-saved">
             <h2 class="cpp-sect">Saved applications</h2>
@@ -181,7 +222,7 @@ export function CPStartScreen({ onStart, onResume, showDetails, setShowDetails, 
                   <button type="button" class="cpp-link" onClick={() => onResume(c)}>
                     Case {c.caseNumber} · {c.form.first_name} {c.form.last_name}
                   </button>
-                  <span class="cpp-muted">stopped at {STEP_TITLES[c.step]} · {LAYOUTS.find(l => l.id === c.layout)?.name} + {c.display} · {c.orderId && !c.verified ? 'verification waiting' : c.verified ? 'verified' : 'no order yet'} · {ago(c.savedAt)}</span>
+                  <span class="cpp-muted">stopped at {STEP_TITLES[c.step]} · {variantFor(c.display).name} · {c.orderId && !c.verified ? 'verification waiting' : c.verified ? 'verified' : 'no order yet'} · {ago(c.savedAt)}</span>
                   <button type="button" class="cpp-link cpp-danger" onClick={() => { discardCase(c.caseNumber); setCases(loadCases()); setMsg(`Discarded case ${c.caseNumber}.`); }}>Discard</button>
                 </li>
               ))}
@@ -196,7 +237,7 @@ export function CPStartScreen({ onStart, onResume, showDetails, setShowDetails, 
             <input type="checkbox" checked={showDetails} onChange={e => setShowDetails(e.currentTarget.checked)} />
             <span>Show integration details panel</span>
           </label>
-          <button type="button" class="cpp-btn" onClick={() => onStart({ layout, display })}>Start the application</button>
+          <button type="button" class="cpp-btn" onClick={() => onStart({ display })}>Start the application</button>
         </div>
       </div>
     </div>
@@ -279,7 +320,6 @@ export function CPPortal({ initial, onEvent, onOrder, onExit, win = window }) {
   const [stepMsg, setStepMsg] = useState('');
   const bridgeRef = useRef(null);
   const inlineRef = useRef(null);
-  const sectionRefs = useRef([]);
   const mounting = useRef(false);
   const inline = app.display === 'inline';
   const ans = app.answers || { job: null, account: null };
@@ -304,13 +344,15 @@ export function CPPortal({ initial, onEvent, onOrder, onExit, win = window }) {
   };
   const why = ['Choose at least one program', 'Enter first name, last name and a valid email', 'Answer both questions, then finish verifying or use an option below it', null];
 
-  // The income step is "here" on the slide layout when it is the current step; on the hero
-  // page whenever it is unlocked (the questions live in it, so answering them is arriving).
-  const atIncome = !lockReason(2) && (app.layout === 'hero' || app.step === 2);
-  // Launch as soon as the answers settle the products: no button between them and Truv.
+  // The income step is "here" when it is the current step in the stepped portal.
+  const atIncome = !lockReason(2) && app.step === 2;
+  // Inline launches as soon as the answers settle the products: the order page IS the step,
+  // no button in front of it. Dialog waits for the applicant to click "Verify my income"
+  // (app.dialogOpened), so Truv matches a host UI whose own buttons open things (IMP-371).
   // While the verification is handed to the phone the embed is swapped for the waiting
   // screen; "Do it here instead" mounts the phone order here.
-  const shouldMount = !away && atIncome && route && !nothing && !app.verified && (!handoff || handoff.here);
+  const shouldMount = !away && atIncome && route && !nothing && !app.verified
+    && (!handoff || handoff.here) && (inline || app.dialogOpened);
 
   // Close any open widget when the portal unmounts.
   useEffect(() => () => { try { bridgeRef.current?.close(); } catch {} }, []);
@@ -370,7 +412,9 @@ export function CPPortal({ initial, onEvent, onOrder, onExit, win = window }) {
         });
         data = await r.json();
         if (!r.ok) throw new Error('We could not start your verification. Try again.');
-        patch({ orderId: data.order_id });
+        // Keep the order's share_url: it is the real Truv hosted page that resumes THIS
+        // order, so the close-and-resume flow can hand the applicant a working link.
+        patch({ orderId: data.order_id, shareUrl: data.share_url || null });
       }
       onOrder(data, handoff?.here ? handoff.products : route.products);
       openBridge(data.bridge_token);
@@ -479,7 +523,7 @@ export function CPPortal({ initial, onEvent, onOrder, onExit, win = window }) {
       setSendOpen(false); setHandoffStatus(null);
       patch({
         orderId: plan.cancelDesk ? null : app.orderId,
-        handoff: { orderId: data.order_id, products: plan.phoneProducts, doneHere: done, to, via: sendVia, here: false },
+        handoff: { orderId: data.order_id, products: plan.phoneProducts, doneHere: done, to, via: sendVia, here: false, shareUrl: data.share_url || null },
         dialogClosed: false,
       });
     } catch (e) { setStepMsg(e.message); }
@@ -597,14 +641,28 @@ export function CPPortal({ initial, onEvent, onOrder, onExit, win = window }) {
                   <span class={here || there ? 'cpp-ok' : 'cpp-muted'}>{here ? '✓ Connected here' : there ? '✓ Connected on your phone' : 'Waiting for your phone'}</span></li>;
               })}
             </ul>
+            {handoff.shareUrl && (
+              <p class="cpp-sharelink">Their secure link: <a href={handoff.shareUrl} target="_blank" rel="noreferrer">{handoff.shareUrl}</a> <span class="cpp-muted">(real Truv page, resumes this order)</span></p>
+            )}
             <button type="button" class="cpp-link" onClick={() => patch({ handoff: { ...handoff, here: true }, dialogClosed: false })}>Do it here instead</button>
           </div>
         ) : inline
           ? <div ref={inlineRef} class="cpp-inline-body" data-loading={busy && !bridgeOpen ? 'true' : undefined} />
           : !bridgeOpen && (
             <div class="cpp-dialog-closed">
-              <p class="cpp-muted">{busy ? 'Opening your verification…' : app.dialogClosed ? 'You closed your verification.' : 'Your verification opens in a window over this page.'}</p>
-              {app.dialogClosed && !busy && <button type="button" class="cpp-btn" onClick={() => patch({ dialogClosed: false })}>Reopen verification</button>}
+              {busy ? (
+                <p class="cpp-muted">Opening your verification…</p>
+              ) : !app.dialogOpened ? (
+                <>
+                  <p>Verify your income with Truv. It opens in a secure window over this page, the way the rest of this portal opens things.</p>
+                  <button type="button" class="cpp-btn" onClick={() => patch({ dialogOpened: true, dialogClosed: false })}>Verify my income</button>
+                </>
+              ) : (
+                <>
+                  <p class="cpp-muted">You closed the verification before finishing. Reopen it, or finish on your phone below.</p>
+                  <button type="button" class="cpp-btn" onClick={() => patch({ dialogClosed: false })}>Reopen verification</button>
+                </>
+              )}
             </div>
           )}
         {/* Rule 4: one row directly beneath the embed - manual entry as a text link, and a
@@ -663,9 +721,18 @@ export function CPPortal({ initial, onEvent, onOrder, onExit, win = window }) {
     </div>
   );
   const header = (
-    <header class="cpp-portal-head">
-      <span class="cpp-agency">Benefits Portal</span>
-      <span class="cpp-muted">{LAYOUTS.find(l => l.id === app.layout).name} · {DISPLAYS.find(d => d.id === app.display).name}</span>
+    <header class="cpp-masthead">
+      <div class="cpp-govbar"><div class="cpp-wrap">An official State benefits application · <span class="cpp-lock">Secure &amp; private</span></div></div>
+      <div class="cpp-agency"><div class="cpp-wrap cpp-agency-row">
+        <div class="cpp-brand">
+          <StateSeal />
+          <span class="cpp-brand-txt"><strong>State Benefits</strong><small>Department of Human Services</small></span>
+        </div>
+        <nav class="cpp-util" aria-label="Utility">
+          <span>Español</span><span>Help</span>
+          <span class="cpp-signed">Signed in as {app.form.first_name}</span>
+        </nav>
+      </div></div>
     </header>
   );
   const titleBar = (
@@ -674,7 +741,13 @@ export function CPPortal({ initial, onEvent, onOrder, onExit, win = window }) {
       <div class="cpp-case"><span>Case number</span><strong>{app.caseNumber}</strong><small>Keep this number. You need it to come back to your application.</small></div>
     </div></div>
   );
-  const footer = <footer class="cpp-portal-foot"><div class="cpp-wrap">Sandbox demo. Example applicant data only.</div></footer>;
+  const footer = (
+    <footer class="cpp-portal-foot"><div class="cpp-wrap cpp-foot-grid">
+      <div class="cpp-foot-brand"><strong>State Benefits</strong><p>Department of Human Services. Demo environment, not affiliated with any state agency.</p></div>
+      <nav class="cpp-foot-links" aria-label="Footer"><span>Privacy &amp; Security</span><span>Accessibility</span><span>Nondiscrimination</span><span>Contact us</span></nav>
+      <div class="cpp-foot-stamp">Income verification by Truv · Environment: DEMO · Build CP-R1.0-DEMO</div>
+    </div></footer>
+  );
   // Side summary for the slide layout: where the applicant is and what is left.
   const aside = (
     <aside class="cpp-aside">
@@ -686,34 +759,7 @@ export function CPPortal({ initial, onEvent, onOrder, onExit, win = window }) {
     </aside>
   );
 
-  if (app.layout === 'hero') {
-    return (
-      <div class="cpp-portal">{header}{titleBar}
-        <div class="cpp-hero">
-          <nav class="cpp-nav" aria-label="Application steps">
-            {STEP_TITLES.map((t, i) => (
-              <button type="button" key={t} class={`cpp-nav-item is-${status(i)}`} onClick={() => sectionRefs.current[i]?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
-                <span class="cpp-dot">{status(i) === 'done' ? '✓' : i + 1}</span>{t}
-                <small>{status(i) === 'done' ? 'Complete' : status(i) === 'locked' ? 'Locked' : 'In progress'}</small>
-              </button>
-            ))}
-          </nav>
-          <div class="cpp-sections">
-            {STEP_TITLES.map((t, i) => (
-              <section key={t} ref={el => (sectionRefs.current[i] = el)} class={`cpp-section${lockReason(i) ? ' is-locked' : ''}`}>
-                <h2>{i + 1}. {t}</h2>
-                {lockReason(i) ? <p class="cpp-muted">{lockReason(i)}.</p> : bodies[i]}
-              </section>
-            ))}
-            {controls}
-          </div>
-        </div>
-        {footer}
-      </div>
-    );
-  }
-
-  // Slide layout
+  // Stepped (wizard) layout - the one state benefits apps actually ship.
   const i = app.step;
   const blocked = i < 3 && !done[i] ? why[i] : null;
   return (
