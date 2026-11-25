@@ -41,4 +41,15 @@ describe('Customer Portal remembered choices', () => {
     expect(loadChoices(blocked)).toEqual({ layout: 'hero', display: 'inline' });
     expect(() => saveChoices({ layout: 'slide', display: 'inline' }, blocked)).not.toThrow();
   });
+
+  it('does not throw when reading the global localStorage itself throws', () => {
+    const orig = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { throw new Error('denied'); } });
+    try {
+      expect(loadChoices()).toEqual({ layout: 'hero', display: 'inline' });
+      expect(() => saveChoices({ layout: 'slide', display: 'inline' })).not.toThrow();
+    } finally {
+      if (orig) Object.defineProperty(globalThis, 'localStorage', orig); else delete globalThis.localStorage;
+    }
+  });
 });

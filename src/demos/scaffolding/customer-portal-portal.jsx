@@ -39,17 +39,20 @@ export const DISPLAYS = [
 // the start screen or reloading does not reset them. Unknown or unreadable values fall
 // back to the defaults.
 const CHOICES_KEY = 'truv-demo-customer-portal-choices';
-export function loadChoices(storage = globalThis.localStorage) {
+// Reading globalThis.localStorage can itself throw when the browser blocks storage, so it is
+// resolved inside the try, not in a parameter default.
+export function loadChoices(storage) {
   const out = { layout: LAYOUTS[0].id, display: DISPLAYS[0].id };
   try {
+    storage = storage || globalThis.localStorage;
     const saved = JSON.parse(storage.getItem(CHOICES_KEY) || '{}');
     if (LAYOUTS.some(l => l.id === saved.layout)) out.layout = saved.layout;
     if (DISPLAYS.some(d => d.id === saved.display)) out.display = saved.display;
   } catch { /* storage blocked or corrupt: keep the defaults */ }
   return out;
 }
-export function saveChoices(choices, storage = globalThis.localStorage) {
-  try { storage.setItem(CHOICES_KEY, JSON.stringify(choices)); } catch { /* storage blocked */ }
+export function saveChoices(choices, storage) {
+  try { (storage || globalThis.localStorage).setItem(CHOICES_KEY, JSON.stringify(choices)); } catch { /* storage blocked */ }
 }
 
 const PROGRAMS = [
@@ -307,7 +310,7 @@ export function CPPortal({ initial, onEvent, onOrder, onExit, win = window }) {
   // Launch as soon as the answers settle the products: no button between them and Truv.
   // While the verification is handed to the phone the embed is swapped for the waiting
   // screen; "Do it here instead" mounts the phone order here.
-  const shouldMount = atIncome && route && !nothing && !app.verified && (!handoff || handoff.here);
+  const shouldMount = !away && atIncome && route && !nothing && !app.verified && (!handoff || handoff.here);
 
   // Close any open widget when the portal unmounts.
   useEffect(() => () => { try { bridgeRef.current?.close(); } catch {} }, []);
@@ -318,6 +321,8 @@ export function CPPortal({ initial, onEvent, onOrder, onExit, win = window }) {
     if (shouldMount && !bridgeOpen && !mounting.current && !app.dialogClosed) mount();
     if (!shouldMount && bridgeOpen) closeBridge();
   }, [shouldMount, app.orderId, app.dialogClosed, handoff?.here]);
+  // shouldMount includes !away: saving leaves the screen (and the inline container), so
+  // coming back is a false -> true change that remounts the saved order.
 
   // Waiting screen: no event reaches this page from the phone, so read the phone order.
   // It is finished when completed_at is set (the order read's own completion field).
@@ -505,7 +510,7 @@ export function CPPortal({ initial, onEvent, onOrder, onExit, win = window }) {
 
   function goto(step) { if (app.step === 2 && step !== 2) closeBridge(); patch({ step, dialogClosed: false }); }
   // One save path: keep the draft, then say so and offer both ways back.
-  function save() { closeBridge(); saveCase(app); setAway(true); }
+  function save() { if (busy) return; closeBridge(); saveCase(app); setAway(true); }
   function backToStart() { onExit(`Saved case ${app.caseNumber}. Pick it up from the saved applications below.`); }
   function comeBack() {
     const rec = loadCases().find(c => c.caseNumber === app.caseNumber);
@@ -653,7 +658,7 @@ export function CPPortal({ initial, onEvent, onOrder, onExit, win = window }) {
   const status = (i) => lockReason(i) ? 'locked' : done[i] ? 'done' : 'open';
   const controls = (
     <div class="cpp-controls">
-      <button type="button" class="cpp-link" onClick={save}>Save and finish later</button>
+      <button type="button" class="cpp-link" onClick={save} disabled={busy}>Save and finish later</button>
       <button type="button" class="cpp-link cpp-danger" onClick={startOver}>Start over</button>
     </div>
   );
