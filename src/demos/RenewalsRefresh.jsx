@@ -51,7 +51,7 @@ import { $ } from '../utils/formatters.js';
 import './renewals-refresh.css';
 
 // --- Imports: scaffolding (caseload, guide steps, walkthrough stages, copy) ---
-import { CASELOAD, extraApplicant, STEPS, WALKTHROUGH_STAGES, OUTCOME_DISPLAY, REASON_COPY } from './scaffolding/renewals-refresh.jsx';
+import { CASELOAD, extraApplicant, STEPS, WALKTHROUGH_STAGES, OUTCOME_DISPLAY, REASON_COPY, isStaleReauthResult } from './scaffolding/renewals-refresh.jsx';
 
 const DEMO_ID = 'renewals-refresh';
 
@@ -511,6 +511,10 @@ export function RenewalsRefreshDemo() {
         if (!resp.ok) return;
         const data = await resp.json();
         if (!data.outcome || data.outcome.state === 'refreshing') return;
+        // Drop a stale reauth result for a case the applicant already cleared: the new
+        // refresh task is still running, so keep polling until it resolves to refreshed
+        // rather than bouncing the row back to "needs the applicant".
+        if (isStaleReauthResult(c, data.outcome.state)) return;
         // Got a result. Queue it so rows appear one at a time. Failures come back in
         // under a second and would otherwise all show at once, before anyone has read them.
         patchCase(c.id, { outcome: data.outcome, refreshDetail: data });

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { classifyRefreshOutcome, classifyRefreshOutcomePerSuborder, outcomeFromConnections, tasksForOrder, REAUTH_STATUSES, NON_REAUTH_FAILURE_STATUSES } from '../../server/routes/renewals-refresh.js';
-import { CASELOAD, extraApplicant, STEPS, WALKTHROUGH_STAGES, OUTCOME_DISPLAY } from '../../src/demos/scaffolding/renewals-refresh.jsx';
+import { CASELOAD, extraApplicant, STEPS, WALKTHROUGH_STAGES, OUTCOME_DISPLAY, isStaleReauthResult } from '../../src/demos/scaffolding/renewals-refresh.jsx';
 
 // ---------------------------------------------------------------------------
 // RenewalsRefresh.jsx behavioral contracts
@@ -430,5 +430,22 @@ describe('outcomeFromConnections (one result for a case with several connections
 
   it('falls back to the not-fixable-by-signing-in state when that is the only failure', () => {
     expect(outcomeFromConnections([row('refreshed'), row('failed_other', { reason: 'no_data' })]).state).toBe('failed_other');
+  });
+});
+
+// After the applicant clears the challenge, the refresh task runs for ~13-15s while the
+// old reauth status lingers; a poll in that window returns a stale reauth_required that
+// must be ignored so the row doesn't bounce back to "needs the applicant" (IMP-359).
+describe('isStaleReauthResult', () => {
+  it('ignores a reauth_required result once the applicant has cleared the challenge', () => {
+    expect(isStaleReauthResult({ reauthDone: true }, 'reauth_required')).toBe(true);
+  });
+  it('still accepts the refreshed and failure results after a reauth', () => {
+    expect(isStaleReauthResult({ reauthDone: true }, 'refreshed')).toBe(false);
+    expect(isStaleReauthResult({ reauthDone: true }, 'failed_other')).toBe(false);
+  });
+  it('accepts a genuine reauth_required before any reauth (automatic refresh that failed)', () => {
+    expect(isStaleReauthResult({ reauthDone: false }, 'reauth_required')).toBe(false);
+    expect(isStaleReauthResult({}, 'reauth_required')).toBe(false);
   });
 });
