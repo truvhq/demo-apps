@@ -214,3 +214,14 @@ export const REASON_COPY = {
   no_data: 'The provider connected but returned no records. That is not a verified $0 income',
   not_supported: 'Refresh is not supported for this connection',
 };
+
+// After the applicant clears the challenge, the refresh order completes (COMPLETED,
+// source 'order'), but the suborder's new data task still runs for ~13-15s and its OLD
+// reauth status lingers on the order. A poll in that window returns a stale
+// `reauth_required`, which would bounce the row back to "needs the applicant" and make
+// the status look stuck until a second "Act as the applicant" click. Since reauthDone is
+// set only on COMPLETED (the order DID finish), that connection is going to refresh, so a
+// `reauth_required` result is stale here: ignore it and keep polling until `refreshed`.
+export function isStaleReauthResult(caseObj, polledState) {
+  return !!caseObj?.reauthDone && polledState === 'reauth_required';
+}
