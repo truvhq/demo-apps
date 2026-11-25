@@ -9,7 +9,7 @@
  * whether to render the Configure gate or the demos.
  */
 import { useEffect, useState, useCallback } from 'preact/hooks';
-import { installSessionExpiryWatcher, SESSION_EXPIRED_EVENT } from '../utils/sessionExpiry.js';
+import { installSessionExpiryWatcher, startNewSession, currentSessionEpoch, SESSION_EXPIRED_EVENT } from '../utils/sessionExpiry.js';
 
 export function useSession() {
   // `expired` is true only when a live session ended mid-visit, so the sign-in
@@ -21,6 +21,7 @@ export function useSession() {
     try {
       const res = await fetch('/api/session/status', { credentials: 'include' });
       const data = await res.json();
+      if (data.authenticated) startNewSession();
       setState({ authenticated: !!data.authenticated, loading: false, expired: false });
     } catch {
       setState({ authenticated: false, loading: false, expired: false });
@@ -98,7 +99,8 @@ export function useSession() {
   // the hash route is untouched, so signing in returns them to the same page.
   useEffect(() => {
     installSessionExpiryWatcher();
-    const onExpired = () => setState(s => (s.authenticated ? { authenticated: false, loading: false, expired: true } : s));
+    // Ignore a signal from a request that started before the current sign-in.
+    const onExpired = (e) => setState(s => (s.authenticated && e.detail?.epoch === currentSessionEpoch() ? { authenticated: false, loading: false, expired: true } : s));
     window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
   }, []);

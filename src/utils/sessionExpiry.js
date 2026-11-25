@@ -17,10 +17,19 @@ function isSessionRequired(body) {
   return body?.error === 'session_required' || body?.error?.code === 'session_required';
 }
 
+// fetch() takes a string, a URL object (href) or a Request (url).
 function isApiCall(input) {
-  const url = typeof input === 'string' ? input : input?.url;
+  const url = typeof input === 'string' ? input : (input?.url ?? input?.href);
   return typeof url === 'string' && url.includes('/api/');
 }
+
+// Each sign-in starts a new session "epoch". A request remembers the epoch it started in,
+// so a late 401 from a previous session cannot sign out the one that replaced it.
+export function startNewSession(win = window) {
+  win.__truvSessionEpoch = (win.__truvSessionEpoch || 0) + 1;
+  return win.__truvSessionEpoch;
+}
+export const currentSessionEpoch = (win = window) => win.__truvSessionEpoch || 0;
 
 /**
  * Wrap win.fetch once. Safe to call repeatedly.
@@ -31,11 +40,12 @@ export function installSessionExpiryWatcher(win = window) {
   win.__truvSessionExpiryWatcher = true;
   const originalFetch = win.fetch.bind(win);
   win.fetch = async (input, init) => {
+    const epoch = currentSessionEpoch(win);
     const res = await originalFetch(input, init);
     if (res.status === 401 && isApiCall(input)) {
       // Read a clone so the caller still gets an unread body.
       res.clone().json()
-        .then(body => { if (isSessionRequired(body)) win.dispatchEvent(new Event(SESSION_EXPIRED_EVENT)); })
+        .then(body => { if (isSessionRequired(body)) win.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: { epoch } })); })
         .catch(() => {});
     }
     return res;

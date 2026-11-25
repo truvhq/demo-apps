@@ -53,7 +53,7 @@ export const config = {
   webhookBaseUrl: localMode ? (env.NGROK_URL || publicBaseUrl) : publicBaseUrl,
 
   session: {
-    idleTtlMs: Number(env.SESSION_IDLE_TTL_MS) || 3_600_000,
+    idleTtlMs: Number(env.SESSION_IDLE_TTL_MS) || 21_600_000,
     cookieSecret: env.SESSION_COOKIE_SECRET || randomBytes(32).toString('hex'),
   },
 

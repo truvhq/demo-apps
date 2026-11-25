@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { installSessionExpiryWatcher, SESSION_EXPIRED_EVENT } from '../../src/utils/sessionExpiry.js';
+import { installSessionExpiryWatcher, startNewSession, currentSessionEpoch, SESSION_EXPIRED_EVENT } from '../../src/utils/sessionExpiry.js';
 
 // Minimal window: an EventTarget carrying a scripted fetch.
 function makeWindow(fetchImpl) {
@@ -93,5 +93,35 @@ describe('installSessionExpiryWatcher', () => {
 
     expect(inner).toHaveBeenCalledTimes(1);
     expect(onExpired).toHaveBeenCalledTimes(1);
+  });
+
+  it('recognizes an API call made with a URL object', async () => {
+    const win = makeWindow(vi.fn(async () => json(401, { error: 'session_required' })));
+    installSessionExpiryWatcher(win);
+    const onExpired = vi.fn();
+    win.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+
+    await win.fetch(new URL('/api/orders', 'http://localhost'));
+    await flush();
+
+    expect(onExpired).toHaveBeenCalledTimes(1);
+  });
+
+  it('tags the signal with the session epoch the request started in', async () => {
+    let release;
+    const win = makeWindow(vi.fn(() => new Promise(resolve => { release = () => resolve(json(401, { error: 'session_required' })); })));
+    installSessionExpiryWatcher(win);
+    const seen = [];
+    win.addEventListener(SESSION_EXPIRED_EVENT, e => seen.push(e.detail.epoch));
+
+    const first = startNewSession(win);
+    const pending = win.fetch('/api/orders');
+    startNewSession(win); // the visitor signs in again while the request is in flight
+    release();
+    await pending;
+    await flush();
+
+    expect(seen).toEqual([first]);
+    expect(seen[0]).not.toBe(currentSessionEpoch(win));
   });
 });
