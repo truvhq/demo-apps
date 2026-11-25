@@ -41,7 +41,7 @@ const sampleRow = (selected, rowIndex, emailBase, seed) =>
   ({ _rid: nextRid(), ...Object.fromEntries(selected.map(k => [k, sampleValue(k, rowIndex, emailBase, seed)])) });
 const readInbox = () => { try { return localStorage.getItem(INBOX_KEY) || ''; } catch { return ''; } };
 
-export function BatchRunner({ onStepChange, sessionId, startPolling, stopPolling, addBridgeEvent }) {
+export function BatchRunner({ onStepChange, sessionId, startPolling, stopPolling }) {
   // --- File building state ---
   const [emailBase, setEmailBaseState] = useState(readInbox);
   const [selected, setSelected] = useState(DEFAULT_SELECTED);
@@ -267,49 +267,6 @@ export function BatchRunner({ onStepChange, sessionId, startPolling, stopPolling
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch { /* clipboard can be blocked */ }
-  }
-
-  // Open one order's Truv Bridge flow as a dialog over this page (via the order's
-  // bridge_token), instead of opening the hosted share_url in a new tab. Falls back
-  // to the share_url if the token or the Bridge SDK isn't available.
-  function openBridge(row) {
-    const token = row.bridge_token || tokenFromShareUrl(row.share_url);
-    if (!token || !window.TruvBridge) {
-      if (row.share_url) window.open(row.share_url, '_blank', 'noopener');
-      return;
-    }
-    const bridge = window.TruvBridge.init({
-      bridgeToken: token,
-      isOrder: true,
-      onLoad: () => addBridgeEvent?.('onLoad()', null),
-      onEvent: (type, payload, source) => addBridgeEvent?.(`onEvent("${type}", ${payload ? 'payload' : 'undefined'}, "${source}")`, payload ? [{ label: 'payload', value: payload }] : null),
-      onSuccess: () => addBridgeEvent?.('onSuccess()', null),
-      onClose: () => addBridgeEvent?.('onClose()', null),
-    });
-    bridge.open();
-    // Bridge's dialog is modal and, depending on account settings, may not show its own
-    // close control, so drop a small "Close" button into it and wire Escape, matching the
-    // Renewals demo, so a presenter is never stuck. Tear down with bridge.close() (the SDK's
-    // own close) rather than dialog.close(), which would hide the <dialog> but leave the
-    // Bridge iframe mounted on the page.
-    requestAnimationFrame(() => {
-      const dialog = document.querySelector('dialog.truv-dialog-root-element');
-      if (!dialog || dialog.querySelector('[data-bridge-back]')) return;
-      const leave = () => {
-        dialog.removeEventListener('cancel', onCancel);
-        try { bridge.close(); } catch { /* already closed */ }
-        addBridgeEvent?.('Closed from the demo', null);
-      };
-      const onCancel = (e) => { e.preventDefault(); leave(); };
-      const close = document.createElement('button');
-      close.type = 'button';
-      close.textContent = '← Close';
-      close.setAttribute('data-bridge-back', '');
-      close.style.cssText = 'position:fixed;top:16px;left:16px;z-index:2;border:0;border-radius:999px;padding:8px 14px;background:#fff;color:#1b1c1f;font-family:inherit;font-weight:500;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.25)';
-      close.addEventListener('click', leave);
-      dialog.addEventListener('cancel', onCancel);
-      dialog.appendChild(close);
-    });
   }
 
   const counts = job?.counts || { created: 0, existing: 0, failed: 0, pending: 0 };
@@ -626,7 +583,7 @@ export function BatchRunner({ onStepChange, sessionId, startPolling, stopPolling
           {/* results table (inline) */}
           {job?.rows?.length > 0 && (
             <div class="mt-6">
-              <ResultsTable job={job} counts={counts} status={status} resultFilter={resultFilter} setResultFilter={setResultFilter} onOpenBridge={openBridge} />
+              <ResultsTable job={job} counts={counts} status={status} resultFilter={resultFilter} setResultFilter={setResultFilter} />
             </div>
           )}
         </>
@@ -646,14 +603,9 @@ function triggerDownload(content, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// Pull the bridge_token out of a share_url if the per-order result didn't carry one.
-function tokenFromShareUrl(url) {
-  try { return new URL(url).searchParams.get('bridge_token') || ''; } catch { return ''; }
-}
-
-// Shared results view: filters + per-order table. Each order can open in a Bridge
-// dialog on the page (via its bridge_token) or in a new tab (its share_url).
-function ResultsTable({ job, counts, status, resultFilter, setResultFilter, onOpenBridge }) {
+// Shared results view: filters + per-order table of how each row came back from
+// the batch: created, existing (the order_number already existed), or failed.
+function ResultsTable({ job, counts, status, resultFilter, setResultFilter }) {
   const visibleRows = resultFilter === 'all' ? job.rows : job.rows.filter(r => r.status === resultFilter);
   return (
     <div>
@@ -662,9 +614,6 @@ function ResultsTable({ job, counts, status, resultFilter, setResultFilter, onOp
           Tip: run the same file again to watch repeats come back as <strong>Existing</strong>, nothing gets duplicated.
         </div>
       )}
-      <p class="text-[12.5px] text-muted mb-3 leading-relaxed max-w-3xl">
-        The verification link is what each applicant receives. <strong class="text-text">Open here</strong> previews that Bridge flow right on this page (nothing is submitted); <strong class="text-text">New tab</strong> opens the real hosted page in a separate window.
-      </p>
       <div class="flex flex-wrap gap-2 mb-3 text-[13px]">
         <FilterPill active={resultFilter === 'all'} onClick={() => setResultFilter('all')} label={`All (${job.rows.length})`} />
         <FilterPill active={resultFilter === 'created'} onClick={() => setResultFilter('created')} label={`Created (${counts.created})`} color="green" />
@@ -679,7 +628,6 @@ function ResultsTable({ job, counts, status, resultFilter, setResultFilter, onOp
                 <th class="px-3 py-2">Applicant</th>
                 <th class="px-3 py-2">Order number</th>
                 <th class="px-3 py-2">Status</th>
-                <th class="px-3 py-2">Verification link</th>
               </tr>
             </thead>
             <tbody>
@@ -691,18 +639,10 @@ function ResultsTable({ job, counts, status, resultFilter, setResultFilter, onOp
                     <StatusBadge status={r.status} />
                     {r.error && <div class="text-[12px] text-red-600 mt-1">{r.error}</div>}
                   </td>
-                  <td class="px-3 py-2">
-                    {r.share_url ? (
-                      <div class="flex items-center gap-3 whitespace-nowrap">
-                        <button onClick={() => onOpenBridge(r)} class="text-primary font-medium hover:underline focus-visible:ring-2 focus-visible:ring-primary rounded focus:outline-none">Open here</button>
-                        <a href={r.share_url} target="_blank" rel="noopener noreferrer" class="text-muted hover:underline">New tab ↗</a>
-                      </div>
-                    ) : <span class="text-gray-400">-</span>}
-                  </td>
                 </tr>
               ))}
               {visibleRows.length === 0 && (
-                <tr><td colSpan={4} class="px-3 py-8 text-center text-muted">No rows for this filter.</td></tr>
+                <tr><td colSpan={3} class="px-3 py-8 text-center text-muted">No rows for this filter.</td></tr>
               )}
             </tbody>
           </table>
