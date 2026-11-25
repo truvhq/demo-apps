@@ -148,7 +148,7 @@ describe('AddApplicantForm canSubmitApplicant', () => {
 });
 
 // --- Dashboard: product mix picks the template; status comes from the suborders ---
-import { templateFor, TEMPLATES, caseStatus } from '../../src/demos/scaffolding/case-worker-dashboard.jsx';
+import { templateFor, TEMPLATES, caseStatus, isInFlight, pollInFlightCases } from '../../src/demos/scaffolding/case-worker-dashboard.jsx';
 
 describe('Case worker dashboard', () => {
   it('picks one template per product mix', () => {
@@ -165,5 +165,46 @@ describe('Case worker dashboard', () => {
     expect(caseStatus(c({ income: 'completed', assets: 'sent' }))).toBe('partial');
     expect(caseStatus(c({ income: 'sent' }, { email: 'a@b.co' }))).toBe('sent');
     expect(caseStatus(c({ income: 'sent' }))).toBe('created');
+  });
+});
+
+describe('Case worker dashboard auto-update', () => {
+  const c = (id, parts, extra = {}) => ({ id, products: Object.keys(parts), parts, email: 'a@b.co', ...extra });
+
+  it('keeps polling cases until they are done or need attention', () => {
+    expect(isInFlight(c('a', { income: 'sent' }))).toBe(true);
+    expect(isInFlight(c('b', { income: 'completed', assets: 'sent' }))).toBe(true);
+    expect(isInFlight(c('c', { income: 'completed' }))).toBe(false);
+    expect(isInFlight(c('d', { income: 'error' }))).toBe(false);
+  });
+
+  it('never polls sample cases, which are not Truv orders', () => {
+    expect(isInFlight(c('s1', { income: 'sent' }, { sample: true }))).toBe(false);
+  });
+
+  it('patches each in-flight case with its latest status', async () => {
+    const cases = [c('a', { income: 'sent' }), c('b', { income: 'completed' }), c('s1', { income: 'sent' }, { sample: true })];
+    const fetchUpdate = vi.fn(async x => ({ parts: { income: 'completed' }, share_url: `url-${x.id}` }));
+    const patch = vi.fn();
+
+    const polled = await pollInFlightCases(cases, fetchUpdate, patch);
+
+    expect(polled).toBe(1);
+    expect(fetchUpdate).toHaveBeenCalledTimes(1);
+    expect(patch).toHaveBeenCalledWith('a', { parts: { income: 'completed' }, share_url: 'url-a' });
+  });
+
+  it('skips a case that fails to refresh and still updates the others', async () => {
+    const cases = [c('a', { income: 'sent' }), c('b', { income: 'sent' })];
+    const fetchUpdate = vi.fn(async x => {
+      if (x.id === 'a') throw new Error('Truv unreachable');
+      return { parts: { income: 'completed' }, share_url: null };
+    });
+    const patch = vi.fn();
+
+    await expect(pollInFlightCases(cases, fetchUpdate, patch)).resolves.toBe(2);
+
+    expect(patch).toHaveBeenCalledTimes(1);
+    expect(patch).toHaveBeenCalledWith('b', { parts: { income: 'completed' }, share_url: null });
   });
 });

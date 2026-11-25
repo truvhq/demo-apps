@@ -8,7 +8,7 @@
  * (GET /v1/orders/{id}/), its link copied, and its report opened once done.
  */
 
-import { useState } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { API_BASE } from '../../components/index.js';
 import { VoieReport } from '../../components/reports/VoieReport.jsx';
 import { AssetsReport } from '../../components/reports/AssetsReport.jsx';
@@ -75,6 +75,29 @@ function partsFrom(raw) {
   return out;
 }
 
+// --- Auto-update: re-read cases from Truv until they reach a final state ---
+// The Truv dashboard updates on its own, so the portal does too. Samples are not
+// Truv orders, and done / needs-attention cases will not change again.
+export const POLL_MS = 8000;
+export const isInFlight = c => !c.sample && !['done', 'error'].includes(caseStatus(c));
+
+// GET /api/orders/:id re-reads the order from Truv and returns its per-product status.
+async function fetchCaseUpdate(c) {
+  const r = await fetch(`${API_BASE}/api/orders/${c.id}`);
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || 'Could not refresh');
+  return { parts: partsFrom(data.raw_response || {}), share_url: data.share_url || c.share_url };
+}
+
+// One polling pass. A case that fails to refresh is skipped; the next pass retries it.
+export async function pollInFlightCases(cases, fetchUpdate, patch) {
+  const live = cases.filter(isInFlight);
+  await Promise.all(live.map(async c => {
+    try { patch(c.id, await fetchUpdate(c)); } catch { /* retry next pass */ }
+  }));
+  return live.length;
+}
+
 const productName = id => PRODUCT_TYPES.find(p => p.id === id)?.name || id;
 
 function StatusPill({ status }) {
@@ -90,6 +113,21 @@ export function CWDashboard({ onOrder, onEvent }) {
   const [filter, setFilter] = useState('all');
 
   const patchCase = (id, p) => setCases(list => list.map(c => (c.id === id ? { ...c, ...p } : c)));
+
+  // Poll Truv for cases still in flight. Skipped while the tab is hidden, and a pass
+  // that is still running is never overlapped by the next one.
+  const casesRef = useRef(cases);
+  casesRef.current = cases;
+  useEffect(() => {
+    let running = false;
+    const tick = async () => {
+      if (running || document.hidden) return;
+      running = true;
+      try { await pollInFlightCases(casesRef.current, fetchCaseUpdate, patchCase); } finally { running = false; }
+    };
+    const timer = setInterval(tick, POLL_MS);
+    return () => clearInterval(timer);
+  }, []);
 
   const all = [...cases, ...SAMPLES];
   const q = query.trim().toLowerCase();
@@ -264,11 +302,7 @@ function CaseDrawer({ c, onClose, onPatch, onDiscard }) {
   async function refresh() {
     setBusy('refresh'); setNote('');
     try {
-      const r = await fetch(`${API_BASE}/api/orders/${c.id}`);
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Could not refresh');
-      const parts = partsFrom(data.raw_response || {});
-      onPatch({ parts, share_url: data.share_url || c.share_url });
+      onPatch(await fetchCaseUpdate(c));
       setNote('Status updated from Truv.');
     } catch (e) { setNote(e.message); }
     setBusy('');
@@ -300,7 +334,8 @@ function CaseDrawer({ c, onClose, onPatch, onDiscard }) {
         </div>
         <div class="cw-drawer-body">
           <StatusPill status={status} />
-          {c.sample && <p class="cw-help">Sample case for illustration. It isn't a Truv order, so it can't be refreshed.</p>}
+          {isInFlight(c) && <p class="cw-help">Status updates automatically as the applicant progresses.</p>}
+          {c.sample &&<p class="cw-help">Sample case for illustration. It isn't a Truv order, so it can't be refreshed.</p>}
           {c.template_fallback && <p class="cw-help">These API keys don't own the demo template, so Truv used the account's default template.</p>}
 
           <h3>Products</h3>
