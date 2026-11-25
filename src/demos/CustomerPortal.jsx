@@ -114,7 +114,7 @@ export function CustomerPortalDemo({ screen, param }) {
           notice={notice}
           showDetails={showDetails}
           setShowDetails={setShowDetails}
-          onStart={({ layout, display }) => startRun(newApplication({ layout, display }))}
+          onStart={({ display }) => startRun(newApplication({ display }))}
           onResume={(app) => startRun({ ...app, step: app.orderId && !app.verified ? 2 : app.step })}
         />
       )}

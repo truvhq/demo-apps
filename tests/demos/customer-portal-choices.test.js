@@ -15,39 +15,42 @@ function fakeStorage(initial = {}) {
   };
 }
 
-describe('Customer Portal remembered choices', () => {
-  it('defaults to the hero layout with inline display when nothing is saved', () => {
-    expect(loadChoices(fakeStorage())).toEqual({ layout: 'hero', display: 'inline' });
+// The portal layout is always the stepped wizard now; only the Truv display (inline vs the
+// button-triggered dialog) is a remembered choice. loadChoices always returns layout:'slide'.
+describe('Customer Portal remembered choice', () => {
+  it('defaults to the inline display in the stepped layout when nothing is saved', () => {
+    expect(loadChoices(fakeStorage())).toEqual({ layout: 'slide', display: 'inline' });
   });
 
-  it('returns what was saved', () => {
+  it('returns the saved display (and only persists display)', () => {
     const storage = fakeStorage();
-    saveChoices({ layout: 'slide', display: 'dialog' }, storage);
+    saveChoices({ display: 'dialog' }, storage);
+    expect(JSON.parse(storage.data['truv-demo-customer-portal-choices'])).toEqual({ display: 'dialog' });
     expect(loadChoices(storage)).toEqual({ layout: 'slide', display: 'dialog' });
   });
 
-  it('ignores unknown ids and falls back per field', () => {
-    const storage = fakeStorage({ 'truv-demo-customer-portal-choices': JSON.stringify({ layout: 'gone', display: 'dialog' }) });
-    expect(loadChoices(storage)).toEqual({ layout: 'hero', display: 'dialog' });
+  it('ignores an unknown display and falls back to inline', () => {
+    const storage = fakeStorage({ 'truv-demo-customer-portal-choices': JSON.stringify({ display: 'gone' }) });
+    expect(loadChoices(storage)).toEqual({ layout: 'slide', display: 'inline' });
   });
 
-  it('falls back to the defaults when the stored value is not JSON', () => {
+  it('falls back to the default when the stored value is not JSON', () => {
     const storage = fakeStorage({ 'truv-demo-customer-portal-choices': '{nope' });
-    expect(loadChoices(storage)).toEqual({ layout: 'hero', display: 'inline' });
+    expect(loadChoices(storage)).toEqual({ layout: 'slide', display: 'inline' });
   });
 
   it('does not throw when storage is blocked', () => {
     const blocked = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); } };
-    expect(loadChoices(blocked)).toEqual({ layout: 'hero', display: 'inline' });
-    expect(() => saveChoices({ layout: 'slide', display: 'inline' }, blocked)).not.toThrow();
+    expect(loadChoices(blocked)).toEqual({ layout: 'slide', display: 'inline' });
+    expect(() => saveChoices({ display: 'dialog' }, blocked)).not.toThrow();
   });
 
   it('does not throw when reading the global localStorage itself throws', () => {
     const orig = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
     Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { throw new Error('denied'); } });
     try {
-      expect(loadChoices()).toEqual({ layout: 'hero', display: 'inline' });
-      expect(() => saveChoices({ layout: 'slide', display: 'inline' })).not.toThrow();
+      expect(loadChoices()).toEqual({ layout: 'slide', display: 'inline' });
+      expect(() => saveChoices({ display: 'dialog' })).not.toThrow();
     } finally {
       if (orig) Object.defineProperty(globalThis, 'localStorage', orig); else delete globalThis.localStorage;
     }
