@@ -34,6 +34,27 @@ export const DISPLAYS = [
   { id: 'dialog', name: 'Full dialog (fallback)', desc: 'Opens over the portal on arrival',
     points: ['The fallback when a step cannot be restructured', 'Right for a caseworker tool', 'Nothing to size'] },
 ];
+// --- Remembered choices ---
+// Layout and display are remembered, like the integration panel toggle, so going back to
+// the start screen or reloading does not reset them. Unknown or unreadable values fall
+// back to the defaults.
+const CHOICES_KEY = 'truv-demo-customer-portal-choices';
+// Reading globalThis.localStorage can itself throw when the browser blocks storage, so it is
+// resolved inside the try, not in a parameter default.
+export function loadChoices(storage) {
+  const out = { layout: LAYOUTS[0].id, display: DISPLAYS[0].id };
+  try {
+    storage = storage || globalThis.localStorage;
+    const saved = JSON.parse(storage.getItem(CHOICES_KEY) || '{}');
+    if (LAYOUTS.some(l => l.id === saved.layout)) out.layout = saved.layout;
+    if (DISPLAYS.some(d => d.id === saved.display)) out.display = saved.display;
+  } catch { /* storage blocked or corrupt: keep the defaults */ }
+  return out;
+}
+export function saveChoices(choices, storage) {
+  try { (storage || globalThis.localStorage).setItem(CHOICES_KEY, JSON.stringify(choices)); } catch { /* storage blocked */ }
+}
+
 const PROGRAMS = [
   { id: 'snap', name: 'SNAP (food assistance)' },
   { id: 'medicaid', name: 'Medicaid' },
@@ -121,9 +142,9 @@ export function newApplication({ layout, display }) {
 
 // --- Component: CPStartScreen. The chooser. ---
 export function CPStartScreen({ onStart, onResume, showDetails, setShowDetails, notice }) {
-  const [layout, setLayout] = useState('hero');
-  const [display, setDisplay] = useState('inline');
-  const [walkAway, setWalkAway] = useState(false);
+  const [layout, setLayout] = useState(() => loadChoices().layout);
+  const [display, setDisplay] = useState(() => loadChoices().display);
+  useEffect(() => { saveChoices({ layout, display }); }, [layout, display]);
   const [cases, setCases] = useState(loadCases);
   const [msg, setMsg] = useState(notice || '');
 
@@ -150,29 +171,22 @@ export function CPStartScreen({ onStart, onResume, showDetails, setShowDetails, 
         <div class="cpp-grid">{DISPLAYS.map(o => <Option key={o.id} o={o} kind="display" active={display === o.id} onPick={setDisplay} />)}</div>
 
         <hr />
-        <label class="cpp-check">
-          <input type="checkbox" checked={walkAway} onChange={e => setWalkAway(e.currentTarget.checked)} />
-          <span><strong>Walk away and come back</strong> adds a <em>Step away</em> control inside the flow and lists saved cases to pick up. An order already started is handed back, not created again.</span>
-        </label>
-
-        {walkAway && (
+        {cases.length > 0 && (
           <div class="cpp-saved">
-            {cases.length === 0 ? <p class="cpp-muted">No saved cases in this visit yet. They clear when you reload or close the tab.</p> : (
-              <>
-                <ul>
-                  {cases.map(c => (
-                    <li key={c.caseNumber}>
-                      <button type="button" class="cpp-link" onClick={() => onResume(c)}>
-                        Case {c.caseNumber} · {c.form.first_name} {c.form.last_name}
-                      </button>
-                      <span class="cpp-muted"> stopped at {STEP_TITLES[c.step]} · {LAYOUTS.find(l => l.id === c.layout)?.name} + {c.display} · {c.orderId && !c.verified ? 'verification waiting' : c.verified ? 'verified' : 'no order yet'} · {ago(c.savedAt)}</span>
-                      <button type="button" class="cpp-link cpp-danger" onClick={() => { discardCase(c.caseNumber); setCases(loadCases()); setMsg(`Discarded case ${c.caseNumber}.`); }}>Discard</button>
-                    </li>
-                  ))}
-                </ul>
-                <button type="button" class="cpp-link cpp-danger" onClick={() => { clearCases(); setCases([]); setMsg('Cleared all saved cases.'); }}>Clear all saved cases</button>
-              </>
-            )}
+            <h2 class="cpp-sect">Saved applications</h2>
+            <p class="cpp-muted">Pick one up where it stopped. An order already started is handed back, not created again. They clear when you reload or close the tab.</p>
+            <ul>
+              {cases.map(c => (
+                <li key={c.caseNumber}>
+                  <button type="button" class="cpp-link" onClick={() => onResume(c)}>
+                    Case {c.caseNumber} · {c.form.first_name} {c.form.last_name}
+                  </button>
+                  <span class="cpp-muted">stopped at {STEP_TITLES[c.step]} · {LAYOUTS.find(l => l.id === c.layout)?.name} + {c.display} · {c.orderId && !c.verified ? 'verification waiting' : c.verified ? 'verified' : 'no order yet'} · {ago(c.savedAt)}</span>
+                  <button type="button" class="cpp-link cpp-danger" onClick={() => { discardCase(c.caseNumber); setCases(loadCases()); setMsg(`Discarded case ${c.caseNumber}.`); }}>Discard</button>
+                </li>
+              ))}
+            </ul>
+            <button type="button" class="cpp-link cpp-danger" onClick={() => { clearCases(); setCases([]); setMsg('Cleared all saved applications.'); }}>Clear all saved applications</button>
           </div>
         )}
         {msg && <p class="cpp-ok" role="status">{msg}</p>}
@@ -182,7 +196,7 @@ export function CPStartScreen({ onStart, onResume, showDetails, setShowDetails, 
             <input type="checkbox" checked={showDetails} onChange={e => setShowDetails(e.currentTarget.checked)} />
             <span>Show integration details panel</span>
           </label>
-          <button type="button" class="cpp-btn" onClick={() => onStart({ layout, display, walkAway })}>Start the application</button>
+          <button type="button" class="cpp-btn" onClick={() => onStart({ layout, display })}>Start the application</button>
         </div>
       </div>
     </div>
@@ -248,12 +262,11 @@ function sizeToContent(win, container, log) {
 }
 
 // --- Component: CPPortal. The applicant's portal in either layout. ---
-export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = window }) {
+export function CPPortal({ initial, onEvent, onOrder, onExit, win = window }) {
   const [app, setApp] = useState(initial);
   const [away, setAway] = useState(false);
   const [busy, setBusy] = useState(false);
   const [bridgeOpen, setBridgeOpen] = useState(false);
-  const [note, setNote] = useState('');
   // Rule 5: a connection succeeded (SUCCESS from the connection widget), so manual entry goes away.
   const [connected, setConnected] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
@@ -297,7 +310,7 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
   // Launch as soon as the answers settle the products: no button between them and Truv.
   // While the verification is handed to the phone the embed is swapped for the waiting
   // screen; "Do it here instead" mounts the phone order here.
-  const shouldMount = atIncome && route && !nothing && !app.verified && (!handoff || handoff.here);
+  const shouldMount = !away && atIncome && route && !nothing && !app.verified && (!handoff || handoff.here);
 
   // Close any open widget when the portal unmounts.
   useEffect(() => () => { try { bridgeRef.current?.close(); } catch {} }, []);
@@ -308,6 +321,8 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
     if (shouldMount && !bridgeOpen && !mounting.current && !app.dialogClosed) mount();
     if (!shouldMount && bridgeOpen) closeBridge();
   }, [shouldMount, app.orderId, app.dialogClosed, handoff?.here]);
+  // shouldMount includes !away: saving leaves the screen (and the inline container), so
+  // coming back is a false -> true change that remounts the saved order.
 
   // Waiting screen: no event reaches this page from the phone, so read the phone order.
   // It is finished when completed_at is set (the order read's own completion field).
@@ -494,8 +509,9 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
   function editIncome() { closeBridge(); setConnected(false); setHandoffStatus(null); patch({ verified: false, orderId: null, handoff: null, manual: null, dialogClosed: false }); }
 
   function goto(step) { if (app.step === 2 && step !== 2) closeBridge(); patch({ step, dialogClosed: false }); }
-  function save() { saveCase(app); setNote(`Saved. Case ${app.caseNumber} can be picked up from the start screen.`); }
-  function stepAway() { closeBridge(); saveCase(app); setAway(true); }
+  // One save path: keep the draft, then say so and offer both ways back.
+  function save() { if (busy) return; closeBridge(); saveCase(app); setAway(true); }
+  function backToStart() { onExit(`Saved case ${app.caseNumber}. Pick it up from the saved applications below.`); }
   function comeBack() {
     const rec = loadCases().find(c => c.caseNumber === app.caseNumber);
     if (rec) setApp({ ...rec, dialogClosed: false, step: rec.orderId && !rec.verified ? 2 : rec.step });
@@ -506,10 +522,11 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
   if (away) {
     return (
       <div class="cpp-portal"><div class="cpp-away">
-        <h2>You stepped away</h2>
-        <p>Case <strong>{app.caseNumber}</strong> is saved. You stopped at <strong>{STEP_TITLES[app.step]}</strong>{app.orderId && !app.verified ? ', with one verification still waiting' : ''}.</p>
-        <button type="button" class="cpp-btn" onClick={comeBack}>Come back to my application</button>
-        <button type="button" class="cpp-link cpp-danger" onClick={startOver}>Leave for good</button>
+        <h2>Application saved</h2>
+        <p>Case <strong>{app.caseNumber}</strong> is saved as a draft. You stopped at <strong>{STEP_TITLES[app.step]}</strong>{app.orderId && !app.verified ? ', with one verification still waiting' : ''}.</p>
+        <button type="button" class="cpp-btn" onClick={comeBack}>Continue my application</button>
+        <button type="button" class="cpp-btn-ghost" onClick={backToStart}>Back to the start screen</button>
+        <button type="button" class="cpp-link cpp-danger" onClick={startOver}>Discard this draft</button>
       </div></div>
     );
   }
@@ -641,10 +658,8 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
   const status = (i) => lockReason(i) ? 'locked' : done[i] ? 'done' : 'open';
   const controls = (
     <div class="cpp-controls">
-      <button type="button" class="cpp-link" onClick={save}>Save and finish later</button>
-      {walkAway && <button type="button" class="cpp-link" onClick={stepAway}>Step away</button>}
+      <button type="button" class="cpp-link" onClick={save} disabled={busy}>Save and finish later</button>
       <button type="button" class="cpp-link cpp-danger" onClick={startOver}>Start over</button>
-      {note && <span class="cpp-muted" role="status">{note}</span>}
     </div>
   );
   const header = (
@@ -710,12 +725,16 @@ export function CPPortal({ initial, walkAway, onEvent, onOrder, onExit, win = wi
         {bodies[i]}
         {i < 3 && (
           <div class="cpp-row cpp-slide-nav">
-            <button type="button" class="cpp-btn-ghost" disabled={i === 0} onClick={() => goto(i - 1)}>Back</button>
+            <button type="button" class={`cpp-btn-ghost${i === 0 ? ' is-hidden' : ''}`} disabled={i === 0} onClick={() => goto(i - 1)}>Back</button>
             <span class="cpp-muted">{blocked}</span>
             <button type="button" class="cpp-btn" disabled={!!blocked} onClick={() => goto(i + 1)}>{i === 2 && deferred ? 'Continue without verifying here' : 'Continue'}</button>
           </div>
         )}
-        {i === 3 && <button type="button" class="cpp-btn-ghost" onClick={() => goto(2)}>Back</button>}
+        {i === 3 && (
+          <div class="cpp-row cpp-slide-nav">
+            <button type="button" class="cpp-btn-ghost" onClick={() => goto(2)}>Back</button>
+          </div>
+        )}
       </section>
       {aside}
       </div>

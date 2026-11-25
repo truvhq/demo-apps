@@ -33,14 +33,18 @@
 .cpp-card hr { border: 0; border-top: 1px solid #d8dee5; margin: 24px 0 16px; }
 .cpp-check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.3; margin: 6px 0; cursor: pointer; }
 .cpp-check input { margin-top: 3px; accent-color: #1b1c1f; }
-.cpp-saved { margin: 8px 0 0 26px; font-size: 13px; }
-.cpp-saved li { margin: 4px 0; }
+.cpp-saved { margin: 0 0 12px; font-size: 13px; }
+.cpp-saved .cpp-sect { margin-top: 0; }
+.cpp-saved li { margin: 6px 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; }
+.cpp-saved .cpp-link { margin-right: 0; }
 .cpp-foot { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
 .cpp-btn { background: #1b1c1f; color: #fff; border: 0; border-radius: 6px; padding: 12px 22px; font-weight: 600; font-size: 14px; cursor: pointer; transition: background-color .4s, color .4s; }
 .cpp-btn:hover:not(:disabled) { background: #23deff; color: #1b1c1f; }
 .cpp-btn:disabled { background: #bcc5d1; color: #fff; cursor: not-allowed; }
 .cpp-btn-ghost { background: #fff; color: #1b1c1f; border: 1px solid #d8dee5; border-radius: 6px; padding: 11px 20px; font-weight: 600; font-size: 14px; cursor: pointer; }
 .cpp-btn-ghost:disabled { color: #bcc5d1; cursor: not-allowed; }
+/* Keeps its space so Continue stays put, but shows nothing: no step comes before the first. */
+.cpp-btn-ghost.is-hidden { visibility: hidden; }
 .cpp-link { background: none; border: 0; padding: 0; color: #1b1c1f; font-size: 13px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; margin-right: 12px; }
 .cpp-danger { color: #cc2421; }
 .cpp-muted { color: #474c52; font-size: 13px; }

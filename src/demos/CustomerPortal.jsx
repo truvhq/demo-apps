@@ -100,10 +100,10 @@ export function CustomerPortalDemo({ screen, param }) {
   const [showDetails, setShowDetails] = useState(true);
   const [notice, setNotice] = useState('');
 
-  function startRun(app, walkAway) {
+  function startRun(app) {
     reset(); resetReports(); setUserId(null);
     setSelectedProduct(null);
-    setRun({ app, walkAway });
+    setRun({ app });
   }
   function exitRun(message) { stopPolling(); setRun(null); setNotice(message || ''); }
   // --- Render: screen routing ---
@@ -114,8 +114,8 @@ export function CustomerPortalDemo({ screen, param }) {
           notice={notice}
           showDetails={showDetails}
           setShowDetails={setShowDetails}
-          onStart={({ layout, display, walkAway }) => startRun(newApplication({ layout, display }), walkAway)}
-          onResume={(app) => startRun({ ...app, step: app.orderId && !app.verified ? 2 : app.step }, true)}
+          onStart={({ layout, display }) => startRun(newApplication({ layout, display }))}
+          onResume={(app) => startRun({ ...app, step: app.orderId && !app.verified ? 2 : app.step })}
         />
       )}
       {!screen && run && (
@@ -124,7 +124,6 @@ export function CustomerPortalDemo({ screen, param }) {
             <CPPortal
               key={run.app.caseNumber}
               initial={run.app}
-              walkAway={run.walkAway}
               onEvent={(label, payload) => { setCurrentStep(1); addBridgeEvent(label, payload ? [{ label: 'payload', value: payload }] : null); }}
               onOrder={(data, orderProducts) => { setCurrentStep(1); setRestoredProducts(orderProducts); if (data.user_id) { setUserId(data.user_id); startPolling(data.user_id); } }}
               onExit={exitRun}
