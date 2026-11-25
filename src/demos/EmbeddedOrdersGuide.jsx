@@ -103,11 +103,17 @@ export function EmbeddedOrdersGuide({ screen }) {
     if (nav && link) nav.scrollLeft = link.offsetLeft - (nav.clientWidth - link.clientWidth) / 2;
   }, [active]);
 
-  // #public-sector/embedded-orders/<id> scrolls to that section or rule.
+  // #public-sector/embedded-orders/<id> scrolls to that section or rule. With no
+  // id, start at the top: arriving from the Public Sector page is in-app (hash)
+  // navigation, which keeps the previous scroll position, so without this the
+  // reader lands mid-guide. A fresh page load already starts at the top.
   const cancelAlign = useRef(() => {});
   useEffect(() => {
     cancelAlign.current();
-    if (!screen) return undefined;
+    if (!screen) {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+      return undefined;
+    }
     const start = setTimeout(() => { cancelAlign.current = alignTo(screen); }, 60);
     return () => { clearTimeout(start); cancelAlign.current(); };
   }, [screen]);
