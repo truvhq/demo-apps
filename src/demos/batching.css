@@ -927,7 +927,6 @@
   .bt .wt-top { padding: 0 14px; gap: 10px; }
   .bt .wt-step { position: static; transform: none; text-align: left; margin-left: auto; }
   .bt .wt-brand .rule, .bt .wt-brand .partner .dep { display: none; }
-  .bt .wt-cta { display: none; }
   .bt .wt-body { display: block; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .bt .wt-stage { padding: 28px 16px; min-height: 0; }
   .bt .wt-context { border-left: 0; border-top: 1px solid var(--line); padding: 28px 20px 36px; justify-content: flex-start; overflow: visible; }
@@ -1013,3 +1012,14 @@
   .bt-prev-page img { width: auto; max-width: 100%; height: auto; max-height: 100%; object-fit: contain; object-position: top; margin: 0 auto; }
 }
 .bt-prev-list { display: grid; grid-template-rows: repeat(4, auto); grid-auto-flow: column; column-gap: 28px; }
+
+/* Phones: keep the skip link reachable. Last in the file so it wins over the Checkr rebrand
+   rules above, which set the header height and a bordered button. */
+@media (max-width: 900px) {
+  /* The skip link stays reachable: a slim second row under the brand and stage name. */
+  .bt .wt-top { height: auto; min-height: 58px; flex-wrap: wrap; align-content: center; padding-top: 6px; padding-bottom: 2px; }
+  .bt .wt-brand, .bt .wt-step { min-height: 44px; align-items: center; }
+  .bt .wt-step { display: flex; flex-direction: column; justify-content: center; }
+  .bt .wt-cta { order: 3; flex: 1 0 100%; margin: 0; padding: 4px 0 10px; border: 0; background: none; text-align: left; text-decoration: underline; text-underline-offset: 3px; }
+  .bt .wt-cta:hover { background: none; }
+}

@@ -114,7 +114,7 @@ export function Header({ trail, badge, sticky, githubInPanel, theme, children })
           as a shrink-0 sibling OUTSIDE that overflow-hidden group — otherwise its
           dropdown would be clipped by the breadcrumb's clip box. */}
       <div class="flex items-center gap-2 sm:gap-3 px-3 sm:px-6 flex-1 min-w-0">
-        <div class="flex items-center gap-3 min-w-0 overflow-hidden">
+        <div class="flex items-center gap-3 min-w-0 overflow-hidden max-sm:shrink-0">
           <Breadcrumb trail={trail} theme={theme} />
           {/* Optional badge label */}
           {badge && <div class="hidden sm:block text-[11px] font-medium text-muted bg-surface-secondary px-2 py-0.5 rounded-md truncate">{badge}</div>}

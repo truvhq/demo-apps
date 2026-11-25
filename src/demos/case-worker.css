@@ -83,6 +83,9 @@
   .cw-nav { display: none; }
   .cw-main { padding: 20px 16px; }
   .cw-head { flex-direction: column; }
+  .cw-tools { flex-wrap: wrap; }
+  .cw-search { flex: 1 1 100%; min-width: 0; }
+  .cw-tools .cw-select { flex: 1 1 100%; min-width: 0; }
   .cw-modal-body { grid-template-columns: 1fr; }
   .cw-summary { border-left: 0; border-top: 1px solid #d8dee5; }
   .cw-two { grid-template-columns: 1fr; }
