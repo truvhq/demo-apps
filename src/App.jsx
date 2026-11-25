@@ -231,7 +231,9 @@ export function App() {
   // for everything else.
   if (forceConfigure || !session.authenticated) {
     const SignIn = route.industry === 'public-sector' ? PublicSectorSignIn : ConfigureScreen;
-    return <SignIn onSubmit={session.submit} ssoError={ssoError} />;
+    // An SSO error wins; otherwise tell a visitor whose session ended mid-visit why they are back here.
+    const expiredNotice = session.expired ? { status: 401, error: 'session_required' } : null;
+    return <SignIn onSubmit={session.submit} ssoError={ssoError || expiredNotice} />;
   }
 
   // Routing logic: progressively resolve industry, then demo, then screen.

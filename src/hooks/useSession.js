@@ -9,18 +9,22 @@
  * whether to render the Configure gate or the demos.
  */
 import { useEffect, useState, useCallback } from 'preact/hooks';
+import { installSessionExpiryWatcher, startNewSession, currentSessionEpoch, SESSION_EXPIRED_EVENT } from '../utils/sessionExpiry.js';
 
 export function useSession() {
-  const [state, setState] = useState({ authenticated: false, loading: true });
+  // `expired` is true only when a live session ended mid-visit, so the sign-in
+  // screen can say so. It clears on the next successful refresh().
+  const [state, setState] = useState({ authenticated: false, loading: true, expired: false });
 
   const refresh = useCallback(async () => {
     setState(s => ({ ...s, loading: true }));
     try {
       const res = await fetch('/api/session/status', { credentials: 'include' });
       const data = await res.json();
-      setState({ authenticated: !!data.authenticated, loading: false });
+      if (data.authenticated) startNewSession();
+      setState({ authenticated: !!data.authenticated, loading: false, expired: false });
     } catch {
-      setState({ authenticated: false, loading: false });
+      setState({ authenticated: false, loading: false, expired: false });
     }
   }, []);
 
@@ -89,6 +93,17 @@ export function useSession() {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // Any /api call that comes back "session_required" means the session ended
+  // while the visitor was mid-flow. Drop to signed-out without a loading flash;
+  // the hash route is untouched, so signing in returns them to the same page.
+  useEffect(() => {
+    installSessionExpiryWatcher();
+    // Ignore a signal from a request that started before the current sign-in.
+    const onExpired = (e) => setState(s => (s.authenticated && e.detail?.epoch === currentSessionEpoch() ? { authenticated: false, loading: false, expired: true } : s));
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, []);
 
   return { ...state, submit, submitSso, reset, override, refresh };
 }

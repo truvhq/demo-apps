@@ -85,7 +85,7 @@ All variables are optional for local development except `API_CLIENT_ID` /
 | `ALLOW_ENV_FALLBACK_CREDS` | Both | inferred | Force local (`true`) or hosted (`false`), overriding the `PUBLIC_BASE_URL` inference |
 | `NGROK_URL` | Local | — | Webhook origin for local mode (tunnel to `localhost:3000`) |
 | `SESSION_COOKIE_SECRET` | Hosted | random per-process | Signs session cookies; set a stable value so sessions survive restarts |
-| `SESSION_IDLE_TTL_MS` | Both | `3600000` | Idle session lifetime |
+| `SESSION_IDLE_TTL_MS` | Both | `21600000` | Idle session lifetime (6 hours) |
 | `DASHBOARD_URL` | Both | `https://dashboard.truv.com` | Dashboard frontend origin for key/webhook deep links |
 | `DASHBOARD_BACKEND_URL` | Both | `https://dashboard-backend-prod.truv.com` | Dashboard backend for SSO key fetch |
 | `VITE_AUTH0_DOMAIN` / `VITE_AUTH0_CLIENT_ID` / `VITE_AUTH0_AUDIENCE` | Hosted | — | Auth0 SSO ("Sign in with Truv") |
