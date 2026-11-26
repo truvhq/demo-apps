@@ -19,7 +19,7 @@ import { STEPS, INTRO_SLIDE_CONFIG } from './scaffolding/batch-orders.jsx';
 
 export function BatchOrdersDemo() {
   const [screen, setScreen] = useState('intro');
-  const { panel, sessionId, setCurrentStep, startPolling, stopPolling, addBridgeEvent } = usePanel();
+  const { panel, sessionId, setCurrentStep, startPolling, stopPolling } = usePanel();
 
   function start() {
     setScreen('run');
@@ -45,7 +45,6 @@ export function BatchOrdersDemo() {
             sessionId={sessionId}
             startPolling={startPolling}
             stopPolling={stopPolling}
-            addBridgeEvent={addBridgeEvent}
           />
         )}
       </div>
